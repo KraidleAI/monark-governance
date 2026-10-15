@@ -3349,6 +3349,7 @@
   "ethereum_ts_clean_of_fetch_and_keys",
   "fetch_only_inside_client",
   "rpc_guard_package_src_clean_and_allowlist_load_bearing",
+  "rpc_guard_scanner_comment_cites_lines_that_hold_a_bare_key_name",
   "sentinel_src_clean_and_allowlist_load_bearing",
   "u4_scripts_clean_and_import_sources_closed"
  ],

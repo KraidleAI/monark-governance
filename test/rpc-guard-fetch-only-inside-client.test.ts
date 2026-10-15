@@ -16,7 +16,7 @@
  *   - scripts/census/u4-*.mjs (the course scripts) is a root too (grep FOLDED here from guard-scripts-u4.test.ts).
  * KEY form is an ACCESS (dot, optional-chain dot, bracket, optional-chain bracket, template-literal bracket, `in`,
  * destructuring, Reflect.get, Object.hasOwn - C-R-b4). In the PACKAGES/BELL scopes the bare name is NOT refused (it
- * appears in comments: rpc.ts:5-8, universe.ts:43, ...) and would red by construction; on the SENTINEL + u4 scopes the bare
+ * appears in comments: rpc.ts:8, universe.ts:322) and elsewhere, and would red by construction; on the SENTINEL + u4 scopes the bare
  * name IS refused too, killing the alias evasion `const e = env; e.KEY` (an allowlisted file is exempt).
  *
  * MEASURED HITS after 1b-iii (apps/bell/src, base 6114ce9, this scanner): 1b-iii migrated 5 of the 14 (ethereum.ts:64
@@ -248,4 +248,35 @@ test("collect_ts_clean_of_paid_key_reads", () => {
 test("fetch_only_inside_client", () => {
   const hits = ROOTS.flatMap((r) => r.hits().map((h) => `${r.name} :: ${h}`));
   assert.deepEqual(hits, [], `a forbidden network/paid-key pattern exists outside the guard/allowlist (unified roots list):\n${hits.join("\n")}`);
+});
+
+// The header comment of this file (its "appears in comments" sentence, l.18-19) cites the lines of the Bell sources that hold
+// a bare paid-key name: the reason the bare name is NOT refused on the PACKAGES/BELL scopes. A citation goes stale when the
+// sources move (at d65f31d1 the sentence cited rpc.ts:5-8 and universe.ts:43 while the names sat on rpc.ts:8 and
+// universe.ts:322). Each cited line is reread here and must hold a name of KEY_NAMES (KEY_BARE is built from it). Shape held:
+// ONE parenthesis of `<path>:<line>` items separated by commas, no range, no ellipsis; a path with no slash is read under
+// apps/bell/src, one with a slash as written. The two killers take the bare name OFF a cited line: the citation is then stale.
+// killer: apps/bell/src/rpc.ts:8 CONST "BELL_SOLANA_RPC" -> "the Solana RPC list"
+// killer: apps/bell/src/universe.ts:322 CONST "BELL_SOLANA_RPC" -> "the Solana RPC list"
+test("rpc_guard_scanner_comment_cites_lines_that_hold_a_bare_key_name", () => {
+  const self = readFileSync(fileURLToPath(import.meta.url), "utf8");
+  const needle = "appears in " + "comments: "; // split in two, so that this line is not itself a match of the sentence
+  const cites = [...self.matchAll(new RegExp(`${needle}([^)]*)\\)`, "g"))].map((m) => m[1]!);
+  assert.equal(cites.length, 1, `the header comment holds exactly one citing sentence (${String(cites.length)} found)`);
+  const items = cites[0]!.split(",").map((s) => s.trim());
+  assert.ok(items.length >= 2, `the citing sentence names at least two lines (${String(items.length)} item(s))`);
+  const problems: string[] = [];
+  for (const item of items) {
+    const m = /^([\w./-]+):(\d+)$/.exec(item);
+    if (m === null) { problems.push(`${item}: not a <path>:<line> citation`); continue; }
+    const rel = m[1]!.includes("/") ? m[1]! : `apps/bell/src/${m[1]!}`, n = Number(m[2]), abs = join(REPO, rel);
+    // Scope rule (after the first review): the sentence is about the PACKAGES/BELL scopes, so a cited path must sit under
+    // apps/bell/src/ or packages/<name>/src/, with no `..` segment (a path that leaves the scopes, this file, a docs/ line: refused).
+    if (rel.split("/").includes("..") || !/^(?:apps\/bell\/src|packages\/[\w.@-]+\/src)\/./.test(rel)) { problems.push(`${item}: ${rel} is outside the packages and Bell scopes the sentence is about`); continue; }
+    if (!existsSync(abs)) { problems.push(`${item}: ${rel} is not a file`); continue; }
+    const line = readFileSync(abs, "utf8").split(/\r?\n/)[n - 1];
+    if (line === undefined) problems.push(`${item}: ${rel} has no line ${String(n)}`);
+    else if (!KEY_BARE.test(line)) problems.push(`${item}: ${rel}:${String(n)} holds no bare name of KEY_NAMES`);
+  }
+  assert.deepEqual(problems, [], `stale citation(s) in the header comment of this file:\n${problems.join("\n")}`);
 });
