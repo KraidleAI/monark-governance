@@ -211,7 +211,7 @@ test("test_count_floor_refuses_a_nested_test_run_and_a_file_that_runs_twice_in_i
     "two tests of one full name: P1 names the file; a file whose tests another process ran too is named for that first");
 });
 
-const DEPTHS = (f: string, n: number): string => `${f}: ${n} of its declaration site(s) reported at more than one nesting depth under one name: the file runs twice in its own process, the second time inside a test or a suite (it imports itself, e.g. with a query string, from a test body), or one helper of it declares the same tests at the top level and inside a suite (declare each once)`;
+const DEPTHS = (f: string, n: number): string => `${f}: ${n} of its declaration site(s) reported at more than one nesting depth under one name: the file runs twice in its own process, the second time inside a test or a suite (it imports itself, e.g. with a query string, from a test body), or one helper of it declares the same tests at the top level and inside a suite, or a test declares a subtest of itself, recursively (declare each once)`;
 // killer: scripts/test-counts-reporter.mjs:24 CONST "of(data.file).sites.push(site(data))" -> "void 0"
 // killer: scripts/test-counts-reporter.mjs:16 CONST "data.nesting, data.name" -> "0, data.name"
 // killer: scripts/test-counts-reporter.mjs:26 CONST "c.sites = files.get(f).sites" -> "void 0"
