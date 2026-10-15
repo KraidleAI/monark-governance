@@ -90,7 +90,7 @@ async function withNetwork<T>(body: (seen: string[]) => Promise<T>, answer: type
   try { return await body(seen); } finally { globalThis.fetch = real; }
 }
 
-// killer: apps/bell/src/tick.ts:156 CONST "\"--rebase-trajectory\", req.trajectory, " -> ""
+// killer: apps/bell/src/tick.ts:158 CONST "\"--rebase-trajectory\", req.trajectory, " -> ""
 test("bell_tick_composes_plan_runmain_checks_validate_into_a_publishable_bundle", async () => {
   const root = mkdtempSync(join(tmpdir(), "bell-compose-")), state = join(root, "collect"), handoff = join(root, "handoff"), ledger = join(root, "ledger");
   for (const d of [state, handoff, join(root, "status"), ledger]) mkdirSync(d);
