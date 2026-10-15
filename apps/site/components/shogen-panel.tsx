@@ -47,9 +47,9 @@ export function ShogenPanel({ contract, status }: { contract: FrozenContract; st
         </DialogHeader>
 
         <div className="mt-2">
-          <PanelBlock title="How it works" status="built">
-            sensor (attest) &rarr; the gate: Hikae and the MONARK budget &rarr; act (execute · upcoming). The gate
-            emits commit, defer, or abstain.
+          <PanelBlock title="How it works" status="upcoming">
+            sensor (attest) &rarr; the gate: Hikae and the MONARK budget &rarr; act (execute). This composition does
+            not run yet: the join from attest into the gate is dormant.
           </PanelBlock>
           <PanelBlock title="How it is built" status="built">
             A Rust verifier emits an attested testimony only after its own verdict passes, then projects it
@@ -64,7 +64,7 @@ export function ShogenPanel({ contract, status }: { contract: FrozenContract; st
             <p className="mt-2">{SHOGEN_SERVED_SCOPE}</p>
             <p className="mt-2">
               It does not claim the price is true: it keeps no confidence field and carries no price
-              number &mdash; the number is read by a downstream Hikae-side adapter &mdash; and the named
+              number &mdash; a downstream Hikae-side adapter is meant to read it, a join dormant today &mdash; and the named
               residual hypotheses are exactly what is not verified.
             </p>
             <p className="mt-2">

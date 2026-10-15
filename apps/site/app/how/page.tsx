@@ -72,7 +72,7 @@ export default function HowItWorksPage() {
       absent: <>absent by design: no score beside the reading.</>,
     },
     {
-      layer: <>gate · calibrate &amp; monitor</>,
+      layer: <>gate · calibrate</>,
       contract: loadContract(root, "coverage-verdict.schema.json", "Hikae"),
       what: <>The conformal region at target coverage one minus α, the scores digest it came from, and the residual of an attested call; no served class accepts an attestation today, so none is carried through.</>,
       absent: <>absent by design: no p_correct.</>,
@@ -286,7 +286,7 @@ export default function HowItWorksPage() {
             <h2 style={{ fontSize: 24, letterSpacing: "-.02em", margin: "0 0 10px", fontWeight: 600 }}>What is not</h2>
             <p style={{ margin: 0, ...bodyText, fontSize: 15 }}>
               Coverage is not conditional on the individual input. The error on one committed act is not
-              bounded by α. Hikae is a monitor — a second-level check, not a promise about any single case.
+              bounded by α. Hikae is a second-level check, not a promise about any single case.
               It gates order tools; it never calls them.
             </p>
             <p style={{ margin: "10px 0 0", ...bodyText, fontSize: 15 }}>

@@ -75,7 +75,7 @@ export default function DocsResearchPage() {
   const withGap = sessions.filter((s) => s.gT !== null);
   const thresholds = [...new Set(withGap.flatMap((s) => s.exceed.map((e) => e.threshold)))].sort((a, b) => a - b);
   const nodes = [
-    { question: "When does a redemption flow start to run?", method: "attested daily flow, a quantile tracker, a replayable timeline", carrier: narabi.name, status: narabi.status },
+    { question: "When does a redemption flow start to run?", method: "a recomputable daily flow, a quantile tracker, a hash-chained timeline", carrier: narabi.name, status: narabi.status },
     { question: "How much of a book gets liquidated?", method: "a book at a block, realized labels, a conformal upper bound per stratum", carrier: ukemi.name, status: ukemi.status },
     { question: "Which price did the protocol read?", method: "the oracle path recorded from chain events, its lag measured against a bound", carrier: ukemi.name, status: ukemi.status },
     { question: "When may an agent act on a reading?", method: "split-conformal calibration per class, a closed policy, abstention", carrier: hikae.name, status: hikae.status },

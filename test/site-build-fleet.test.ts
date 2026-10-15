@@ -1508,3 +1508,88 @@ test("applications_route_is_canonical — /products redirects permanently to /ap
   ];
   for (const [label, rel, text] of pathMutants) assert.notDeepEqual(productsPathHits(rel, text), [], `mutant "${label}" must red`);
 });
+
+// killer: apps/site/lib/fleet.ts:208 CONST "from the onchain redemption flow;" -> "from the attested onchain flow;"
+test("narabi_line_claims_no_attested_flow_and_no_replay — the register line calls the flow neither attested nor its timeline replayable while the sentinel declares a placeholder attestor key and the tracker step rests on the engine's pow (Narabi L15, L19, Q-A.2; NARABI-K1 and NARABI-POW-PORTABLE-1 make the old words true again)", () => {
+  const narabi = FLEET_AGENTS.find((a) => a.name === "Narabi");
+  assert.ok(narabi !== undefined, "Narabi is a register agent");
+  assert.ok(read("apps/sentinel/src/flow.ts").includes('key: "deadbeef"'), "premise: the sentinel declares the placeholder attestor key; when NARABI-K1 replaces it this reds and the line is revisited");
+  assert.ok(read("packages/hikae/src/tracker.ts").includes("base ** (-1 / 2 - params.eps)") && read("apps/sentinel/src/run.ts").includes("interface Provenance { readonly endpoints: readonly string[]; readonly node_version: string; readonly sentinel_sha: string; }"), "premise: the step uses the engine's pow and a line records no platform; when NARABI-POW-PORTABLE-1 lands this reds and the line is revisited");
+  assert.doesNotMatch(narabi.line, /\battested\b/i, "the line does not call the flow attested");
+  assert.match(narabi.line, /from the onchain redemption flow;/, "the line names the flow it reads");
+  assert.doesNotMatch(narabi.line, /\breplayable\b/i, "the line does not call the timeline replayable");
+  assert.match(narabi.line, /publishes a hash-chained daily timeline\./, "the line says the timeline is hash-chained");
+});
+
+// killer: apps/site/lib/fleet.ts:223 CONST "its flow into the served gate is upcoming: the sentinel does not call the gate" -> "its attested flow carried into the served gate, both replayed by integration tests"
+test("narabi_wiring_declares_the_attested_flow_leg_upcoming — status stays built on the published timeline; the fromAttestedFlow → gate leg leaves served_by and integration_test, and the note says it is upcoming (Q-A.2, N03; NARABI-REGISTER-NOTE-1, NARABI-ATTESTED-LEG-1)", () => {
+  const narabi = builtAgents().find((a) => a.name === "Narabi");
+  assert.ok(narabi !== undefined, "Narabi stays built: its first leg, the published timeline, is served and replayed");
+  const tsUnder = (dir: string): string[] => (readdirSync(join(ROOT, ...dir.split("/")), { recursive: true }) as string[]).filter((f) => f.endsWith(".ts")).map((f) => dir + "/" + f.split("\\").join("/"));
+  const sentinel = tsUnder("apps/sentinel/src").map((f) => read(f)).join("\n");
+  assert.doesNotMatch(sentinel, /\brunGate\b|\bgateTool\b|tools\/gate|handleJsonMirror|from "@monark\/harness(?!\/calibration")/, "premise: no sentinel source, at any depth, calls the gate or imports the harness beyond its calibration; when one does this reds and the leg is revisited");
+  assert.deepEqual(tsUnder("apps/harness/src").filter((f) => read(f).includes("fromAttestedFlow")), ["apps/harness/src/calibration.ts"], "premise: no served harness module turns the published flow into a gate call (only the calibration's provenance names fromAttestedFlow)");
+  assert.doesNotMatch(narabi.wiring.served_by, /fromAttestedFlow|→ gate/, "served_by names only the published timeline");
+  assert.deepEqual(narabi.wiring.integration_test, ["narabi_live_parses_real_state_shape"], "one served leg, one integration test");
+  assert.doesNotMatch(narabi.wiring.note, /carried into the served gate|both replayed by integration tests/, "the note does not claim the second leg");
+  assert.match(narabi.wiring.note, /its flow into the served gate is upcoming: the sentinel does not call the gate/, "the note says the second leg is upcoming");
+});
+
+// killer: apps/site/lib/fleet.ts:161 CONST "\"probe_byo_demo_loop_closes\"," -> "\"probe_byo_demo_loop_closes\", \"gate_stable_run_honesty_text_is_keyed_A2_A7f\","
+test("hikae_integration_tests_name_served_legs_only — the stable-run text check, run in memory on a hand-built flow, is a unit test and is not listed as a served leg (CA-11 hardened; row X1 of the ADR)", () => {
+  const hikae = builtAgents().find((a) => a.name === "Hikae");
+  assert.ok(hikae !== undefined, "Hikae is built");
+  assert.ok(read("apps/harness/test/gate.test.ts").includes('test("gate_stable_run_honesty_text_is_keyed_A2_A7f"'), "premise: the unit check exists and stays in the suite");
+  assert.deepEqual(hikae.wiring.integration_test, ["probe_harness_records_real_decision", "probe_byo_demo_loop_closes"], "two served legs: the real MCP wire and the bring-your-own loop");
+});
+
+// killer: apps/site/components/shogen-panel.tsx:50 CONST "<PanelBlock title=\"How it works\" status=\"upcoming\">" -> "<PanelBlock title=\"How it works\" status=\"built\">"
+test("shogen_how_it_works_is_upcoming_while_the_join_is_dormant — the block that draws attest into the gate is upcoming and states no served fact while the served gate refuses every attested (Shōgen N-14, H8; the seam is PXC-08)", () => {
+  assert.ok(read("apps/harness/src/attestation-binding.ts").includes("so any `attested` is refused"), "premise: the join is dormant; when the seam is served this reds and the block is revisited");
+  const block = panelBlock(read("apps/site/components/shogen-panel.tsx"), "How it works");
+  assert.equal(block.status, "upcoming", "How it works is upcoming");
+  assert.doesNotMatch(block.inner, /\b(?:served|already|committed)\b/i, "an upcoming block states no served fact (H8)");
+  assert.match(block.inner, /the join from attest into the gate is dormant/, "the block says the join is dormant");
+});
+
+// killer: apps/site/components/shogen-panel.tsx:67 CONST "a downstream Hikae-side adapter is meant to read it, a join dormant today" -> "the number is read by a downstream Hikae-side adapter"
+test("shogen_panel_says_the_adapter_join_is_dormant — the Honest limits of the Shōgen panel do not say a downstream adapter reads the number while the served gate refuses every attested (Shōgen L-35, same panel as N-14; the seam is PXC-08)", () => {
+  assert.ok(read("apps/harness/src/attestation-binding.ts").includes("so any `attested` is refused"), "premise: the join is dormant; when the seam is served this reds and the panel is revisited");
+  const limits = panelBlock(read("apps/site/components/shogen-panel.tsx"), "Honest limits").inner;
+  assert.doesNotMatch(limits, /the number is read by a downstream Hikae-side adapter/, "no adapter reads the number today");
+  assert.match(limits, /a downstream Hikae-side adapter is meant to read it, a join dormant today/, "the panel says the adapter join is dormant");
+});
+
+// killer: apps/site/lib/fleet-presentation.ts:132 CONST "a gap where one is computed from the closing price of the session's reference day, a named abstention otherwise" -> "no closing price is read into the first record, so it carries no gap"
+test("bell_inside_says_the_gap_rule_not_the_first_record — the Bell points of /applications say the publisher's rule, not the first record (Bell M9; BELL-INSIDE-GAP-TEXT-1)", () => {
+  assert.ok(read("apps/bell/src/digest.ts").includes('readonly abstain: "no_fill_in_window" | "no_close_ref"'), "premise: a session without a reference close abstains by name; when the digest stops naming it this reds and the point is revisited");
+  const points = insideFor("bell").points;
+  assert.ok(!points.some((p) => /first record/.test(p)), "no point speaks of the first record");
+  assert.ok(points.some((p) => p.includes("a gap where one is computed from the closing price of the session's reference day, a named abstention otherwise")), "a point says the publisher's rule");
+});
+
+// killer: apps/site/components/narabi-panel.tsx:54 CONST "Narabi reads the onchain redemption flow" -> "Narabi reads the attested redemption flow"
+test("site_narabi_surfaces_claim_no_attested_flow_and_no_replay — the home page, /narabi, the Narabi panel and its presentation points call the flow neither attested nor attested onchain, and the timeline hash-chained, never replayable, while the attestor key is a placeholder and the tracker step rests on the engine's pow (Narabi L15, L19, T2; NARABI-ATTESTED-WORDS-1, NARABI-K1, NARABI-POW-PORTABLE-1)", () => {
+  assert.ok(read("apps/sentinel/src/flow.ts").includes('key: "deadbeef"'), "premise: the sentinel declares the placeholder attestor key; when NARABI-K1 replaces it this reds and the surfaces are revisited");
+  assert.ok(read("packages/hikae/src/tracker.ts").includes("base ** (-1 / 2 - params.eps)") && read("apps/sentinel/src/run.ts").includes("interface Provenance { readonly endpoints: readonly string[]; readonly node_version: string; readonly sentinel_sha: string; }"), "premise: the step uses the engine's pow and a line records no platform; when NARABI-POW-PORTABLE-1 lands this reds and the surfaces are revisited");
+  const ATTESTED_FLOW = /\battested\s+(?:onchain|redemption|daily)\b|\bone attested daily\b/i;
+  for (const rel of ["apps/site/app/page.tsx", "apps/site/app/narabi/page.tsx", "apps/site/components/narabi-panel.tsx"]) {
+    assert.doesNotMatch(read(rel), ATTESTED_FLOW, rel + " calls Narabi's flow attested");
+    assert.doesNotMatch(read(rel), /\breplayable\b|replays to the byte/i, rel + " calls Narabi's timeline replayable");
+  }
+  for (const p of insideFor("narabi").points) assert.doesNotMatch(p, /\battested\b|\breplayable\b/i, "a Narabi presentation point calls the flow attested or the timeline replayable: " + p);
+  assert.match(read("apps/site/components/narabi-panel.tsx"), /Narabi reads the onchain redemption flow/, "the panel names the flow it reads");
+  assert.match(read("apps/site/components/narabi-panel.tsx"), /a per-line hash chain makes a rewrite of the timeline detectable/, "the panel says what the hash chain does");
+});
+
+// killer: apps/site/components/hikae-panel.tsx:64 CONST "Hikae is a second-level check" -> "Hikae is a monitor &mdash; a second-level check"
+test("hikae_panel_and_how_say_no_monitor — the Hikae panel and /how call the served gate a second-level check, not a monitor, while no harness module runs the online monitor (Hikae N12)", () => {
+  const harness = (readdirSync(join(ROOT, "apps", "harness", "src"), { recursive: true }) as string[]).filter((f) => f.endsWith(".ts")).map((f) => read("apps/harness/src/" + f.split("\\").join("/"))).join("\n");
+  assert.doesNotMatch(harness, /\bimocpStep\b|\barrivedErrors\b|\bbudgetAt\b/, "premise: the served gate imports none of the online-monitor functions of @monark/hikae; when it does this reds and the words are revisited");
+  for (const rel of ["apps/site/components/hikae-panel.tsx", "apps/site/app/how/page.tsx"]) {
+    assert.doesNotMatch(read(rel), /Hikae is a monitor/, rel + " calls Hikae a monitor");
+    assert.match(read(rel), /Hikae is a second-level check, not a promise about any single case/, rel + " says what the gate is");
+  }
+  assert.doesNotMatch(read("apps/site/app/how/page.tsx"), /calibrate &amp; monitor/, "the /how gate layer names a monitor the served gate does not run");
+  assert.match(read("apps/site/app/how/page.tsx"), /layer: <>gate · calibrate<\/>,/, "the /how gate layer says calibrate");
+});

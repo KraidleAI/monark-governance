@@ -17,7 +17,7 @@ import { NarabiDaySchema, TrackerSchema } from "@/components/docs/schemas/narabi
 export const metadata: Metadata = {
   title: "Narabi · Docs · MONARK",
   description:
-    "Narabi, one window a day: the attested redemption flow of one stablecoin population, a quantile tracker stepped on the realized outcome, a long-run bound printed with T, and a hash-chained timeline anyone can replay.",
+    "Narabi, one window a day: the onchain redemption flow of one stablecoin population, a quantile tracker stepped on the realized outcome, a long-run bound printed with T, and a hash-chained timeline published with the Node version of each line.",
 };
 
 export default function DocsNarabiPage() {
@@ -47,7 +47,7 @@ export default function DocsNarabiPage() {
       <DocHeader eyebrow="docs · the pieces · Narabi" title="Narabi, one day at a time." pill={<StatusPill status={narabi.status} />}>
         <p>
           Narabi reads the redemption flow of one stablecoin population once a day, at block finality, steps an adaptive quantile
-          tracker on what actually happened, and publishes a line anyone can replay. The gate reads a committed calibration, not the
+          tracker on what actually happened, and publishes a line that records its Node version. The gate reads a committed calibration, not the
           tracker. {TRACKER_ADAPTS}
         </p>
       </DocHeader>

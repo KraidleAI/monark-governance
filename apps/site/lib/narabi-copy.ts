@@ -9,7 +9,7 @@ export type Level = { name: string; claim: string; detail: string };
 
 export const LEVELS: Level[] = [
   {
-    name: "Attested",
+    name: "Recomputable",
     claim: "Raw burns, mints and closing supply over a declared block window.",
     detail:
       "AttestedFlow is the fifth frozen typed contract. Its bytes recompute from the chain: Transfer events to and from the zero address, plus totalSupply at the closing block. No score, no price, no probability rides on it.",
@@ -95,7 +95,7 @@ export const GLOSSARY: { term: string; def: string }[] = [
 ];
 
 export const FLEET_PLACE =
-  "Narabi is the sensor of the first vertical. Shōgen attests, Hikae reads coverage, Ukemi carries the prediction contract; Narabi's measured redemption flow produced the committed calibration of the gate's one class, and the daily timeline is published beside it, not read by the gate. It is the first MONARK piece that publishes its own daily state for public replay.";
+  "Narabi is the sensor of the first vertical. Shōgen attests, Hikae reads coverage, Ukemi carries the prediction contract; Narabi's measured redemption flow produced the committed calibration of the gate's one class, and the daily timeline is published beside it, not read by the gate. It is the first MONARK piece that publishes its own daily state, one hash-chained line per day.";
 
 export const VERIFY_HINT =
-  "Pull both files. Recompute any window from its block range with eth_getLogs and totalSupply. Rederive q_t from the s column with the tracker replay printed below. Recompute each line's hash from its fields, as this page does in your browser. The AttestedFlow documents are not served: rebuild one from its window's facts with the public sentinel code and compare its hash with the published one. If anything differs, that is the finding, and it is yours to publish.";
+  "Pull both files. Recompute any window from its block range with eth_getLogs and totalSupply. Each line records the Node version that wrote it. Recompute each line's hash from its fields, as this page does in your browser. The AttestedFlow documents are not served: rebuild one from its window's facts with the public sentinel code and compare its hash with the published one. If anything differs, that is the finding, and it is yours to publish.";

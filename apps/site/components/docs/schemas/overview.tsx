@@ -255,7 +255,7 @@ export function FloorsSchema({ predictionTitle, verdictTitle, decisionTitle, too
 
       {/* DeFi side, one line per floor. */}
       <Tx x={628} y={100} size={12} color={C.ink}>
-        attested onchain flows, a lending
+        onchain redemption flows, a lending
         <Ln x={628} dy={17}>
           book at a block, tokenized fills
         </Ln>

@@ -829,3 +829,65 @@ test("no_surface_presents_the_attest_join_as_live", () => {
     assert.ok(read(rel).includes(now), `${rel}: says "${now}"`);
   }
 });
+
+// killer: apps/site/lib/docs-pieces.ts:70 CONST "from a committed calibration or the caller's own scores" -> "per class"
+test("docs_hikae_words_say_the_served_gate — no monitor, no split-conformal claim per task class, the attested testimony refused today, a margin from a committed calibration or the caller's own scores (Hikae N12; E-2a and the attest seam make the words revisited)", () => {
+  const h = PIECE_DOCS.hikae;
+  assert.ok(h !== undefined, "Hikae has its docs words");
+  const words = [h.tagline, h.summary, ...h.entry.lines, h.mechanism.title, ...h.mechanism.lines, ...h.output.lines];
+  const harness = (readdirSync(join(ROOT, "apps", "harness", "src"), { recursive: true }) as string[]).filter((f) => f.endsWith(".ts")).map((f) => read("apps/harness/src/" + f.split("\\").join("/"))).join("\n");
+  assert.doesNotMatch(harness, /\bimocpStep\b|\barrivedErrors\b|\bbudgetAt\b/, "premise: the served gate runs no online monitor; when it does this reds and the words are revisited");
+  assert.ok(read("apps/harness/src/tools/gate.ts").includes("which hold no committed calibration row"), "premise: no kata row is committed; at the first committed row of E-2a this reds and the margin words are revisited");
+  assert.ok(read("apps/harness/src/attestation-binding.ts").includes("so any `attested` is refused"), "premise: the served gate refuses every attested; when the seam is served this reds and the entry is revisited");
+  assert.ok(!words.some((s) => /\bmonitor\b/i.test(s)), "the served gate keeps no monitor");
+  assert.ok(!/per task class/.test(h.summary), "the summary claims no split-conformal calibration per task class (the kata classes are risk-control)");
+  assert.ok(/no state kept between calls/.test(h.tagline) && /keeps no state between calls/.test(h.summary), "the words say the gate keeps no state");
+  assert.ok(h.entry.lines.includes("optional: an attested testimony, refused today on every class"), "the entry says the testimony is refused today");
+  assert.ok(h.mechanism.lines.includes("a split-conformal margin q-hat from a committed calibration or the caller's own scores"), "the margin comes from a committed calibration or the caller's own scores");
+});
+
+// killer: apps/site/lib/docs-pieces.ts:124 CONST "the measured flow calibrated a gate class; the gate does not read the timeline" -> "the flow carried into the served gate class"
+test("docs_narabi_output_claims_no_flow_into_the_served_gate — the timeline is published beside the gate, not carried into it (Narabi N03; NARABI-REGISTER-NOTE-1)", () => {
+  const harness = (readdirSync(join(ROOT, "apps", "harness", "src"), { recursive: true }) as string[]).filter((f) => f.endsWith(".ts")).map((f) => "apps/harness/src/" + f.split("\\").join("/"));
+  assert.deepEqual(harness.filter((f) => read(f).includes("fromAttestedFlow")), ["apps/harness/src/calibration.ts"], "premise: no served harness module turns the published flow into a gate call; when one does this reds and the output is revisited");
+  const n = PIECE_DOCS.narabi;
+  assert.ok(n !== undefined, "Narabi has its docs words");
+  assert.ok(!n.output.lines.some((l) => /carried into the served gate/.test(l)), "no second leg claimed on the docs page");
+  assert.ok(n.output.lines.includes("the measured flow calibrated a gate class; the gate does not read the timeline"), "the output says what is true now");
+});
+
+// killer: apps/site/lib/docs-pieces.ts:111 CONST "a timeline published with the Node version of each line" -> "a timeline anyone can replay"
+test("docs_narabi_words_claim_no_attested_flow_and_no_replay — the Narabi docs words, its navigation blurb and the sensor role word say what is published, not an attested flow nor a replayable timeline (Narabi L15, L19, T2; NARABI-K1 and NARABI-POW-PORTABLE-1 make the old words true again)", () => {
+  assert.ok(read("apps/sentinel/src/flow.ts").includes('key: "deadbeef"'), "premise: the attestor key is a placeholder; when NARABI-K1 replaces it this reds and the words are revisited");
+  assert.ok(read("packages/hikae/src/tracker.ts").includes("base ** (-1 / 2 - params.eps)") && read("apps/sentinel/src/run.ts").includes("interface Provenance { readonly endpoints: readonly string[]; readonly node_version: string; readonly sentinel_sha: string; }"), "premise: the step uses the engine's pow and a line records no platform; when NARABI-POW-PORTABLE-1 lands this reds and the replay words are revisited");
+  const n = PIECE_DOCS.narabi;
+  assert.ok(n !== undefined, "Narabi has its docs words");
+  const words = [n.tagline, n.summary, ...n.entry.lines, n.mechanism.title, ...n.mechanism.lines, ...n.output.lines, ...DOCS_SECTIONS.filter((s) => s.href === "/docs/narabi").map((s) => s.blurb)];
+  assert.ok(!words.some((s) => /\battested\b/i.test(s)), "no Narabi docs word calls the flow attested");
+  assert.ok(!words.some((s) => /anyone can replay|\breplayable\b/i.test(s)), "no Narabi docs word promises a replay");
+  assert.doesNotMatch(ROLE_WORDS.sensor ?? "", /attest/, "the sensor role word claims no attestation");
+  assert.match(n.tagline, /a timeline published with the Node version of each line/, "the tagline says what is published");
+  assert.ok(DOCS_SECTIONS.some((s) => s.href === "/docs/narabi" && s.blurb.includes("the hash-chained timeline")), "the navigation blurb says the timeline is hash-chained");
+});
+
+// killer: apps/site/app/docs/narabi/page.tsx:20 CONST "the onchain redemption flow of one stablecoin population" -> "the attested redemption flow of one stablecoin population"
+test("docs_narabi_pages_claim_no_attested_flow_and_no_replay — the Narabi docs page, the docs schemas, the research table and the verify page call no flow attested and promise no replay of the tracker (Narabi L15, L19, T2; NARABI-ATTESTED-WORDS-1, NARABI-POW-PORTABLE-1)", () => {
+  assert.ok(read("apps/sentinel/src/flow.ts").includes('key: "deadbeef"'), "premise: the attestor key is a placeholder; when NARABI-K1 replaces it this reds and the pages are revisited");
+  assert.ok(read("packages/hikae/src/tracker.ts").includes("base ** (-1 / 2 - params.eps)") && read("apps/sentinel/src/run.ts").includes("interface Provenance { readonly endpoints: readonly string[]; readonly node_version: string; readonly sentinel_sha: string; }"), "premise: the step uses the engine's pow and a line records no platform; when NARABI-POW-PORTABLE-1 lands this reds and the pages are revisited");
+  for (const rel of ["apps/site/app/docs/narabi/page.tsx", "apps/site/components/docs/schemas/narabi.tsx", "apps/site/components/docs/schemas/overview.tsx", "apps/site/app/docs/research/page.tsx", "apps/site/app/docs/verify/page.tsx"]) {
+    const src = read(rel);
+    assert.doesNotMatch(src, /\battested\s+(?:onchain|redemption|daily|flow)/i, rel + " calls a flow attested");
+    assert.doesNotMatch(src, /anyone can replay|\breplayable\b|the Narabi replay|re-derive the tracker/i, rel + " promises a replay of the tracker");
+  }
+  assert.match(read("apps/site/app/docs/research/page.tsx"), /a quantile tracker, a hash-chained timeline/, "the research table says the timeline is hash-chained");
+  assert.match(read("apps/site/app/docs/verify/page.tsx"), /check that each line chains to the one before and records its Node version/, "the verify page says the hash chain and the Node version");
+});
+
+// killer: apps/site/components/docs/piece-doc-page.tsx:99 CONST "the later ones retry it the same day" -> "the later ones are idle"
+test("docs_narabi_piece_page_says_the_retry_slots — the piece page says the slots carry a random delay and same-day retries, as the timer runs (Narabi T12; NARABI-SLOTS-TEXT-1)", () => {
+  const timer = read("deploy/monark-sentinel.timer");
+  assert.ok((timer.match(/^OnCalendar=/gm) ?? []).length >= 2 && /^RandomizedDelaySec=\d+$/m.test(timer), "premise: the timer has retry slots and a random delay; when it changes this reds and the sentence is revisited");
+  const piece = read("apps/site/components/docs/piece-doc-page.tsx");
+  assert.doesNotMatch(piece, /sentinel publishes at the UTC slots/, "the slots are not said to publish each");
+  assert.match(piece, /sentinel runs at the UTC slots \{served\.sentinel_timer\.on_calendar_utc\.join\(", "\)\}, each plus up to\{" "\}\s*\{String\(Math\.round\(served\.sentinel_timer\.randomized_delay_s \/ 60\)\)\} minutes: the first publishes the closed day, the later ones retry it the same day\./, "the page says the delay and the retries");
+});
