@@ -95,7 +95,7 @@ The labels are the point: they say what exists today and what is only named.
 | AI | **Sensors and acts** | the engine's agents: sensors that attest, acts that execute, one token across all of them | **4 built** (Shōgen · Hikae · Ukemi · Narabi) · **7 named** |
 | AI | **Harness** — the door | the same engine made reachable *by other AI agents* over HTTP / MCP | **Built** — public 4-tool MCP endpoint (attest · gate · cascade · calibrate)  |
 | AI | **Adaptation agents** | agents that recalibrate, onboard protocols, track liquidation mechanics and watch data sources | **Roadmap** — named, not shipped |
-| DeFi | **Applications** — meant to be powered by the engine | one application per DeFi need, served with its own published artefacts | **1 built** (MONARK Bell, its own gate) · **5 research leads** |
+| DeFi | **Applications** — meant to be powered by the engine | one application per DeFi need, meant to be served with its own published artefacts | **1 built** (MONARK Bell, its own gate) · **5 research leads** |
 
 ## The engine — AI side
 
