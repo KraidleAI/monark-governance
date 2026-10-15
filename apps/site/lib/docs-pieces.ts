@@ -36,7 +36,7 @@ export const PIECE_DOCS: Readonly<Record<string, PieceDoc>> = {
   shogen: {
     tagline: "attested perception: bytes, a hash and named residual hypotheses, never a truth claim",
     summary:
-      "Attested perception. The piece turns a source's answer into an attested testimony: the exact bytes, their hash, and the transport assumptions the testimony still rests on, named one by one. It carries no price number and no score. Its join into the gate's verdict is dormant: no served class has a committed attestation subject.",
+      "Attested perception. The piece turns a source's answer into an attested testimony: the exact bytes, their hash, and the transport assumptions the testimony still rests on, named one by one. It carries no price number and no score. Its join into the gate's verdict is being built: no served class has a committed attestation subject.",
     entry: {
       title: "A source's answer, as bytes",
       lines: ["What the attestor read, not what it means", "the canonical name of the source", "the exact response, when the class keeps it", "the transport's clock, carried as data"],

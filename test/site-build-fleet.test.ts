@@ -1685,6 +1685,15 @@ test("shogen_building_pill_is_served_once_in_its_block — the /fleet page, rend
   assert.equal(last(/<h2\b[^>]*data-slot="dialog-title"[^>]*>([^<]*)<\/h2>/g), "Shōgen", "the block is in the Shōgen panel");
 });
 
+// killer: apps/site/app/globals.css:284 CONST ".c-pill::before { content: \"\";" -> ".c-pill::before { content: \"buil\\64 ing\";"
+test("no_css_of_the_site_draws_building — no content declaration in the .css files under apps/site/app spells building, its CSS escapes decoded (the CSS of packages and the built bundle are outside this test)", () => {
+  const css = (readdirSync(join(ROOT, "apps", "site", "app"), { recursive: true }) as string[]).filter((f) => f.endsWith(".css")).map((f) => "apps/site/app/" + f.split("\\").join("/"));
+  assert.ok(css.includes("apps/site/app/globals.css") && css.includes("apps/site/app/docs/docs.css"), "the scan reads the site's CSS (false-green guard)");
+  const unescape = (v: string): string => v.replace(/\\([0-9a-f]{1,6})\s?/gi, (_, x: string) => String.fromCodePoint(parseInt(x, 16))).replace(/\\(.)/g, "$1");
+  const drawn = css.flatMap((f) => [...read(f).matchAll(/\bcontent\s*:\s*([^;}]*)/g)].map((m) => `${f}: ${m[1] ?? ""}`));
+  assert.deepEqual(drawn.filter((d) => unescape(d).replace(/[^a-z]/gi, "").toLowerCase().includes("building")), [], "no CSS content spells building");
+});
+
 // Two pages render from fixtures/usde-calib-scores.json. Three conditions hold for them (decision of 2026-10-08): the render may read
 // the file, as the build reads apps/site/data; no agent reads, shows, copies or quotes its content or a number drawn from it, and this
 // test asserts only the pill, its status and its class; no log of this test carries a value from the file (a page that fails, or
