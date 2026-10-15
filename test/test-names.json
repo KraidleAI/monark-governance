@@ -1045,6 +1045,7 @@
   "sentinel_chainstack_origin_empty_is_unconfigured — CHAINSTACK_ETH_ORIGIN=\"\" with the cycle id present: unconfigured, the 7 public endpoints verbatim, no ledger. A mutant dropping the empty-origin half opens the leg and publishes \"\" as the 8th endpoint (C-G2D-2, G2D-4)",
   "sentinel_guard_open_error_classifier_is_a_closed_set — classifyGuardOpenError maps every open failure to the closed chainstack_guard set, never a message (D-degrade)",
   "sentinel_guard_open_failure_degrades_to_keyless_and_publishes — with the cycle config present but the ledger PARENT absent (C-8), openChainstackLeg fails to open: run.ts degrades to the 7 keyless endpoints, publishes NO origin (C-6), chainstack=false, chainstack_guard=ledger_error, exit 0 — a mutant removing the try/catch would FATAL the whole run (D-degrade)",
+  "sentinel_guard_resolves_inside_this_tree - node_modules/@monark/rpc-guard resolves (real path) to this tree's packages/rpc-guard/src/index.ts; otherwise the guard's ledger module would be another tree's: the SIGTERM window hooks and the fsync counter wrap the wrong instance (HOST-LOAD-SENTINEL-SIGTERM-1)",
   "sentinel_run_re_acquires_lock_after_clean_exit — because run 1 released the cycle lock (finally), run 2 opens the leg again (no LockHeldError): both runs are chainstack_guard=ok. A mutant dropping the finally release makes run 2 read lock_held and reds (D-lock i)",
   "sentinel_run_releases_chainstack_lock_on_sigterm — a SIGTERM (a TimeoutStartSec kill) fires run.ts's handler, which runs the served unlock synchronously and exits, so the cycle lock is released even on a kill. WIN32 SKIP is declared + NON-vacuous: on non-win32 (CI ubuntu-latest) the body RUNS; on win32 process.kill is a hard kill with no handler and the RUNBOOK unlock covers a SIGKILL (C-7)",
   "sentinel_sigterm_after_lock_acquired_before_handler_releases_lock — a SIGTERM delivered right after the cycle lock is written and closed (the start-up window of the base: lock held, before the old process.on) is handled: exit 1, no .lock, a chained unlocked line (SENTINEL-SIGTERM-STARTUP-WINDOW-1). WIN32 SKIP declared: process.kill is a hard kill there",
@@ -1250,6 +1251,7 @@
  ],
  "apps/sentinel/test/ukemi-guard-record.test.ts": [
   "ukemi_budget_counts_http_attempts_and_caller_retry_is_scoped",
+  "ukemi_guard_record_guard_resolves_inside_this_tree - node_modules/@monark/rpc-guard resolves (real path) to this tree's packages/rpc-guard/src/index.ts; otherwise the guard's ledger module would be another tree's: the SIGTERM window hooks and the fsync counter wrap the wrong instance (HOST-LOAD-SENTINEL-SIGTERM-1)",
   "ukemi_guard_record_skipped_the_platter_flush_nonvacuous",
   "ukemi_record_budget_refusal_is_not_retried",
   "ukemi_record_budget_stop_writes_durable_diag_journal",
