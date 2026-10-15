@@ -526,7 +526,7 @@ export function NarabiLive({
             <Fact
               k="code versions (sentinel · node)"
               v={versions.map(codeVersionLabel).join("\n") || "—"}
-              note="a run of lines written by an unchanged sentinel build and Node version; a new build does not change the tracker parameters"
+              note="a run of lines with an unchanged sentinel_sha and Node version; the sentinel_sha hashes the sentinel's own top-level source files, not the packages it imports; a new build does not change the tracker parameters"
               lines
             />
             <Fact k="source" v={data.source} mono={false} />

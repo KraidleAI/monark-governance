@@ -52,6 +52,7 @@ import { ACTION_COMMIT, ACTION_DEFER, ACTION_ABSTAIN, SENSOR_NODES, AMBIENT, dec
 import { AGENTS_PRESENTATION } from "../apps/site/lib/agents-presentation.ts";
 import { PICKER_PROFILES } from "../apps/site/lib/profiles.ts";
 import { OUTCOMES, REGION_KINDS, REASON_GLOSS } from "../apps/site/lib/how-copy.ts";
+import { D8_SENTENCE as SITE_D8_SENTENCE } from "../apps/site/lib/narabi-live.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const WF = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
@@ -663,21 +664,23 @@ test("vocab_narabi_scopes_ban_peg_score_and_p_depeg — naked surclaim reddens, 
 // the harness scope does not even consume exemptPhrases (grep-forbidden.mjs add() passes none). The stronger
 // property is asserted directly: the D8 sentence is green with an EMPTY exemption list, in all three scopes.
 // Uses the REAL gate functions (compilePatterns/scanText) without executing the CLI (run-guarded).
+// killer: apps/site/lib/narabi-live.ts:915 CONST "published with the Node version of each line. What" -> "published so anyone can replay it. What"
 test("vocab_adaptive_coverage_reddens — adaptive surclaim reddens site/harness/skills/narabi_docs/sentinel; the exact D8 sentence green, no exemption (ADR-M012 D8)", () => {
   const cfg = JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8")) as {
     banned: { re: string; why: string }[];
     scan: Record<string, { banned?: { re: string; why: string }[] } | undefined>;
   };
-  // The EXACT ADR-M012 D8 public sentence (verbatim English; straight apostrophes, en-dash author names).
+  // The EXACT public sentence of ADR-M012 D8, as amended by ADR-PXC-02 D-7 (verbatim English; straight apostrophes, en-dash author names).
   const D8_SENTENCE =
-    "Narabi runs an adaptive quantile tracker (Angelopoulos–Barber–Bates 2024, decaying step) on the attested " +
-    "daily USDe redemption flow: its state moves each 24h window from the realized outcome, and the full " +
-    "timeline is published so anyone can replay it. What it carries is a deterministic long-run bound that " +
+    "Narabi runs an adaptive quantile tracker (Angelopoulos–Barber–Bates 2024, decaying step) on the daily " +
+    "USDe redemption flow: its state moves each 24h window from the realized outcome, and the full timeline is " +
+    "published with the Node version of each line. What it carries is a deterministic long-run bound that " +
     "tightens as windows accumulate, printed daily with T, not a per-window coverage, not a probability; the " +
     "gate's committed calibration does not depend on the tracker state. Until the pre-registered drift " +
     "criterion fires and an ADR says otherwise, the gate's region is still the committed static calibration: " +
     "the tracker adapts, the gate does not yet.";
   const MUTANTS = ["adaptive coverage", "the gate adapts", "adaptively covers"];
+  assert.equal(D8_SENTENCE, SITE_D8_SENTENCE, "the sentence checked here is the one /narabi renders (apps/site/lib/narabi-live.ts D8_SENTENCE)");
   for (const scopeName of ["site", "harness", "skills", "narabi_docs", "sentinel"] as const) {
     const scope = cfg.scan[scopeName];
     assert.ok(scope && scope.banned, `scope '${scopeName}' missing from vocab-banned.json`);

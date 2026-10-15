@@ -48,7 +48,7 @@ const newsreader = localFont({
 export const metadata: Metadata = {
   title: "MONARK",
   description:
-    "MONARK — two sides, one engine. AI side: a coverage-controlled gate that emits commit, defer, or abstain over a depletable budget. DeFi side: the on-chain applications it powers, MONARK Bell first.",
+    "MONARK — two sides, one engine. AI side: a coverage-controlled gate that emits commit, defer, or abstain over a depletable budget. DeFi side: the on-chain applications it is meant to power; the first, MONARK Bell, keeps its own gate.",
 };
 
 // Apply the theme before first paint: the stored explicit choice if any, else the system preference
