@@ -136,7 +136,7 @@ test("bell_collect_unit_argv_is_the_tick_contract", async () => {
   }
 });
 
-// killer: scripts/bell-deploy.mjs:86 CONST "\"apps/bell/src/volume.ts\", " -> ""
+// killer: scripts/bell-deploy.mjs:86 CONST "\"packages/rpc-guard/bin/rpc-guard.mjs\", " -> ""
 test("bell_collect_tree_is_the_import_closure", () => {
   exists();
   const [link = "", target = ""] = C().link, pkgDir = posix.join(posix.dirname(link), target);
@@ -144,8 +144,10 @@ test("bell_collect_tree_is_the_import_closure", () => {
   assert.ok(link.endsWith(pkg.name) && pkg.exports["."] !== undefined, "the link names the package it resolves");
   const IMPORT = /^\s*(?:import|export)\s+(?!type\b)(?:[^'";]*?\bfrom\s*)?["']([^"']+)["']/gm; // `import type` is erased at load
   const entry = one(service(C().unit), "ExecStart").split(" ")[2]?.slice(C().root.length + 1) ?? "?";
-  assert.equal(entry, "apps/bell/src/tick.ts", "one program: the unit's tick");
-  const out = new Set<string>(), pending = [entry];
+  assert.equal(entry, "apps/bell/src/tick.ts", "the unit's program: the tick");
+  // Lot 3c (PLAN-P3, dated line of 11:2x UTC): the tree holds a second program, the guard's served CLI, which the RUNBOOK's unlock act runs
+  // from the tree (section 17), so that no act runs a file absent from it (calque of dojo_collect_tree_is_the_import_closure).
+  const UNLOCK_TOOL = "packages/rpc-guard/bin/rpc-guard.mjs", out = new Set<string>(), pending = [entry, UNLOCK_TOOL];
   for (let f = pending.pop(); f !== undefined; f = pending.pop()) {
     if (out.has(f)) continue;
     out.add(f);
@@ -159,9 +161,14 @@ test("bell_collect_tree_is_the_import_closure", () => {
     }
     for (let d = posix.dirname(f); f.endsWith(".ts") && d !== "."; d = posix.dirname(d)) if (existsSync(`${REPO}${d}/package.json`)) { out.add(`${d}/package.json`); break; }
   }
-  assert.deepEqual([...out].sort(), [...C().tree], "the tree == the closure of the tick, with its package scopes, in byte order");
+  assert.deepEqual([...out].sort(), [...C().tree], "the tree == the closure of the tick and of the guard's served CLI, with their package scopes, in byte order");
   assert.deepEqual(C().tree.filter((p) => /bell-publish|bell-verify|bell-report/.test(p)), [], "no publisher, verifier or report in the collection's tree (G0 N-4)");
   assert.ok(Object.isFrozen(C().tree) && Object.isFrozen(C().link), "frozen: no caller widens them");
+  // The RUNBOOK (section 14) ships exactly this tree, with this link, and runs the CLI from it (section 17).
+  const runbook = read("docs/RUNBOOK-bell.md"), archive = /git -C \S+ archive --format=tar\.gz "\$G7" ([^|]+)\| tee \/f\/tmp\/bell-dn\/collect-tree\.tar\.gz /.exec(runbook);
+  assert.deepEqual(archive?.[1]?.trim().split(/\s+/), [...C().tree], "the RUNBOOK ships exactly this tree");
+  assert.ok(runbook.includes(`ln -s ${target} ${C().root}/${link}`), "...with this resolution link");
+  assert.ok(runbook.includes(`/usr/bin/env node ${C().root}/${UNLOCK_TOOL} --ledger-dir `), "the RUNBOOK runs the guard's CLI from the tree");
 });
 
 // killer: scripts/bell-deploy.mjs:82 CONST "\"apps/bell/src/handoff-status.ts\", " -> ""

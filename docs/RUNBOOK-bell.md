@@ -20,9 +20,11 @@ key, unit, Caddy, HTTPS) need gates G-a, G-c, G-d only. Steps 9-13 (first public
 missing at 23:00Z, the host goes online serving 404s and the publication waits (never a publication without its pieces).
 
 **Committed files this runbook installs** (all read from the G7 commit, never from a working tree):
-- `apps/bell/scripts/bell-publish.mjs` + `apps/bell/scripts/bell-chain.mjs` -> `/opt/monark-bell/` (the ONLY two files of the
-  tree: what the unit runs, ADR D1; the CA's `BELL_TREE_PATHS`);
+- `apps/bell/scripts/bell-publish.mjs` + `apps/bell/scripts/bell-chain.mjs` + `apps/bell/scripts/bell-validate.mjs` -> `/opt/monark-bell/`
+  (the ONLY three files of the tree: what the unit runs, ADR D1; the CA's `BELL_TREE_PATHS`);
 - `deploy/monark-bell-publish.service` -> `/etc/systemd/system/monark-bell-publish.service`;
+- in part 5 only (section 14): the collection's tree, `BELL_COLLECT_TREE_PATHS` of `scripts/bell-deploy.mjs` -> `/opt/monark-bell-collect/`,
+  and `deploy/monark-bell-collect.service`, `deploy/monark-bell-collect.timer` -> `/etc/systemd/system/`;
 - `deploy/Caddyfile.monark-bell` -> `/etc/caddy/Caddyfile` (replace mode, ruling C-5), then `/etc/caddy/monark-bell.caddyfile`, imported
   (the REPLACE → IMPORT procedure at the end of step 7, played once before act A-6 of `docs/RUNBOOK-dojo.md`);
 - `scripts/verify-bell.mjs` runs locally (the CA), never on the host.
@@ -94,7 +96,7 @@ Expected: `exit=0`; 3 lines or more (`/etc/monark/probe.env`, `./DEPLOYED-SHA`, 
 
 ## 2. The tree at G7 (gate G-a)
 
-Write the G7 merge SHA once (40 hex), then ship EXACTLY the two files the unit runs:
+Write the G7 merge SHA once (40 hex), then ship EXACTLY the three files the unit runs:
 
 ```bash
 git -C /f/Monark rev-parse --verify '<G7 merge commit>^{commit}' > /f/tmp/bell-dn/G7.txt && cat /f/tmp/bell-dn/G7.txt
@@ -108,7 +110,7 @@ G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark archive --format=tar.gz "$G7
 G7=$(cat /f/tmp/bell-dn/G7.txt) && for p in apps/bell/scripts/bell-chain.mjs apps/bell/scripts/bell-publish.mjs apps/bell/scripts/bell-validate.mjs; do echo "$(git -C /f/Monark cat-file blob "$G7:$p" | sha256sum | cut -c1-64)  ./$p"; done
 ```
 
-Expected: the remote listing has exactly two lines and each digest equals the local `git cat-file blob` digest (`.gitattributes`
+Expected: the remote listing has exactly three lines and each digest equals the local `git cat-file blob` digest (`.gitattributes`
 pins `eol=lf`, so `git archive` and `cat-file` carry the same bytes). No `npm` on this host: built-ins only (ADR D3).
 Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -rf /opt/monark-bell'`.
 
@@ -119,6 +121,9 @@ archive and digest commands above, the REPLACE replay of step 7) name it. The ho
 its deployed SHA: its CA runs with `scripts/verify-bell.mjs` read at that SHA. A CA run with the script of the head expects
 three files and reds `c11_loaded_config_equals_g7`, fail-closed, never silently. The prose of this step and of the list of
 installed files at the top ("two files", "exactly two lines") is amended with the next deployment of the tree.
+
+**Dated line, 2026-10-15 18:1x UTC (lot 3c of BELL-COLLECT-TIMER-1):** the amendment announced above is made: the prose of this step
+and the list at the top say three files and three lines. The host already deployed keeps its two-file tree at its deployed SHA.
 
 ## 3. User `bell` and directories
 
@@ -160,7 +165,7 @@ Expected: `exit=0`; one canonical line `{"keys":[{"jwk":{"crv":"Ed25519","kty":"
 Commit it (orchestrator, R-20); **no push before step 12** (the keyring and the CA JSON pass the full oracle together, decision
 136). Rollback: drop the local commit.
 
-## 6. The unit, from the G7 bytes, and a dry start that proves the credential path
+## 6. The unit, from the G7 bytes, and a dry start that proves the credential's source
 
 ```bash
 G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/monark-bell-publish.service" | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'umask 022 && cat > /etc/systemd/system/monark-bell-publish.service && systemctl daemon-reload && systemctl show -p NeedDaemonReload --value monark-bell-publish.service && systemctl show -p LoadState -p FragmentPath -p DropInPaths monark-bell-publish.service && sha256sum /etc/systemd/system/monark-bell-publish.service'
@@ -168,17 +173,30 @@ G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/mo
 
 Expected: `no`; `LoadState=loaded`, `FragmentPath=/etc/systemd/system/monark-bell-publish.service`, `DropInPaths=` (empty); the
 digest equals `git -C /f/Monark cat-file blob "$(cat /f/tmp/bell-dn/G7.txt):deploy/monark-bell-publish.service" | sha256sum`.
-Never `systemctl enable` (no `[Install]`, no timer in lot a) and never `systemctl edit` (a drop-in reddens CA check 11).
+Never `systemctl enable` (no `[Install]`: the collection starts the unit at each end of a tick, by `OnSuccess=` and `OnFailure=`,
+section 14) and never `systemctl edit` (a drop-in reddens CA check 11).
 
-Dry start on the EMPTY inbox (the refusal proves: user, sandbox and `LoadCredential` work; nothing is written):
+Dry start (the refusal proves the unit's user, group and sandbox, and that PID 1 loaded the credential's source; nothing is written).
+The unit runs `--handoff` (lot 3b-ii): it starts only after the acts of lot 5b, step 1, which make the group `bell-handoff` and the
+directories its `ReadWritePaths=` and `InaccessiblePaths=` name, none with a `-` (a missing one fails the start before the job runs):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl start monark-bell-publish.service; echo start_exit=$?; journalctl -u monark-bell-publish.service -n 10 --no-pager -o cat | grep "bell/publish"; systemctl reset-failed monark-bell-publish.service; find /var/lib/monark-bell -mindepth 1 | sort'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl start monark-bell-publish.service; echo start_exit=$?; journalctl -u monark-bell-publish.service -n 10 --no-pager -o cat | grep "bell/publish"; systemctl reset-failed monark-bell-publish.service; find /var/lib/monark-bell /var/lib/monark-bell-status -mindepth 1 | sort'
 ```
 
-Expected: `start_exit=1`; the journal line `bell/publish: inbox_not_exactly_one_bundle: 0 inbox entries` (NOT
-`signing_key_missing`: that would mean the credential did not load -> STOP); `find` lists only `/var/lib/monark-bell/inbox` and
-`/var/lib/monark-bell/public`. Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm /etc/systemd/system/monark-bell-publish.service && systemctl daemon-reload'`.
+Expected: `start_exit=1`; the journal line `bell/publish: clock_unsynced: the host clock is not synchronized`: the `--handoff` mode
+reads its clock probe first (`apps/bell/scripts/bell-publish.mjs:352`), closed by default until item CLOCK-PROBE-FORM-1 delivers its
+host form (part 5); `find` lists no `publish.lock` and nothing under `/var/lib/monark-bell-status`. This start does not read the key
+(l.353 comes after the probe): it proves that PID 1 loaded the credential's source (a missing absolute source fails the start,
+`deploy/monark-bell-publish.service:13-14`). With the probe of CLOCK-PROBE-FORM-1, the same start will read the key, take
+`publish.lock` and refuse `bell/publish: handoff_start_missing: status/start: no start mark (the act --handoff-start poses it)` on a
+status without its mark (l.353-360, section 16); `signing_key_missing` would then mean the key does not load: **STOP**.
+Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm /etc/systemd/system/monark-bell-publish.service && systemctl daemon-reload'`.
+
+**Dated line, 2026-10-15 18:1x UTC (lot 3c; m-3 of the review of lot 3b-ii):** this step describes the `--handoff` unit of the trunk,
+its dry start read in the code; it replaced the `--inbox` unit of lot a and its dry start on the empty inbox, whose expected line was
+`inbox_not_exactly_one_bundle`. The host already deployed keeps its `--inbox` unit at its deployed SHA: its acts are this RUNBOOK read
+at that SHA, and its CA compares with the G7 it is given.
 
 ## 7. Caddy (ruling C-5) — gate G-d first
 
@@ -392,17 +410,33 @@ Expected: `ls` prints only `bundle-1`; the remote digest equals the local one. R
 
 ## 10. Publish (operator act)
 
+The unit runs `--handoff`: it publishes, in order, at most 8 bundles (`HANDOFF_N`) that the collection deposited in
+`/var/lib/monark-bell-handoff` from the start mark on (section 16), and the collection starts it at each end of a tick (section 14).
+Started by hand, the timer stopped and no tick running, it is the act of rescue (G0 BELL-COLLECT-TIMER-1 DC-3, DC-12):
+
 ```bash
-ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl start monark-bell-publish.service; echo start_exit=$?; journalctl -u monark-bell-publish.service -n 10 --no-pager -o cat | grep -E "status|bell/publish"; ls /var/lib/monark-bell/inbox | wc -l; ls /var/lib/monark-bell/public'; curl -sI https://bell.monarkgate.tech/state.json | head -1; curl -sI https://bell.monarkgate.tech/bell/pubkey.json | head -1
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.timer; systemctl stop monark-bell-collect.timer; if systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed; then systemctl start monark-bell-publish.service; echo start_exit=$?; else echo TICK-RUNNING; fi; journalctl -u monark-bell-publish.service -n 10 --no-pager -o cat | grep -E "status|bell/publish"; tail -n 8 /var/lib/monark-bell-status/published.jsonl; ls /var/lib/monark-bell/public'; curl -sI https://bell.monarkgate.tech/state.json | head -1; curl -sI https://bell.monarkgate.tech/bell/pubkey.json | head -1
 ```
 
-Expected: `start_exit=0`; one JSON line `{"status":"published","seq":1,"published_at":...,"state_sha256":...,"provenance_sha256":...,"line_hash":...}`
-(no secret in it); `0` (the bundle moved to `archive/`); `bell provenance provenance.json state.json states timeline.jsonl`; then
-`HTTP/2 200` twice (S-12). A refusal prints `bell/publish: <code>: <detail>` and writes nothing: the bundle is RE-PRODUCED (a new
-course, section 8 bis), never edited by hand (no relabel of a provider label, no field edit: the seq 1 relabel is not repeated,
-ADR-BELL-CASH-LEG-1), and the state is never touched.
+Expected: the timer's state (JOURNAL); `TICK-RUNNING`: nothing started, wait and rerun. Until item CLOCK-PROBE-FORM-1 (part 5):
+`start_exit=1` and `bell/publish: clock_unsynced: the host clock is not synchronized`, nothing written. With the probe:
+`start_exit=0` and one JSON line (no secret in it), one of `{"status":"published","published":[{"bundle":"unit-<D>","seq":<n>}]}`
+(one entry per bundle published, in order; an entry with `"healed":true` is a bundle whose line was committed before its status line,
+recorded without a new line), `{"status":"nothing_to_publish","published":[]}`, or `{"status":"awaiting_unit","published":[],"awaiting_unit":"unit-<D>"}`
+(section 21); the last lines of `published.jsonl`; `bell provenance provenance.json state.json states timeline.jsonl`; then
+`HTTP/2 200` twice (S-12). What steps 13 and 13 bis take from "the step 10 line" is read in line `<n>` of the step 13 copy: its
+`state_sha256` and `provenance_sha256` fields, and its `line_hash`, the sha256 of the line's bytes (`scripts/anchor-bell-timeline.mjs:41`).
+A refusal of a bundle prints `bell/publish: <code>: <detail>`, is recorded in `refused.jsonl` and never retried: the tick collects `<D>`
+again (`unit-<D>-r<n>`); a bundle is never edited by hand (no relabel of a provider label, no field edit: the seq 1 relabel is not
+repeated, ADR-BELL-CASH-LEG-1), and the state is never touched. Then `systemctl start monark-bell-collect.timer` only if the first
+line read `active`.
 Rollback: **none that deletes** (append-only, signed). A wrong publication is corrected by a NEW publication; serving can be
 stopped by the step 7 rollback; a rewrite would be detectable by the mirrors (see "Who can detect a rewrite").
+
+**Dated line, 2026-10-15 18:1x UTC (lot 3c; m-3 of the review of lot 3b-ii):** this step describes the `--handoff` unit of the trunk,
+its outputs read in `apps/bell/scripts/bell-publish.mjs:346-383`; it replaced the `--inbox` unit of lot a, its one bundle of the inbox
+(step 9) and its one-line output. The host already deployed keeps its `--inbox` unit at its deployed SHA: for it, steps 9 and 10 and
+the next publications are this RUNBOOK read at that SHA.
 
 ## 11. CA (ADR D11, 12 named checks) — host capture, then `scripts/verify-bell.mjs`
 
@@ -460,6 +494,11 @@ cd /f/tmp/bell-dn/mirror && mkdir -p states provenance && curl -sS --fail https:
 Expected: the timeline digest, written to the JOURNAL; each immutable's digest equals its name. The orchestrator then keeps the
 files in its durable mirror (outside the repo, never under `F:/tmp` alone). This copy is what makes a later rewrite detectable
 (ADR D6). Rollback: none (read-only; the mirror files are kept).
+
+**Dated line, 2026-10-15 18:1x UTC (lot 3c; G0 BELL-COLLECT-TIMER-1 DC-12, M-18):** from the first automatic publication (part 5) on,
+this step will run once per working day instead of after every publication: the copy of `timeline.jsonl` and its sha256 to the JOURNAL,
+and the two immutables of each line published since the previous copy; the publication no longer waits for the operator. Until that
+first automatic publication, the step stays as written above.
 
 ## 13 bis. OpenTimestamps timestamp of the new line (ADR-BELL-OTS-ANCHOR-1 D2; operator machine, orchestrator act)
 
@@ -537,6 +576,288 @@ ruling GO1-D), then `node scripts/sync-bell-anchors.mjs`, the storefront build a
 does not re-run `scripts/sync-bell-served.mjs` (the anchors sync binds the upgraded row to the committed `lines[]`). Rollback of
 13 bis: none that deletes a proof (a pending proof may still complete; a new stamp of the same line takes the `-<k>` name).
 
+**Dated line, 2026-10-15 18:1x UTC (lot 3c; G0 BELL-COLLECT-TIMER-1 DC-12, Q-12 decided "Automatic", M-18; same line at the end of
+`docs/adr/ADR-BELL-OTS-ANCHOR-1.md`):** from lot 4b (part 4) on, the timestamp of each new line will be made automatically on the probe's
+host, never on Bell's host. Until lot 4b is in service, this step 13 bis stays the act in force, line by line. No automatic
+publication precedes lot 4b (G0 DC-10).
+
+## 14. The scheduled collection: its tree, its two units, a dry start (lot 3c, played in part 5)
+
+**What.** The committed units: the collection tick (`apps/bell/src/tick.ts --tick`, G0 BELL-COLLECT-TIMER-1 DC-4) is the program of
+`monark-bell-collect.service`, which `monark-bell-collect.timer` starts at four UTC slots; each end of a tick starts the publisher
+(`OnSuccess=`, `OnFailure=`, PLAN-P3 C3-1), which publishes the bundles the tick deposited in `/var/lib/monark-bell-handoff` from the mark.
+**When.** Sections 14 to 21 are written in part 3 (lot 3c) and played in part 5 (lot 5b): after its step 1 (the user `bell-collect`,
+the group `bell-handoff`, the four directories of `BELL_LAYOUT` and the collection's secrets directory) and its step 2 (the secrets
+file, posed without display). Nothing of them is played on a host before part 5 (G0 DC-11: nothing is deployed nor served in part 3),
+and the timer is enabled by the act of lot 5b that starts the rehearsal (its step 4), never here. Until item CLOCK-PROBE-FORM-1 delivers the host form of the
+clock probe (part 5; this RUNBOOK does not write that form), the tick, the publisher's `--handoff` and `--handoff-start` forms and the
+abandon act each refuse `clock_unsynced` and write nothing: each expected output says the line due now and the line due with the
+probe. The commands name Bell's host as the Conventions do; lot 5b will name the host of part 5 (G0 DC-8). The tree, at G7 (the
+list is `BELL_COLLECT_TREE_PATHS`: the import closure of the tick and of the guard's served CLI that section 17 runs, pinned by
+`bell_collect_tree_is_the_import_closure`):
+
+```bash
+G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark archive --format=tar.gz "$G7" apps/bell/package.json apps/bell/scripts/bell-chain.mjs apps/bell/scripts/bell-validate.mjs apps/bell/src/checks.ts apps/bell/src/close.ts apps/bell/src/collect.ts apps/bell/src/digest.ts apps/bell/src/discover.ts apps/bell/src/ethereum.ts apps/bell/src/gap.ts apps/bell/src/halts.ts apps/bell/src/handoff-status.ts apps/bell/src/operators.ts apps/bell/src/plan.ts apps/bell/src/pools.ts apps/bell/src/quorum.ts apps/bell/src/reason-canon.ts apps/bell/src/rebase-crosscheck.ts apps/bell/src/rebase-produce.ts apps/bell/src/rebase-scan.ts apps/bell/src/rebase-trajectory.ts apps/bell/src/residuals.ts apps/bell/src/rpc.ts apps/bell/src/sessions.ts apps/bell/src/supply.ts apps/bell/src/tick.ts apps/bell/src/trajectory-check.ts apps/bell/src/volume.ts apps/sentinel/package.json apps/sentinel/src/rpc.ts apps/sentinel/src/ukemi/rpc2.ts packages/rpc-guard/bin/rpc-guard.mjs packages/rpc-guard/package.json packages/rpc-guard/src/bell-methods.ts packages/rpc-guard/src/classify.ts packages/rpc-guard/src/cli.ts packages/rpc-guard/src/client.ts packages/rpc-guard/src/cycle.ts packages/rpc-guard/src/errors.ts packages/rpc-guard/src/guarded.ts packages/rpc-guard/src/index.ts packages/rpc-guard/src/ledger.ts packages/rpc-guard/src/lock.ts packages/rpc-guard/src/reconcile.ts packages/rpc-guard/src/repair.ts packages/rpc-guard/src/tariff.ts packages/rpc-guard/src/transport.ts scripts/bell-deploy.mjs | tee /f/tmp/bell-dn/collect-tree.tar.gz | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'install -d -m 0755 -o root -g root /opt/monark-bell-collect && tar xzf - -C /opt/monark-bell-collect --no-same-owner --no-same-permissions && chown -R root:root /opt/monark-bell-collect && find /opt/monark-bell-collect -type d -exec chmod 0755 {} + && find /opt/monark-bell-collect -type f -exec chmod 0644 {} + && cd /opt/monark-bell-collect && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum'
+```
+
+```bash
+rm -rf /f/tmp/bell-dn/collect-tree && mkdir -p /f/tmp/bell-dn/collect-tree && tar xzf /f/tmp/bell-dn/collect-tree.tar.gz -C /f/tmp/bell-dn/collect-tree && cd /f/tmp/bell-dn/collect-tree && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum
+```
+
+Expected: 48 remote lines, equal line for line to the 48 local lines of the same archive (`.gitattributes` pins `eol=lf`). No `npm` on
+the host: `@monark/rpc-guard` resolves through one relative link, `BELL_COLLECT_TREE_LINK` (the Dojo's form, `docs/RUNBOOK-dojo.md`
+section 3):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'install -d -m 0755 -o root -g root /opt/monark-bell-collect/node_modules/@monark && ln -s ../../packages/rpc-guard /opt/monark-bell-collect/node_modules/@monark/rpc-guard && readlink /opt/monark-bell-collect/node_modules/@monark/rpc-guard && cd /opt/monark-bell-collect && node --input-type=module -e "import(\"@monark/rpc-guard\").then((m) => console.log(typeof m.cycleOf))"'
+```
+
+Expected: `../../packages/rpc-guard`, then `function` (the tick imports `cycleOf` from it). Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -rf /opt/monark-bell-collect'`.
+
+The two units, from the G7 bytes (the calque of step 6; the publisher's unit is step 6's):
+
+```bash
+G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/monark-bell-collect.service" | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'umask 022 && cat > /etc/systemd/system/monark-bell-collect.service && systemctl daemon-reload && systemctl show -p NeedDaemonReload --value monark-bell-collect.service && systemctl show -p LoadState -p FragmentPath -p DropInPaths monark-bell-collect.service && sha256sum /etc/systemd/system/monark-bell-collect.service'
+```
+
+```bash
+G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/monark-bell-collect.timer" | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'umask 022 && cat > /etc/systemd/system/monark-bell-collect.timer && systemctl daemon-reload && systemctl show -p NeedDaemonReload --value monark-bell-collect.timer && systemctl show -p LoadState -p FragmentPath -p DropInPaths monark-bell-collect.timer && systemctl is-enabled monark-bell-collect.timer; sha256sum /etc/systemd/system/monark-bell-collect.timer'
+```
+
+Expected, for each: `no`; `LoadState=loaded`, `FragmentPath=/etc/systemd/system/<unit>`, `DropInPaths=` (empty); the digest equals
+`git -C /f/Monark cat-file blob "$(cat /f/tmp/bell-dn/G7.txt):deploy/<unit>" | sha256sum`; for the timer, `disabled` before its digest.
+Never `systemctl enable` nor `start` of the timer here, never `systemctl edit`. Rollback:
+`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm /etc/systemd/system/monark-bell-collect.service /etc/systemd/system/monark-bell-collect.timer && systemctl daemon-reload'`.
+
+Dry start, before the seed (the refusal proves the unit's user, group and sandbox, its secrets file present, and its tree loaded;
+nothing is written):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl start monark-bell-collect.service; echo start_exit=$?; systemctl start monark-bell-publish.service; echo publish_exit=$?; journalctl -u monark-bell-collect.service -n 10 --no-pager -o cat | grep "bell/tick"; journalctl -u monark-bell-publish.service -n 10 --no-pager -o cat | grep "bell/publish"; systemctl reset-failed monark-bell-collect.service monark-bell-publish.service; find /var/lib/monark-bell-collect /var/lib/monark-bell-handoff /var/lib/monark-bell-status -mindepth 1 | sort'
+```
+
+Expected: `start_exit=1` and `bell/tick: refused state_missing: state/progress.json is missing: seed it by act` (the tick reads its
+progress first, `apps/bell/src/tick.ts:325`; an `EnvironmentFile=` without `-` that is missing fails the start before,
+`deploy/monark-bell-collect.service:25-27`); `publish_exit=1` and one or two lines `bell/publish: clock_unsynced: the host clock is not
+synchronized` (the end of the tick started the publisher too, by `OnFailure=`); `find` lists only what lot 5b, step 1 made (no
+`state/`, no `unit-*`, no status file). Rollback: none (nothing written).
+
+## 15. The seed, once, at the first day of the rehearsal (lot 5b, step 3)
+
+`--seed <D>` writes `state/progress.json` with `<D>` as its seed: the first unit the tick plans is `unit-<D>` (G0 DC-4, M-9). `<D>`
+is the first trading day of the rehearsal, a trading day of the committed calendar, `YYYY-MM-DD`. The form reads no clock probe and no
+secret; it runs as the collection's user, in its unit's sandbox (section 21 lists what each line means):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.timer; systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemd-run --wait --pipe --collect --uid=bell-collect --gid=bell-collect -p SupplementaryGroups=bell-handoff -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p "ReadWritePaths=/var/lib/monark-bell-collect /var/lib/monark-bell-handoff" -p "InaccessiblePaths=/var/lib/monark-bell /etc/monark/bell" -p UMask=0027 /usr/bin/env node /opt/monark-bell-collect/apps/bell/src/tick.ts --seed <D> --state /var/lib/monark-bell-collect && stat -c "%a %U:%G %n" /var/lib/monark-bell-collect/state/progress.json'
+```
+
+Expected: `inactive` (the timer is enabled after the seed, by lot 5b, step 4); `bell/tick: seeded <D>` (JOURNAL);
+`640 bell-collect:bell-collect /var/lib/monark-bell-collect/state/progress.json` (`writeAtomic`, `apps/bell/src/tick.ts:94-95`).
+Refusals: `bell/tick: refused seed_exists: state/progress.json exists` (exit 1: seeded already; **STOP**, read it); exit 64 with
+`bell/tick: refused usage: D is a trading day of the committed calendar, YYYY-MM-DD` (fix `<D>`). Then the dry start of section 14
+again: until CLOCK-PROBE-FORM-1, `bell/tick: refused clock_unsynced: the host clock is not synchronized` (the tick passed its
+progress, the handoff directory and the presence and shape of each key of its secrets file: `env_missing` or `env_malformed` names a
+key, never a value, `tick.ts:325-328`). Rollback, before the timer is enabled only (after, a deposit follows the seed):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemd-run --wait --pipe --collect --uid=bell-collect --gid=bell-collect -p SupplementaryGroups=bell-handoff -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p "ReadWritePaths=/var/lib/monark-bell-collect /var/lib/monark-bell-handoff" -p "InaccessiblePaths=/var/lib/monark-bell /etc/monark/bell" -p UMask=0027 /usr/bin/env rm /var/lib/monark-bell-collect/state/progress.json && echo seed-removed'
+```
+
+## 16. The start mark, once, right after the rehearsal (lot 5b, step 5)
+
+The publisher's `--handoff` publishes nothing without the mark `start` of the status directory (`handoff_start_missing`), and never a
+bundle whose `<D>` is before it (G0 DC-3). **Prescribed value**: the trading day that follows the last `<D>` deposited at the instant of
+the act (a bundle or a tombstone of the handoff directory), so that every bundle of the rehearsal stays before the mark and is never
+published (G0 DC-3, DC-4; the precedent of `docs/adr/ADR-DOJO-PR-3.md`); posed before the migration and the rotation (it does not
+depend on the key), by the form `bell-publish.mjs --handoff-start <D> --handoff <dir> --status <dir>`, as the user `bell`, in the
+publisher's sandbox (its group reads the handoff directory). (1) The timer stopped, the tick waited, the value computed by the
+tree's own calendar:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.timer; systemctl stop monark-bell-collect.timer; systemctl is-active monark-bell-collect.service; L=$(ls -1 /var/lib/monark-bell-handoff | grep -oE "^unit-[0-9]{4}-[0-9]{2}-[0-9]{2}" | sort | tail -n 1 | cut -c6-); echo "last=$L"; cd /opt/monark-bell-collect && node --input-type=module -e "import { nextTradingDay } from \"./apps/bell/src/sessions.ts\"; console.log(\"mark=\" + nextTradingDay(process.argv[1]));" -- "$L"'
+```
+
+Expected: the timer's state (JOURNAL); `inactive` or `failed` (`activating` is a tick running: wait and rerun); `last=<D>`, the last
+day deposited; `mark=<mark>`, the trading day after it (`nextTradingDay` of `apps/bell/src/sessions.ts`). `last=` empty: nothing was
+deposited, **STOP** (no mark without a rehearsal). (2) The mark, both units stopped:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemctl is-active monark-bell-publish.service | grep -qx -e inactive -e failed && systemd-run --wait --pipe --collect --uid=bell --gid=bell -p SupplementaryGroups=bell-handoff -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p "ReadWritePaths=/var/lib/monark-bell /var/lib/monark-bell-status" -p "InaccessiblePaths=/var/lib/monark-bell-collect /etc/monark/bell-collect" -p PrivateNetwork=yes -p UMask=0022 /usr/bin/env node /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --handoff-start <mark> --handoff /var/lib/monark-bell-handoff --status /var/lib/monark-bell-status'
+```
+
+Expected now: `bell/publish: clock_unsynced: the host clock is not synchronized`, exit 1, nothing written (the form reads the probe
+first, `apps/bell/scripts/bell-publish.mjs:334`). With the probe of CLOCK-PROBE-FORM-1: one JSON line
+`{"status":"start_mark_posted","from_unit":"<mark>","posted_at":"<ISO>"}` (JOURNAL). Its two named refusals, each writing nothing:
+`bell/publish: start_mark_exists: status/start` (a mark exists: it is never replaced nor removed; **STOP**, read
+`/var/lib/monark-bell-status/start`) and `bell/publish: start_mark_not_after_bundles: <n> bundle(s) of the handoff directory start at or
+after the mark` (a deposit at or after `<mark>`: (1) again, never a value chosen by hand). Exit 64: `<mark>` is not a date. Then
+`systemctl start monark-bell-collect.timer` only if (1) read it `active`. Rollback: none: the mark is created exclusively and never
+replaced (l.330-344); a wrong mark is a **STOP** and an escalation to the orchestrator.
+
+## 17. A lock left held: the guard's locks and `publish.lock`
+
+**When**: every tick refuses `bell/tick: refused lock_held: …` before any call, or every start of the publisher refuses
+`bell/publish: lock_held: publish.lock: another writer holds the state`. **Why**: a tick takes the guard's lock of each operator for its
+run (`<cycle>/<op>.lock` under the ledger, `{pid, iso}`); its SIGTERM handler releases them (`bell/tick: refused sigterm: stopped, the
+run's locks released`, or `…the release of the run's locks threw: unlock them by act`), but a SIGKILL, the OOM killer or a power cut
+leaves them, and a lock left STAYS held: only the served, ledgered `unlock` releases it (`packages/rpc-guard/src/lock.ts:4-6`). The
+publisher takes `publish.lock` in `/var/lib/monark-bell` at each `--handoff` call and releases it in its `finally`
+(`apps/bell/scripts/bell-publish.mjs:353-359`); a SIGKILL, the OOM killer or a power cut leaves it. It is an empty file (no owner
+record), and the publisher has no served release of it: proposed item BELL-PUBLISH-LOCK-RELEASE-1 (a recorded owner and a served
+`--unlock`, the calque of `docs/RUNBOOK-dojo.md` section 19); until then its removal by the unit's user, both units stopped, is the
+act. (1) The state, the timer stopped first (read-only; a lock file holds `{pid, iso}`, no secret):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.timer; systemctl stop monark-bell-collect.timer; systemctl is-active monark-bell-collect.service monark-bell-publish.service; ls -l /var/lib/monark-bell/publish.lock; for f in /var/lib/monark-bell-collect/ledger/*/*.lock; do echo "$f $(cat "$f")"; done'
+```
+
+Expected: the timer's state (JOURNAL); two lines, each `inactive` or `failed` (`activating`: a run in course, wait and rerun; never a
+release beside a live run); `publish.lock` or `No such file or directory`; at most one lock per operator of `BELL_OPERATORS`
+(`helius`, `chainstack`), each with a pid that no longer exists (`ps -p <pid>` prints no process line), else **STOP**. (2) The guard's
+locks: the served `unlock` of each operator, as `bell-collect` and NEVER as root (a root-owned ledger file would make the unit's next
+appends fail), the zero floor of `BELL_FLOORS`:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && for op in helius chainstack; do L=$(ls /var/lib/monark-bell-collect/ledger/*/$op.lock 2>/dev/null) || { echo "$op: no lock"; continue; }; C=$(basename "$(dirname "$L")"); systemd-run --wait --pipe --collect --uid=bell-collect --gid=bell-collect -p SupplementaryGroups=bell-handoff -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p "ReadWritePaths=/var/lib/monark-bell-collect /var/lib/monark-bell-handoff" -p "InaccessiblePaths=/var/lib/monark-bell /etc/monark/bell" -p UMask=0027 /usr/bin/env node /opt/monark-bell-collect/packages/rpc-guard/bin/rpc-guard.mjs --ledger-dir /var/lib/monark-bell-collect/ledger --floor 0 unlock --cycle "$C" --op "$op" --reason runbook-lock-held-unlock; echo "$op exit=$?"; test ! -e "$L" && echo "$op lock released"; tail -n 1 "/var/lib/monark-bell-collect/ledger/$C/$op.jsonl"; done'
+```
+
+Expected, for each operator with a lock (`<op>: no lock` for the others): `unlocked <64 hex>` (the sha256 of its `unlocked` line,
+`packages/rpc-guard/bin/rpc-guard.mjs:29`), `exit=0`, `lock released`, and a last ledger line with `"outcome":"unlocked"` and
+`"reason":"runbook-lock-held-unlock"` (JOURNAL). **STOP, no repair by hand, escalation to the orchestrator** if `unlock` fails on
+"head sidecar" or "cycle ledger" (the cases of `docs/RUNBOOK-dojo.md` section 9). (3) `publish.lock`, both units stopped, as `bell`:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemctl is-active monark-bell-publish.service | grep -qx -e inactive -e failed && systemd-run --wait --pipe --collect --uid=bell --gid=bell -p SupplementaryGroups=bell-handoff -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p "ReadWritePaths=/var/lib/monark-bell /var/lib/monark-bell-status" -p "InaccessiblePaths=/var/lib/monark-bell-collect /etc/monark/bell-collect" -p PrivateNetwork=yes -p UMask=0022 /usr/bin/env rm /var/lib/monark-bell/publish.lock && test ! -e /var/lib/monark-bell/publish.lock && echo publish-lock-released'
+```
+
+Expected: `publish-lock-released` (JOURNAL). The next start repairs what the stop left (`bell/publish: repaired_torn_tail`,
+`rederived_keyring` or `rederived_public` on its error stream, `bell-publish.mjs:124-128`), and a bundle committed before its status
+line is recorded without a new line (`"healed":true`, l.377-379). Then `systemctl start monark-bell-collect.timer` only if (1) read it
+`active`. Rollback: none (the next writer takes the lock again).
+
+## 18. Quarantine: what the operator reads, what he never does
+
+A run that a check refuses (`check_failed:<Cnn>`, `close_ref_missing`, `stop_cash_cross_mismatch`, `adv_regime_unruled`) or that the
+pre-validation refuses (`prevalidation_refused:<code>`) never reaches the handoff directory: the tick moves the attempt's staged bundle
+to `quarantine/<D>/a<n>/`, appends `a<n> <refusal>` to `quarantine/<D>/reason` (`apps/bell/src/tick.ts:272-278`) and exits 1; the next
+slot tries `<D>` again, within its budget (section 19 past it). Read-only:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'ls -1 /var/lib/monark-bell-collect/quarantine; for d in /var/lib/monark-bell-collect/quarantine/*/; do echo "$d"; cat "$d/reason"; done'
+```
+
+Expected: the days in quarantine and, for each, its lines `a<n> <refusal>`: the attempt and its refusal by its name of the closed list
+(for example `a3 check_failed:C04`), codes only (JOURNAL). The operator acts on no file: the next tick tries again, and a refusal that
+repeats is investigated from the code and the journal. He never edits, renames, moves or copies a quarantined run or a deposited
+bundle, and never writes into `/var/lib/monark-bell-handoff`: a bundle is only ever the tick's, its manifest binds its bytes, and the
+publisher never revalidates a recorded refusal. The tick removes `quarantine/<D>/` seven days after the fact that allows the removal
+of its `<D>` (G0 DC-4, `PRUNE_AFTER_MS`). Rollback: none (read-only).
+
+## 19. Abandoning a stalled unit: the act `--abandon`, two ways
+
+**When** (PLAN-P3 C3-9, C3-10): (a) every tick refuses `stalled_unit`: the next unit `<D>` spent its budget (`ATTEMPT_BUDGET`, 8
+attempts, any slot, any cause); (b) every tick refuses `publisher_refused:<code>`: the publisher refused the last revision of `<D>`
+(`refused.jsonl`), the tick collected it again under `unit-<D>-r<n>` until the same budget was spent and recorded the unit in
+`state/stalled.json` (`{"unit":"<D>","code":"<code>"}`, `apps/bell/src/tick.ts:347`). **The act** (`tick.ts --abandon <D> --reason
+<code>`, G0 DC-4) records the reason in `state/abandoned.jsonl` (one line per unit, with its `abandoned_at`), deposits the tombstone
+`unit-<D>.abandoned` and its manifest in the handoff directory (the publisher skips `<D>` and publishes the next units), then: way
+(a), it advances `state/progress.json` to `<D>`, once; way (b), `<D>` is behind the progress, which never moves back: it removes
+`state/stalled.json` instead. `<code>` is a lowercase code (`^[a-z][a-z0-9_]{0,63}$`, `tick.ts:91`), the reason recorded, for example
+`close_ref_missing`; any other is refused `usage` (exit 64). The gap of `<D>` is visible in the served windows; its automatic catch-up
+is item PXB-15. (1) The state, the timer stopped first:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.timer; systemctl stop monark-bell-collect.timer; systemctl is-active monark-bell-collect.service; journalctl -u monark-bell-collect.service -n 20 --no-pager -o cat | grep "bell/tick" | tail -n 3; cat /var/lib/monark-bell-collect/state/progress.json /var/lib/monark-bell-collect/state/attempts.json /var/lib/monark-bell-collect/state/stalled.json'
+```
+
+Expected: the timer's state (JOURNAL); `inactive` or `failed`; way (a): `bell/tick: refused stalled_unit: unit-<D> after 8 attempts;
+abandon it by act`, `"<D>":8` in the attempts, `stalled.json` absent; way (b): `bell/tick: refused publisher_refused:<code>:
+unit-<D>-r<n> would collect unit-<D> again, its budget of 8 attempts spent` and `stalled.json` naming `<D>`. Then the reasons of
+section 18 for `<D>`. (2) The act, the collection stopped, as `bell-collect`:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemd-run --wait --pipe --collect --uid=bell-collect --gid=bell-collect -p SupplementaryGroups=bell-handoff -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p "ReadWritePaths=/var/lib/monark-bell-collect /var/lib/monark-bell-handoff" -p "InaccessiblePaths=/var/lib/monark-bell /etc/monark/bell" -p UMask=0027 /usr/bin/env node /opt/monark-bell-collect/apps/bell/src/tick.ts --abandon <D> --reason <code> --state /var/lib/monark-bell-collect --handoff /var/lib/monark-bell-handoff'
+```
+
+Expected now: `bell/tick: refused clock_unsynced: the host clock is not synchronized`, exit 1, nothing written: the act reads the
+tick's clock probe, closed by default until CLOCK-PROBE-FORM-1 delivers its form (`tick.ts:410`). With the probe:
+`bell/tick: abandoned unit-<D> reason=<code>` (JOURNAL); the next tick goes on with the next unit. Its refusal:
+`bell/tick: refused abandon_refused: unit-<D> is not the stalled unit` (`<D>` is neither the next unit with its budget spent nor the
+unit of `state/stalled.json`: read (1) again; it is also the answer to a second act: the act is done once). A stop in the middle of
+the act: the act runs again, to the same bytes (one reason line per unit). Then `systemctl start monark-bell-collect.timer` only if
+(1) read it `active`. Rollback: none that deletes: the publisher reads the tombstone and skips `<D>`.
+
+## 20. Rollback of the scheduled collection
+
+(1) The timer disabled, then both units waited until each is `inactive` or `failed` (never `systemctl stop` of a running tick or
+publication):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl disable --now monark-bell-collect.timer; systemctl is-enabled monark-bell-collect.timer; systemctl is-active monark-bell-collect.timer monark-bell-collect.service monark-bell-publish.service'
+```
+
+Expected: `disabled`; then `inactive` for the timer and `inactive` or `failed` for each unit (else wait and rerun). Stopping undoes
+nothing else: the deposits stay in the handoff directory, the publications stay signed and served (step 10: no rollback deletes a line).
+
+(2) The publisher's state `--state` (`/var/lib/monark-bell`) and its status `--status` (`/var/lib/monark-bell-status`) are copied
+together and restored together, NEVER one without the other (review of lot 3a): a `published.jsonl` ahead of the timeline makes the
+publisher skip a `<D>` never served (it skips each `<D>` the file lists, `bell-publish.mjs:276`) and the tick remove that bundle seven
+days later (DC-4); a `refused.jsonl` lost makes a refused revision validated again. The pair, both units stopped, in one archive,
+before any act that writes the publisher's state outside its unit (the rotation's (R3), the migration of lot 5b):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemctl is-active monark-bell-publish.service | grep -qx -e inactive -e failed && T=$(date -u +%Y%m%dT%H%MZ) && tar -C /var/lib -czf /root/bell-pair-$T.tar.gz monark-bell monark-bell-status && echo "T=$T" && sha256sum /root/bell-pair-$T.tar.gz'
+```
+
+Expected: `T=<T>` and the archive's digest (JOURNAL). It holds no secret: the private timeline, the state keyring (public keys), the
+served tree and the status files; the key is under `/etc/monark/bell`, never in it. (3) A restoration, only if no line was published
+since the pair was taken (the timeline is append-only and signed: a restoration that drops a served line is a rewrite, which every
+mirror detects):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemctl is-active monark-bell-publish.service | grep -qx -e inactive -e failed && tar -xzOf /root/bell-pair-<T>.tar.gz monark-bell/timeline.jsonl | sha256sum && sha256sum < /var/lib/monark-bell/timeline.jsonl'
+```
+
+Expected: two equal digests, else **STOP**: no restoration, escalation to the orchestrator. Then both together:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemctl is-active monark-bell-publish.service | grep -qx -e inactive -e failed && mv /var/lib/monark-bell /var/lib/monark-bell.aside-<T> && mv /var/lib/monark-bell-status /var/lib/monark-bell-status.aside-<T> && tar -C /var/lib -xzpf /root/bell-pair-<T>.tar.gz && stat -c "%a %U:%G %n" /var/lib/monark-bell /var/lib/monark-bell-status'
+```
+
+Expected: `755 bell:bell /var/lib/monark-bell` and `2750 bell:bell-handoff /var/lib/monark-bell-status` (`BELL_LAYOUT`); else
+**STOP**. The two directories set aside are kept (JOURNAL), never removed in the same window. The timer is enabled again only by the
+act that enabled it (lot 5b).
+
+## 21. Normal states, and the refusals that ask for an act
+
+Normal (exit 0, no act): the tick's `bell/tick: nothing_due unit-<D> due_at=<ISO>` (a slot before the unit's due instant),
+`bell/tick: deposited unit-<D> manifest_sha256=<hex>` (or `unit-<D>-r<n>`, a revision after a refusal of the publisher) and
+`bell/tick: already_deposited unit-<D>` (a slot replayed); the publisher's `{"status":"published",…}`,
+`{"status":"nothing_to_publish","published":[]}` (nothing after the mark left to publish: each end of a tick starts it) and
+`{"status":"awaiting_unit",…,"awaiting_unit":"unit-<D>"}` (every revision of `<D>` deposited is refused or has no matching manifest:
+the tick collects `<D>` again, and the publisher waits). Normal, exit 1, no act: `bell/tick: refused handoff_backlog: <n> units from
+unit-<D> on await publication, above 8` (`BACKLOG_MAX`: the tick collects nothing new and the publisher, started at each end of a tick,
+drains the backlog by calls of 8); the backlog is disarmed until the first publication (`published.jsonl` empty): before it the units
+after the mark accumulate, then are published in order (G0 DC-4). Until CLOCK-PROBE-FORM-1, `clock_unsynced` on every run is expected.
+
+| Line (journal of the unit) | Act |
+|---|---|
+| `bell/tick: refused stalled_unit: …` | section 19, way (a) |
+| `bell/tick: refused publisher_refused:<code>: …` | section 19, way (b) |
+| `bell/tick: refused lock_held: …`, `bell/publish: lock_held: …`, or `bell/tick: refused sigterm: …unlock them by act` | section 17 |
+| `bell/tick: refused state_missing: state/progress.json is missing: seed it by act` | section 15 |
+| `bell/publish: handoff_start_missing: …` | section 16 (expected through the rehearsal: no mark, no publication) |
+| `bell/tick: refused check_failed:<Cnn>: …`, `prevalidation_refused:<code>`, `close_ref_missing`, `stop_cash_cross_mismatch`, `adv_regime_unruled` | section 18; past the budget, section 19 (a) |
+| a refusal of a bundle by the publisher (`bell/publish: <code>: …`, recorded in `refused.jsonl`) | none: the tick collects `<D>` again; past the budget, section 19 (b) |
+| `bell/tick: refused env_missing: …` or `env_malformed: …` | the secrets file (lot 5b, step 2), never printed |
+| `bell/tick: refused calendar_exhausted: …` | **STOP**: a calendar year to commit (G0 DC-4, M-12) |
+| `bell/publish: existing_timeline_corrupt: …`, `bell/publish: schema_mismatch: status/…` | **STOP**, escalation; never an edit of the state or of the status |
+| `clock_unsynced`, once CLOCK-PROBE-FORM-1 is in service | **STOP**: the host's clock synchronization |
+
+Any other refusal: **STOP**, the journal read before any act (the closed lists: `TICK_REFUSALS` of `apps/bell/src/tick.ts`,
+`REFUSAL_CODES` of `apps/bell/scripts/bell-validate.mjs`).
+
 ---
 
 ## Next publications
@@ -558,22 +879,32 @@ write, a register row beyond `lines[]` or not bound to its line); the storefront
   ruling cp-2 PR-2 C-V-7): FIRST the new PUBLIC key is committed AND pushed in `apps/bell/keys/bell-keyring.json`, THEN the
   `key_rotation` line is signed by the old and the new key, THEN everything is verified (CA, `/bell/method`, JOURNAL). The reverse
   order leaves `rotation_key_not_in_keyring` for every verifier holding the committed keyring, and CA checks red, until the
-  commit. Never a manual snapshot. Each act only while `monark-bell-publish.service` is not active (item BELL-STATE-LOCK-1 (i)):
+  commit. Never a manual snapshot. Each act only while BOTH units are stopped, their timer first (item BELL-STATE-LOCK-1 (i), widened
+  by G0 BELL-COLLECT-TIMER-1 DC-8 (3): the collection starts the publisher at each end of a tick; lot 3c):
+  (R0) the timer stopped, then the two units read until each is `inactive` or `failed` (`activating` is a tick or a publication
+  running: wait and rerun, never `systemctl stop` it), the timer's state and the pair copy of section 20 (2) to the JOURNAL:
+  `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.timer; systemctl stop monark-bell-collect.timer; systemctl is-active monark-bell-collect.service monark-bell-publish.service'`;
+  each host act below opens on the stop predicate of both units;
   (R1) new key ON the host, counted like step 4 (both counts 0), then `cat /root/bell-pubkey-new.out` (public part only):
-  `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'umask 077 && node /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --generate-key /etc/monark/bell/signing-key-new.pem > /root/bell-pubkey-new.out; echo gen_exit=$?; grep -c PRIVATE /root/bell-pubkey-new.out; grep -c -E "[{,] *.d. *:" /root/bell-pubkey-new.out'`;
+  `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemctl is-active monark-bell-publish.service | grep -qx -e inactive -e failed && umask 077 && node /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --generate-key /etc/monark/bell/signing-key-new.pem > /root/bell-pubkey-new.out; echo gen_exit=$?; grep -c PRIVATE /root/bell-pubkey-new.out; grep -c -E "[{,] *.d. *:" /root/bell-pubkey-new.out'`;
   (R2) on the operator machine, the new PUBLIC key appended to the committed keyring and committed BEFORE the rotation, so a
   third party's `--keyring` check never reddens on the new key (served keys within the supplied keyring):
   `cd /f/Monark && node --input-type=module -e "import { readFileSync } from 'node:fs'; import { keyringOf, publicKeyOfJwk, canonical } from './apps/bell/scripts/bell-chain.mjs'; const [x, id] = process.argv.slice(1); const e = keyringOf(publicKeyOfJwk({ x }), 1).keys[0]; if (e.key_id !== id) { console.error('STOP: key_id mismatch'); process.exit(1); } const kr = JSON.parse(readFileSync('apps/bell/keys/bell-keyring.json', 'utf8')); kr.keys.push({ key_id: e.key_id, jwk: e.jwk }); console.log(canonical(kr));" -- '<x new>' '<key_id new>' > /f/tmp/bell-dn/keyring-r2.json && mv /f/tmp/bell-dn/keyring-r2.json apps/bell/keys/bell-keyring.json`, then
   commit (R-20), full oracle (step 12), push (decision 136); (R3) starts only once that commit is pushed;
-  (R3) the rotation, one transient job with the unit's sandbox and BOTH credentials (the old key signs `sig`, the new key `sig_new`):
-  `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'test "$(systemctl is-active monark-bell-publish.service)" != active && systemd-run --wait --pipe --collect --uid=bell --gid=bell -p PrivateNetwork=yes -p NoNewPrivileges=yes -p ProtectSystem=strict -p ProtectHome=yes -p PrivateTmp=yes -p ReadWritePaths=/var/lib/monark-bell -p UMask=0022 -p LoadCredential=bell-signing-key:/etc/monark/bell/signing-key.pem -p LoadCredential=bell-signing-key-new:/etc/monark/bell/signing-key-new.pem /usr/bin/env node /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --rotate --state /var/lib/monark-bell'`
+  (R3) the rotation, one transient job with the unit's sandbox and groups (each property the committed unit's, lot 3b-ii) and BOTH
+  credentials (the old key signs `sig`, the new key `sig_new`):
+  `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemctl is-active monark-bell-publish.service | grep -qx -e inactive -e failed && systemd-run --wait --pipe --collect --uid=bell --gid=bell -p SupplementaryGroups=bell-handoff -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p "ReadWritePaths=/var/lib/monark-bell /var/lib/monark-bell-status" -p "InaccessiblePaths=/var/lib/monark-bell-collect /etc/monark/bell-collect" -p PrivateNetwork=yes -p UMask=0022 -p LoadCredential=bell-signing-key:/etc/monark/bell/signing-key.pem -p LoadCredential=bell-signing-key-new:/etc/monark/bell/signing-key-new.pem /usr/bin/env node /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --rotate --state /var/lib/monark-bell'`
   -> one JSON line with `"status":"rotated"`; this transient form is not yet run on the host: a property that `systemd-run`
   refuses must fail before the job starts (read its error, nothing is written);
-  (R4) the new key becomes the unit's key: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'shred -u /etc/monark/bell/signing-key.pem && mv /etc/monark/bell/signing-key-new.pem /etc/monark/bell/signing-key.pem && stat -c "%a %U:%G" /etc/monark/bell/signing-key.pem'` -> `600 root:root`;
+  (R4) the new key becomes the unit's key: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemctl is-active monark-bell-publish.service | grep -qx -e inactive -e failed && shred -u /etc/monark/bell/signing-key.pem && mv /etc/monark/bell/signing-key-new.pem /etc/monark/bell/signing-key.pem && stat -c "%a %U:%G" /etc/monark/bell/signing-key.pem'` -> `600 root:root`;
   (R5) verification: commit the served `/bell/pubkey.json` bytes as `apps/bell/keys/bell-keyring.json` (the derived keyring:
   statuses), then step 11 (CA 12/12), `/bell/method` cites the new key, JOURNAL entry, then step 13 (the timeline copy) and
   step 13 bis (the timestamp of the key line, without `--immutables`: it bounds the instant of the rotation or revocation); between
-  (R2) and (R5) check 3 (served == committed) is red and check 5 is not (declared window).
+  (R2) and (R5) check 3 (served == committed) is red and check 5 is not (declared window). (R2) and (R5) commit
+  `apps/bell/keys/bell-keyring.json`, the keyring the probe of part 4 reads (G0 DC-9, M-17): they are its update; the act that
+  carries it to the probe's host will be written with the probe (lot 4a);
+  (R6) the timer starts again only if (R0) read it `active`:
+  `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl start monark-bell-collect.timer && systemctl is-active monark-bell-collect.timer'` -> `active`.
   A loss: (R1), (R2), then (R3) with `--rotate --broken` and only the `bell-signing-key-new` credential, then (R4) without
   `shred` (the old file is gone: `mv /etc/monark/bell/signing-key-new.pem` onto the unit's path, then `stat`), then (R5); a
   revocation (`--revoke <key_id> --from-seq <n>`, signed by the active key `bell-signing-key`, one credential) skips (R1), (R2) and (R4).
@@ -590,4 +921,11 @@ environment; `systemctl enable` or `systemctl edit` on this unit; editing `/etc/
 before decision 78's trigger (C-2, item BELL-ACCESS-LOG-1); cleaning `run-p19072-i21642.service` or touching `/opt/monark-probe`,
 `/etc/monark/probe.env`, `/var/lib/monark-probe` (CA check 12; item PROBE-SIM-UNIT-1); editing a produced bundle by hand, a relabel
 included (a refused bundle is re-produced, section 10); an OpenTimestamps stamp on the Bell host; an `ots upgrade` before the
-durable copy of the pending proof, a committed or served `.bak`, or an overwritten proof (step 13 bis).
+durable copy of the pending proof, a committed or served `.bak`, or an overwritten proof (step 13 bis). From lot 3c (sections 14 to
+21): printing, copying or hashing the collection's secrets file `/etc/monark/bell-collect/collect.env` or any file of
+`/etc/monark/bell-collect` (`cat`, `sha256sum`, `cp`, `scp`), the `EnvironmentFile=` of the collection handed to a job, or the
+environment of a running tick read; `systemctl enable` or `start` of `monark-bell-collect.timer` before the act of lot 5b that starts the rehearsal;
+`systemctl stop` of a running tick or publication (wait for `inactive` or `failed`); a lock released as root, or a guard's lock
+removed by `rm` (only the served `unlock`); editing, moving or copying by hand a quarantined run, a deposited bundle,
+`state/progress.json` or a status file; removing or replacing the start mark; restoring `/var/lib/monark-bell` without
+`/var/lib/monark-bell-status` from the same copy, or the reverse.

@@ -1979,6 +1979,13 @@
   "bell_terms_deviation_8_is_declared_in_the_header",
   "bell_terms_header_carries_no_counsel_pending_mention"
  ],
+ "test/bell-runbook.test.ts": [
+  "bell_runbook_abandon_act_records_reason_and_advances_once",
+  "bell_runbook_jobs_carry_the_unit_properties",
+  "bell_runbook_never_prints_secrets_nor_private_key",
+  "bell_runbook_stops_both_units_before_rotation",
+  "bell_runbook_unlocks_as_the_unit_user_never_root"
+ ],
  "test/bell-served.test.ts": [
   "bell_pages_render_served_values_never_typed",
   "bell_pages_state_the_record_literally — no licence of Bell's own, no contradicted absolute, served facts dated",
