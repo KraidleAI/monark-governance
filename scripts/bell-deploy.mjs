@@ -74,16 +74,16 @@ export const BELL_COLLECT_SECRETS_DIR = "/etc/monark/bell-collect";
 export const BELL_COLLECT_ENV_FILE = "/etc/monark/bell-collect/collect.env";
 /** The collection's dedicated tree (calque of the Dojo's: git archive at the G7 SHA, root-owned, read-only to the unit). */
 export const BELL_COLLECT_TREE_ROOT = "/opt/monark-bell-collect";
-/** The tree: the static import closure of the tick (the unit's one program), the package.json Node reads for it (the `type` scope of each
- *  .ts file, the `exports` of @monark/rpc-guard); never bell-publish.mjs (G0 N-4). Byte order. Pinned by bell_collect_tree_is_the_import_closure
- *  and run by bell_collect_unit_runs_the_real_tick. */
+/** The tree: the static import closure of its two programs, the tick (the unit's ExecStart) and the guard's served CLI (the RUNBOOK's unlock act,
+ *  lot 3c), the package.json Node reads for them (the `type` scope, the `exports` of @monark/rpc-guard); never bell-publish.mjs (G0 N-4). Byte
+ *  order. Pinned by bell_collect_tree_is_the_import_closure and run by bell_collect_unit_runs_the_real_tick. */
 export const BELL_COLLECT_TREE_PATHS = Object.freeze(["apps/bell/package.json", "apps/bell/scripts/bell-chain.mjs", "apps/bell/scripts/bell-validate.mjs",
   "apps/bell/src/checks.ts", "apps/bell/src/close.ts", "apps/bell/src/collect.ts", "apps/bell/src/digest.ts", "apps/bell/src/discover.ts",
   "apps/bell/src/ethereum.ts", "apps/bell/src/gap.ts", "apps/bell/src/halts.ts", "apps/bell/src/handoff-status.ts", "apps/bell/src/operators.ts",
   "apps/bell/src/plan.ts", "apps/bell/src/pools.ts", "apps/bell/src/quorum.ts", "apps/bell/src/reason-canon.ts", "apps/bell/src/rebase-crosscheck.ts",
   "apps/bell/src/rebase-produce.ts", "apps/bell/src/rebase-scan.ts", "apps/bell/src/rebase-trajectory.ts", "apps/bell/src/residuals.ts",
   "apps/bell/src/rpc.ts", "apps/bell/src/sessions.ts", "apps/bell/src/supply.ts", "apps/bell/src/tick.ts", "apps/bell/src/trajectory-check.ts",
-  "apps/bell/src/volume.ts", "apps/sentinel/package.json", "apps/sentinel/src/rpc.ts", "apps/sentinel/src/ukemi/rpc2.ts", "packages/rpc-guard/package.json",
+  "apps/bell/src/volume.ts", "apps/sentinel/package.json", "apps/sentinel/src/rpc.ts", "apps/sentinel/src/ukemi/rpc2.ts", "packages/rpc-guard/bin/rpc-guard.mjs", "packages/rpc-guard/package.json",
   "packages/rpc-guard/src/bell-methods.ts", "packages/rpc-guard/src/classify.ts", "packages/rpc-guard/src/cli.ts", "packages/rpc-guard/src/client.ts",
   "packages/rpc-guard/src/cycle.ts", "packages/rpc-guard/src/errors.ts", "packages/rpc-guard/src/guarded.ts", "packages/rpc-guard/src/index.ts",
   "packages/rpc-guard/src/ledger.ts", "packages/rpc-guard/src/lock.ts", "packages/rpc-guard/src/reconcile.ts", "packages/rpc-guard/src/repair.ts",
