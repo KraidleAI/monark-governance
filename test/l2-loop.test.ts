@@ -13,7 +13,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { EventEmitter, getEventListeners } from "node:events";
-import { spawnSync, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 import { createRequire, syncBuiltinESMExports } from "node:module";
 import { closeSync, constants, existsSync, linkSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
@@ -979,12 +979,17 @@ test("l2_record_stop_during_start", async () => {
 });
 
 // killer: scripts/record-binance-l2.mjs:432 CONST "process.exit(code)" -> "undefined"
-test("l2_command_exit_bounded", () => {
+test("l2_command_exit_bounded", async () => {
   // m-1 (b): once main resolves, the command line leaves within EXIT_GRACE_MS though a handle lingers (a socket whose peer never answers
-  // its CLOSE): leave() sets the exit code, then exits.
+  // its CLOSE): leave() sets the exit code, then exits. Lot TIMED-TESTS-LOAD-1: both bounds count from the launch, measured here (t0 to the line the
+  // child writes as it calls leave()): a loaded host stalls the start of a process (13.3 s for a node -e 0 under test:main), not the grace that follows.
   const t0 = Date.now(), url = new URL("../scripts/record-binance-l2.mjs", import.meta.url).href;
-  const r = spawnSync(process.execPath, ["--input-type=module", "-e", `const m = await import(${JSON.stringify(url)}); setInterval(() => undefined, 1_000); m.leave(3);`], { timeout: 20_000, env: {} });
-  assert.deepEqual([r.status, r.signal, Date.now() - t0 < 15_000], [3, null, true]);
+  const c = spawn(process.execPath, ["--input-type=module", "-e", `const m = await import(${JSON.stringify(url)}); setInterval(() => undefined, 1_000); process.stdout.write("leave\\n"); m.leave(3);`],
+    { env: {}, stdio: ["ignore", "pipe", "ignore"], timeout: 600_000 }); // 600 s: the reaper of a child that never launches, never the bound
+  let launch = Infinity, kill: ReturnType<typeof setTimeout> | undefined;
+  c.stdout.once("data", () => { launch = Date.now() - t0; kill = setTimeout(() => c.kill(), 20_000); }); // killed 20 s past its launch, as spawnSync's timeout was 20 s past t0
+  const [status, signal] = await new Promise<[number | null, NodeJS.Signals | null]>((ok) => c.on("close", (n: number | null, s: NodeJS.Signals | null) => { clearTimeout(kill); ok([n, s]); }));
+  assert.deepEqual([status, signal, Date.now() - t0 < launch + 15_000], [3, null, true]);
 });
 
 // killer: scripts/record-binance-l2.mjs:389 CONST "if (!finished) links = " -> "if (finished) links = "
