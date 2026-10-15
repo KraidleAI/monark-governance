@@ -73,10 +73,13 @@ test("policy_row_and_class_entry_keys_are_pinned", () => {
 
 // killer: packages/contracts/src/policy-table.ts:32 CONST "v > 0" -> "v > 1"
 test("policy_rows_classes_and_table_admitted", () => {
-  for (const row of [MARGINAL, DIR, BAND, RETIRED]) assertClosedPolicyRow(row);
-  for (const c of [KATA_CLASS, LIQ_CLASS]) assertClosedClassEntry(c);
-  assertClosedPolicyTable({ row_format: "class-policy-v2", class: KATA_CLASS, rows: [DIR, BAND] });
-  assertClosedPolicyTable({ row_format: "class-policy-v2", class: LIQ_CLASS, rows: [] });
+  // An admission is proven by the absence of a refusal: asserted, so a wrong refusal reds by assertion, not by a bare throw.
+  assert.doesNotThrow(() => {
+    for (const row of [MARGINAL, DIR, BAND, RETIRED]) assertClosedPolicyRow(row);
+    for (const c of [KATA_CLASS, LIQ_CLASS]) assertClosedClassEntry(c);
+    assertClosedPolicyTable({ row_format: "class-policy-v2", class: KATA_CLASS, rows: [DIR, BAND] });
+    assertClosedPolicyTable({ row_format: "class-policy-v2", class: LIQ_CLASS, rows: [] });
+  }, "the rows, the class entries and the tables are admitted");
 });
 
 // killer: packages/contracts/src/policy-table.ts:44 SDL "for (const k of Object.keys(shape))" -> ""
