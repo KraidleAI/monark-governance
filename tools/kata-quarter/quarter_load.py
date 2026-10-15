@@ -12,11 +12,11 @@
 # (kata-served-history-v1, scripts/served-history.mjs): read whole under the role served-history, held by class (served_history).
 import datetime
 import hashlib
-import json
+import json, re  # re: the forms of the served history's fields, those of its writer
 
 import io_guard  # already in sys.modules: the entry ran io_guard.py by its path first (never found by name here)
 import kata_lib as K
-import recalc_p2
+import recalc_p2, report as R  # report.canonical: the writer's canonical writing of a line
 
 FIRST = (2026, 10)  # S_1 = 2026-10-01T00:00Z; S_k is 3(k - 1) calendar months after it, E_k is S_k plus 3 calendar months
 
@@ -139,13 +139,13 @@ def served_history(path, pin):
     file: its lines share merge_commit, t_e, t_f and ca_record_sha256, each names one class once, and the deployments go up in t_e and
     t_f. A class is served from the t_f of each deployment that holds it to the t_f of the next one (open after the last); the
     deployments that hold a class follow each other, else a gap is refused by name (absent before its first one is no gap). Returns
-    {task_class: [(from_ms, to_ms or None)]}."""
+    {task_class: [(from_ms, to_ms or None, its line's policy_table_sha256)]}. The bytes: the writer's canonical text of the lines (render)."""
     data = io_guard.read("served-history", path)
     got = hashlib.sha256(data).hexdigest()
     if got != pin:
         raise Refused(f"served history refused before parsing: sha256 {got} differs from the pinned {pin}")
     try:
-        lines = json.loads(data.decode("utf-8"))
+        lines = json.loads(data.decode("utf-8"), object_pairs_hook=unique)
     except ValueError:
         raise Refused("served history: not a JSON text") from None
     deps = {}
@@ -154,21 +154,23 @@ def served_history(path, pin):
             raise Refused(f"served history: a line whose fields are not the closed {list(HISTORY)}: {sorted(x) if type(x) is dict else x!r}")
         if type(x["task_class"]) is not str:
             raise Refused(f"served history: a line that carries a list of classes, or no class: {x['task_class']!r}")
-        if x["format"] != "kata-served-history-v1" or any(type(x[f]) is not str for f in HISTORY) or None in (second(x["t_e"]), second(x["t_f"])) \
-                or second(x["t_e"]) > second(x["t_f"]):
-            raise Refused(f"served history: {x['release_dir']!r} {x['task_class']}: not a kata-served-history-v1 line (format, strings, t_e <= t_f)")
-        d = deps.setdefault(x["release_dir"], {"common": tuple(x[f] for f in HISTORY[5:]), "classes": []})
+        if x["format"] != "kata-served-history-v1" or any(type(x[f]) is not str for f in HISTORY) or not all(re.fullmatch(p, x[f]) for f, p in FORMS.items()) \
+                or not day(x["release_dir"]) or None in (second(x["t_e"]), second(x["t_f"])) or second(x["t_e"]) > second(x["t_f"]):
+            raise Refused(f"served history: {x['release_dir']!r} {x['task_class']}: not a kata-served-history-v1 line (format, fields of their form, t_e <= t_f)")
+        d = deps.setdefault(x["release_dir"], {"common": tuple(x[f] for f in HISTORY[5:]), "classes": {}})
         if x["task_class"] in d["classes"] or d["common"] != tuple(x[f] for f in HISTORY[5:]):
             raise Refused(f"served history: {x['release_dir']} {x['task_class']}: a pair written twice, or a deployment whose lines differ on "
                           "merge_commit, t_e, t_f or ca_record_sha256")
-        d["classes"].append(x["task_class"])
+        d["classes"][x["task_class"]] = x["policy_table_sha256"]
+    if data != ("[\n" + ",\n".join(R.canonical(x) for x in sorted(lines, key=lambda x: (x["t_e"], x["task_class"]))) + "\n]\n").encode("ascii"):
+        raise Refused("served history: not the writer's canonical text of its lines (a JSON array, one canonical element per line, sorted by t_e and task_class)")
     names, te, tf = list(deps), [second(d["common"][1]) for d in deps.values()], [second(d["common"][2]) for d in deps.values()]
     if any(a >= b for a, b in [*zip(te, te[1:]), *zip(tf, tf[1:])]):
         raise Refused(f"served history: deployments not in the order of their t_e and t_f: {names}")
     service = {}
     for i, d in enumerate(deps.values()):
         for c in d["classes"]:
-            service.setdefault(c, []).append((tf[i], tf[i + 1] if i + 1 < len(tf) else None))
+            service.setdefault(c, []).append((tf[i], tf[i + 1] if i + 1 < len(tf) else None, d["classes"][c]))
     for c in service:
         held = [i for i, d in enumerate(deps.values()) if c in d["classes"]]
         gap = next((names[i] for i in range(held[0], held[-1]) if i not in held), None)
@@ -178,6 +180,25 @@ def served_history(path, pin):
 
 
 def served_in(spans, s_k, e_k):
-    """The service of a class in Q_k = [s_k, e_k) from its spans: (from_ms, to_ms), a half-open span within Q_k; None if none meets it."""
-    met = [(max(s_k, a), e_k if b is None else min(e_k, b)) for a, b in spans if a < e_k and (b is None or b > s_k)]
-    return (min(a for a, _ in met), max(b for _, b in met)) if met else None
+    """The service of a class in Q_k = [s_k, e_k) from its spans: (from_ms, to_ms, the tables of the spans that meet Q_k); None if none."""
+    met = [(max(s_k, a), e_k if b is None else min(e_k, b), t) for a, b, t in spans if a < e_k and (b is None or b > s_k)]
+    return (min(m[0] for m in met), max(m[1] for m in met), [m[2] for m in met]) if met else None
+
+
+FORMS = {"release_dir": r"contract-1\.1\.0-tables-[0-9]{4}-[0-9]{2}-[0-9]{2}", "task_class": "[a-z0-9]+(-[a-z0-9]+)*", "merge_commit": "[0-9a-f]{40}",
+         **dict.fromkeys(HISTORY[3:5] + HISTORY[8:], "[0-9a-f]{64}")}  # checkLine of scripts/served-history.mjs, ASCII digits only
+
+
+def day(s):
+    """validDate of scripts/spec-publish.mjs on the YYYY-MM-DD that ends s: a real day of a year from 100 (Date.UTC reads 0 to 99 as 19xx)."""
+    try:
+        return datetime.date(int(s[-10:-6]), int(s[-5:-3]), int(s[-2:])).year >= 100
+    except ValueError:
+        return False
+
+
+def unique(pairs):
+    """The object_pairs_hook of the reader: a key written twice in one object is refused by name (json.loads would keep the last)."""
+    if len({k for k, _ in pairs}) != len(pairs):
+        raise Refused(f"served history: a key written twice in one object: {sorted(k for k, _ in pairs)}")
+    return dict(pairs)

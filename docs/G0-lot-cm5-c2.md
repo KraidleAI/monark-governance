@@ -72,7 +72,7 @@ the oracle act (plan l.594, l.361). `fires` is `binom_exact.binom_upper_tail_leq
 value stops the run in `report.canonical` (report.py l.84-101). No price, no instant of a miss, no month of the misses (plan l.467).
 
 **What c2b adds to it** (no evidence is versioned before c2b, the first `live:1` being possible after 2027-01-01, plan l.476-477): the
-pin of the served history read (plan l.434), the first and last instants of service of each row (plan l.465-466), the completeness
+pin of the served history read (plan l.434), the first and last instants of service of each row (plan l.465-466) and the tables of the history lines of that service (§9), the completeness
 `present` and `expected` by symbol and the prudent variant of each row (plan l.465, l.1059-1061, l.1241-1248). The name of the format
 stays `kata-quarter-counts-v1`: it is closed at the freeze of c2b, the last lot that writes it.
 
@@ -165,35 +165,44 @@ python -E -S -s -B -P tools/kata-quarter/quarter_counts.py vectors <out dir>
 
 | Choice | Fixed as | Rests on |
 |---|---|---|
-| The reader of the history | `quarter_load.served_history`: the file read whole under the role `served-history` (`io_guard.read`, noted as an input), refused before parsing unless its sha256 is the pin given, then `json.loads` of the whole text (never line by line); a non-empty array of lines with exactly the nine closed fields, all strings, `format` `kata-served-history-v1`, `t_e` and `t_f` real UTC seconds, `t_e <= t_f` | plan l.526, l.551, l.819-823, l.922 |
+| The reader of the history | `quarter_load.served_history`: the file read whole under the role `served-history` (`io_guard.read`, noted as an input), refused before parsing unless its sha256 is the pin given, then `json.loads` of the whole text (never line by line), a key written twice in one object refused by name (`object_pairs_hook`); a non-empty array of lines with exactly the nine closed fields, all strings of the writer's form (`checkLine` of `scripts/served-history.mjs`: `format` `kata-served-history-v1`, `release_dir` `contract-1.1.0-tables-` and a real day, `task_class` lower-case words joined by `-`, `merge_commit` 40 hex, the three digests 64 hex, ASCII digits only), `t_e` and `t_f` real UTC seconds, `t_e <= t_f`; and the bytes equal to the writer's canonical text of the parsed lines, the rule `render` applies to an existing file: `[` and a line feed, the elements written by `report.canonical` of the frozen tool (imported, never copied), sorted by (`t_e`, `task_class`), one per line, joined by `,` and a line feed, then a line feed, `]` and a line feed. One check refuses by name a deployment split around another, lines out of that order and a pretty-printed array | plan l.526, l.551, l.819-823, l.922 |
 | A deployment | a `release_dir`, in the order of the file: its lines share `merge_commit`, `t_e`, `t_f` and `ca_record_sha256` and name each class once; the deployments go up in `t_e` and in `t_f` (else refused by name) | plan l.540-551 |
 | The gap (L-T13) | the deployments that hold a class follow each other in the file: a class held before and after a deployment that has no line for it is refused by name, which holds the plan's D_{i-1}, D_{i+1} case and a longer absence alike; a class absent before its first deployment is no gap; a class absent from the last deployments and never back is served up to the t_f of the first one without it | plan l.536, l.542-546 |
 | The service of a class | [t_f(D), t_f of the next deployment of the file) for each D that holds it, open after the last | plan l.533-535, l.542-544 |
 | The rows counted | the region rows of the registry whose class is served at an instant of Q_k; the others are not counted, and a quarter with none is refused by name. The venue stays the symbols of every row of the registry | plan l.334, l.533 |
 | The instants of service | `served_from` and `served_to` of each row: the span [from, to) of its service within Q_k, UTC seconds | plan l.465-466, R-5 l.1291-1292 |
+| The tables of a row's service | `served_tables` of each row: the `policy_table_sha256` of each history line of its class whose span of service meets Q_k, in the order of the file (one per such line) | plan l.533-535; the departure below |
 | The pin of the history | `served_history_sha256`, the pin it was read under | plan l.434 |
 | Completeness | by symbol, in counts: `present` (the candles of the LIVE read in Q_k), `expected` (the slots of Q_k) and `complete`, the integer test `1000 present >= 999 expected` | plan l.470-471, l.1059-1061 |
 | The prudent variant | `prudent` of each row: `n_test` + d, `k_test` + d, d its drops and its instants out, and its fire by the same `fires`, or `"out_of_domain"` above `LIVE_N_MAX` of its horizon (2208 at 1h, 552 at 4h, policy-wave2.ts l.16). A count never passes it (its grid is at most the longest quarter): a test lowers the cap in a stand-in to reach it | plan l.1241-1248 |
 | The L-T7 vectors | written by the tool, `vectors <out dir>` (`quarter_evidence.vectors`, no new module): one canonical line, format `kata-veto-vectors-v1`, alpha `0.01`, level `0.05`, by horizon `[n, k, u_test, fires]` for n from 1 to `LIVE_N_MAX` and k = k* - 1, k*, k* + 1 within 0 <= k <= n, k* the least k that fires: 8278 pairs. `u_test` by `quarter_oracle.u_test` (`miss_upper_bound`, `"1"` when k = n), the fire by `quarter_evidence.fires` (`binom_upper_tail_leq`), the very functions of the evidence | plan l.915 |
 | The writing | `write(out, name, value)`: `<name>.part` then `os.rename` (io_guard admits the rename of a file the run wrote); the evidence and the vectors alike | KQ-EVIDENCE-ATOMIC-WRITE-1 |
-| The output folder | judged before any input (`place`): its parent a folder, itself no link, under no input folder | KQ-C2A-NITS-1, nit-5 |
+| The output folder | judged before any input (`place`): its parent a folder, itself no link (nor a junction, which `os.path.islink` does not see on Windows), under no input folder | KQ-C2A-NITS-1, nit-5 |
 
 **Departures, argued.** L-T7 has two halves in two files: the regeneration (`veto_vectors_written_again`) needs the pinned Python and
 runs in `test/kata-quarter.test.ts`; the cross test (`u_test_and_fire_cross_equal`, the plan's name) is TS only and runs in
 `test/kata-quarter-vectors.test.ts`, in test:main. The comment of `FLAGS` no longer says that no served history enters a count: it
 enters as a positional input, never an option, and moves no count, only which rows are counted and their span (plan l.819-820).
 
+**The table of a counted row is recorded, not checked (plan l.533-535): a departure.** The plan counts a row when a history line of its
+class has a span of service that meets Q_k *and* the table of that line (`policy_table_sha256`) carries the counted row. The second
+condition cannot be checked in this lot: no role of the tool reads a served table (`count` declares `series`, `recorder`, `registry`,
+`served-history` and `tool-tree`), and the rows of the registry carry no table digest to compare with. So the evidence records what
+the check needs: `served_tables`, for each counted row, the `policy_table_sha256` of each history line of its service in Q_k (a closed
+key of the row, held by `served_history_reader_refuses_gap`). The lot that composes the served table with the evidence (CM5-d, plan
+l.553-559) checks that each of those tables carries its row; until then a row is counted on the service of its class alone.
+
 **Tests** (`test/kata-quarter.test.ts` unless named; each red by the killer it names, applied alone):
 
 | Test | Killers |
 |---|---|
-| `served_history_reader_refuses_gap` (L-T13): a history of three deployments written by `render` of `scripts/served-history.mjs` (the writer); each row's span; a class served after Q_1 not counted; a gap, a pair twice, a deployment whose lines differ, a list of classes, an unknown key, another pin refused by name; the input noted under `served-history` | `quarter_load.py` the gap, the closed fields, the class a string, the pair twice, the pin, the end of a span; `quarter_counts.py` the filter of the rows |
+| `served_history_reader_refuses_gap` (L-T13): a history of three deployments written by `render` of `scripts/served-history.mjs` (the writer); each row's span and `served_tables`, read in the evidence; a class served after Q_1 not counted; a gap, a pair twice, a deployment whose lines differ, a list of classes, an unknown key, another pin, a key twice in one object, a deployment split around another, lines not sorted, a pretty-printed array, a `release_dir` off the writer's form or of no real day, a `merge_commit` off its form, two deployments of one `t_e`, a `t_f` before the previous deployment's, `t_e` after `t_f`, another format, a number in a field, a second written otherwise (`2026-9-1T10:00:00Z`) refused by name; a history of a class foreign to the registry refused (no served row); the input noted under `served-history` | `quarter_load.py` the gap, the closed fields, the class a string, the pair twice, the pin, the end of a span, the repeated key, the canonical text, the forms, the format, the strings, `t_e <= t_f`, the second's round trip, the order of the deployments, the tables of a span; `quarter_counts.py` the filter of the rows, the refusal of a quarter with no served row |
 | `completeness_and_prudent_variant`: 8 candles absent of 8832 complete, 9 not; each row's prudent pair and its fire equal to `vetoFires` of the guard; `out_of_domain` above the cap | `quarter_evidence.py` 999 made 998; d without the instants out; the cap made true |
 | `veto_vectors_written_again`: the file again byte for byte, named by the pin of its provenance; at n 2208, k 30 does not fire, k 31 fires | `quarter_evidence.py` the grid of k; the level of `fires` made 0.5 (R2) |
 | `evidence_written_whole_or_not_at_all`: one file after a run; under `ulimit -f 1` (Linux) exit 2 and no `quarter-1.json` | `quarter_evidence.py` the `.part` name made the evidence's |
 | `u_test_and_fire_cross_equal` (`test/kata-quarter-vectors.test.ts`): `typeof G.uTest` is a function, then `vetoFires` and `uTest` equal the 8278 vectors | `policy-guard.ts:29` the plan's killer; `:33` the "1" of k = n removed |
-| `quarter_evidence_closed_canonical` (changed): the pins of the registry, of the history and of both reads, the gaps and the completeness of the fixture, `halts`, `grid`, `pose` and `log` equal to the JSON line's (`max_ulps` apart), the closed keys of `log`; the frozen tool's tree equal between two commits | R3, R4, R5, R6, R8 |
-| `count_refuses_by_name` (changed): an output whose parent is absent, an output in the LIVE folder | `quarter_evidence.py` each half of `place` |
+| `quarter_evidence_closed_canonical` (changed): the pins of the registry and of the history, each the sha256 of the file the test gives, and of both reads, the gaps and the completeness of the fixture, `halts`, `grid`, `pose` and `log` equal to the JSON line's (`max_ulps` apart), the closed keys of `log`; the frozen tool's tree equal between two commits | R3, R4, R5, R6, R8; `quarter_counts.py` the history's pin made the registry's |
+| `count_refuses_by_name` (changed): an output whose parent is absent, an output in the LIVE folder, an output that is a link | `quarter_evidence.py` each part of `place` |
 
 **The carried items.** KQ-EVIDENCE-PROVENANCE-VALUES-TEST-1: R3, R4, R5, R6 and R8 red in `quarter_evidence_closed_canonical` (R5
 through `grid`: the fixture has no halt). KQ-FIRE-THRESHOLD-TEST-1: (2208, 30) and (2208, 31) held under the pinned CPython by the
@@ -217,3 +226,7 @@ before any byte is written; R9 stays green, the plan's killer (`js_json_compact`
   with about 750 MB; no file of this part is theirs. The count records written from that run (313 files, 3227 tests), the count check
   against the trunk clean.
 - `node scripts/lint-ratchet.mjs`: 69/69. tsc and eslint on the touched files: clean. Anchors: 101 killers, 101 anchored.
+- After the first review (the history read as the writer writes it, the table of each counted row recorded, the refusals of §9 each
+  held by a case): `test/kata-quarter.test.ts` 29 tests, 29 pass, with no `node_modules` (the condition of the CI job that runs it),
+  105 s on this host; the driver's judge of that run empty. The killers of the three changed tests and the review's mutants, 53, each
+  applied alone: each turns its test red, each file restored to its sha256. Anchors: 89 killers in this file, 89 anchored.

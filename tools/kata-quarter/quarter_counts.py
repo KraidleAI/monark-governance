@@ -107,7 +107,7 @@ def count(registry, pin, history, hpin, sealed_dir, live_dir, k, out, specs):
            "series": {f: {"sealed": r[0]["pin"], "live": r[1]["pin"], "gaps": sum(map(len, r[2]["gaps"].values())), "present": len(r[1]["candles"]),
                           "expected": (e_k - s_k) // Q.K.STEP_MS} for f, r in reads.items()}}
     for row in res["rows"]:
-        row["served_from"], row["served_to"] = map(Q.iso, service[row["task_class"]])
+        row["served_from"], row["served_to"], row["served_tables"] = *map(Q.iso, service[row["task_class"]][:2]), service[row["task_class"]][2]
     differ, (name, digest) = res.pop("differ"), V.write(out, f"quarter-{k}.json", V.evidence(res, ident))
     lines = [MODEL, f"# quarter_counts.py count - the counts of the region rows of the registry on quarter {k}",
              json.dumps(res, sort_keys=True, separators=(",", ":")), *(f"decision differs {d}" for d in differ),

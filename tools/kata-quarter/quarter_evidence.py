@@ -10,7 +10,7 @@
 # the misses: integers, ASCII strings, booleans and null. Written by report.canonical of the frozen tool (sorted keys, no space, no line
 # feed; a double or a string that is not ASCII stops the run) into <out>/quarter-<k>.json, an output of the run. A quarter whose LIVE
 # read accounts for no slot up to E_k is open: refused by name. Lot c2b: the pin of the served history read, each row's service in Q_k
-# (served_from, served_to), each symbol's completeness in counts (present, expected, complete: 1000 present >= 999 expected) and each
+# (served_from, served_to, served_tables), each symbol's completeness in counts (present, expected, complete: 1000 present >= 999 expected) and each
 # row's prudent variant (CM5-COMPLETENESS-1: n_test + d, k_test + d, d its drops and instants out, its fire within LIVE_N_MAX); the
 # file is written whole or not at all (a .part renamed); vectors() makes the L-T7 vectors of the TS guard's vetoFires and uTest.
 import hashlib
@@ -26,7 +26,7 @@ FORMAT = "kata-quarter-counts-v1"
 EVIDENCE_KEYS = ("format", "quarter", "registry_sha256", "served_history_sha256", "series", "halts", "grid", "pose", "log", "rows", "identity")
 LOG_KEYS = ("decides", "inputs", "inputs_differing", "decisions_differing")
 ROW_KEYS = ("task_class", "key", "calib_attempt", "alpha", "horizon", "n_test", "k_test", "u_test", "fires", "drops_label", "out_input",
-            "served_from", "served_to", "prudent")
+            "served_from", "served_to", "served_tables", "prudent")
 LIVE_N_MAX = {"1h": 2208, "4h": 552}  # apps/harness/src/policy-wave2.ts l.16, the longest quarter
 
 
@@ -77,9 +77,9 @@ def vectors():
 
 
 def place(out, inputs):
-    """The output folder judged before any input is read: its parent a folder, itself no link and under no input folder."""
+    """The output folder judged before any input is read: its parent a folder, itself no link (nor a junction) and under no input folder."""
     real = os.path.realpath(out)
-    if not os.path.isdir(os.path.dirname(out)) or os.path.islink(out) or any(real == d or real.startswith(d + os.sep) for d in map(os.path.realpath, inputs)):
+    if not os.path.isdir(os.path.dirname(out)) or os.path.islink(out) or os.path.isjunction(out) or any(real == d or real.startswith(d + os.sep) for d in map(os.path.realpath, inputs)):
         raise Q.Refused(f"the output folder {out}: its parent is not a folder, it is a link, or it lies in an input folder")
 
 

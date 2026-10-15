@@ -11,7 +11,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -208,12 +208,12 @@ const put = (dir: string, folder: string, s: Series): string => {
   writeFileSync(join(dir, folder, MISSING), `${JSON.stringify(s.missing)}\n`);
   return dir;
 };
-type Row = { task_class: string; horizon: string; n_test: number; k_test: number; drops_label: number; out_input: number; served_from: string; served_to: string };
+type Row = { task_class: string; horizon: string; n_test: number; k_test: number; drops_label: number; out_input: number; served_from: string; served_to: string; served_tables: string[] };
 type Counts = { grid: Record<string, { instants: number; first: string; last: string }>; halts: unknown[]; rows: Row[] };
 const hex = (t: string): string => createHash("sha256").update(t).digest("hex");
 /** The line of the class c in the served history for the deployment of the day d (t_e at 10:00Z, t_f at 11:00Z), made-up digests. */
 const served = (d: string, c: string): HistoryLine => ({ format: "kata-served-history-v1", release_dir: `contract-1.1.0-tables-${d}`, task_class: c,
-  policy_table_sha256: hex(`table ${c}`), probe_record_sha256: hex(`probe ${d} ${c}`), merge_commit: hex(d).slice(0, 40), t_e: `${d}T10:00:00Z`, t_f: `${d}T11:00:00Z`, ca_record_sha256: hex(`ca ${d}`) });
+  policy_table_sha256: hex(`table ${d} ${c}`), probe_record_sha256: hex(`probe ${d} ${c}`), merge_commit: hex(d).slice(0, 40), t_e: `${d}T10:00:00Z`, t_f: `${d}T11:00:00Z`, ca_record_sha256: hex(`ca ${d}`) });
 const CLASSES = ["syn-range-1h", "syn-range-4h", "syn-mae-down-1h", "alt-range-1h", "alt-mae-up-1h", "bis-mae-up-1h"];
 /** A served history under a new folder, its path and pin: the deployments [day, classes] written by render of scripts/served-history.mjs
  *  (the writer, a JSON array, one canonical line per element), or the text given. By default one deployment of 2026-09-01, every class. */
@@ -369,6 +369,7 @@ test("count_refuses_by_name - count refuses by name, exit 2: a registry under an
   const spec = `${SYM}:${sha256(join(sealed, SYM, SERIES))}:${sha256(join(live, SYM, SERIES))}`, copy = join(work, "live");
   const run = (reg: string, pin: string, specs: string[], out = join(work, "e"), lv = live): Run => tool().run(["count", reg, pin, ...history(), sealed, lv, "1", out, ...specs]);
   cpSync(live, copy, { recursive: true });
+  symlinkSync(mkdtempSync(join(tmpdir(), "kata-quarter-target-")), join(work, "link"), "junction"); // a link to an empty folder (a junction on win32)
   const two = regWith(work, "attempt2.json", (rows) => rows.map((x) => (x.taskClass === "syn-range-1h" ? { ...x, calibAttempt: 2 } : x)));
   const venue = regWith(work, "venue.json", (rows) => [...rows, { ...rows[3], taskClass: "alt-mae-up-1h" }]);
   // killer: tools/kata-quarter/quarter_core.py:41 CONST "r[\"calibAttempt\"] != 1" -> "False"
@@ -383,7 +384,9 @@ test("count_refuses_by_name - count refuses by name, exit 2: a registry under an
     // killer: tools/kata-quarter/quarter_evidence.py:82 CONST "not os.path.isdir(os.path.dirname(out)) or " -> ""
     ["an output whose parent is absent", run(REG, sha256(REG), [spec], join(work, "absent", "e")), "its parent is not a folder, it is a link, or it lies in an input folder"],
     // killer: tools/kata-quarter/quarter_evidence.py:82 CONST " or any(real == d or real.startswith(d + os.sep) for d in map(os.path.realpath, inputs))" -> ""
-    ["an output in the LIVE folder", run(REG, sha256(REG), [spec], join(copy, "e"), copy), "its parent is not a folder, it is a link, or it lies in an input folder"]] as const) {
+    ["an output in the LIVE folder", run(REG, sha256(REG), [spec], join(copy, "e"), copy), "its parent is not a folder, it is a link, or it lies in an input folder"],
+    // killer: tools/kata-quarter/quarter_evidence.py:82 CONST " or os.path.islink(out)" -> ""
+    ["an output that is a link", run(REG, sha256(REG), [spec], join(work, "link")), "its parent is not a folder, it is a link, or it lies in an input folder"]] as const) {
     assert.equal(r.status, 2, `${name}: exit 2\n${r.stdout}${r.stderr}`);
     assert.ok(r.stdout.startsWith("REFUSED: ") && r.stdout.includes(re), `${name}: refused by name\n${r.stdout}`);
   }
@@ -671,7 +674,7 @@ test("pseudo_quarter_2026_07_09 - the count on [2026-07-01, 2026-10-01) equals t
 // The evidence of the quarter (docs/G0-lot-cm5-c2.md): count writes it into <out dir>/quarter-<k>.json, one line of report.canonical of
 // the frozen tool, format kata-quarter-counts-v1, and names it by its sha256 on the line "evidence".
 const EVIDENCE = ["format", "grid", "halts", "identity", "log", "pose", "quarter", "registry_sha256", "rows", "series", "served_history_sha256"];
-const ROW = ["alpha", "calib_attempt", "drops_label", "fires", "horizon", "k_test", "key", "n_test", "out_input", "prudent", "served_from", "served_to", "task_class", "u_test"];
+const ROW = ["alpha", "calib_attempt", "drops_label", "fires", "horizon", "k_test", "key", "n_test", "out_input", "prudent", "served_from", "served_tables", "served_to", "task_class", "u_test"];
 type Prudent = { n_test: number; k_test: number; fires: boolean | string };
 type Evidence = { format: string; rows: (Row & { key: string; alpha: string; u_test: string | null; fires: boolean; prudent: Prudent })[]; identity: Record<string, string>; series: Record<string, object> } & Record<string, unknown>;
 /** count on Q_1, its evidence under a new folder: the run, the bytes of the evidence (empty when none is written) and the folder. */
@@ -701,9 +704,10 @@ test("refuses_open_quarter - count refuses by name, exit 2 and no evidence writt
 // its sha256 on the line evidence, or holding a word the public gate refuses
 // killer: tools/kata-quarter/quarter_evidence.py:26 CONST "EVIDENCE_KEYS = (" -> "EVIDENCE_KEYS = (\"miss_times\", "
 // killer: tools/kata-quarter/quarter_evidence.py:29 CONST "\"prudent\")" -> "\"prudent\", \"months\")"
+// killer: tools/kata-quarter/quarter_counts.py:106 CONST "\"served_history_sha256\": hpin" -> "\"served_history_sha256\": pin"
 test("quarter_evidence_closed_canonical - count writes the evidence of Q_1 into <out dir>/quarter-1.json, named by its sha256 on the line evidence: one ASCII line of the closed format kata-quarter-counts-v1, its keys and each row's, integers, strings, booleans and null only, no month, price or instant of a miss; its identity block is the line identity, apart: the evidence of another commit is the same but for it; the public vocabulary gate finds nothing", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_evidence.py")), `${QUARTER}/quarter_evidence.py absent`);
-  const { r, raw, out } = evidenceOf(join(FIXTURE, "sealed"), join(FIXTURE, "live")), text = raw.toString("ascii");
+  const h = history(), { r, raw, out } = evidenceOf(join(FIXTURE, "sealed"), join(FIXTURE, "live"), { served: h }), text = raw.toString("ascii");
   assert.equal(r.status, 0, `count on the fixture: exit 0\n${r.stdout}${r.stderr}`);
   assert.ok(raw.length > 0 && raw.every((b) => b >= 0x20 && b < 0x7f), "one line of printable ASCII, no line feed");
   assert.ok(linesOf(r.stdout).includes(`evidence quarter-1.json sha256 ${sha256(join(out, "quarter-1.json"))}`), `named by its sha256\n${r.stdout}`);
@@ -711,7 +715,7 @@ test("quarter_evidence_closed_canonical - count writes the evidence of Q_1 into 
   assert.deepEqual([Object.keys(ev), ev.format], [EVIDENCE, "kata-quarter-counts-v1"], "the closed keys, sorted, and the format");
   assert.deepEqual(ev.rows.map((x) => [x.task_class, Object.keys(x)]), ["syn-range-1h", "syn-range-4h", "syn-mae-down-1h"].map((c) => [c, ROW]), "each region row, its closed keys");
   const line = JSON.parse(linesOf(r.stdout).find((l) => l.startsWith("{")) ?? "null") as Record<string, unknown> & { log: Record<string, unknown> }, log = Object.fromEntries(Object.entries(line.log).filter(([k]) => k !== "max_ulps"));
-  assert.deepEqual([ev.registry_sha256, ev.served_history_sha256, ev.series], [sha256(REG), line.served_history_sha256, { [SYM]: { complete: true, expected: 8832, gaps: 3, present: 8829,
+  assert.deepEqual([ev.registry_sha256, ev.served_history_sha256, ev.series], [sha256(REG), sha256(h[0]), { [SYM]: { complete: true, expected: 8832, gaps: 3, present: 8829,
     quarter_sha256: sha256(join(FIXTURE, "live", SYM, SERIES)), sealed_sha256: sha256(join(FIXTURE, "sealed", SYM, SERIES)) } }], "the pins of the registry and of the two reads, the three gaps of the LIVE series, its completeness");
   assert.deepEqual([ev.halts, ev.grid, ev.pose, ev.log, Object.keys(ev.log as object)], [line.halts, line.grid, line.pose, log, ["decides", "decisions_differing", "inputs", "inputs_differing"]], "the halts, the grid, the pose and the census of the log, max_ulps apart");
   const id = IDENTITY.exec(r.stdout) ?? [];
@@ -764,27 +768,42 @@ const refusedBy = (served: [string, string]): Run => count(join(FIXTURE, "sealed
 // reddened by: a gap admitted (a class held by a deployment before and after one that has no line for it), a pair written twice or a
 // deployment whose lines differ admitted, a line that carries a list of classes or an unknown key admitted, a history parsed under
 // another pin, the absence before the first deployment of a class taken for a gap, a row counted though its class is not served in Q_k,
-// a span of service off the deployments' t_f, or the history not noted under the role served-history
-// killer: tools/kata-quarter/quarter_load.py:175 CONST "if gap:" -> "if False:"
+// a span of service off the deployments' t_f, or the history not noted under the role served-history; a key twice in one object, bytes
+// off the writer's canonical text or a field off its form admitted, deployments out of order, t_e after t_f, a quarter with no served row
+// counted, or a row's tables not those of its lines that meet Q_k
+// killer: tools/kata-quarter/quarter_load.py:202 CONST "len({k for k, _ in pairs}) != len(pairs)" -> "False"
+// killer: tools/kata-quarter/quarter_load.py:165 CONST "if data != (" -> "if False and data != ("
+// killer: tools/kata-quarter/quarter_load.py:157 CONST " or not all(re.fullmatch(p, x[f]) for f, p in FORMS.items())" -> ""
+// killer: tools/kata-quarter/quarter_load.py:158 CONST "not day(x[\"release_dir\"]) or " -> ""
+// killer: tools/kata-quarter/quarter_load.py:157 CONST "x[\"format\"] != \"kata-served-history-v1\" or " -> ""
+// killer: tools/kata-quarter/quarter_load.py:157 CONST " or any(type(x[f]) is not str for f in HISTORY)" -> ""
+// killer: tools/kata-quarter/quarter_load.py:158 CONST " or second(x[\"t_e\"]) > second(x[\"t_f\"])" -> ""
+// killer: tools/kata-quarter/quarter_load.py:133 CONST "return ms if iso(ms) == s else None" -> "return ms"
+// killer: tools/kata-quarter/quarter_load.py:168 CONST "any(a >= b for a, b in" -> "any(a > b for a, b in"
+// killer: tools/kata-quarter/quarter_counts.py:94 CONST "if not rows:" -> "if False:"
+// killer: tools/kata-quarter/quarter_load.py:185 CONST "[m[2] for m in met]" -> "[s[2] for s in spans]"
+// killer: tools/kata-quarter/quarter_load.py:177 CONST "if gap:" -> "if False:"
 // killer: tools/kata-quarter/quarter_load.py:153 CONST "sorted(x) != sorted(HISTORY)" -> "False"
 // killer: tools/kata-quarter/quarter_load.py:155 CONST "type(x[\"task_class\"]) is not str" -> "False"
 // killer: tools/kata-quarter/quarter_load.py:161 CONST "x[\"task_class\"] in d[\"classes\"] or " -> ""
 // killer: tools/kata-quarter/quarter_load.py:145 CONST "got != pin" -> "False"
 // killer: tools/kata-quarter/quarter_counts.py:93 CONST "rows = [x for x in rows if service[x[0][\"taskClass\"]]]" -> "rows = rows"
-// killer: tools/kata-quarter/quarter_load.py:182 CONST "min(e_k, b)" -> "e_k"
+// killer: tools/kata-quarter/quarter_load.py:184 CONST "min(e_k, b)" -> "e_k"
 test("served_history_reader_refuses_gap - count reads the served history whole under the role served-history, class by class: each row counted with its span of service in Q_k, a class served after Q_k left out, a class absent before its first deployment admitted; a gap, a pair twice, a deployment whose lines differ, a list of classes, an unknown key or another pin refused by name, exit 2", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_load.py")), `${QUARTER}/quarter_load.py absent`);
   // syn-range-4h withdrawn by the deployment of 2026-11-10, syn-mae-down-1h served from it: no gap, only the spans of Q_1 that they meet
   const spans = history(days(["2026-09-01", ["syn-range-1h", "syn-range-4h"]], ["2026-11-10", ["syn-range-1h", "syn-mae-down-1h"]], ["2027-01-05", ["syn-range-1h", "syn-mae-down-1h"]]));
-  const { r, c } = count(join(FIXTURE, "sealed"), join(FIXTURE, "live"), 1, [SYM], { served: spans });
+  const { r, raw } = evidenceOf(join(FIXTURE, "sealed"), join(FIXTURE, "live"), { served: spans }), t = (d: string, c: string): string[] => [hex(`table ${d} ${c}`)];
   assert.equal(r.status, 0, `count under a history of three deployments: exit 0\n${r.stdout}${r.stderr}`);
-  assert.deepEqual(c.rows.map((x) => [x.task_class, x.served_from, x.served_to]), [["syn-range-1h", iso(S1), iso(E1)], ["syn-range-4h", iso(S1), "2026-11-10T11:00:00Z"],
-    ["syn-mae-down-1h", "2026-11-10T11:00:00Z", iso(E1)]], "each row's service in Q_1, from the t_f of its deployments");
+  assert.deepEqual((JSON.parse(raw.toString("ascii")) as Evidence).rows.map((x) => [x.task_class, x.served_from, x.served_to, x.served_tables]), [["syn-range-1h", iso(S1), iso(E1),
+    [...t("2026-09-01", "syn-range-1h"), ...t("2026-11-10", "syn-range-1h")]], ["syn-range-4h", iso(S1), "2026-11-10T11:00:00Z", t("2026-09-01", "syn-range-4h")],
+    ["syn-mae-down-1h", "2026-11-10T11:00:00Z", iso(E1), t("2026-11-10", "syn-mae-down-1h")]], "each row's service in Q_1, from the t_f of its deployments, and the table of each of its lines that meets Q_1");
   assert.ok(linesOf(r.stdout).includes(`input served-history served-history.json sha256 ${spans[1]} bytes ${readFileSync(spans[0]).length}`), `noted under its role\n${r.stdout}`);
   const later = count(join(FIXTURE, "sealed"), join(FIXTURE, "live"), 1, [SYM], { served: history(days(["2026-09-01", ["syn-range-1h"]], ["2027-01-05", ["syn-range-1h", "syn-range-4h"]])) });
   assert.equal(later.r.status, 0, `count with two classes served after Q_1: exit 0\n${later.r.stdout}${later.r.stderr}`);
   assert.deepEqual(later.c.rows.map((x) => x.task_class), ["syn-range-1h"], "only the row whose class is served in Q_1 is counted");
   const text = (lines: object[]): string => `[\n${lines.map(canonicalJson).join(",\n")}\n]\n`, one = served("2026-09-01", "syn-range-1h");
+  const [CANON, FORM, ORDER] = ["served history: not the writer's canonical text of its lines", "not a kata-served-history-v1 line (format, fields of their form, t_e <= t_f)", "deployments not in the order of their t_e and t_f"];
   const cases: [string, [string, string], string][] = [
     ["a gap", history(days(["2026-09-01", ["syn-range-1h"]], ["2026-10-20", ["syn-mae-down-1h"]], ["2026-11-10", ["syn-range-1h", "syn-mae-down-1h"]])),
       "served history: gap, syn-range-1h is served before and after contract-1.1.0-tables-2026-10-20, which has no line for it"],
@@ -792,7 +811,18 @@ test("served_history_reader_refuses_gap - count reads the served history whole u
     ["a deployment whose lines differ", history([], text([one, { ...served("2026-09-01", "syn-range-4h"), t_f: "2026-09-01T12:00:00Z" }])), "syn-range-4h: a pair written twice, or a deployment whose lines differ on merge_commit"],
     ["a list of classes", history([], text([{ ...one, task_class: ["syn-range-1h", "syn-range-4h"] }])), "served history: a line that carries a list of classes, or no class: ['syn-range-1h', 'syn-range-4h']"],
     ["an unknown key", history([], text([{ ...one, note: "x" }])), "served history: a line whose fields are not the closed ['format', 'release_dir', 'task_class', "],
-    ["another pin", [spans[0], "0".repeat(64)], `served history refused before parsing: sha256 ${spans[1]} differs from the pinned ${"0".repeat(64)}`]];
+    ["another pin", [spans[0], "0".repeat(64)], `served history refused before parsing: sha256 ${spans[1]} differs from the pinned ${"0".repeat(64)}`],
+    ["a key twice in one object", history([], text([one]).replace("}\n", ',"t_f":"2026-12-01T11:00:00Z"}\n')), "served history: a key written twice in one object: ['ca_record_sha256', "],
+    ["a deployment split around another", history([], text([one, served("2026-10-20", "syn-range-1h"), served("2026-09-01", "syn-range-4h")])), CANON],
+    ["lines not sorted by task_class", history([], text([served("2026-09-01", "syn-range-4h"), one])), CANON], ["a pretty-printed array", history([], JSON.stringify([one], null, 2)), CANON],
+    ["a release_dir off the writer's form", history([], text([{ ...one, release_dir: "x" }])), `served history: 'x' syn-range-1h: ${FORM}`],
+    ["a release_dir of no real day", history([], text([{ ...one, release_dir: "contract-1.1.0-tables-2026-02-30" }])), FORM],
+    ["a merge_commit off its form", history([], text([{ ...one, merge_commit: one.merge_commit.toUpperCase() }])), FORM],
+    ["two deployments of one t_e", history([], render(null, [one, { ...served("2026-09-02", "syn-range-4h"), t_e: one.t_e }])), ORDER],
+    ["a t_f before the one of the deployment before", history([], render(null, [{ ...one, t_f: "2026-09-10T00:00:00Z" }, served("2026-09-05", "syn-range-1h")])), ORDER],
+    ["t_e after t_f", history([], text([{ ...one, t_e: "2026-09-01T12:00:00Z" }])), FORM], ["another format", history([], text([{ ...one, format: "kata-served-history-v2" }])), FORM],
+    ["a number in a field", history([], text([{ ...one, probe_record_sha256: 5 }])), FORM], ["a second written otherwise", history([], text([{ ...one, t_e: "2026-9-1T10:00:00Z" }])), FORM],
+    ["a class foreign to the registry", history(days(["2026-09-01", ["alt-range-1h"]])), "no region row of the registry is served at an instant of quarter 1 by the served history: nothing to count"]];
   for (const [name, h, re] of cases) {
     const x = refusedBy(h);
     assert.equal(x.status, 2, `${name}: exit 2\n${x.stdout}${x.stderr}`);
