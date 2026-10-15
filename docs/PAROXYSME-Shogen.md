@@ -34,7 +34,12 @@
   touchées : en-tête, N-04, §8. Pli de l'après-#253 (#253 versée au tronc, fusion `2d37851b` : ETAT l.800-804 à `2c3f51a8`), le 2026-10-08 à partir de 12:27 UTC
   (`date -u`), par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : source : ETAT à `2c3f51a8` (Bases, §8) ; plié : la partie 1 de PXC-02, qui n'est
   plus que le noyau (Q-M1 (a) de PXC-02), pour les deux phrases que ce registre y plaçait hors du noyau (L-35, N-04, doute 5) ; parties touchées : en-tête,
-  L-35, N-04, §7 (doute 5), §8.
+  L-35, N-04, §7 (doute 5), §8. Pli de l'après-#282 (base `0eafbce0`), le 2026-10-15 à partir de 02:57 UTC (`date -u`), par un worker de
+  PAROXYSME (`claude-opus-5-5`, effort high) : sources : les messages de MONARK `39c0425` et `ae8a0fa` de la boîte, cités « `<commit>` l.N »
+  (§8) ; plié : Q-SH-1 (a), la mention de périmètre datée sur les 54 entrées de L-07 à L-53 et de S-01 à S-07, sans changement d'état ni
+  retrait ; parties touchées : en-tête, §0 (Une entrée par limite, Champs), §2.2, §3.2, §4 (L-36), §8 ; G2 par une instance neuve
+  (`claude-opus-5-5`, effort high), le 2026-10-15 de 03:10 à 03:16 UTC : 11 constats (G2-R15-1 à 11, pièce `G2-rendu.json` du dossier
+  `2026-10-15-registres` de la boîte), pliés par la session PAROXYSME à partir de 03:2x UTC : §0 (Champs), L-35, §7 (doutes 7 et 16), §8.
 - **Bases** : inventaire mesuré à `d8fe354c`, qui y lit aussi ETAT (empreinte `2ef6f107…`, INV-S l.19), et non à `57a131fc` comme ceux
   du Harnais et du Moteur. Toutes les ancres du tronc sont à la base `87b821b0` de `lot/etude-suite` (tête relue par `git ls-remote` le
   2026-10-07 à 17:07 UTC, message `d4b3d07` l.16-17). Le tronc a avancé depuis par les fusions #241 et #235, jusqu'à `eb1beb01`
@@ -62,14 +67,19 @@
   revendication publique nouvelle sur Shōgen (INV-S l.132), qu'interdit CL l.38. Aucun n'est atteint : aucune ligne de `README.md`,
   `apps/site` ou `skills` ne change entre `d8fe354c` et `87b821b0` (`git diff --stat` vide ; avant : INV-S l.69). Restent dues pendant
   l'exception (CL l.39) le recalcul de `sha256(utterance.bytes)` (N-02) et la liaison de la requête (L-02). Aucun label ne change.
-- **Une entrée par limite**, ouverte par le préfixe `- **`, sur quatre lignes au plus (forme de `docs/PAROXYSME-Dojo.md` §0) ; une ligne
-  qui dépasserait 160 caractères continue en retrait, comme au registre du Harnais.
+- **Une entrée par limite**, ouverte par le préfixe `- **`, sur quatre lignes au plus, cinq avec la ligne « périmètre » (Champs) (forme de
+  `docs/PAROXYSME-Dojo.md` §0) ; une ligne qui dépasserait 160 caractères continue en retrait, comme au registre du Harnais.
 - **Étiquettes** : celles de l'inventaire, inchangées : `L-01` à `L-35` (limites du 2026-09-27), `N-01` à `N-16` (nouvelles côté
   MONARK), `L-36` à `L-53` et `S-01` à `S-07` (nouvelles côté Shōgen) ; `SHT-nn` numéroterait les limites trouvées à la tête (§5). Ce
   sont des numéros de ligne de registre, jamais des items, et aucune n'apparaît dans un champ « item ». Le registre Bell emploie aussi
   `L-nn` et `N-nn` : un renvoi le nomme toujours.
 - **Champs** : limite (25 mots au plus) ; source (fichier et ligne à `87b821b0`, ou ligne que l'inventaire a lue hors du tronc) ;
-  touche (texte public que la limite qualifie) ; nature ; item ; porteur ; déclencheur ; état ; suite.
+  touche (texte public que la limite qualifie) ; nature ; item ; porteur ; déclencheur ; état ; suite. Depuis le pli du 2026-10-15, les
+  entrées de L-07 à L-53 et de S-01 à S-07, et elles seules, portent après « état » et « suite » un champ « périmètre » : la limite est hors du
+  périmètre de MONARK et de PAROXYSME, portée par le projet Shōgen, par décision du fondateur du 2026-10-08 (`39c0425` l.6-15 ; Q-SH-1 (a),
+  `ae8a0fa` l.6-8) ; la mention est datée, ne retire rien et ne change ni l'état ni les autres champs de l'entrée ; sous elle, un porteur
+  PAROXYSME ou MONARK et une « demande au mainteneur » se lisent comme la trace d'avant le 2026-10-08, à garder ou à corriger selon la
+  réponse de MONARK (§7, doute 16).
 - **Natures** (celles de l'inventaire) : T théorie · M mesure · D donnée · P dépendance · Dr droit · C capacité.
 - **Propriétaire** (INV-S l.39) : MONARK porte l'outil `attest`, la couture `attested → gate` et les surfaces (§2.1, §3.1) ; Shōgen porte
   le capteur S2, le vérificateur et le certificat 04, par décision du fondateur du 2026-10-03 (ADR-CM l.188) (§2.2, §3.2).
@@ -187,147 +197,205 @@
   item : ADR-0015 pt 11 ; WISHLIST P3bis n°5 (dépôt Shōgen) · porteur : mainteneur Shōgen · déclencheur : non reporté par l'inventaire
     (« bloqué par : Shōgen », INV-S l.83 ; §7, doute 6) ; relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (couvert au dépôt Shōgen) · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-08** · « Amont TLSNotary en alpha ; aucune analyse arbitrée du MPC-TLS. »
   source : 08 l.37 ; PX-IDENT-B l.82 · touche : aucune aujourd'hui (revendication future `tlsn-mpc/1`) · nature : P/T
   item : PXC-08 SHOGEN-SEAM-1, lentille A1 (TLS-N, DECO, QuickSilver ; CC l.291-292) ; PX-Shogen-6 (C4) · porteur : PAROXYSME ; mainteneur
     Shōgen · déclencheur : le choix de l'œuvre (Q2 de PX-IDENT-B), puis l'ADR de PXC-08, avant sa partie 1 (F3)
   état : ouvert (faits mis à jour : QuickSilver identifié ; collision « Lauinger » → Luo et al., INV-S l.84) · suite : C4 non lancée
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-09** · « Double compilation Windows rouge (`TimeDateStamp` COFF). »
   source : 08 l.35 ; PX-IDENT-B l.108 (`/Brepro` NON TROUVÉ) · touche : « recalculable par quiconque » (texte de Shōgen) · nature : C
   item : PXC-11 THIRD-PARTY-1, partie 4 (volet C6 REPRO-3P-1, mutualisé avec KATA-CR-LIBM-1 : CC l.382, INV-M l.157) ; PX-Shogen-7 (C6)
     · porteur : PAROXYSME ; mainteneur Shōgen ; identité et lecture sur place de `/Brepro` : MONARK · déclencheur : PX-IDENT-C0BIS-1
     (PLAN l.545, l.870 ; F1) ; partie 4 de PXC-11 (F4, PLAN l.614)
   état : ouvert · suite : même limite que L-50
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-10** · « Solidité de rustc supposée, jamais établie. »
   source : 08 l.34 ; PX-IDENT-B l.29, l.117 (Wheeler, ACSAC'05) · touche : « recalculable par quiconque » (texte de Shōgen) · nature : T
   item : PXC-11 THIRD-PARTY-1, partie 4 (volet C6 REPRO-3P-1) ; PX-Shogen-8 (C6) · porteur : PAROXYSME ; mainteneur Shōgen · déclencheur :
     partie 4 de PXC-11 (F4) ; C6 non lancée
   état : ouvert · suite : Wheeler libre, lecture sous go de téléchargement (PLAN l.866)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-11** · « Correction du typeur jamais déchargée. »
   source : 08 l.27 · touche : aucune (nombre typé lu côté Hikae ; couture dormante) · nature : T
   item : PX-Shogen-9 (C4, étude du 2026-09-27, hors du dépôt Shōgen : à former, CC l.36-37) ; demande au mainteneur Shōgen, à former
     par PXC-01 partie 2 (§7, doute 14) · porteur : mainteneur Shōgen ; la demande : PAROXYSME · déclencheur : G6, typeur du sujet servi
     (INV-S l.87) ; partie 2 de PXC-01 (F3)
   état : ouvert · suite : Knight-Leveson détenu (INV-S l.182)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-12** · « SHOULD NOT de RFC 9110 adressé aux origines, incontrôlable. »
   source : 08 l.38 · touche : aucune · nature : T/M
   item : PX-Shogen-10 (C8) · porteur : mainteneur Shōgen ; lecture sur place : MONARK · déclencheur : lecture sur place des conditions
     d'usage des origines (INV-S l.88) ; C8 non lancée
   état : ouvert · suite : aucune étude empirique identifiée (INV-S l.183)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-13** · « A(attestor-honesty), A(enclave-integrity), A(source-key), A(verifier-designation). »
   source : 08 l.16-19 · touche : aucune · nature : T/P
   item : PXC-08 SHOGEN-SEAM-1, lentille A1 (CC l.291-292) ; PX-Shogen-11 (C4) · porteur : PAROXYSME ; mainteneur Shōgen · déclencheur :
     le premier adapter de chaque transport (INV-S l.89) ; l'ADR de PXC-08, avant sa partie 1 (F3)
   état : ouvert · suite : CONIKS et Foreshadow libres ; RFC 6962 rendue obsolète par RFC 9162 (INV-S l.184)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-14** · « A(axis-coverage) ; un amont qui bruite ses copies ; aucun seuil de fusion « contenu ». »
   source : 08 l.28 ; `r2.py` l.27-33, l.198 (dépôt Shōgen) · touche : aucune · nature : T
   item : PX-Shogen-12 ; SHOGEN-DONG-CORPS-1 (ANB l.183) ; SHOGEN-CONTENU-DEP-1 (ANB l.103) · porteur : mainteneur Shōgen · déclencheur :
     C7 après l'exécution unique S2 (ANB l.50)
   état : ouvert · suite : Dong 2009 en accès ouvert : le procurement P-A 3 devient une lecture (INV-S l.185)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-15** · « A(window-stationarity) ; τ de 48 h, « seuil de départ ». »
   source : 08 l.29 ; ANB l.32 · touche : aucune · nature : T/M
   item : PX-Shogen-13 ; SHOGEN-TAU-REDERIV-1 (ANB l.32) · porteur : mainteneur Shōgen · déclencheur : l'exécution unique S2, non faite
     (PS2 l.8-11) ; C7 après elle
   état : ouvert · suite : même item que L-24 et L-26
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-16** · « A(history-integrity) : décharge récursive et partielle. »
   source : 08 l.32 · touche : aucune · nature : T
   item : PXC-15 LOG-TIME-2, partie 1 (campagne L1, CC l.489, l.498) ; PX-Shogen-14 (C5/C8) ; SHOGEN-SCEAU-ANCRE-1 (ANB l.58, l.105)
     · porteur : PAROXYSME ; mainteneur Shōgen ; l'ancrage : le fondateur · déclencheur : campagnes de lecteurs en F3 (PLAN l.605) ; l'acte d'ancrage
   état : ouvert · suite : jeton RFC 3161 sur le paquet (ANB l.105) ; Crosby-Wallach détenu (INV-S l.187)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-17** · « Un seul résolveur ; IPv6 non couvert (forme Cymru) ; pages lues via un résumeur. »
   source : `RUNBOOK-campagne.md` l.168, l.172 (dépôt Shōgen) · touche : aucune · nature : M/D
   item : PXC-07 TRUSTLESS-READ-2, partie 1 (campagne R3 ; conditions RIPEstat, Cymru, CAIDA, CC l.264-265) ; PX-Shogen-15 (C7) · porteur :
     PAROXYSME ; lecture sur place des conditions : MONARK (PLAN l.877) ; mainteneur Shōgen · déclencheur : la lecture sur place, avant
     tout chercheur ; campagnes de lecteurs en F3 (PLAN l.605) ; C7 après l'exécution unique
   état : ouvert · suite : Mao et al. 2003 reçu (PXP-19), non lu
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-18** · « Relation k_eff ↔ f « [À décider] ». »
   source : doc 04 de Shōgen (inchangé depuis `91d9781`) · touche : aucune · nature : T
   item : PX-Shogen-16 (C8) · porteur : mainteneur Shōgen · déclencheur : S4 (INV-S l.94)
   état : ouvert · suite : Chainlink OCR v1.2, Lemme 8, détenu (INV-S l.189)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-19** · « R1 mesure le passé et ne borne pas un adversaire qui ne s'est pas exprimé. »
   source : doc 04 de Shōgen · touche : aucune · nature : T
   item : PX-Shogen-17 (C8) · porteur : mainteneur Shōgen · déclencheur : S4 ; C8 non lancée (INV-S l.95)
   état : ouvert · suite : C1 NARABI-THEORY-1 rendue ; PXP-01 clos par substitution (décision 277)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-20** · « Qualité du marché sous-jacent non mesurée. »
   source : doc 04 de Shōgen · touche : aucune · nature : T/D
   item : PXC-18 JURISTE-DROIT-1, partie 2 (session Kaiko, sous go, CC l.583-584) ; PX-Shogen-18 (C8) · porteur : PAROXYSME ; la session
     Kaiko : le fondateur ; mainteneur Shōgen · déclencheur : le go du fondateur ; partie 2 de PXC-18 (F4, PLAN l.614)
   état : ouvert · suite : Kyle (PXP-28) et Amihud (PXP-29) reçus, non lus, vont à la demande au mainteneur (PLAN l.869), à former par
     PXC-01 partie 2
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-21** · « Contraste TIFS 2016 / Vendi « dû tel quel ». »
   source : doc 04 de Shōgen ; ADR-0026 l.22 (DP §F1) · touche : aucune · nature : T
   item : PX-Shogen-19 (C8) · porteur : mainteneur Shōgen · déclencheur : non reporté par l'inventaire (« bloqué par : Shōgen », INV-S l.97 ;
     §7, doute 6) ; relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert · suite : ADR-0026 l.22 reste un « dû » nu au dépôt Shōgen (INV-S l.97)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-22** · « Corpus d'attaques du certificat (classes numérotées) dû. »
   source : doc 04 de Shōgen · touche : aucune · nature : T
   item : PX-Shogen-20 (C8) · porteur : mainteneur Shōgen · déclencheur : non reporté par l'inventaire (« bloqué par : Shōgen », INV-S l.98 ;
     §7, doute 6) ; relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert · suite : Qin détenu (copie Ukemi) ; Schneier 1999 (INV-S l.193)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-23** · « φ entre singletons = proxy bruité ; NON_EVAL compté 0. »
   source : `lm.py` l.37-39, l.62-63 (dépôt Shōgen, mise en garde publiée) · touche : aucune · nature : T/M
   item : PX-Shogen-21 (C7/C8) ; procurement Agresti, Categorical Data Analysis, 3ᵉ éd., ISBN 978-0-470-46363-5 (ADR-0028 §4 pt 9 ;
     PLAN l.862) · porteur : mainteneur Shōgen (demande, ADR-0028 §4 pt 9) ; l'achat : le fondateur, par MONARK (PLAN l.854, l.861-862)
     · déclencheur : la réception de la 3ᵉ éd. ; C7 après l'exécution unique
   état : ouvert · suite : PXP-30 servi est un autre ouvrage (INV-S l.99, l.194)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-24** · « Borne de Clopper-Pearson à k = 0 ; « on ne revendique pas 0 ». »
   source : ADR-0022 de Shōgen ; ANB l.32 · touche : aucune · nature : M
   item : PX-Shogen-13 (re-dérivation après le rendu, ANB l.32) · porteur : mainteneur Shōgen · déclencheur : l'exécution unique S2 (INV-S l.100)
   état : ouvert · suite : même item que L-15 et L-26
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-25** · « Chainlink : bande aveugle assumée (ADR-0022 l.29). »
   source : ADR-0022 l.29 (dépôt Shōgen) ; PX-IDENT-C M-04 · touche : aucune · nature : M/T
   item : PX-Shogen-22 (C7) · porteur : mainteneur Shōgen · déclencheur : C7 après l'exécution unique S2 (INV-S l.101)
   état : ouvert · suite : page « Decentralized Data Model » identifiée ; les valeurs par flux sont ailleurs (INV-S l.101)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-26** · « Matrice φ à τ hétérogènes ; clause `closure` reportée. »
   source : DP §F1 · touche : aucune · nature : M
   item : PX-Shogen-13 (l'ADR de re-dérivation y est absorbée) · porteur : mainteneur Shōgen · déclencheur : l'exécution unique S2 (INV-S l.102)
   état : ouvert · suite : même item que L-15 et L-24
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-27** · « Cadence de `coins.llama.fi` non caractérisée ; le procurement est caduc dans sa forme. »
   source : PX-IDENT-C M-01 (NT-06 : dépôt nommé en 404) · touche : aucune · nature : D
   item : PXC-01 PAROXYSME-STANDARD-1, partie 2 (procurement P-A 4 reformé en instrumentation, CC l.91) ; PX-Shogen-23 (C7) · porteur :
     PAROXYSME ; lecture sur place DefiLlama : MONARK (PLAN l.877) ; mainteneur Shōgen · déclencheur : partie 2 de PXC-01 (F3, PLAN l.585) ; C7
   état : ouvert (procurement caduc dans sa forme) · suite : instrumentation sur les journaux scellés (INV-S l.103)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-28** · « Lecture Pyth on-chain ; publishers non vérifiables (mémoire du 19/08). »
   source : PX-IDENT-C M-09 ; CARTO §0 pt 3 (Pyth en HTTP 401 dès le 2026-08-26) · touche : aucune · nature : D/P
   item : PX-Shogen-24 ; SHOGEN-POOL-ANALYSE-PYTH-1 (ANB l.13) · porteur : mainteneur Shōgen ; lecture sur place : MONARK · déclencheur :
     lecture sur place de la note Chaos Labs (INV-S l.104) ; C7
   état : ouvert (faits corrigés : la note date du 21 août 2024) · suite : voisin de L-40
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-29** · « Pannes accrues pendant le double pilote, « causalité non établie ». »
   source : CARTO §0 pt 2, §3 · touche : aucune · nature : M
   item : PXC-01 PAROXYSME-STANDARD-1, partie 2 (corrigendum IJE à lire, CC l.91) ; PX-Shogen-25 (C7) · porteur : PAROXYSME ; mainteneur
     Shōgen · déclencheur : partie 2 de PXC-01 (F3) ; C7 après l'exécution unique
   état : ouvert (mécanisme établi, effet causal non estimé) · suite : corrigendum IJE 50(3):1045 libre (PLAN l.866) ; PXP-20 reçu, non lu
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-30** · « A(coupling-effect), A(gate-adequacy). »
   source : 08 l.53-54 · touche : aucune · nature : T
   item : PXC-11 THIRD-PARTY-1, partie 4 (volet C6 REPRO-3P-1 : mutation et effet de couplage, REG27 l.167) ; PX-Shogen-26 (C6) · porteur :
     PAROXYSME ; mainteneur Shōgen · déclencheur : partie 4 de PXC-11 (F4) ; C6 non lancée
   état : ouvert · suite : Offutt (PXP-26) et Just (PXP-27) « non lus » pour l'inventaire, « lus » pour le plan (§7, doute 8)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-31** · « Aucun « k_eff Pocket ». »
   source : DP §F1 (ADR-0026 au stade G0) · touche : aucune · nature : M/Dr
   item : PXC-18 JURISTE-DROIT-1, partie 2 (actes de l'investisseur, CC l.583-584) ; doc 15 §10 P-3/P-G6 (dépôt Shōgen) · porteur :
     PAROXYSME ; le go : le fondateur ; mainteneur Shōgen · déclencheur : le go du fondateur ; partie 2 de PXC-18 (F4)
   état : ouvert (couvert au dépôt Shōgen) · suite : documents Pocket sensibles, non ouverts par l'inventaire
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-32** · « D11 vérifiée au niveau MONARK ; entité non constituée. »
   source : ADR-0027 de Shōgen (stade G0) · touche : aucune · nature : Dr
   item : PXC-18 JURISTE-DROIT-1, partie 2 (acte de l'investisseur, CC l.583-584) ; doc 15 G-1r/G-6 (dépôt Shōgen) · porteur : PAROXYSME ;
     l'acte : le fondateur ; mainteneur Shōgen · déclencheur : l'acte du fondateur ; partie 2 de PXC-18 (F4)
   état : ouvert (couvert au dépôt Shōgen) · suite : voisin de L-42
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-33** · « Pocket : TODO de contestation, audit hors Nodefleet, corps discordants. »
   source : `docs/pocket-report/` de Shōgen (non ouvert : sensible) · touche : aucune · nature : D/M
   item : PXC-18 JURISTE-DROIT-1, partie 2 (CC l.583-584) ; PX-Shogen-27 ; doc 15 §10 · porteur : PAROXYSME ; le courriel : le fondateur ;
     mainteneur Shōgen · déclencheur : le courriel, acte sortant sous go (PLAN l.894 ; adresse masquée) ; partie 2 de PXC-18 (F4)
   état : ouvert (non re-mesuré) · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-34** · « Coupures, lignes déchirées, garde de boucle (un sous-item sur trois clos). »
   source : ANB l.42, l.44, l.66 · touche : aucune · nature : C
   item : SHOGEN-TORN-LINE-1 ; SHOGEN-UPS-1 (ANB l.42, l.44) · porteur : mainteneur Shōgen ; l'onduleur : le fondateur · déclencheur :
     « G0 de la prochaine collecte longue » (ANB l.42, l.44)
   état : ouvert (SHOGEN-LOOP-GUARD-1 fermé, ANB l.66) · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-35** · « notClaim « that the price is true ». »
   source : `apps/site/lib/docs-pieces.ts:53` · touche : `apps/site/lib/docs-pieces.ts:53` ; `apps/site/components/shogen-panel.tsx:66-68` · nature : T
   item : PXC-02 PUBLIC-SENTENCES-2, hors de la liste (a) du noyau (frontière publique, CC l.122), dans la partie que l'ADR de PXC-02 fixe, sa partie 1
     n'étant plus que le noyau, en trois parties (Q-M1 (a) : ETAT l.796 à `2c3f51a8`) ; certificat 04 (par conception) ; PX-Shogen-1 · porteur :
     PAROXYSME ; mainteneur Shōgen · déclencheur : l'ADR de PXC-02 (tâche 2 du TABLEAU, F1)
   état : ouvert, par conception · suite : la phrase du panneau l.66-68 n'est plus exacte (N-03, INV-S l.50)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15 ; touche deux surfaces du site de MONARK : §7, doute 16 (Q-SH-3)
 
 ## 3. Limites nouvelles depuis le 2026-09-27 (39 ouvertes, INV-S §5 et §6 ; L-36 et N-11 closes au §4)
 
@@ -448,127 +516,177 @@
   item : demande au mainteneur Shōgen, à former par PXC-01 partie 2 (C7 proposée ; voisin : SHOGEN-DECIMAL-ARRONDI-1, ANB l.232)
     · porteur : PAROXYSME · déclencheur : partie 2 de PXC-01 (F3)
   état : ouvert (non re-mesuré) · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-38** · « Requêtes à corps (`eth_call`) hors du `subject` (ADR-0016 R5). »
   source : ADR-0016 R5 (dépôt Shōgen) ; DP §F2 · touche : aucune · nature : T
   item : demande au mainteneur Shōgen, à former par PXC-01 partie 2 (C4 proposée) · porteur : PAROXYSME · déclencheur : partie 2 de
     PXC-01 (F3)
   état : ouvert · suite : voisin de L-02 (liaison de la requête)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-39** · « Sources IDN hors périmètre (ADR-0016 C3). »
   source : ADR-0016 C3 (dépôt Shōgen) ; DP §F2 · touche : aucune · nature : T
   item : WISHLIST P3bis 6 (dépôt Shōgen, partiel) · porteur : mainteneur Shōgen · déclencheur : non reporté par l'inventaire (§7, doute 6) ;
     relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-40** · « A6 : `[` et `]` rejetés, donc Pyth non témoignable. »
   source : DP §F2 · touche : aucune · nature : T/D
   item : demande au mainteneur Shōgen, à former par PXC-01 partie 2 (lien à PX-Shogen-24 proposé) · porteur : PAROXYSME
     · déclencheur : partie 2 de PXC-01 (F3)
   état : ouvert · suite : voisin de L-28
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-41** · « Clé du notaire dérivée d'une graine publique (ADR-0015 pt 16). »
   source : ADR-0015 pt 16 (dépôt Shōgen) ; DP §F2 · touche : aucune · nature : T
   item : SHOGEN-G4-NOTAIRE-RECHERCHE-1 (ANB l.25) · porteur : mainteneur Shōgen · déclencheur : le relevé de son état auprès du
     mainteneur dans la demande de PXC-01 partie 2 (F3 ; ETAT l.256 à `5437cd0d`), « maintenant (sans code) » (ANB l.25 ; INV-S l.79)
     étant atteint au plus tard à `d383a51` (2026-10-03, INV-S l.7) sans acte prouvé (INV-S l.176)
   état : ouvert · suite : fonde la cible relevée de L-03 ; état au dépôt Shōgen non revérifiable ici ; déclencheur re-formé (§7, doute 11)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-42** · « Auto-mesure de MONARK « hors périmètre » (ADR-0027 l.14). »
   source : ADR-0027 l.14 (dépôt Shōgen) ; DP §F2 · touche : aucune · nature : Dr
   item : demande au mainteneur Shōgen, à former par PXC-01 partie 2 (aucun item de recherche ; la décision 230 n'est qu'un cadre)
     · porteur : PAROXYSME · déclencheur : partie 2 de PXC-01 (F3)
   état : ouvert · suite : voisin de L-32
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-43** · « Composition d'amont Chainlink non établie (doc 10 §10.6). »
   source : doc 10 §10.6 (dépôt Shōgen) ; DP §F2 · touche : aucune · nature : D
   item : demande au mainteneur Shōgen, à former par PXC-01 partie 2 (C7 proposée) · porteur : PAROXYSME · déclencheur : partie 2 de
     PXC-01 (F3)
   état : ouvert · suite : voisin de L-25 et L-49
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-44** · « Pages de méthode sans copie à l'octet ; pages ASN lues via un résumeur. »
   source : doc 10 de Shōgen (dette 4 re-statuée le 2026-09-30) ; DP §F2 · touche : aucune · nature : D
   item : SHOGEN-BIBLIO-PAGES-4-3-1 (ANB l.184) ; SHOGEN-FETCH-AVANT-PUB-1 (ANB l.46) · porteur : mainteneur Shōgen · déclencheur :
     SHOGEN-FETCH-AVANT-PUB-1, avant le G0 du lot G9 (INV-S l.155) ; SHOGEN-BIBLIO-PAGES-4-3-1, non reporté par l'inventaire (§7,
     doute 6) : relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (réduit le 2026-09-30) · suite : voisin de L-17 et L-51
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-45** · « Replis permanents : roster Pyth et `coin-prices-api`. »
   source : DP §F2 · touche : aucune · nature : D
   item : demande au mainteneur Shōgen, à former par PXC-01 partie 2 (C7 proposée) · porteur : PAROXYSME · déclencheur : partie 2 de
     PXC-01 (F3)
   état : ouvert · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-46** · « N_min = 300 fondé sur « Fisher » sans source. »
   source : doc 10 de Shōgen (erratum du 2026-09-30) ; JOURNAL de Shōgen (`56cb407`) · touche : aucune · nature : M
   item : SHOGEN-REPORT-FISHER-1 (ANB l.47, l.107) ; P-03 (dépôt Shōgen) · porteur : mainteneur Shōgen · déclencheur : non reporté par
     l'inventaire (§7, doute 6) ; relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (réduit : N_min déclaré choix de conception) · suite : Fisher 1921 téléchargé hors dépôt (INV-S l.150)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-47** · « Silence de la licence MIT sur les brevets (doc 14 M1). »
   source : doc 14 M1 (dépôt Shōgen) ; DP §F2 · touche : aucune · nature : Dr
   item : demande au mainteneur Shōgen, à former par PXC-01 partie 2 ; PXC-18 JURISTE-DROIT-1, partie 1 (avis, CC l.583) · porteur :
     PAROXYSME ; l'avis juridique : le fondateur · déclencheur : partie 2 de PXC-01 (F3) ; partie 1 de PXC-18 (F3, PLAN l.601)
   état : ouvert · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-48** · « τ non numérique lève `InvalidOperation` au lieu d'une erreur nommée. »
   source : DP §F2 · touche : aucune · nature : C
   item : demande au mainteneur Shōgen, à former par PXC-01 partie 2 (C7 proposée) · porteur : PAROXYSME · déclencheur : partie 2 de
     PXC-01 (F3)
   état : ouvert · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-49** · « Exceptions de rounds Chainlink non investiguées. »
   source : DP §F2 · touche : aucune · nature : D
   item : demande au mainteneur Shōgen, à former par PXC-01 partie 2 (C7 proposée) · porteur : PAROXYSME · déclencheur : partie 2 de
     PXC-01 (F3)
   état : ouvert · suite : voisin de L-43
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-50** · « Windows « à terme et sans date » (ADR-0012 D6). »
   source : ADR-0012 D6 (dépôt Shōgen) ; DP §F2 · touche : aucune · nature : C
   item : PX-Shogen-7 (C6) · porteur : mainteneur Shōgen ; lecture sur place de `/Brepro` : MONARK · déclencheur : la lecture sur place et
     la mesure (INV-S l.85) ; PX-IDENT-C0BIS-1 (PLAN l.545, l.870 ; F1)
   état : ouvert · suite : même limite que L-09, que PXC-11 couvre
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-51** · « Onze dettes de fetch « avant publication ». »
   source : DP §F2 · touche : aucune · nature : D
   item : SHOGEN-FETCH-AVANT-PUB-1 (ANB l.46) · porteur : mainteneur Shōgen · déclencheur : avant le G0 du lot G9 (INV-S l.155)
   état : ouvert (item formé au dépôt Shōgen) · suite : voisin de L-44
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-52** · « Lemme 8 OCR et RFC 5280 §3.3 hors du registre Shōgen. »
   source : DP §F2 · touche : aucune · nature : D
   item : demande au mainteneur Shōgen, à former par PXC-01 partie 2 (la décision Q4 (a) reste à porter) · porteur : PAROXYSME
     · déclencheur : partie 2 de PXC-01 (F3)
   état : ouvert · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **L-53** · « Aucune hypothèse de déploiement (D) alors que la fixture est servie par MONARK. »
   source : DP §F2 · touche : aucune · nature : T/C
   item : demande au mainteneur Shōgen, à former par PXC-01 partie 2 (C4 proposée) · porteur : PAROXYSME · déclencheur : partie 2 de
     PXC-01 (F3)
   état : ouvert · suite : voisin de N-06
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **S-01** · « A(root-store), au registre 08 v4. »
   source : 08 l.21 · touche : aucune · nature : T
   item : SHOGEN-E1-RACINES-1 (ANB l.138) · porteur : mainteneur Shōgen · déclencheur : non reporté par l'inventaire (§7, doute 6) ;
     relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (nouvelle) · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **S-02** · « A(window-dependence). »
   source : 08 l.30 · touche : aucune · nature : T/M
   item : SHOGEN-DEP-FENETRES-2 (ANB l.98) · porteur : mainteneur Shōgen · déclencheur : non reporté par l'inventaire (§7, doute 6) ;
     relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (nouvelle) · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **S-03** · « A(loss-non-informative). »
   source : 08 l.31 · touche : aucune · nature : M
   item : SHOGEN-CENSURE-INFO-2 (ANB l.102) · porteur : mainteneur Shōgen · déclencheur : non reporté par l'inventaire (§7, doute 6) ;
     relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (nouvelle) · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **S-04** · « A(host-integrity). »
   source : 08 l.41 · touche : aucune · nature : T/C
   item : SHOGEN-E1-CLE-SIGNATURE-1 (ANB l.142) ; SHOGEN-SCEAU-ANCRE-1 (ANB l.58) · porteur : mainteneur Shōgen · déclencheur : non
     reporté par l'inventaire (§7, doute 6) ; relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (nouvelle) · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **S-05** · « A(harness-clock). »
   source : 08 l.42 · touche : aucune · nature : M
   item : demande au mainteneur Shōgen, à former par PXC-01 partie 2 (aucun item à l'annexe B : `grep` nul, INV-S l.162) · porteur :
     PAROXYSME · déclencheur : partie 2 de PXC-01 (F3)
   état : ouvert (nouvelle) · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **S-06** · « A(agent-conformance). »
   source : 08 l.55 · touche : aucune · nature : T/C
   item : SHOGEN-E1-MAST-VERSEMENT-1 (ANB l.145, partiel) ; SHOGEN-E1-SCAN-TRANSCRIPTS-1 (ANB l.144) · porteur : mainteneur Shōgen
     · déclencheur : non reporté par l'inventaire (§7, doute 6) ; relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (nouvelle) · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **S-07** · « A(prereg-blindness). »
   source : 08 l.56 · touche : aucune · nature : M
   item : SHOGEN-E1-SCAN-TRANSCRIPTS-1 (ANB l.144) ; SHOGEN-ATTEST-ADVISOR-1 (ANB l.60) · porteur : mainteneur Shōgen · déclencheur : non
     reporté par l'inventaire (§7, doute 6) ; relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (nouvelle) · suite : aucune
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 
 ## 4. Limites closes (avec preuve)
 
 - **L-36** · « Lecture asymétrique du z poolé « écrite d'avance » introuvable. » · clos (preuve : lot POOLEE accepté au dépôt Shōgen,
   `9b46687`, « POOLEE-STRATIFIEE-1 ferme » ; SHOGEN-POOLEE-STRATIFIEE-1, ANB l.15 ; INV-S l.140 ; source hors du tronc, §7, doute 1)
+  périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
 - **N-11** · « Le registre PAROXYSME de la pièce `built` manque au dépôt MONARK ; la fiche du 2026-09-27 est périmée. » · clos (preuve :
   ce registre, versé au tronc par #242, fusion `1df4e44f`, G7 `1eb37b87…` ; ETAT l.181-184 à `5437cd0d`, qui compte « Shōgen N-11 »
   parmi les limites « registre absent » que le versement clôt) · suite : l'item que lui donne l'inventaire, SHOGEN-PAROXYSME-REGISTRE-1
@@ -657,7 +775,8 @@ l.513, l.515, l.551 et l.576 à `565c7065` ; aucune ne forme une limite de Shōg
    l'orchestrateur trie et forme ». PAROXYSME ne touche pas au dépôt `shogen` : MONARK l'approuve et propose au fondateur de restreindre
    son accès à `paroxysme`, `monark-governance` et `Monark` (`da72328` l.46-47). Ce registre écrit donc MONARK pour cette demande et pour
    l'envoi des demandes au mainteneur (les douze, §0 ; L-11). **Tranché** : MONARK porte SHOGEN-G5-FORM-REQUEST-1 et envoie les
-   demandes au mainteneur (MSG l.72).
+   demandes au mainteneur (MSG l.72). Depuis le 2026-10-08 : « Nous ne lui envoyons plus de demande sur ces sujets » (`39c0425` l.16) ;
+   doute 16.
 8. **Écart entre l'inventaire et le plan.** Offutt (PXP-26) et Just (PXP-27) sont « reçus, NON LUS » pour INV-S (l.106, l.199) et
    « lus » pour PLAN l.869, dont le critère est la citation par la campagne Narabi : SYNTHESE-NARABI-1 l.419-420 les cite pour la
    définition de « killed », non pour A(coupling-effect). L-30 garde l'état de l'inventaire.
@@ -722,13 +841,28 @@ l.513, l.515, l.551 et l.576 à `565c7065` ; aucune ne forme une limite de Shōg
    pli : son prochain point d'étape avec le fondateur ; au plus tard, un jalon nommé, par exemple l'ADR de PXC-08, avant sa partie 1, F3 ; doute 5).
    **Daté par MONARK le 2026-10-08** : il porte N-06, N-07 et N-08 au fondateur à son point d'étape du 2026-10-08, au plus tard à l'ADR
    de PXC-08 (ETAT l.576 à `565c7065` ; MSG3 l.39) ; les échéances elles-mêmes restent sans date tant que le fondateur ne les a pas fixées.
+16. **Champs des entrées sous la mention de périmètre (pli du 2026-10-15).** 27 des 54 entrées visées (L-07 à L-53, S-01 à S-07) nomment
+   PAROXYSME dans leur champ porteur, et 14 ont pour item une « demande au mainteneur » dite envoyée par MONARK (§0 ; §1 ; doute 7), alors
+   que `39c0425` l.16 écrit « Nous ne lui envoyons plus de demande sur ces sujets » ; l'« Aucune dette » du §1 repose sur ces demandes
+   (comptes par script sur les champs porteur et item des entrées visées, G2 du pli, constat G2-R15-4). L-35 touche
+   `apps/site/lib/docs-pieces.ts:53` et `apps/site/components/shogen-panel.tsx:66-68`, surfaces que `39c0425` l.17-18 garde dans le
+   périmètre de MONARK, alors que `ae8a0fa` l.6 vise « chaque ligne de L-07 à L-53 » : seule entrée visée qui touche le site (constat
+   G2-R15-5). Les champs des entrées ne sont pas changés (carte du pli). Questions fermées à MONARK, posées au message qui livre ce pli :
+   Q-SH-2, (a) ces champs restent comme trace d'avant le 2026-10-08, (b) ils sont corrigés au pli suivant ; Q-SH-3, (a) la mention vaut
+   aussi pour L-35, (b) L-35 relève du Shōgen de MONARK et sa mention est réécrite au pli suivant.
 
 ## 8. Ligne PAROXYSME et sources
 
 **Ligne PAROXYSME (2026-10-07, décisions de MONARK pliées, 20:1x UTC ; constat 9 de la G2 plié, 21:4x UTC ; question de N-07 ajoutée, 2026-10-08, 04:5x UTC ;
-item de L-47 précisé, 05:4x UTC ; pli de l'après-#245, 2026-10-08 à partir de 07:41 UTC ; pli de l'après-#253, 2026-10-08 à partir de 12:27 UTC).** Shōgen : 74
+item de L-47 précisé, 05:4x UTC ; pli de l'après-#245, 2026-10-08 à partir de 07:41 UTC ; pli de l'après-#253, 2026-10-08 à partir de 12:27 UTC ;
+pli de l'après-#282, 2026-10-15 à partir de 02:57 UTC ; sa G2 pliée à partir de 03:2x UTC).** Au pli de l'après-#282 : 54 entrées, de L-07 à
+L-53 (dont L-36, close) et de S-01 à S-07, portent la mention de périmètre (§0, Champs ; `39c0425` l.6-15 ; Q-SH-1 (a), `ae8a0fa` l.6-8),
+sans changement d'état : 76 entrées, 74 ouvertes (71 « ouvert », 3 « changé »), 2 closes, avant et après ce pli ; sous la mention, 27 entrées
+gardent PAROXYSME parmi leurs porteurs et 14 une demande au mainteneur : trace d'avant le 2026-10-08, Q-SH-2 et Q-SH-3 à MONARK (§7, doute
+16). Avant le pli de l'après-#282 : Shōgen : 74
 limites ouvertes (35 du 2026-09-27, dont 3 changées au sens de l'inventaire ; 15 nouvelles côté MONARK ; 24 nouvelles côté Shōgen) et 2 closes (L-36 ; N-11, par
-le versement, ETAT l.184 à `5437cd0d`) ; 76 entrées, 74 ouvertes, 2 closes, aucune ne change d'état dans ce pli ni dans celui de l'après-#253, qui n'y plie que
+le versement, ETAT l.184 à `5437cd0d`) ; 76 entrées, 74 ouvertes, 2 closes, aucune ne change d'état dans le pli de l'après-#245 ni dans
+celui de l'après-#253, qui n'y plie que
 la partie 1 de PXC-02, réduite au noyau (L-35, N-04 ; Q-M1 (a) : ETAT l.796 à `2c3f51a8`). ⚑B : aucune marquée par l'inventaire ; l'écart
 de branchement de la pièce est l'exception datée en cours (N-16 ; fin au
 premier de G2 et de G9). Limites neuves à ETAT : 0 (§5). Aucune dette : le déclencheur de L-41 et du volet G4 de L-03 est re-formé (ETAT
@@ -822,3 +956,11 @@ Sources du pli de l'après-#253 (2026-10-08) : ETAT à `2c3f51a8` (tronc ; `git 
 | Source | Lignes | sha256 |
 |---|---|---|
 | `docs/ETAT.md` à `2c3f51a8` | 2 638 | `746217ff3bc1797d65767361d45f5da8baf1ad6609ff2688058efaf8cd86a929` |
+
+Sources du pli de l'après-#282 (2026-10-15) : messages de MONARK de la boîte PAROXYSME (`coordination/messages/`), lus chacun à son commit
+(`git show <commit>:<f> | wc -l`, puis `| sha256sum`) :
+
+| Source | Lignes | sha256 |
+|---|---|---|
+| MONARK `39c0425`, `2026-10-08-MONARK-vers-PAROXYSME-shogen-perimetre.md` | 30 | `b792534208b6364c6ae93172c7a4a81bfff84327555d61adf912f0ca77a5e093` |
+| MONARK `ae8a0fa`, `2026-10-08-MONARK-vers-PAROXYSME-qsh1-qam35.md` | 24 | `7a1e817e62060a542a8f8b299b9277be33c54163b5a41253ca42ee9981e1130d` |
