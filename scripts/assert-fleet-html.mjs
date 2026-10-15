@@ -199,7 +199,7 @@ function surfaceEnd(html, lt, depth) {
  *  (extractMain / mainCorpus read the tags). The pass never re-scans its output, so a surface rebuilt from leftovers
  *  (`<scr<script></script>ipt>`) stays there for renderedBody's guards. Each raw-text element met on the way is
  *  checked (rawTextEnd) before its content is read like the rest. */
-function stripHiddenSurfaces(html) {
+export function stripHiddenSurfaces(html) {
   let out = "";
   let copied = 0;
   let rawSeen = -1; // just past the last raw-text element checked: a raw-text opener before it is its text

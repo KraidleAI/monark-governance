@@ -23,9 +23,12 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
-import { assertFleetBody, renderedBody, decodeEntities, SITE_BUILD_RUN, FLEET_HEADER } from "../scripts/assert-fleet-html.mjs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { dirname, join, relative } from "node:path";
+import { pathToFileURL } from "node:url";
+import { assertFleetBody, renderedBody, decodeEntities, stripHiddenSurfaces, SITE_BUILD_RUN, FLEET_HEADER } from "../scripts/assert-fleet-html.mjs";
 import { derivePublicWorkflow, collectFiles, CI_WORKFLOW_PATH } from "../scripts/export-public.mjs";
 import ts from "typescript";
 import { renderedTexts } from "../apps/site/test/honesty-lint.ts";
@@ -308,14 +311,98 @@ const gateFileDataSourceLeaks = (raw: string): string[] => {
   return hits;
 };
 
-/** One PanelBlock of a panel source, by title: its declared status and its inner source, whitespace-collapsed. */
+/** One PanelBlock (or the BuildingPanelBlock) of a panel source, by title: its declared status and its inner source, whitespace-collapsed. */
 const panelBlock = (src: string, title: string): { status: string; inner: string } => {
-  const m = new RegExp(`<PanelBlock title="${title}" status="(built|upcoming)">`).exec(src);
+  const m = new RegExp(`<(PanelBlock|BuildingPanelBlock) title="${title}" status="(built|building|upcoming)">`).exec(src);
   assert.ok(m, `no PanelBlock titled "${title}"`);
   const start = m.index + m[0].length;
-  const end = src.indexOf("</PanelBlock>", start);
+  const end = src.indexOf(`</${m[1] ?? "PanelBlock"}>`, start);
   assert.ok(end > start, `PanelBlock "${title}" is not closed`);
-  return { status: m[1] ?? "", inner: src.slice(start, end).replace(/\s+/g, " ") };
+  return { status: m[2] ?? "", inner: src.slice(start, end).replace(/\s+/g, " ") };
+};
+
+/**
+ * Pages of the site, each rendered on the server with every panel open, under the layout's ThemeProvider, its async parts awaited
+ * (react-dom/static prerender): a served page mounts a panel's content on a click, so its built HTML carries none. From the page
+ * down its imports, each site file is transpiled by typescript (react-jsx) into a
+ * temporary directory, each specifier resolved as the site resolves it (@/ to apps/site, a relative path to its file, the
+ * extensions .tsx .ts .jsx .js .mjs and index files, a package from the installed node_modules); next/link and next/navigation are stubs,
+ * and the dialog primitive of @base-ui/react keeps its own Root, Trigger, Close, Title and Description (they render on the server,
+ * a closed Root as the first render serves it, with the props and state Base UI computes; it also keeps Viewport, Handle and
+ * createHandle, unused at the freeze, and Viewport throws without the real Portal); Portal, Backdrop and Popup are stubs that
+ * render in place, so each popup shows: Portal draws its render prop before its children, Backdrop and Popup draw theirs as Base UI
+ * does for the text (a function is called with the site's props and an empty state, an element is cloned with those props under
+ * its own; Base UI also chains handlers and joins class names). An import is read under either quote; every import of @base-ui
+ * is stubbed (the dialog) or refused, named, but @base-ui/react/button. The loaders run in apps/site, as in next build.
+ */
+const renderOpen = async (pages: string[]): Promise<Record<string, string>> => {
+  const site = join(ROOT, "apps", "site"), fromSite = createRequire(join(site, "package.json")), done = new Map<string, string>();
+  const dir = mkdtempSync(join(tmpdir(), "fleet-open-")), url = (p: string): string => pathToFileURL(p).href;
+  symlinkSync(dirname(dirname(fromSite.resolve("react/package.json"))), join(dir, "node_modules"), "junction");
+  const stub = (name: string, body: string): string => (writeFileSync(join(dir, `${name}.mjs`), body), url(join(dir, `${name}.mjs`)));
+  const STUBS: Record<string, string> = {
+    "next/link": stub("next-link", `import { createElement } from "react";\nexport default function Link({ href, prefetch, scroll, replace, ...p }) {\n  return createElement("a", { ...p, href: typeof href === "string" ? href : String(href.pathname ?? "") });\n}\n`),
+    "next/navigation": stub("next-navigation", 'export function notFound() { throw new Error("notFound"); }\nexport let path = "/";\nexport function at(p) { path = p; }\nexport function usePathname() { return path; }\n'),
+    "@base-ui/react/dialog": stub("dialog-open", `import { cloneElement, createElement as h, Fragment } from "react";\nimport { Dialog as B } from "@base-ui/react/dialog";\nconst draw = (render, p) => typeof render === "function" ? render(p, {}) : render ? cloneElement(render, { ...p, ...render.props }) : null;\nconst el = (tag) => ({ render, ...p }) => draw(render, p) ?? h(tag, p);\nconst portal = ({ render, keepMounted, container, children, ...p }) => h(Fragment, null, draw(render, p), children);\nexport const Dialog = { ...B, Portal: portal, Backdrop: el("div"), Popup: el("div") };\n`),
+  };
+  const fileOf = (base: string): string => ["", ".tsx", ".ts", ".jsx", ".js", ".mjs", "/index.tsx", "/index.ts", "/index.js"].map((e) => base + e)
+    .find((p) => existsSync(p) && statSync(p).isFile()) ?? assert.fail(`the render does not resolve ${base}`);
+  const twin = (file: string): string => {
+    const known = done.get(file), to = join(dir, "t", relative(ROOT, file).replace(/\.[cm]?[jt]sx?$/, ".mjs"));
+    if (known !== undefined) return known;
+    done.set(file, url(to));
+    const options = { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 };
+    const out = ts.transpileModule(readFileSync(file, "utf8"), { fileName: file, compilerOptions: options }).outputText;
+    const target = (spec: string): string => spec.startsWith("@/") || spec.startsWith(".")
+      ? twin(fileOf(spec.startsWith("@/") ? join(site, spec.slice(2)) : join(dirname(file), spec)))
+      : STUBS[spec] ?? (spec.startsWith("@base-ui/") && spec !== "@base-ui/react/button" ? assert.fail(`the render does not stub ${spec}`) : spec);
+    const text = out.replace(/(\bfrom |\bimport\(?)(["'])([^"'\s]+)\2/g, (_, kw: string, _q: string, spec: string) => `${kw}"${target(spec)}"`);
+    mkdirSync(dirname(to), { recursive: true });
+    writeFileSync(to, text);
+    return url(to);
+  };
+  const cwd = process.cwd();
+  process.chdir(site);
+  try {
+    const { createElement: h } = fromSite("react") as typeof import("react");
+    const { prerender } = fromSite("react-dom/static") as typeof import("react-dom/static");
+    const nav = (await import(STUBS["next/navigation"] ?? "")) as { at: (p: string) => void };
+    const { ThemeProvider } = (await import(twin(join(site, "components", "theme-provider.tsx")))) as { ThemeProvider: () => null };
+    const out: Record<string, string> = {};
+    for (const p of pages) {
+      const loud = [console.error, console.warn, console.log, console.info, console.debug] as const;
+      let said = 0;
+      console.error = console.warn = console.log = console.info = console.debug = () => void said++;
+      const raw = [process.stdout.write.bind(process.stdout), process.stderr.write.bind(process.stderr)] as const;
+      process.stdout.write = process.stderr.write = (() => (said++, true)) as typeof process.stdout.write;
+      try {
+        const page = (await import(twin(join(site, "app", ...p.split("/"))))) as { default: () => null };
+        nav.at("/" + p.replace(/\/?page\.tsx$/, ""));
+        let errors = 0;
+        out[p] = await new Response((await prerender(h(ThemeProvider, null, h(page.default)), { onError: () => void errors++ })).prelude).text();
+        assert.equal(errors, 0);
+      } catch (e) {
+        assert.fail(`${p} does not render (${e instanceof Error ? e.name : typeof e}); its message stays out of the log`);
+      } finally {
+        [console.error, console.warn, console.log, console.info, console.debug] = loud;
+        process.stdout.write = raw[0];
+        process.stderr.write = raw[1];
+      }
+      assert.equal(said, 0, `${p} writes to the console, process.stdout or process.stderr while it renders; its words stay out of the log`);
+    }
+    return out;
+  } finally {
+    process.chdir(cwd);
+    rmSync(dir, { recursive: true, force: true });
+  }
+};
+
+/** Where a rendered page shows the word building as a text or a value of its own, empty inline tags, comments and invisible characters taken out. */
+const buildingAt = (raw: string): { html: string; at: number[] } => {
+  let html = stripHiddenSurfaces(raw);
+  for (let was = ""; was !== html; ) [was, html] = [html, html.replace(/<wbr\/?>|<(span|b|i|em|strong)\b[^>]*><\/\1>/g, "")];
+  const at = [...html.matchAll(/>([^<]*)<|\s(?:value|placeholder)="([^"]*)"/g)].filter((m) => decodeEntities(m[1] ?? m[2] ?? "").replace(/\p{Default_Ignorable_Code_Point}/gu, "").trim().toLowerCase() === "building").map((m) => m.index + 1);
+  return { html, at };
 };
 
 /** The property-key set of every object node of a JSON Schema (each `properties` map), depth-first. */
@@ -1543,21 +1630,68 @@ test("hikae_integration_tests_name_served_legs_only — the stable-run text chec
   assert.deepEqual(hikae.wiring.integration_test, ["probe_harness_records_real_decision", "probe_byo_demo_loop_closes"], "two served legs: the real MCP wire and the bring-your-own loop");
 });
 
-// killer: apps/site/components/shogen-panel.tsx:50 CONST "<PanelBlock title=\"How it works\" status=\"upcoming\">" -> "<PanelBlock title=\"How it works\" status=\"built\">"
-test("shogen_how_it_works_is_upcoming_while_the_join_is_dormant — the block that draws attest into the gate is upcoming and states no served fact while the served gate refuses every attested (Shōgen N-14, H8; the seam is PXC-08)", () => {
-  assert.ok(read("apps/harness/src/attestation-binding.ts").includes("so any `attested` is refused"), "premise: the join is dormant; when the seam is served this reds and the block is revisited");
+// killer: apps/site/components/shogen-panel.tsx:50 CONST "<BuildingPanelBlock title=\"How it works\" status=\"building\">" -> "<PanelBlock title=\"How it works\" status=\"built\">"
+test("shogen_how_it_works_is_building_while_the_join_does_not_run — the block that draws attest into the gate is building and states no served fact while the served gate refuses every attested (Shōgen N-14, H8; the seam is PXC-08)", () => {
+  assert.ok(read("apps/harness/src/attestation-binding.ts").includes("so any `attested` is refused"), "premise: the join does not run yet; when the seam is served this reds and the block is revisited");
   const block = panelBlock(read("apps/site/components/shogen-panel.tsx"), "How it works");
-  assert.equal(block.status, "upcoming", "How it works is upcoming");
-  assert.doesNotMatch(block.inner, /\b(?:served|already|committed)\b/i, "an upcoming block states no served fact (H8)");
-  assert.match(block.inner, /the join from attest into the gate is dormant/, "the block says the join is dormant");
+  assert.equal(block.status, "building", "How it works is building");
+  assert.doesNotMatch(block.inner, /\b(?:served|already|committed)\b/i, "a building block states no served fact (H8)");
+  assert.match(block.inner, /the join from attest into the gate is being built/, "the block says the join is being built");
 });
 
-// killer: apps/site/components/shogen-panel.tsx:67 CONST "a downstream Hikae-side adapter is meant to read it, a join dormant today" -> "the number is read by a downstream Hikae-side adapter"
-test("shogen_panel_says_the_adapter_join_is_dormant — the Honest limits of the Shōgen panel do not say a downstream adapter reads the number while the served gate refuses every attested (Shōgen L-35, same panel as N-14; the seam is PXC-08)", () => {
-  assert.ok(read("apps/harness/src/attestation-binding.ts").includes("so any `attested` is refused"), "premise: the join is dormant; when the seam is served this reds and the panel is revisited");
+// killer: apps/site/components/shogen-panel.tsx:50 CONST "<BuildingPanelBlock title=\"How it works\" status=\"building\">" -> "<PanelBlock title=\"How it works\" status=\"built\">"
+test("shogen_how_it_works_is_building_only_while_its_construction_item_is_open — the block and the README diagram say building exactly while the Shōgen register entry N-14 names the construction of the seam with its part, window and price, open; once it closes, disappears or loses one of them, both say built (Shōgen N-14; the seam is PXC-08)", () => {
+  const entry = /^- \*\*N-14\*\*[\s\S]*?(?=^- \*\*|^#)/m.exec(read("docs/PAROXYSME-Shogen.md"))?.[0] ?? "";
+  const open = /\bPXC-08 p\d+ \(F\d\)/.test(entry) && /\bprix : \d/.test(entry) && /^\s+\u00e9tat : ouvert\b/m.test(entry);
+  const block = panelBlock(read("apps/site/components/shogen-panel.tsx"), "How it works");
+  assert.equal(block.status, open ? "building" : "built", "How it works is building while its construction item is open in the register, built once it closes");
+  const diagram = read("README.md").split(/\r?\n/).filter((l) => l.includes("sensors (attest"));
+  assert.deepEqual(diagram.map((l) => l.includes("join building")), [open], "the README diagram draws the join building exactly while the item is open");
+});
+
+// killer: apps/site/components/what-inside.tsx:4 CONST "import { PanelBlock } from" -> "import { BuildingPanelBlock, PanelBlock } from"
+test("building_panel_block_is_named_only_by_its_definition_and_the_shogen_panel — PanelBlock keeps the two public statuses, so no PanelBlock can carry building; in the .ts and .tsx files under apps/site/app, components and lib, the text BuildingPanelBlock appears only in its definition in panel-shell.tsx and in the Shōgen panel's import and tags: a first net on those files, blind to any other extension, directory or spelling; the served page is held by the next test (Shōgen N-14; the seam is PXC-08)", () => {
+  const tsUnder = (dir: string): string[] => (readdirSync(join(ROOT, ...dir.split("/")), { recursive: true }) as string[]).filter((f) => /\.tsx?$/.test(f)).map((f) => dir + "/" + f.split("\\").join("/"));
+  const files = ["apps/site/app", "apps/site/components", "apps/site/lib"].flatMap(tsUnder);
+  const named = Object.fromEntries(files.map((f) => [f, read(f).match(/\bBuildingPanelBlock\b/g)?.length ?? 0] as const).filter(([, n]) => n > 0));
+  assert.deepEqual(named, { "apps/site/components/panel-shell.tsx": 1, "apps/site/components/shogen-panel.tsx": 3 }, "the text BuildingPanelBlock appears in its definition and in the Shōgen panel's import and two tags only");
+  for (const f of ["apps/site/app/page.tsx", "apps/site/components/what-inside.tsx", "apps/site/lib/status.ts"]) assert.ok(files.includes(f), `the scan reads ${f} (false-green guard)`);
+  assert.match(read("apps/site/components/panel-shell.tsx"), /^export function BuildingPanelBlock\(/m, "the one name in panel-shell.tsx is its definition");
+  assert.match(read("apps/site/components/panel-shell.tsx"), /export function PanelBlock\(\{ title, status, children \}: \{ title: string; status: AgentStatus; children: ReactNode \}\)/, "PanelBlock keeps the two public statuses");
+});
+
+// killer: apps/site/components/panel-shell.tsx:31 CONST "<StatusBadge status={status} className=\"ml-auto\" />" -> "<span className=\"c-pill c-pill--upcoming ml-auto\">building</span>"
+test("shogen_building_pill_is_served_once_in_its_block — the /fleet page, rendered on the server with every panel open, shows the word building once, as the pill of the How it works block of the Shōgen panel; a second one reds when a file the page imports draws it, under any name, through the render prop or the function child of a dialog part, in a value or placeholder attribute, or with the word split by an empty span, b, i, em or strong tag, a comment as stripHiddenSurfaces reads one, or an invisible character; text drawn by CSS or by another attribute, a state a script reaches after the first render, a render function that reads its part's state, a prop Base UI computes from that state (aria-expanded, data-popup-open of a Trigger) or a prop Base UI computes for Portal, Backdrop or Popup, and a word split by an element with content, by another empty element or by an empty tag CSS gives a box are outside this test (Shōgen N-14; the seam is PXC-08)", async () => {
+  const { html, at } = buildingAt((await renderOpen(["fleet/page.tsx"]))["fleet/page.tsx"] ?? "");
+  assert.ok(html.includes(">Honest limits<") && html.includes(">Open panel<"), "the panels render open, beside their cards (false-green guard)");
+  assert.equal(at.length, 1, "the page shows building as a text or a value of its own exactly once, empty inline tags, comments and invisible characters taken out");
+  const before = html.slice(0, at[0]);
+  assert.match(before, /<span class="c-pill c-pill--upcoming ml-auto">$/, "that text is the pill, in the look of the upcoming pill");
+  const last = (re: RegExp): string => decodeEntities([...before.matchAll(re)].at(-1)?.[1] ?? "");
+  assert.equal(last(/<h3\b[^>]*>([^<]*)<\/h3>/g), "How it works", "the pill heads the How it works block");
+  assert.equal(last(/<h2\b[^>]*data-slot="dialog-title"[^>]*>([^<]*)<\/h2>/g), "Shōgen", "the block is in the Shōgen panel");
+});
+
+// Two pages render from fixtures/usde-calib-scores.json. Three conditions hold for them (decision of 2026-10-08): the render may read
+// the file, as the build reads apps/site/data; no agent reads, shows, copies or quotes its content or a number drawn from it, and this
+// test asserts only the pill, its status and its class; no log of this test carries a value from the file (a page that fails, or
+// writes to the console or to process.stdout or process.stderr while it renders, is named, never quoted: they are counted during
+// the render, never printed).
+// killer: apps/site/app/writing/page.tsx:34 CONST "First note: Upcoming" -> "building"
+test("building_pill_shows_on_no_other_page — every other page under apps/site/app, rendered the same way, shows no building text", async () => {
+  const pages = (readdirSync(join(ROOT, "apps", "site", "app"), { recursive: true }) as string[]).filter((f) => /(^|[\\/])page\.tsx$/.test(f)).map((f) => f.split("\\").join("/")).sort();
+  assert.ok(pages.length >= 40 && pages.includes("fleet/page.tsx"), "the scan finds every page (false-green guard)");
+  const other = pages.filter((p) => p !== "fleet/page.tsx");
+  const html = await renderOpen(other);
+  assert.deepEqual(other.filter((p) => buildingAt(html[p] ?? "").at.length > 0), [], "no other page shows building");
+});
+
+// killer: apps/site/components/shogen-panel.tsx:67 CONST "a downstream Hikae-side adapter is meant to read it, a join being built" -> "the number is read by a downstream Hikae-side adapter"
+test("shogen_panel_says_the_adapter_join_is_being_built — the Honest limits of the Shōgen panel do not say a downstream adapter reads the number while the served gate refuses every attested (Shōgen N-14; the seam is PXC-08)", () => {
+  assert.ok(read("apps/harness/src/attestation-binding.ts").includes("so any `attested` is refused"), "premise: the join does not run yet; when the seam is served this reds and the panel is revisited");
   const limits = panelBlock(read("apps/site/components/shogen-panel.tsx"), "Honest limits").inner;
   assert.doesNotMatch(limits, /the number is read by a downstream Hikae-side adapter/, "no adapter reads the number today");
-  assert.match(limits, /a downstream Hikae-side adapter is meant to read it, a join dormant today/, "the panel says the adapter join is dormant");
+  assert.match(limits, /a downstream Hikae-side adapter is meant to read it, a join being built/, "the panel says the adapter join is being built");
 });
 
 // killer: apps/site/lib/fleet-presentation.ts:132 CONST "a gap where one is computed from the closing price of the session's reference day, a named abstention otherwise" -> "no closing price is read into the first record, so it carries no gap"
