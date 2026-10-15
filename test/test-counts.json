@@ -283,7 +283,7 @@
  "test/sentinel-no-kata-key.test.ts": 1,
  "test/served-history.test.ts": 5,
  "test/short-digest-floor.test.ts": 13,
- "test/site-build-fleet.test.ts": 47,
+ "test/site-build-fleet.test.ts": 48,
  "test/site-docs.test.ts": 31,
  "test/site-honesty.test.ts": 8,
  "test/site-send-guard.test.ts": 2,
