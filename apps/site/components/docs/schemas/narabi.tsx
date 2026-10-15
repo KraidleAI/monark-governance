@@ -12,7 +12,7 @@ export function NarabiDaySchema({ slots, deadline, quorum }: { slots: readonly s
     { head: "A UTC DAY CLOSES", body: "its block range is fixed from the chain: from_block to to_block" },
     { head: "FINALITY", body: "a window whose closing block is not final yet is lag, never a skipped step" },
     { head: "THE READS", body: quorum },
-    { head: "THE FLOW", body: "burns, mints and supply become an attested flow, then a velocity score" },
+    { head: "THE FLOW", body: "burns, mints and supply become a flow record, then a velocity score" },
     { head: "THE TRACKER", body: "the quantile threshold steps once, on the realized outcome; T grows by one" },
     { head: "THE LINE", body: "hashed with the hash of the line before it, then appended to the timeline" },
   ];

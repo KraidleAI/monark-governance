@@ -121,8 +121,8 @@ export type FleetProduct = BuiltFleetProduct | UpcomingFleetProduct;
 
 // The eleven fleet agents. Three engines (Shōgen, Hikae, Ukemi) are rendered by their bespoke panels on /fleet;
 // the Ukemi panel reads its AgentCard status from THIS register (single source of truth; pinned by
-// fleet_register_built_set_is_frozen). Narabi is built as the redemption sensor (its AttestedFlow contract, the
-// velocity adapter and a committed calibration ship and are served, and an off-tool sentinel steps the tracker daily).
+// fleet_register_built_set_is_frozen). Narabi is built as the redemption sensor (its AttestedFlow contract and the velocity
+// adapter ship, a committed calibration is served, its flow into the served gate is upcoming; a sentinel steps the tracker daily).
 // Listed here so the register is complete and testable, and so /roadmap and /fleet can render them. The seven
 // upcoming lines are recorded internally.
 export const FLEET_AGENTS: FleetAgent[] = [
@@ -132,15 +132,15 @@ export const FLEET_AGENTS: FleetAgent[] = [
     line: "Attested perception — an attested price testimony.",
     status: "built",
     // Status kept `built` by the founder's decision of 2026-10-03. The served leg is the MCP attest tool; its join into
-    // the gate is dormant since btc-dir-15m, the only class with a committed attestation subject, was retired.
+    // the gate is being built; btc-dir-15m, the only class with a committed attestation subject, was retired.
     wiring: {
-      served_by: "MCP attest (the attested envelope key of the gate stays declared; its join is dormant since the subject class was retired)",
+      served_by: "MCP attest (the attested envelope key of the gate stays declared; its join is being built; the subject class was retired)",
       // Served leg, first (K-6, MONARK's decision): probe_harness_records_real_decision (test/h5-e2e-probe.test.ts) drives attest over the real
       // MCP wire and pins the served witness values. Then POST /attest on the HTTP mirror, content equal to the MCP text — http_mirror_matches_mcp_surface
       // (apps/harness/test/http.test.ts); a real listener under the deploy CA — verify_harness_ca_passes_on_the_in_process_harness. Limit, for those two
       // only: neither pins the served witness values (ATTEST-KATA-SUBJECT-1). The join, unit level: gate_attested_is_frozen_attested_price, gate_attested_discordant_is_tool_error.
       integration_test: ["probe_harness_records_real_decision", "http_mirror_matches_mcp_surface", "verify_harness_ca_passes_on_the_in_process_harness", "gate_attested_is_frozen_attested_price", "gate_attested_discordant_is_tool_error"],
-      note: "served through the MCP attest tool, replayed on the real wire by an integration test; its join into the gate is dormant since the class it attested was retired",
+      note: "served through the MCP attest tool, replayed on the real wire by an integration test; its join into the gate is being built; the class it attested was retired",
     },
   },
   {
@@ -149,17 +149,16 @@ export const FLEET_AGENTS: FleetAgent[] = [
     line: "Coverage-controlled inference — the gate itself.",
     status: "built",
     // The served gate itself. probe_harness_records_real_decision drives it on the real MCP wire
-    // (the committed USDe key → commit/covered; cascade → abstain); the bring-your-own and stable-run legs follow.
+    // (the committed USDe key → commit/covered; cascade → abstain); the bring-your-own leg follows.
     wiring: {
       served_by: "MCP gate (stable-run-velocity-24h committed decision; BYO calibration)",
-      // Three served legs: the real MCP wire (committed USDe key/cascade) — probe_harness_records_real_decision
-      // (test/h5-e2e-probe.test.ts); the BYO calibration loop — probe_byo_demo_loop_closes (test/byo-demo-probe.test.ts);
-      // and the stable-run task class over the served gate tool — gate_stable_run_honesty_text_is_keyed_A2_A7f
-      // (apps/harness/test/gate.test.ts, via gateTool.run()).
+      // Two served legs: the real MCP wire (committed USDe key of the stable-run class; cascade) — probe_harness_records_real_decision
+      // (test/h5-e2e-probe.test.ts); the BYO calibration loop — probe_byo_demo_loop_closes (test/byo-demo-probe.test.ts).
+      // gate_stable_run_honesty_text_is_keyed_A2_A7f (apps/harness/test/gate.test.ts) runs the registry in memory on a hand-built
+      // flow: a unit check of the stable-run text, not a served leg, so it is not listed here.
       integration_test: [
         "probe_harness_records_real_decision",
         "probe_byo_demo_loop_closes",
-        "gate_stable_run_honesty_text_is_keyed_A2_A7f",
       ],
       // The synthetic demonstration class is retired: the served gate description no longer carries its clause,
       // so neither does the note (both directions pinned by registry_notes_track_served_descriptions).
@@ -203,26 +202,25 @@ export const FLEET_AGENTS: FleetAgent[] = [
   {
     name: "Narabi",
     role: "sensor",
-    // Narabi is built — AttestedFlow ships, the velocity adapter and a committed calibration are served, and an off-tool
+    // Narabi is built — AttestedFlow and the velocity adapter ship, a committed calibration is served, and an off-tool
     // sentinel steps the tracker daily. Line kept digit-free (numeric-hole scan) and generic (population and numbers live
     // in the README / skill, not the teaser).
-    line: "Narabi senses redemption-run velocity from the attested onchain flow; its adaptive quantile tracker publishes a replayable daily timeline.",
+    line: "Narabi senses redemption-run velocity from the onchain redemption flow; its adaptive quantile tracker publishes a hash-chained daily timeline.",
     status: "built",
-    // Two served legs. The SERVED composition proven here: the sentinel publishes a sha-pinned timeline and /narabi
+    // One served leg. The SERVED composition proven here: the sentinel publishes a sha-pinned timeline and /narabi
     // parses the committed capture of those published files (the state file as served; each timeline line as served
     // with its endpoint list reduced to a count) — narabi_live_parses_real_state_shape replays it (test/narabi-live.test.ts,
     // a projection, not a byte copy). Supporting: sentinel_windows_identical_to_pull recomputes the windowing against the
     // committed sha-pinned series via a stubbed RPC (the recorded pull, offline).
     wiring: {
-      served_by: "daily published sentinel at /narabi/ + fromAttestedFlow → gate (stable-run-velocity-24h)",
-      // Two served legs: the published timeline parsed by the site — narabi_live_parses_real_state_shape
-      // (test/narabi-live.test.ts); and fromAttestedFlow → gate — gate_stable_run_usde_committed_region_A7b
-      // (apps/harness/test/gate.test.ts, adaptToPrediction/fromAttestedFlow → runGate, USDe region covered).
+      served_by: "daily published sentinel at /narabi/",
+      // One served leg: the published timeline parsed by the site — narabi_live_parses_real_state_shape (test/narabi-live.test.ts).
+      // The leg fromAttestedFlow → gate is upcoming: gate_stable_run_usde_committed_region_A7b (apps/harness/test/gate.test.ts)
+      // replays it in memory on a hand-built flow; the sentinel never calls the gate and no served tool reads the published flow.
       integration_test: [
         "narabi_live_parses_real_state_shape",
-        "gate_stable_run_usde_committed_region_A7b",
       ],
-      note: "a daily published timeline parsed by the site from the published files (its committed capture keeps each line's endpoint count only), and its attested flow carried into the served gate, both replayed by integration tests",
+      note: "a daily published timeline parsed by the site from the published files (its committed capture keeps each line's endpoint count only), replayed by an integration test; its flow into the served gate is upcoming: the sentinel does not call the gate",
     },
   },
   {
