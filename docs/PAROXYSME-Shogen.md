@@ -47,11 +47,12 @@
   high), de 11:45 à 11:52 UTC : cinq constats (C1 M, C2 à C5 m), pliés à partir de 11:5x UTC ; seconde G2 (même modèle), de 12:02 à 12:07 UTC :
   ACCEPT, quatre restes mineurs (R1 à R4), pliés à partir de 12:08 UTC ; parties touchées : en-tête, N-14, §8.
   Pli de l'après-#298 (L2 de PXC-02 partie 1 au tronc, avec A-1 : fusion `00ef74ee`, 2026-10-15 à 14:50 UTC), le 2026-10-15
-  à partir de 14:54 UTC (`date -u`), par la session PAROXYSME (`claude-fable-5-1`) : sources : l'ADR au tronc (ADR2 l.734-742, §8), la pièce
+  à partir de 14:54 UTC (`date -u`), par la session PAROXYSME (`claude-fable-5-1`) : sources : l'ADR au tronc (ADR2 D-8, l.733-747, §8), la pièce
   `FUSION-298.json` et le rapport de la G2 n° 3 de #298 (boîte, §8) ; plié : N-14, le bloc « How it works » dit `building` au site, les deux items
-  de la pastille formés par l'ADR sont écrits avec leur état (SITE-BUILDING-PILL-ROUTES-1 construit ; SITE-BUILDING-PILL-STATES-1 : (a) construit,
-  (b) recherche) et l'item neuf SITE-BUILDING-PILL-CSS-BUNDLE-1 est formé (G3-2) ; aucune entrée ne change d'état ; parties touchées : en-tête,
-  N-14, §8 ; G2 par une instance neuve : voir §8 (ligne PAROXYSME).
+  de la pastille formés par l'ADR (D-8, ADR2 l.733-747) sont écrits avec leur état, leur prix, leur porteur et leur déclencheur (SITE-BUILDING-PILL-ROUTES-1
+  construit ; SITE-BUILDING-PILL-STATES-1 : (a) construit, (b) recherche) et l'item neuf SITE-BUILDING-PILL-CSS-BUNDLE-1 est formé (G3-2) ; aucune
+  entrée ne change d'état ; parties touchées : en-tête, N-14, §8 ; G2 par une instance neuve (`claude-opus-5-5`, effort high), de 14:58 à 15:04 UTC :
+  REFUS, G2R2-1 (M : déclencheur de STATES-1 (b)), G2R2-2 à G2R2-6 (m), pliés à partir de 15:06 UTC (N-14 sur quatre champs, items complets).
 - **Bases** : inventaire mesuré à `d8fe354c`, qui y lit aussi ETAT (empreinte `2ef6f107…`, INV-S l.19), et non à `57a131fc` comme ceux
   du Harnais et du Moteur. Toutes les ancres du tronc sont à la base `87b821b0` de `lot/etude-suite` (tête relue par `git ls-remote` le
   2026-10-07 à 17:07 UTC, message `d4b3d07` l.16-17). Le tronc a avancé depuis par les fusions #241 et #235, jusqu'à `eb1beb01`
@@ -510,21 +511,24 @@
     prix : 12-14 j-h pour PXC-08 entier (ADR §6 ; CC l.308), dont partie 2 : 5 j-h (amendement n° 3 l.540-543 : somme des parties 14,75, lecture à
     confirmer par l'ADR de PXC-08 ; MONARK-SHOGEN-VERIF-EXEC-1 : 5 j-h, l.646) ; porteur : PAROXYSME ; ligne d'ETAT : MONARK · déclencheur : partie 2
     de PXC-08 (F4, PLAN l.613-614) ; lien au statut : le test de L2 lit cette entrée (ADR §7.14 ; `test/site-build-fleet.test.ts:1655-1657` à `00ef74ee`)
-  servi depuis `00ef74ee` (#298, 2026-10-15 14:50 UTC) : le bloc dit `building` (`apps/site/components/shogen-panel.tsx:50-52`), le panneau « a join being
-    built » (`:67`), le README « join building » (`README.md:205`) ; tenus par les tests SBF `shogen_how_it_works_is_building_while_the_join_does_not_run`,
-    `shogen_how_it_works_is_building_only_while_its_construction_item_is_open`, `shogen_building_pill_is_served_once_in_its_block`,
-    `shogen_panel_says_the_adapter_join_is_being_built` (`test/site-build-fleet.test.ts:1646-1713`) ; la revendication « construit » est retirée, la
-    limite reste ouverte tant que l'item de construction l'est (ADR §7.14)
-  items de la pastille (ADR §7.14 ; ADR2 l.734-742) : SITE-BUILDING-PILL-ROUTES-1 : construit dans #298 (test `building_pill_shows_on_no_other_page`,
-    `test/site-build-fleet.test.ts:1703` : toute autre page sous `apps/site/app`, rendue de même, sans le mot ; 39 pages, ADR2 l.734) ·
-    SITE-BUILDING-PILL-STATES-1 : (a) le texte du CSS du site : construit dans #298 (test
-    `no_css_of_the_site_draws_building`, tueur `apps/site/app/globals.css:284`) ; (b) ce que seul un navigateur montre (états atteints par un script,
-    props de Base UI, mot coupé, `alt`, `title`) : item de recherche ; prix : non mesuré (navigateur en CI, 40 à 60 lignes de test estimées, ADR2 l.746) ;
-    porteur : PAROXYSME · déclencheur : partie 2 de PXC-02 · SITE-BUILDING-PILL-CSS-BUNDLE-1 (G3-2 de la G2 n° 3 de #298, §8) : le CSS des paquets et le
-    bundle de `next build` (`.next/static/**/*.css`) lus par l'étape O-2 de `g3-site`, hors du test (a) ; prix : une dizaine de lignes (estimé, non mesuré)
-    ; porteur : PAROXYSME · déclencheur : partie 2 de PXC-02
+    · items de la pastille `building` (ADR2 D-8, l.733-747) : SITE-BUILDING-PILL-ROUTES-1 (toute autre page sous `apps/site/app`, rendue de même,
+    sans le mot ; 39 pages, ADR2 l.734) : construit dans #298, test `building_pill_shows_on_no_other_page` (`test/site-build-fleet.test.ts:1703`) ;
+    prix : mesuré, 43 lignes de SBF (ADR2 l.735) ; porteur : PAROXYSME ; déclencheur : la PR de L2 (ADR2 l.735), atteint · SITE-BUILDING-PILL-STATES-1
+    (a), le texte du CSS du site : construit dans #298, test `no_css_of_the_site_draws_building` (`test/site-build-fleet.test.ts:1689`, tueur
+    `apps/site/app/globals.css:284`) ; prix : mesuré, 9 lignes de SBF (ADR2 l.743) ; porteur : PAROXYSME ; déclencheur : la PR de L2 (ADR2 l.743),
+    atteint · SITE-BUILDING-PILL-STATES-1 (b), ce que seul un navigateur montre (états atteints par un script, props de Base UI, mot coupé, `alt`,
+    `title` ; ADR2 l.742-746) : ouvert, item de recherche ; prix : non mesuré, 40 à 60 lignes de test et une à trois minutes de job estimées (ADR2
+    l.746) ; porteur : PAROXYSME ; déclencheur : la décision de MONARK sur un navigateur de test, absent des dépendances (ADR2 l.746-747)
+    · SITE-BUILDING-PILL-CSS-BUNDLE-1, formé ici (G3-2 de la G2 n° 3 de #298, `G2-L2-3-rapport.md` l.33, §8) : le CSS des paquets et le bundle de
+    `next build` (`.next/static/**/*.css`), lus par l'étape O-2 de `g3-site`, hors du test (a) : ouvert ; prix : non mesuré, une dizaine de lignes
+    estimées (plan de la partie 1, v17 l.604-605, non versé ; repris au rapport G2 n° 3, l.33-40) ; porteur : PAROXYSME ; déclencheur : la partie 2
+    de PXC-02 (F3, ADR2 l.889)
   état : ouvert (nouvelle) · suite : correction vers moins de revendication, permise pendant l'exception (CL l.38-39 ; INV-S l.277) ; faite au tronc
-    pour le panneau et le README (#298) ; reste : la construction de la jointure (PXC-08 p2)
+    depuis `00ef74ee` (#298, 2026-10-15 14:50 UTC) : le bloc dit `building` (`apps/site/components/shogen-panel.tsx:50-52`), le panneau « a join
+    being built » (`:67`), le README « join building » (`README.md:205`), tenus par les tests SBF
+    `shogen_how_it_works_is_building_while_the_join_does_not_run`, `shogen_how_it_works_is_building_only_while_its_construction_item_is_open`,
+    `shogen_building_pill_is_served_once_in_its_block`, `shogen_panel_says_the_adapter_join_is_being_built` (`test/site-build-fleet.test.ts:1646-1713`)
+    ; la revendication « construit » est retirée ; la limite reste ouverte tant que l'item de construction l'est (ADR §7.14) : PXC-08 p2
 - **N-15** · « Blocs « Living proof » et « Traceability » du panneau, `upcoming` : limites de plateforme jamais routées. »
   source : `apps/site/components/shogen-panel.tsx:75-77`, `:95-97` ; FICHE l.225 (Q5) ; REG27 l.199, écart (8) · touche :
     `apps/site/components/shogen-panel.tsx:75`, `:95` · nature : C
@@ -886,7 +890,8 @@ l.513, l.515, l.551 et l.576 à `565c7065` ; aucune ne forme une limite de Shōg
 **Ligne PAROXYSME (2026-10-07, décisions de MONARK pliées, 20:1x UTC ; constat 9 de la G2 plié, 21:4x UTC ; question de N-07 ajoutée, 2026-10-08, 04:5x UTC ;
 item de L-47 précisé, 05:4x UTC ; pli de l'après-#245, 2026-10-08 à partir de 07:41 UTC ; pli de l'après-#253, 2026-10-08 à partir de 12:27 UTC ;
 pli de l'après-#282, 2026-10-15 à partir de 02:57 UTC ; sa G2 pliée à partir de 03:2x UTC ; pli d'A-1, 2026-10-15 à partir de 11:40 UTC, sa G2 pliée
-à partir de 11:5x UTC ; pli de l'après-#298, 2026-10-15 à partir de 14:54 UTC).** Au pli de l'après-#298 : 76 entrées, 74 ouvertes, 2 closes,
+à partir de 11:5x UTC ; pli de l'après-#298, 2026-10-15 à partir de 14:54 UTC ;
+sa G2 (REFUS, G2R2-1 M, G2R2-2 à 6 m) pliée à partir de 15:06 UTC).** Au pli de l'après-#298 : 76 entrées, 74 ouvertes, 2 closes,
 avant et après ; N-14 seule touchée. Au pli d'A-1 : 76 entrées, 74 ouvertes, 2 closes, avant et après. Au pli de l'après-#282 : 54 entrées, de L-07 à
 L-53 (dont L-36, close) et de S-01 à S-07, portent la mention de périmètre (§0, Champs ; `39c0425` l.6-15 ; Q-SH-1 (a), `ae8a0fa` l.6-8),
 sans changement d'état : 76 entrées, 74 ouvertes (71 « ouvert », 3 « changé »), 2 closes, avant et après ce pli ; sous la mention, 27 entrées
