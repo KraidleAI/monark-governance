@@ -637,14 +637,14 @@ test("mutants_typecheck_never_emits_into_the_clone", () => { // G21: a tsconfig 
 // Lot MUTANTS-LIVE-WAITER-AHEAD-1: --timeout-ms of the two runs ahead whose rows overrun on purpose, OVER at first: each child of the tool has 10 * OVER
 // (15 s) to its bound; a row that hangs runs to it. Lot TIMED-TESTS-LOAD-1: a loaded host stalls the start of a process past any bound set before it (a
 // node -e 0 took 13.3 s once in 642 samples over one test:main, median 66 ms). A child that ends on its own (a baseline, Z2, X1), run (ms > 0) and recorded
-// without an exit code, was ended by its bound or the host, never by itself nor judged by the tool: the run is void and runs again, its bound twice the last
-// or twice the longest such ms (measured by the tool), the larger; the third run is final. Load only lengthens a row that hangs (Z1, G1, H1).
+// without an exit code, was ended by its bound, the host or its own signal, never by an exit nor judged by the tool: the run is void and runs again, its bound
+// doubled (a cut ms reads the bound, not the stall); the third run is final, so a red that does not depend on load stays red. Load lengthens a hanging row.
 const OVER = 1500, RUNS = 3;
 async function bounded(start: (over: number) => Promise<Run>, own: (r: Run) => ({ exit: number | null; ms: number } | null | undefined)[]): Promise<Run> { // own: the children that end on their own
   for (let over = OVER, k = 1; ; k++) {
     const r = await start(over), cut = own(r).flatMap((x) => (x !== null && x !== undefined && x.ms > 0 && x.exit === null ? [x.ms] : []));
     if (cut.length === 0 || k === RUNS) return r;
-    over = Math.max(2 * over, Math.ceil(Math.max(...cut) / 5)); // the next bound, 10 * over: twice the last, or twice the longest hold measured
+    over = Math.max(2 * over, Math.ceil(Math.max(...cut) / 5)); // the next bound, 10 * over: the bound doubled (a cut ms is the bound plus a few ms)
   }
 }
 const deadTsc = ahead(() => { const { dir, base } = fk(), t = table("fk1.json", [Y("Z1", "number;", "number; // HANG"), Y("Z2", "number;", "number; // CRASH")]); // Z1 hangs to its bound
