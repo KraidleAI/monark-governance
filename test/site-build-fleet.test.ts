@@ -397,10 +397,19 @@ const renderOpen = async (pages: string[]): Promise<Record<string, string>> => {
   }
 };
 
-/** Where a rendered page shows the word building as a text or a value of its own, empty inline tags, comments and invisible characters taken out. */
+/** Where a rendered page shows the word building as a text or a value of its own, empty inline tags, comments and invisible characters taken out.
+ *  ONE pass over the tags and texts of the stripped page (ADR-CODEQL-ALERTS-1 D3: no regex filter run to a fixpoint): a <wbr> is left out;
+ *  an inline closer (span, b, i, em, strong) that meets its own opener as the last kept token takes it out with itself, so nested empty
+ *  tags vanish in document order; every other token is copied verbatim. */
 const buildingAt = (raw: string): { html: string; at: number[] } => {
-  let html = stripHiddenSurfaces(raw);
-  for (let was = ""; was !== html; ) [was, html] = [html, html.replace(/<wbr\/?>|<(span|b|i|em|strong)\b[^>]*><\/\1>/g, "")];
+  const kept: string[] = [];
+  for (const [token] of stripHiddenSurfaces(raw).matchAll(/<[^>]*>|[^<]+/g)) {
+    if (/^<wbr\b[^>]*>$/i.test(token)) continue;
+    const closer = /^<\/(span|b|i|em|strong)\s*>$/i.exec(token);
+    if (closer && new RegExp(`^<${closer[1]}\\b[^>]*>$`, "i").test(kept.at(-1) ?? "")) { kept.pop(); continue; }
+    kept.push(token);
+  }
+  const html = kept.join("");
   const at = [...html.matchAll(/>([^<]*)<|\s(?:value|placeholder)="([^"]*)"/g)].filter((m) => decodeEntities(m[1] ?? m[2] ?? "").replace(/\p{Default_Ignorable_Code_Point}/gu, "").trim().toLowerCase() === "building").map((m) => m.index + 1);
   return { html, at };
 };
