@@ -196,7 +196,7 @@ test("l2_adopt_journal_of_this_recorder", async () => {
   writeFileSync(join(foreign, "journal.jsonl"), JSON.stringify({ event: "start", symbol: "ALL" }) + LF);
   mkdirSync(junk);
   writeFileSync(join(junk, "journal.jsonl"), "xxxx");
-  assert.deepEqual([foreign, junk].map((o) => codeOf(() => m.adopt(plan(m, o), clocks))), ["out_not_l2", "out_not_l2"], "a start of no recorder; no start");
+  assert.deepEqual([foreign, junk].map((o) => codeOf(() => m.adopt(plan(m, o), clocks).real)), ["out_not_l2", "out_not_l2"], "a start of no recorder; no start");
   assert.deepEqual([readFileSync(join(foreign, "journal.jsonl"), "utf8"), readFileSync(join(junk, "journal.jsonl"), "utf8")],
     [JSON.stringify({ event: "start", symbol: "ALL" }) + LF, "xxxx"], "nothing written");
 });

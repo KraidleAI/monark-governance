@@ -93,7 +93,9 @@ test("the_published_schemas_load_together_and_validate_a_served_decision", async
   const ajv = new Ajv2020({ allErrors: true, strict: true, allowUnionTypes: true });
   addFormats(ajv);
   const files = await (await writer()).expectedFiles(ROOT);
-  for (const f of files.filter((x) => x.path.includes("/schemas/"))) ajv.addSchema(JSON.parse(f.text));
+  assert.doesNotThrow(() => { // asserted: a duplicate $id refused by Ajv reds by assertion, not by a bare throw
+    for (const f of files.filter((x) => x.path.includes("/schemas/"))) ajv.addSchema(JSON.parse(f.text));
+  }, "the published schemas load together, each under its own $id");
   const validate = ajv.getSchema(ID("gate-decision"));
   assert.ok(validate !== undefined, "gate-decision is found by its public $id");
   const params = { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0, tool: "perps_order_preview", clockOpen: true };
