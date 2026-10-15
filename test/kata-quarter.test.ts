@@ -18,7 +18,6 @@ import { fileURLToPath } from "node:url";
 import { gitOut } from "./helpers/git-tracked.ts";
 import { canonicalJson, vocabularyHits } from "../scripts/spec-publish.mjs";
 import { render, type HistoryLine } from "../scripts/served-history.mjs";
-import { vetoFires } from "../apps/harness/src/policy-guard.ts";
 import { ENTRY, TREES, git, linesOf, toolRepo, type Run, type ToolRepo } from "./helpers/kata-quarter-repo.ts";
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
@@ -803,13 +802,21 @@ test("served_history_reader_refuses_gap - count reads the served history whole u
 
 // reddened by: a symbol's completeness not in counts of the LIVE read (present, expected) or its threshold off 1000 present >= 999
 // expected (8 candles absent of 8832 complete, 9 not), or a prudent variant that is not (n_test + d, k_test + d) with d the drops and the
-// instants out, its fire not the guard's vetoFires, or not "out_of_domain" above LIVE_N_MAX
+// instants out, its fire not the guard's vetoFires (as fixtures/kata-quarter/veto-vectors.json holds it), or not "out_of_domain" above LIVE_N_MAX
 // killer: tools/kata-quarter/quarter_evidence.py:53 CONST "1000 * s[\"present\"] >= 999 * s[\"expected\"]" -> "1000 * s[\"present\"] >= 998 * s[\"expected\"]"
 // killer: tools/kata-quarter/quarter_evidence.py:62 CONST "d = r[\"drops_label\"] + r[\"out_input\"]" -> "d = r[\"drops_label\"]"
 // killer: tools/kata-quarter/quarter_evidence.py:64 CONST "if n <= LIVE_N_MAX[r[\"horizon\"]] else" -> "if True else"
 test("completeness_and_prudent_variant - each symbol's completeness in counts, complete when 1000 present >= 999 expected (8 candles absent of 8832 complete, 9 not); each row's prudent pair (n_test + d, k_test + d), d its drops and its instants out, fired by the guard's vetoFires, out_of_domain above LIVE_N_MAX", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_evidence.py")), `${QUARTER}/quarter_evidence.py absent`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-complete-")), at = (i: number): number => Date.UTC(2026, 10, 2 + i, 6, 15);
+  // The fire read as data from the veto vectors, which test/kata-quarter-vectors.test.ts (test:main) holds equal to the guard's vetoFires and uTest.
+  const veto = JSON.parse(readFileSync(join(FIXTURE, "veto-vectors.json"), "ascii")) as { alpha: string; vectors: Record<string, [number, number, string, boolean][]> };
+  /** k*(n) of each horizon: the k whose pair fires while k - 1 does not; (n, k) fires iff k >= k*(n), "out_of_domain" past the vectors' n. */
+  const star = new Map(Object.entries(veto.vectors).map(([h, rows]) => {
+    const fire = new Map(rows.map((v) => [`${v[0]} ${v[1]}`, v[3]]));
+    return [h, new Map(rows.filter((v) => v[3] && fire.get(`${v[0]} ${v[1] - 1}`) === false).map((v) => [v[0], v[1]]))];
+  }));
+  const fires = (h: string, n: number, k: number): boolean | "out_of_domain" => { const s = star.get(h)?.get(n); return s === undefined ? "out_of_domain" : k >= s; };
   for (const [absent, complete] of [[8, true], [9, false]] as const) {
     const { r, raw } = evidenceOf(join(FIXTURE, "sealed"), fullQ1(join(work, String(absent)), { drop: Array.from({ length: absent }, (_, i) => at(i)) }));
     assert.equal(r.status, 0, `${absent} candles absent: exit 0\n${r.stdout}${r.stderr}`);
@@ -817,7 +824,7 @@ test("completeness_and_prudent_variant - each symbol's completeness in counts, c
     assert.deepEqual([s.present, s.expected, s.complete], [8832 - absent, 8832, complete], `${absent} candles absent: complete ${complete}`);
     for (const x of ev.rows) {
       const d = x.drops_label + x.out_input;
-      assert.deepEqual(x.prudent, { n_test: x.n_test + d, k_test: x.k_test + d, fires: vetoFires(x.n_test + d, x.k_test + d, x.alpha) }, `${x.task_class}: the prudent pair and its fire`);
+      assert.deepEqual([x.alpha, x.prudent], [veto.alpha, { n_test: x.n_test + d, k_test: x.k_test + d, fires: fires(x.horizon, x.n_test + d, x.k_test + d) }], `${x.task_class}: the prudent pair and its fire, at the vectors' alpha`);
     }
     assert.ok(ev.rows.some((x) => x.drops_label > 0 && x.out_input > 0 && !x.fires && x.prudent.fires === true), "a row that does not fire, whose prudent pair fires");
   }
