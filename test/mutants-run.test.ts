@@ -17,6 +17,7 @@
  * a green and a red named test), hk/ (hooks that node reports on the named test's own entry), pb/ (a pile, a body, a line below a one-line test), pl/ (preloads),
  * bc/, bn/, ba/ and bu/ (the test count record), pr/ (cut reports, replays), or/ (a survivor whose replay, where the order of the tests matters, reddens it).
  * sv/ (MUTANTS-SURVIVOR-REPLAY-KILL-1): rows without a named test, survivors at their first run, whose replay over their targets is red or not by assertion.
+ * kz/: a killer line without a named test, which the replay of another target never kills (the rule holds for table rows only).
  */
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
@@ -249,7 +250,7 @@ test("mutants_survivor_is_replayed_on_every_target_file_whole", () => {
   assert.ok(existsSync(join(r.out, "tap", "S1.replay.tap")));
 });
 
-// killer: scripts/mutants/run.mjs:337 CONST "r.status === \"tue\"" -> "r.status !== \"anchor-lost\""
+// killer: scripts/mutants/run.mjs:340 CONST "r.status === \"tue\"" -> "r.status !== \"anchor-lost\""
 test("mutants_one_survivor_exits_1_with_its_record_written", () => {
   const r = run(["--base", fixture().base, "--table", table("ts.json", ROWS.slice(0, 2))]);
   assert.deepEqual([r.status, r.rec?.exit, r.rec?.counts, r.rec?.results.map((x) => [x.id, x.status])], [1, 1, { tue: 1, survit: 1 }, [["T1", "tue"], ["S1", "survit"]]], r.stderr);
@@ -398,7 +399,7 @@ test("mutants_an_unreadable_test_count_record_makes_the_baseline_non_conclu_and_
   assert.deepEqual([r.status, b?.status, b?.note, row(r, "C1")?.status], [1, "non conclu", "test/test-counts.json unreadable", "non conclu (base)"], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:345 CONST "sha256: sha(body)" -> "sha256: sha(`${body} `)"
+// killer: scripts/mutants/run.mjs:348 CONST "sha256: sha(body)" -> "sha256: sha(`${body} `)"
 test("mutants_record_is_complete_and_its_sha_printed_last", () => {
   const r = campaign(), f = fixture(), last = r.stdout.trim().split("\n").at(-1) ?? "", p = join(r.out, "RESULTS.json");
   assert.match(last, /^mutants-result \{/);
@@ -439,7 +440,7 @@ test("mutants_usage_repo_and_bound_refusals_exit_2", () => {
   assert.deepEqual(["inside", "..x", "sub"].map((d) => existsSync(join(f.dir, d))), [false, false, false]); // refused before any write: nothing in --repo
 });
 
-// killer: scripts/mutants/run.mjs:349 CONST "import.meta.main !== false" -> "process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)"
+// killer: scripts/mutants/run.mjs:352 CONST "import.meta.main !== false" -> "process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)"
 test("mutants_launched_through_a_junction_records_or_refuses_never_a_silent_exit_0", () => {
   const f = fixture(), j = join(f.root, "scripts-junction"), cli = join(j, "mutants", "run.mjs"), t = table("one.json", [T1]); // C-G2-1
   symlinkSync(join(import.meta.dirname, "..", "scripts"), j, "junction"); // New-Item -ItemType Junction on Windows, a symlink elsewhere
@@ -672,7 +673,7 @@ test("mutants_a_memory_stop_at_the_baseline_is_not_waited_again_by_the_typecheck
   assert.deepEqual([r.status, s?.reason, s?.at, s?.not_run, s?.waited_ms], [4, "memoire", "BASELINE", ["N1", "Y1"], 300], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:323 CONST "memory_wait_ms: g.memory_wait_ms" -> "memory_wait_ms: null"
+// killer: scripts/mutants/run.mjs:326 CONST "memory_wait_ms: g.memory_wait_ms" -> "memory_wait_ms: null"
 test("mutants_a_row_records_its_own_memory_wait", () => { // G39: memory low for the three reads of T1 before its lock (the baseline reads it twice, before and under its lock)
   const stub = join(fixture().root, "mem-row.mjs");
   writeFileSync(stub, 'import host from "node:os";\nimport { syncBuiltinESMExports } from "node:module";\nlet n = 0;\nhost.freemem = () => (n++ >= 2 && n <= 5 ? 0 : 2 ** 40);\nsyncBuiltinESMExports();\n');
@@ -814,7 +815,7 @@ function prRun(rows: object[], out?: string): Run { // pr/ under LOSE; out: a --
 const P1 = PE("P1", "p_second", [pe(1, "E")]), pr = (): Run => (PRR ??= prRun([P1, PE("P2", "p_first", [pe(2, "H"), pe(1, "E")]), PE("P3", "p_first", [pe(2, "H"), pe(3, "G")])]));
 const replayed = (r: Run, id: string): unknown[] => [row(r, id)?.status, row(r, id)?.note, row(r, id)?.replay?.status, row(r, id)?.replay?.named_kill];
 
-// killer: scripts/mutants/run.mjs:318 CONST "promoted ? \"tue\"" -> "false ? \"tue\""
+// killer: scripts/mutants/run.mjs:321 CONST "promoted ? \"tue\"" -> "false ? \"tue\""
 test("mutants_a_cut_report_is_promoted_by_a_replay_that_reddens_the_named_test_by_assertion", () => {
   const r = pr(), q = prRun([P1], join(fixture().root, "it's", "out")), p1 = ["tue", "promoted by its replay, where its named test fails by assertion; first run: the named test has no entry", "tue", true];
   assert.deepEqual([r.rec?.baseline?.status, replayed(r, "P1"), row(r, "P1")?.exit, row(r, "P1")?.fails, replayed(q, "P1")], ["vert", p1, 1, [], p1], r.stderr + q.stderr); // q: a quote
@@ -835,17 +836,27 @@ test("mutants_never_promote_by_a_test_of_the_same_name_in_another_file", () => {
 const OR = { "lib/o.mjs": "export const O = 1;\n", "test/o.test.ts": `${HEAD}import { O } from "../lib/o.mjs";\nlet seen = 0;\ntest("o_first", () => { seen = O; });\n` +
   '// killer: lib/o.mjs:1 CONST "O = 1" -> "O = 2"\ntest("o_named", () => { assert.ok(seen < 2); });\n' };
 // killer: scripts/mutants/run.mjs:314 CONST "f.lost === true && " -> ""
-// killer: scripts/mutants/run.mjs:316 CONST "m.test === undefined && " -> ""
-test("mutants_a_survivor_is_never_promoted_even_when_its_replay_reddens_its_named_test", () => {
-  const { dir, base } = mini("or", OR), r = run(["--repo", dir, "--base", base, "--killers"]), k1 = row(r, "K1");
-  assert.deepEqual([r.status, r.rec?.baseline?.status, k1?.test, k1?.status, k1?.note, k1?.replay?.status, k1?.replay?.named_kill], [1, "vert", "o_named", "survit", null, "tue", true], r.stderr);
+// killer: scripts/mutants/run.mjs:316 CONST " && m.test === undefined;" -> ";"
+test("mutants_a_survivor_is_never_promoted_even_when_its_replay_reddens_its_named_test", () => { // OT: the same mutant as a table row that names its test
+  const { dir, base } = mini("or", OR), ot = { id: "OT", file: "lib/o.mjs", line: 1, op: "CONST", before: "O = 1", after: "O = 2", why: "w", test: "o_named" };
+  const r = run(["--repo", dir, "--base", base, "--killers", "--table", table("or.json", [ot])]), seen = ["K1", "OT"].map((id) => row(r, id)).map((x) =>
+    [x?.test, x?.status, x?.note, x?.replay?.status, x?.replay?.named_kill]);
+  const named = ["o_named", "survit", null, "tue", true];
+  assert.deepEqual([r.status, r.rec?.baseline?.status, seen], [1, "vert", [named, named]], r.stderr);
 });
 
 // MUTANTS-SURVIVOR-REPLAY-KILL-1: sv/, no row names its test. test/v.test.ts imports lib/v.mjs (each row's first run) and reads V and E; test/x.test.ts reads
 // V, E and H through lib/vmid.mjs (a replay target only), H in an after hook; test/y.test.ts imports test/vh.mjs, a support module that declares a test of
 // W (red in a target file's run, located outside the targets). SA: x's test red by assertion in the replay; SB: x's hook only; SC: vh's test only; SE: the
-// first run red without an assertion (a TypeError), then x's test red by assertion in the replay.
-const SV = { "lib/v.mjs": "export const V = 1;\nexport const H = 1;\nexport const W = 1;\nexport const E = 1;\n",
+// first run red without an assertion (a TypeError), then x's test red by assertion in the replay. ST: lib/t.mjs, imported by test/t1.test.ts and
+// test/t2.test.ts (its first run, green under ST), read by test/t3.test.ts through lib/tmid.mjs, two of whose tests turn red by assertion,
+// one name with a comma.
+const SV = { "lib/t.mjs": "export const T = 1;\n", "lib/tmid.mjs": 'export { T } from "./t.mjs";\n',
+  "test/t1.test.ts": `${HEAD}import { T } from "../lib/t.mjs";\ntest("st_one", () => { assert.equal(typeof T, "number"); });\n`,
+  "test/t2.test.ts": `${HEAD}import { T } from "../lib/t.mjs";\ntest("st_two", () => { assert.ok(T > 0); });\n`,
+  "test/t3.test.ts": `${HEAD}import { T } from "../lib/tmid.mjs";\ntest("st_kill, by name", () => { assert.equal(T, 1); });\n` +
+    'test("st_kill_too", () => { assert.ok(T < 2); });\n',
+  "lib/v.mjs": "export const V = 1;\nexport const H = 1;\nexport const W = 1;\nexport const E = 1;\n",
   "lib/vmid.mjs": 'export { E, H, V } from "./v.mjs";\n', "test/v.test.ts": `${HEAD}import { E, V } from "../lib/v.mjs";\n` +
     'test("sv_direct", () => { assert.equal(typeof V, "number"); if (E !== 1) throw new TypeError("E"); });\n',
   "test/x.test.ts": 'import { after, test } from "node:test";\nimport assert from "node:assert/strict";\nimport { E, H, V } from "../lib/vmid.mjs";\n' +
@@ -863,21 +874,21 @@ const SA = sv("SA", 1, "V"), svA = (): Run => (SVA ??= svRun([SA]));
 const svB = (): Run => (SVB ??= svRun([SA, sv("SB", 2, "H"), sv("SC", 3, "W"), sv("SE", 4, "E")]));
 const KILLED = ["tue", "killed on replay over its targets by sv_replay, first run on test/v.test.ts: survit", "tue", undefined]; // replayed(): no named_kill
 
-// killer: scripts/mutants/run.mjs:322 CONST "rescued ? `killed on replay" -> "false ? `killed on replay"
-// killer: scripts/mutants/run.mjs:319 CONST "{ ...g.replay, by: undefined }" -> "g.replay"
+// killer: scripts/mutants/run.mjs:325 CONST "rescued ? `killed on replay" -> "false ? `killed on replay"
+// killer: scripts/mutants/run.mjs:322 CONST "{ ...g.replay, by: undefined }" -> "g.replay"
 test("mutants_a_survivor_without_a_named_test_is_killed_by_a_replay_that_reddens_a_target_by_assertion", () => {
   const r = svA(), sa = row(r, "SA"), keys = Object.keys(sa?.replay ?? {}).filter((k) => ["by", "named_kill"].includes(k));
   assert.deepEqual([r.rec?.baseline?.status, sa?.test, replayed(r, "SA"), sa?.fails, sa?.replay?.files, sa?.replay?.fails, keys],
     ["vert", null, KILLED, [], ["test/v.test.ts", "test/x.test.ts", "test/y.test.ts"], ["sv_replay"], []], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:318 CONST "rescued ? \"tue\"" -> "false ? \"tue\""
+// killer: scripts/mutants/run.mjs:321 CONST "rescued ? \"tue\"" -> "false ? \"tue\""
 test("mutants_a_table_whose_one_row_is_killed_on_replay_ends_with_every_mutant_killed_and_exit_0", () => {
   const r = svA(), end = r.stdout.split("\n").find((l) => l.startsWith("# end "))?.replace(/^# end \S+ ; /, "");
   assert.deepEqual([r.status, r.rec?.exit, r.rec?.counts, end], [0, 0, { tue: 1 }, "tues 1 / 1, survivants -, non conclus -, anchor-lost -, exit 0"], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:316 CONST "&& by.length > 0;" -> ";"
+// killer: scripts/mutants/run.mjs:317 CONST "&& by.length > 0;" -> ";"
 test("mutants_a_replay_red_by_a_hook_only_never_kills_a_survivor", () => {
   const r = svB(), hook = row(r, "SB")?.replay?.fails.map((f) => f.endsWith("/clone/test/x.test.ts")); // the after hook's entry, named by its file
   assert.deepEqual([replayed(r, "SA"), replayed(r, "SB"), hook], [KILLED, ["survit", null, "tue", undefined], [true]], r.stderr);
@@ -889,16 +900,49 @@ test("mutants_a_replay_red_outside_the_targets_only_never_kills_a_survivor", () 
   assert.deepEqual([replayed(r, "SA"), replayed(r, "SC"), row(r, "SC")?.replay?.fails], [KILLED, ["survit", null, "tue", undefined], ["sv_helper"]], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:316 CONST "f.status === \"survit\" && g.replay" -> "g.replay"
+// killer: scripts/mutants/run.mjs:317 CONST "f.status === \"survit\" && g.replay" -> "g.replay"
 test("mutants_a_first_run_non_conclu_is_never_killed_by_its_replay", () => {
   const r = svB(), se = row(r, "SE");
   assert.deepEqual([replayed(r, "SA"), replayed(r, "SE"), se?.fails, se?.replay?.fails], [KILLED, ["non conclu", null, "tue", undefined], ["sv_direct"],
     ["sv_direct", "sv_replay"]], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:316 CONST "g.replay?.status === \"tue\" && " -> ""
+// killer: scripts/mutants/run.mjs:317 CONST "g.replay?.status === \"tue\" && " -> ""
 test("mutants_a_survivor_whose_replay_is_non_conclu_stays_a_survivor", () => {
   const r = svRun([SA], true), sa = row(r, "SA");
   assert.deepEqual([replayed(svA(), "SA"), r.status, replayed(r, "SA"), sa?.replay?.fails, sa?.replay?.note],
     [KILLED, 1, ["survit", null, "non conclu", undefined], ["sv_replay"], "exit 0 with 1 failing entry"], r.stderr);
+});
+
+// killer: scripts/mutants/run.mjs:318 CONST "by.join(\" | \")" -> "by.join(\", \")"
+// killer: scripts/mutants/run.mjs:319 CONST "f.files.join(\",\")" -> "f.files.join(\", \")"
+test("mutants_the_note_of_a_kill_on_replay_parts_the_tests_by_a_bar_and_the_files_of_the_first_run_by_a_comma", () => { // a name may hold ", "
+  const ST = { id: "ST", file: "lib/t.mjs", line: 1, op: "CONST", before: "T = 1", after: "T = 2", why: "w" }, r = svRun([ST]), st = row(r, "ST");
+  const note = "killed on replay over its targets by st_kill, by name | st_kill_too, first run on test/t1.test.ts,test/t2.test.ts: survit";
+  assert.deepEqual([r.status, st?.status, st?.note, st?.fails, st?.replay?.files, st?.replay?.fails],
+    [0, "tue", note, [], ["test/t1.test.ts", "test/t2.test.ts", "test/t3.test.ts"], ["st_kill, by name", "st_kill_too"]], r.stderr);
+});
+
+// MUTANTS-SURVIVOR-REPLAY-KILL-1 holds for a table row only: kz/. K1, a killer line with no test declaration below it, runs its file whole, green
+// under K1, and its replay reddens by assertion the test of another target (test/k2.test.ts reads K through lib/kmid.mjs); K2 kills that test.
+const KZ = { "lib/k.mjs": "export const K = 1;\n", "lib/kmid.mjs": 'export { K } from "./k.mjs";\n',
+  "test/k.test.ts": `${HEAD}import { K } from "../lib/k.mjs";\n// killer: lib/k.mjs:1 CONST "K = 1" -> "K = 2"\nconst seen = typeof K;\n` +
+    'test("k_own", () => { assert.equal(seen, "number"); });\n',
+  "test/k2.test.ts": `${HEAD}import { K } from "../lib/kmid.mjs";\n// killer: lib/k.mjs:1 CONST "K = 1" -> "K = 3"\n` +
+    'test("k_other", () => { assert.equal(K, 1); });\n' };
+let KZR: Run | undefined;
+const kz = (): Run => (KZR ??= ((m) => run(["--repo", m.dir, "--base", m.base, "--killers"]))(mini("kz", KZ)));
+
+// killer: scripts/mutants/run.mjs:316 CONST "m.origin === \"table\"" -> "true"
+test("mutants_a_killer_line_without_a_named_test_is_never_killed_by_the_replay_of_another_target", () => { // its own test does not redden: dead
+  const r = kz(), k1 = row(r, "K1");
+  assert.deepEqual([r.status, r.rec?.counts, k1?.test, k1?.status, k1?.note, k1?.replay?.status, k1?.replay?.fails],
+    [1, { survit: 1, tue: 1 }, null, "survit", null, "tue", ["k_other"]], r.stderr);
+});
+
+// killer: scripts/mutants/run.mjs:247 CONST "by: read === undefined ? undefined : by" -> "by: by"
+test("mutants_a_run_that_is_no_replay_leaves_no_by_key_in_the_record", () => { // the baseline, and K2, killed at its first run, never replayed
+  const r = kz(), k2 = row(r, "K2"), has = (x: object | null | undefined): boolean => "by" in (x ?? {});
+  assert.deepEqual([r.rec?.baseline?.status, has(r.rec?.baseline), k2?.test, k2?.status, k2?.replay, has(k2)],
+    ["vert", false, "k_other", "tue", null, false], r.stderr);
 });

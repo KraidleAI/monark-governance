@@ -40,8 +40,8 @@
 //   non conclu  otherwise: failures without an assertion (a test past --timeout-ms, a load error), a hook's failure that node reports on the named test's own entry (failureType hookFailed: a before, beforeEach or afterEach hook; noted "the named test is red by a hook")
 // then PROMOTED to tue, noted (MUTANTS-REPLAY-PROMOTE-1): a "lost" first run, never a survivor nor another non conclu, whose replay shows its named test's own entry (that name, located in a
 // file of the first run) failing by assertion; never by another test, a hook or a load, never a skipped test. A replay keeps its verdict (no named test).
-// And PROMOTED to tue, noted (MUTANTS-SURVIVOR-REPLAY-KILL-1): a row without a named test whose first run survit and whose replay over its targets is tue,
-// a test located in a target failing by assertion, never by a hook; never a row that names its test, nor a first run or a replay non conclu.
+// And PROMOTED to tue, noted (MUTANTS-SURVIVOR-REPLAY-KILL-1): a table row without a named test whose first run survit and whose replay over its targets
+// is tue, a test of a target red by assertion, never by a hook; never a killer line, a row that names its test, nor a first run or a replay non conclu.
 // A row marked typecheck (D-2) runs tsc --noEmit -p tsconfig.json of the clone's node_modules/typescript instead: tue iff an error falls in a target file;
 // non conclu if tsc dies, if every error falls outside the targets (corrections D-2, note "N error(s) outside the targets") or if tsc exits non-zero
 // without a diagnostic line "file(l,c): error TSn:" (corrections D-3, note "tsc exit N without a diagnostic line"); survit otherwise. Such rows run
@@ -312,14 +312,17 @@ export async function main(argv) {
         if (g.stop) { stop = { reason: g.stop, at: m.id, waited_ms: g.waited_ms }; break; }
         const f = g.first, unjudged = m.typecheck && f.status === "survit" && f.exit !== 0; // corrections D-2, D-3: tsc out non-zero (any error), none in a target
         const promoted = f.lost === true && g.replay?.named_kill === true; // MUTANTS-REPLAY-PROMOTE-1: a lost first run whose replay reddens the named test itself
-        // MUTANTS-SURVIVOR-REPLAY-KILL-1: a survivor without a named test whose replay over its targets reddens a test of a target by assertion
-        const by = g.replay?.by ?? [], rescued = m.test === undefined && f.status === "survit" && g.replay?.status === "tue" && by.length > 0;
+        // MUTANTS-SURVIVOR-REPLAY-KILL-1: a table row without a named test, a survivor whose replay over its targets reddens a test of a target by assertion
+        const by = g.replay?.by ?? [], unnamed = m.origin === "table" && m.test === undefined; // a table row only: a killer line is judged by its own test
+        const rescued = unnamed && f.status === "survit" && g.replay?.status === "tue" && by.length > 0;
+        const killing = by.join(" | "); // the tests that kill on replay, apart as the rouges of lineOf: a test name may hold a comma
+        const firstFiles = f.files.join(","); // the files of the first run
         row.sha_after = sha(readFileSync(p));
         Object.assign(row, { status: unjudged ? "non conclu" : promoted ? "tue" : rescued ? "tue" : f.status, strict: f.strict, fails: f.fails, oks: f.oks,
           exit: f.exit, ms: f.ms, tap_sha256: f.tap_sha256, replay: g.replay && { ...g.replay, by: undefined }, // by: the record keeps the replay's own fields
           note: f.outside > 0 ? `${f.outside} error(s) outside the targets` : unjudged ? `tsc exit ${String(f.exit)} without a diagnostic line`
             : promoted ? `promoted by its replay, where its named test fails by assertion; first run: ${String(f.note)}`
-            : rescued ? `killed on replay over its targets by ${by.join(", ")}, first run on ${f.files.join(",")}: survit` : f.note ?? null,
+            : rescued ? `killed on replay over its targets by ${killing}, first run on ${firstFiles}: survit` : f.note ?? null,
           memory_wait_ms: g.memory_wait_ms, lock_wait_ms: g.lock_wait_ms });
         if (row.sha_after !== row.sha_before) [row.note, code] = ["the file was not restored", 3];
       }
