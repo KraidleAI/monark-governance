@@ -581,7 +581,7 @@ test("equals_registry_on_test_block - on the TEST block of a made series the cou
   assert.equal(first.r.status, 1, `UTest null in the registry: exit 1\n${first.r.stdout}${first.r.stderr}`);
   const u = (first.rep?.differences ?? []).map((d) => /^(syn-\S+) \S+ UTest: tool "(0\.\d{7})", registry null$/.exec(d)?.slice(1) ?? []);
   assert.deepEqual(u.map((x) => x[0]), ["syn-range-1h", "syn-mae-down-1h"], `the only differences: UTest of the two rows with points\n${first.r.stdout}`);
-  const ut = Object.fromEntries(u.map(([c, v]) => [c, v])), set = (rows: RegRow[]): void => { for (const x of rows) x.test.UTest = ut[x.taskClass] ?? null; };
+  const ut: Record<string, string> = Object.fromEntries(u.map(([c, v]): [string, string] => [String(c), String(v)])), set = (rows: RegRow[]): void => { for (const x of rows) x.test.UTest = ut[x.taskClass] ?? null; };
   const ok = act(name, join(work, "2"), testBlock("ut.json", set).args(join(work, "2")));
   assert.equal(ok.r.status, 0, `every field equal: exit 0\n${ok.r.stdout}${ok.r.stderr}`);
   assert.deepEqual([ok.rep?.equal, linesOf(ok.r.stdout).at(-2)], [true, "VERDICT: GREEN"]);
