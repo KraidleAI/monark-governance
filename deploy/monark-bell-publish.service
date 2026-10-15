@@ -1,9 +1,10 @@
-# systemd unit for the MONARK Bell publisher (ADR-T1b-backend v2 D8-D10; backlog S-7). Orchestrator-deployed on the
-# dedicated Bell host (bell.monarkgate.tech, decision 57) by docs/RUNBOOK-bell.md. A Type=oneshot job started BY HAND by the
-# operator after a bundle lands in the inbox (lot a = option C, R-T1b-5): NO timer and NO [Install] section, so nothing
-# starts it at boot and nothing enables it (the collection timer is lot b, item BELL-COLLECT-TIMER-1, declared deviation
-# from decision 54, C-1). Each start validates the ONE pending bundle, signs and appends one timeline line, writes the
-# served files under /var/lib/monark-bell/public (read by Caddy), archives the bundle and exits; it computes no fact.
+# systemd unit for the MONARK Bell publisher (ADR-T1b-backend v2 D8-D10; backlog S-7; G0 BELL-COLLECT-TIMER-1 DC-3, plan of part 3 C3-1,
+# lot 3b-ii). Orchestrator-deployed on the dedicated Bell host (bell.monarkgate.tech, decision 57) by docs/RUNBOOK-bell.md. A Type=oneshot
+# job started by monark-bell-collect.service at each end of a collection tick (its OnSuccess= and OnFailure=, C3-1): NO timer and NO
+# [Install] section of its own, so nothing else starts it and nothing enables it. Each start runs --handoff once: it publishes, in order,
+# at most HANDOFF_N bundles the tick deposited in the handoff directory from the start mark on (each validated, signed, one timeline line),
+# writes the served files under /var/lib/monark-bell/public (read by Caddy), records each publication and each refusal in the status
+# directory and exits; it computes no fact and never writes the handoff directory.
 #
 # Key custody (ADR D9, ESC-2 after I-G2-2): the Ed25519 private key is a root:root 0600 file read by the service manager
 # and handed to the job through LoadCredential= ("only accessible to the user associated with the unit", read-only,
@@ -12,31 +13,38 @@
 # test/bell-deploy-config.test.ts). An absolute path makes a missing key FATAL to the start (systemd.exec(5)): the job
 # never runs keyless. No EnvironmentFile, no Environment: the job reads no secret from the environment (B-4).
 [Unit]
-Description=MONARK Bell publisher - signs and serves one pending bundle (ADR-T1b-backend)
+Description=MONARK Bell publisher - signs and serves the bundles the collection deposits (ADR-T1b-backend, G0 BELL-COLLECT-TIMER-1)
 Documentation=https://github.com/KraidleAI/monark
 
 [Service]
 Type=oneshot
-# The dedicated tree holds ONLY what this unit runs (ADR D1): apps/bell/scripts/bell-publish.mjs + bell-chain.mjs, root-owned
-# 0644, shipped by git archive at the G7 SHA (RUNBOOK step 3). Node built-ins only; no npm install on this host.
+# The dedicated tree holds ONLY what this unit runs (ADR D1): BELL_TREE_PATHS of scripts/verify-bell.mjs, bell-publish.mjs and the two
+# modules it imports (bell-chain.mjs, bell-validate.mjs), root-owned 0644, shipped by git archive at the G7 SHA (RUNBOOK step 3).
+# Node built-ins only; no npm install on this host.
 WorkingDirectory=/opt/monark-bell
 # --max-old-space-size=448 (MiB) keeps V8's old generation BELOW MemoryMax=512M (base-1024 suffix): a heap exhaustion ends
 # as a clean V8 error before the cgroup OOM killer (precedent deploy/monark-harness.service:41-50). The bounds of the
 # publisher (MAX_INPUT_FILE_BYTES 64 MiB <= 1/7 of this heap) are derived from this value (ADR "Constantes", C-7).
-ExecStart=/usr/bin/env node --max-old-space-size=448 /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --inbox /var/lib/monark-bell/inbox --state /var/lib/monark-bell
+# The --handoff form (DC-3) on the directories of BELL_LAYOUT: the handoff (read through the group), the status, the state (last).
+ExecStart=/usr/bin/env node --max-old-space-size=448 /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --handoff /var/lib/monark-bell-handoff --status /var/lib/monark-bell-status --state /var/lib/monark-bell
 LoadCredential=bell-signing-key:/etc/monark/bell/signing-key.pem
-# Per-start backstop of the oneshot: the work (hash <= 64 MiB, about ten durable writes) is an order of magnitude below
-# (win32 durable-write p99 80.7 ms, ADR-T1aii D1-nonies section 5; the Linux value is measured at the D-n). Precedent:
-# deploy/monark-probe.service on the same host.
+# Per-start backstop of the oneshot: the work of one bundle (hash <= 64 MiB, about ten durable writes, and its status line) is an
+# order of magnitude below (win32 durable-write p99 80.7 ms, ADR-T1aii D1-nonies section 5; the Linux value is measured at the D-n),
+# and a start takes at most HANDOFF_N = 8 bundles. Precedent: deploy/monark-probe.service.
 TimeoutStartSec=120
-# Least privilege: a dedicated non-login `bell` user (RUNBOOK step 4) whose ONLY writable path is its state directory.
+# Least privilege: a dedicated non-login `bell` user (RUNBOOK step 4), member of the handoff group, through which it reads the
+# collection's deposits (DC-3). Its ONLY writable paths: its state directory and the status directory.
 User=bell
 Group=bell
+SupplementaryGroups=bell-handoff
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/var/lib/monark-bell
+ReadWritePaths=/var/lib/monark-bell /var/lib/monark-bell-status
+# The collection's private side and its secrets directory (the RPC and cash keys), each masked by one name with everything below it
+# (C-7). No leading `-`: both exist (lot 5b, step 1), and a missing one fails the start.
+InaccessiblePaths=/var/lib/monark-bell-collect /etc/monark/bell-collect
 # Offline by construction: a private network namespace with loopback only (systemd.exec(5)). The man page warns that a
 # unit must not rely on this alone, hence the second lock in code: bell-publish.mjs imports no network module (test
 # bell_scripts_import_allowlist_no_network).
@@ -44,8 +52,8 @@ PrivateNetwork=yes
 # Files 0644, directories 0755: Caddy (user caddy) reads public/ and never writes it.
 UMask=0022
 
-# Resource caps on the shared Bell host (2 vCPU; the Narabi probe and Caddy keep their share). Values and motives: ADR
-# "Constantes" (C-7). CPUQuota=25% = at most a quarter of ONE CPU (precedent monark-probe.service). TasksMax=32: one Node
+# Resource caps on Bell's host (2 vCPU, the same template as the former host; the collection and Caddy keep their share). Values and
+# motives: ADR "Constantes" (C-7). CPUQuota=25% = at most a quarter of ONE CPU (precedent monark-probe.service). TasksMax=32: one Node
 # process (libuv pool of 4 plus V8 threads).
 CPUQuota=25%
 MemoryMax=512M

@@ -1,0 +1,25 @@
+# systemd timer for the MONARK Bell collection (G0 BELL-COLLECT-TIMER-1 DC-4 cadence; plan of part 3, C3-2, lot 3b-ii). Four UTC slots,
+# each 15 minutes after one of the four forms of a unit's due instant (16:00 ET: 20:00 or 21:00 UTC; 04:30 ET: 08:30 or 09:30 UTC, the
+# 30-minute margin included): every unit of the committed calendar finds a slot less than one hour after its due instant, in both clock
+# regimes and both SIP regimes (bell_collect_slots_follow_every_unit_due_instant_within_one_hour); a slot before it exits 0 with nothing.
+# Every value is written explicitly, none left to a default (calque of monark-dojo-collect.timer). Enabled by the RUNBOOK (lot 5b).
+[Unit]
+Description=MONARK Bell collection timer - four UTC slots a day (G0 BELL-COLLECT-TIMER-1)
+Documentation=https://github.com/KraidleAI/monark
+
+[Timer]
+# One expression per line, in UTC whatever the host's zone (the form of the served monark-sentinel.timer). Checked on the host by
+# `systemd-analyze calendar` (RUNBOOK, lot 5b).
+OnCalendar=*-*-* 20:15:00 UTC
+OnCalendar=*-*-* 21:15:00 UTC
+OnCalendar=*-*-* 08:45:00 UTC
+OnCalendar=*-*-* 09:45:00 UTC
+# AccuracySec defaults to 1 min (systemd.timer(5) of systemd 259, as read for monark-dojo-collect.timer): pinned to 1 s. No randomized delay.
+AccuracySec=1s
+RandomizedDelaySec=0
+# A slot missed while the timer was inactive runs once at activation; the tick is idempotent (DC-4).
+Persistent=true
+Unit=monark-bell-collect.service
+
+[Install]
+WantedBy=timers.target

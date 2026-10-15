@@ -11,6 +11,7 @@ import { ATTEMPT_BUDGET, BELL_COLLECT_ENV_KEYS, BELL_METHOD_CAPS, BELL_OPERATORS
 import { UNITS_PER_TICK as PLAN_UNITS_PER_TICK } from "../apps/bell/src/plan.ts";
 import { POOLS } from "../apps/bell/src/pools.ts";
 import * as deploy from "../scripts/bell-deploy.mjs";
+import * as STATUS from "../apps/bell/src/handoff-status.ts";
 
 const LAUNCHER = readFileSync(join(import.meta.dirname, "..", "apps", "bell", "ops", "launch-q6.sh"), "utf8");
 const nums = (re: RegExp): number[] => { const m = re.exec(LAUNCHER); assert.ok(m, `launch-q6.sh carries ${String(re)}`); return m.slice(1).map(Number); };
@@ -26,6 +27,12 @@ test("bell_deploy_pins_the_proposed_values", () => {
   assert.deepEqual(BELL_RUN_CAPS, { maxCredits: credits, maxRu: ru, maxCalls: calls, maxPages: pages }, "the run caps of mode W3");
   assert.deepEqual(BELL_METHOD_CAPS, { getSignaturesForAddress: gsfa, getTransaction: gtx, getAccountInfo: gai, getTransactionsForAddress: gtfa }, "the method caps of mode W3");
   assert.ok([BELL_COLLECT_ENV_KEYS, BELL_RUN_CAPS, BELL_METHOD_CAPS].every((x) => Object.isFrozen(x)), "frozen: no caller widens them");
+  // BELL-STATUS-CONSTANTS-DEPLOY-1 (DC-4: caps and margins live here): the backlog threshold and the purge delay of PLAN-P3 C3-2, which the
+  // tick's pure handoff-status.ts imports and re-exports (one value, never a copy).
+  const d = deploy as Record<string, unknown>;
+  assert.deepEqual([d.BACKLOG_MAX, d.PRUNE_AFTER_MS], [8, 7 * 86_400_000], "N = 8 units awaiting publication; seven days after the fact that allows a removal");
+  assert.deepEqual([STATUS.BACKLOG_MAX, STATUS.PRUNE_AFTER_MS], [d.BACKLOG_MAX, d.PRUNE_AFTER_MS], "handoff-status.ts serves the deployment's values");
+  assert.ok(!/export const (BACKLOG_MAX|PRUNE_AFTER_MS)\b/.test(readFileSync(join(import.meta.dirname, "..", "apps", "bell", "src", "handoff-status.ts"), "utf8")), "never redeclared there");
 });
 
 // killer: scripts/bell-deploy.mjs:9 CONST "[\"TSLAx\", \"AAPLx\"]" -> "[\"TSLAx\", \"AAPLx\", \"SPYx\"]"
@@ -72,4 +79,9 @@ test("bell_deploy_pins_the_handoff_layout", () => {
   assert.ok(Object.isFrozen(layout) && Object.values(layout).every((x) => Object.isFrozen(x)), "frozen: no caller widens it");
   const paths = Object.values(layout).map((x) => x.path);
   assert.deepEqual(paths.filter((p) => paths.some((q) => p.startsWith(`${q}/`))), [], "no directory nested in another: each is top-level");
+  // Lot 3b-ii: the committed units, and the collection's secrets directory (masked from the publisher by one name, DC-3 l.211) with its
+  // EnvironmentFile inside it (G0 m-11: a mask on the directory, made at lot 5b step 1). Bell's key directory is never named in this file.
+  assert.deepEqual([d.BELL_COLLECT_UNIT, d.BELL_COLLECT_TIMER, d.BELL_PUBLISH_UNIT], ["deploy/monark-bell-collect.service", "deploy/monark-bell-collect.timer", "deploy/monark-bell-publish.service"]);
+  assert.deepEqual([d.BELL_COLLECT_SECRETS_DIR, d.BELL_COLLECT_ENV_FILE, d.BELL_KEY_DIR], ["/etc/monark/bell-collect", "/etc/monark/bell-collect/collect.env", undefined]);
+  assert.deepEqual([d.BELL_COLLECT_TREE_ROOT, d.BELL_COLLECT_TREE_LINK], ["/opt/monark-bell-collect", ["node_modules/@monark/rpc-guard", "../../packages/rpc-guard"]], "the tree's root and its link (calque of the Dojo's)");
 });
