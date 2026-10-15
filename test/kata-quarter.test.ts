@@ -1,13 +1,10 @@
-// test/kata-quarter.test.ts -- CM-5, the quarter counts tool tools/kata-quarter/ (docs/G0-lot-cm5-c1a.md): the first code lot, the
-// loader. The tool is the second tree of io_guard's closed list (tools/kata-recalc/io_guard.py, TREES): its entry script runs io_guard.py
-// of the frozen tool by its path first, under the launch form FORM; its folder holds the list file FILES that io_guard checks before any
-// other import, and sibling modules quarter_*.py whose stems are none of the frozen tool's. The loader (quarter_load.py) reads one symbol
-// twice through recalc_p2.load_series of the frozen tool, the sealed series and the LIVE series, each under its pin, and merges them under
-// control: the seam at S_k, no instant in both, every grid slot present or declared missing by its read. Every launch of the tool runs
-// from the temporary git repository of test/helpers/kata-quarter-repo.ts, one per test file, on the synthetic fixture of
-// fixtures/kata-quarter/ (made-up 15-minute candles of a made-up symbol, syn: no real series). Reads only. The file is excluded by name
-// from test:main: the job g3-verifier-tool runs it through scripts/verifier-tool-ci.mjs under the pinned CPython, whose path the driver
-// gives the helper (KATA_QUARTER_PYTHON); by hand, `node --test test/kata-quarter.test.ts` takes the python of PATH.
+// test/kata-quarter.test.ts -- CM-5, the quarter counts tool tools/kata-quarter/ (docs/G0-lot-cm5-c1a.md), the loader: the second tree of
+// io_guard's closed list. Its entry runs io_guard.py of the frozen tool by its path first, under FORM; its folder holds the list file
+// FILES and modules quarter_*.py with no stem of the frozen tool. The loader reads one symbol twice through recalc_p2.load_series (sealed
+// and LIVE, each under its pin) and merges them under control. Every launch runs from the temporary git repository of
+// test/helpers/kata-quarter-repo.ts, one per test file, on the synthetic fixture of fixtures/kata-quarter/ (no real series). Reads only.
+// Excluded by name from test:main: g3-verifier-tool runs it through scripts/verifier-tool-ci.mjs, which gives the helper the pinned
+// CPython (KATA_QUARTER_PYTHON); by hand, `node --test test/kata-quarter.test.ts` takes the python of PATH.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -47,7 +44,7 @@ const S1 = Date.UTC(2026, 9, 1), CANDLE_S1 = `2026-10-01T00:00:00Z,${S1},100.00,
 // does not open with the prologue of the frozen tool in its two-tree form (io_guard.py run by its path, the frozen tool's folder last in
 // sys.path, then import io_guard before any other module), or a launch of the entry answering otherwise than written: no subcommand or
 // an unknown one, the usage and exit 2; count and month, "not in this lot" and exit 2
-// killer: tools/kata-quarter/quarter_counts.py:20 CONST "import io_guard" -> "import kata_lib"
+// killer: tools/kata-quarter/quarter_counts.py:14 CONST "import io_guard" -> "import kata_lib"
 test("kata_quarter_entry_script_imports_the_input_guard_first - the one entry script of the tool runs io_guard.py of the frozen tool by its path and imports io_guard before any other module; count and month answer not in this lot", () => {
   assert.ok(existsSync(join(REPO, QUARTER, ENTRY)), `${QUARTER}/${ENTRY} absent`);
   const entries = readdirSync(join(REPO, QUARTER)).filter((f) => f.endsWith(".py") && /^if __name__ == "__main__":$/m.test(read(f))).sort();
@@ -70,12 +67,12 @@ test("kata_quarter_entry_script_imports_the_input_guard_first - the one entry sc
     assert.match(r.stdout, new RegExp(`^${sub}: not in this lot`), `${sub} answers that it is not in this lot`);
   }
   const [sealed, live] = [join(FIXTURE, "sealed"), join(FIXTURE, "live")], livePin = sha256(join(live, SYM, SERIES));
-  // killer: tools/kata-quarter/quarter_counts.py:83 CONST "a.isascii() and " -> ""
+  // killer: tools/kata-quarter/quarter_counts.py:77 CONST "a.isascii() and " -> ""
   const sup = t.run(["check", sealed, live, SYM, "\u00b2", "pinned", livePin, "404"]);
   assert.equal(sup.status, 2, `a quarter written with a superscript digit: the usage, exit 2\n${sup.stdout}${sup.stderr}`);
   assert.match(sup.stdout, /^usage: python -E -S -s -B -P quarter_counts\.py check /, "a digit that is not ASCII is refused by the usage");
   assert.ok(!/Traceback/.test(`${sup.stdout}${sup.stderr}`), "no trace");
-  // killer: tools/kata-quarter/quarter_counts.py:56 CONST "pin1 == \"pinned\" and k != 1" -> "False"
+  // killer: tools/kata-quarter/quarter_counts.py:50 CONST "pin1 == \"pinned\" and k != 1" -> "False"
   const later = t.run(["check", sealed, live, SYM, "2", "pinned", livePin, "404"]);
   assert.equal(later.status, 2, `pinned for quarter 2: exit 2\n${later.stdout}${later.stderr}`);
   assert.match(later.stdout, /^REFUSED: 'pinned' names the sealed series of wave 1, read 1 of quarter 1 only: quarter 2 reads quarter 1 under the pin posted at its sealing$/m);
@@ -85,7 +82,7 @@ test("kata_quarter_entry_script_imports_the_input_guard_first - the one entry sc
 // at S_k absent from the LIVE series and from its declaration), a declared gap refused or not listed, a slot both declared missing and
 // present admitted, an instant in both reads admitted (the sealed series read past S_k), a missing.json out of its form admitted (a count
 // or an open_time_ms that is not a whole number, an open_time_utc that does not write it), or the merged range off the lookback and E_k
-// killer: tools/kata-quarter/quarter_load.py:115 CONST "if undeclared:" -> "if False:"
+// killer: tools/kata-quarter/quarter_load.py:108 CONST "if undeclared:" -> "if False:"
 test("two_reads_merged_under_check - check reads the sealed and the LIVE series of the fixture, each under its pin, and merges them: the seam at S_1, 10448 slots, the three declared gaps of the LIVE series listed; the same LIVE series with the gap at S_1 undeclared, a declared slot present, an instant in both reads, or a missing.json out of its form, is refused by name", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_load.py")), `${QUARTER}/quarter_load.py absent`);
   for (const f of ["sealed", "live"].flatMap((d) => [join(d, SYM, SERIES), join(d, SYM, MISSING)])) assert.ok(existsSync(join(FIXTURE, f)), `fixtures/kata-quarter/${f} absent`);
@@ -108,15 +105,15 @@ test("two_reads_merged_under_check - check reads the sealed and the LIVE series 
   assert.equal(present.status, 2, `the candle at S_1 present and declared missing: exit 2\n${present.stdout}${present.stderr}`);
   assert.match(present.stdout, /^REFUSED: syn: 1 slots listed in missing\.json are present in the series, first 2026-10-01T00:00:00Z$/m);
   // an instant in both reads: the candle at S_1 added to the sealed series, which load_series reads under [REC_START, S_1) and refuses
-  // killer: tools/kata-quarter/quarter_load.py:74 CONST "= start, end" -> "= start, end + K.STEP_MS"
+  // killer: tools/kata-quarter/quarter_load.py:67 CONST "= start, end" -> "= start, end + K.STEP_MS"
   const sealed = fixtureOf("sealed"), both = t.run(checkArgs(variant(work, "both", `${sealed.csv}${CANDLE_S1}\n`, sealed.missing), join(FIXTURE, "live")));
   assert.equal(both.status, 2, `the candle at S_1 in the sealed read too: exit 2\n${both.stdout}${both.stderr}`);
   assert.match(both.stdout, /^REFUSED: syn: line 1618: off grid, out of range or not ascending$/m, "refused by name, by the range of read 1");
   const form = /^REFUSED: syn: missing\.json out of its form: a count or an open_time_ms that is not a whole number, or an open_time_utc that does not write its open_time_ms /m;
   const at = (v: unknown, utc: unknown = "2026-10-01T00:00:00Z"): Missing => ({ count: 3, missing: [{ open_time_ms: v, open_time_utc: utc }, ...rest] });
-  // killer: tools/kata-quarter/quarter_load.py:82 CONST "not whole(x[\"open_time_ms\"]) or " -> ""
-  // killer: tools/kata-quarter/quarter_load.py:85 CONST "bad or not whole(count)" -> "bad"
-  // killer: tools/kata-quarter/quarter_load.py:82 CONST " or x[\"open_time_utc\"] != iso(x[\"open_time_ms\"])" -> ""
+  // killer: tools/kata-quarter/quarter_load.py:75 CONST "not whole(x[\"open_time_ms\"]) or " -> ""
+  // killer: tools/kata-quarter/quarter_load.py:78 CONST "bad or not whole(count)" -> "bad"
+  // killer: tools/kata-quarter/quarter_load.py:75 CONST " or x[\"open_time_utc\"] != iso(x[\"open_time_ms\"])" -> ""
   for (const [name, decl] of [["float", at(S1 + 0.5)], ["string", at(String(S1))], ["bool count", { ...missing, count: true }], ["utc", at(S1, "2026-10-01T00:15:00Z")]] as const) {
     const r = t.run(checkArgs(join(FIXTURE, "sealed"), variant(work, name.replace(" ", "-"), csv, decl)));
     assert.equal(r.status, 2, `a missing.json with a ${name} out of its form: exit 2\n${r.stdout}${r.stderr}`);

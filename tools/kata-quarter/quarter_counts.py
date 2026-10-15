@@ -1,17 +1,11 @@
 # claude-opus-5-5 - 2026-10-15 - the entry script of the quarter counts tool, tools/kata-quarter/ (CM-5), Python 3.14 standard library
-# only, no network. The one file of this folder with a block __main__: its sibling modules are quarter_*.py, none an entry. It runs
-# io_guard.py of the frozen tool tools/kata-recalc/ by its path FIRST (the prologue below: the form of the frozen tool's own entry
-# scripts, the frozen tool's folder appended last to sys.path, io_guard never found by name), which checks the launch form FORM
-# (python -E -S -s -B -P), the closed lists of both trees (FILES there, the list file FILES here) and installs its audit hook before any
-# input is read. Then this folder is appended after the frozen tool's, so that the quarter_* modules are found by name; identity()
-# holds every module loaded under a name of the frozen tool's list, or from its folder, to the frozen tool's file, io_guard to the one at
-# <frozen tool>/io_guard.py, and no module of this folder to one of those names (io_guard refuses such a homonym first).
-# Subcommands: check, two reads of one symbol through quarter_load (the sealed series and the LIVE series, each under its pin), the
-# merged range and the declared gaps, one VERDICT: GREEN; count and month, the quarter and month counts: not in this lot, exit 2.
-# An exception that nothing names is caught here: its type and message, no trace, exit 2. Every path argument is made absolute.
+# only, no network; the one file of this folder with a block __main__. The prologue runs io_guard.py of the frozen tool tools/kata-recalc/
+# by its path first (its folder appended last to sys.path), which checks the form FORM and the lists of both trees and installs its hook
+# before any input; this folder is then appended for the quarter_* modules; identity() holds the frozen tool's modules to its files.
+# check: two reads of one symbol through quarter_load and their merge, VERDICT: GREEN; count and month: not in this lot, exit 2. Every
+# argument is parsed under the top-level catch: a refusal or an exception is one line, no trace, exit 2.
 # Usage: python -E -S -s -B -P quarter_counts.py check <sealed series dir> <live series dir> <symbol folder> <quarter k>
 #                                                      <sealed sha256 | pinned, quarter 1 only> <live sha256> <lookback hours>
-#        python -E -S -s -B -P quarter_counts.py count | month ...   (not in this lot)
 import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked both folders (IO-GUARD-POSED-FILES-1)
 if "io_guard" not in sys.modules:  # io_guard.py of the frozen tool, run by its path, never found by name: nothing posed or installed stands in for it
     sys.path.append(_d := os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "kata-recalc"))  # the frozen tool's folder, last in sys.path: -P is in FORM

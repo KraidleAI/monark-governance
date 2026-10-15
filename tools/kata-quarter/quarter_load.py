@@ -1,21 +1,14 @@
-# claude-opus-5-5 - 2026-10-15 - the loader of the quarter counts tool, tools/kata-quarter/ (CM-5, its first code lot), Python 3.14
-# standard library only, no network. A sibling module of quarter_counts.py, the one entry script: no block __main__ here. It reads only
-# through io_guard.read, under the roles series and recorder that the entry declares, and through recalc_p2.load_series of the frozen
-# tool tools/kata-recalc/, imported, never copied (each read hashes the bytes and refuses them before parsing unless the sha256 is the
-# pin it is given, D-3 of the frozen tool).
-# Two reads of one symbol, then a controlled merge. Read 1, the sealed series: for quarter 1 the series of wave 1 under its recording
-# range (kata_lib.REC_START to REC_END, which ends at S_1) and the pin of recalc_p2.SYMBOLS (sealed_pin); for a later quarter the record
-# of the previous quarter under that quarter's range and the pin posted at its sealing. Read 2, the LIVE series of the quarter under
-# [S_k, E_k) and the pin posted at its sealing; both pins come to check as arguments and are printed. The two ranges meet at S_k by
-# construction (quarter and sealed_range), and load_series refuses any candle outside the range it reads under ("off grid, out of range
-# or not ascending", recalc_p2.py l.111-112): so read 1 ends exactly where read 2 starts and no instant is in both, with no check of its
-# own here. The merge holds that every grid slot from S_k minus the lookback (the longest input window of the rows counted, given by the
-# caller) to E_k is present in the merged candles or listed in the missing.json of the read that owns it ("every absent grid slot, never
-# filled"). An undeclared gap is a named refusal (Refused, exit 2 at the entry); a declared gap stays a gap: the count decides later
-# whether it is a drop or an instant outside the cell. missing.json is held to its form: a whole count, and entries whose open_time_ms is
-# a whole number (never a bool, a float or a string) and whose open_time_utc writes that instant; a slot listed as missing and present in
-# the series, or listed off the grid or outside the read's range, is refused too. Truncated candles (the close-time rule of the sealed
-# blocks) are not read here yet: recalc_p2.load_series still stops on any irregular close time.
+# claude-opus-5-5 - 2026-10-15 - the loader of the quarter counts tool, tools/kata-quarter/ (CM-5), Python 3.14 standard library only, no
+# network; a sibling module of quarter_counts.py, no block __main__. It reads through io_guard.read (roles series and recorder) and through
+# recalc_p2.load_series of the frozen tool, imported, never copied (D-3: the bytes refused before parsing unless their sha256 is the pin).
+# Read 1, the sealed series: for quarter 1 the series of wave 1 under its recording range (kata_lib.REC_START to REC_END, ending at S_1)
+# and the pin of recalc_p2.SYMBOLS (sealed_pin); later, the previous quarter's record under its range and posted pin. Read 2, the LIVE
+# series under [S_k, E_k) and its posted pin. The ranges meet at S_k by construction, and load_series refuses a candle outside its range
+# (recalc_p2.py l.111-112): no instant is in both reads, with no check of its own here. The merge: every grid slot from S_k minus the
+# lookback (the caller's) to E_k is present or listed in the missing.json of the read that owns it; an undeclared gap is a named refusal
+# (Refused, exit 2), a declared gap stays a gap (the count decides its drop later). missing.json is held to its form: a whole count, whole
+# open_time_ms values (never a bool, a float or a string) written again by their open_time_utc, none off the grid, outside the read's
+# range or present in the series. Truncated candles: not yet (load_series stops on any irregular close time).
 import datetime
 import json
 

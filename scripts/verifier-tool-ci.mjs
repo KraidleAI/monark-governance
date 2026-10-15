@@ -117,11 +117,9 @@ export const outputProblems = (check, out, status, want, win) => {
   return { problems: problems.map((p) => `${check}: ${p}`), skipped };
 };
 
-/** The second tree of TREES, tools/kata-quarter (CM-5, docs/G0-lot-cm5-c1a.md), held by its test file, QUARTER_TEST, which test:main
- *  excludes by name and this job runs under the pinned CPython: `node --test --test-reporter=tap QUARTER_TEST`, with KATA_QUARTER_PYTHON
- *  set to the interpreter probed above (test/helpers/kata-quarter-repo.ts launches the tool with it). A tree on disk without its test file
- *  is a tree that this job does not run (accountProblems). The run must exit 0 and its TAP summary report exactly the tests that the
- *  file declares, each passed, none failed, cancelled, skipped or todo (quarterTestProblems). */
+/** The second tree of TREES (CM-5, docs/G0-lot-cm5-c1a.md), held by QUARTER_TEST, which test:main excludes by name and main() runs under
+ *  node --test with KATA_QUARTER_PYTHON, the interpreter probed (the helper launches the tool with it); a tree on disk without that file
+ *  is refused by accountProblems. The run must exit 0 and report exactly the tests the file declares, each passed (quarterTestProblems). */
 export const QUARTER = "tools/kata-quarter";
 export const QUARTER_TEST = "test/kata-quarter.test.ts";
 /** The tests that a test file declares: its lines that open with test( at column 0, the layout of the repository's test files. */

@@ -188,7 +188,7 @@ test("verifier_tool_driver_runs_vectors_check_on_the_pinned_spec_vectors - vecto
 // and the driver runs under the pinned CPython it probed (KATA_QUARTER_PYTHON). The judge of that run, quarterTestProblems, read here.
 // reddened by: the judge made constant, a run that exits other than 0, loses a test, fails, cancels, skips or marks one todo, or reports no
 // summary admitted; the file no longer excluded from test:main by name, or no longer run by the driver's main with the probed interpreter
-// killer: scripts/verifier-tool-ci.mjs:133 CONST "return [...(status" -> "return [] || [...(status"
+// killer: scripts/verifier-tool-ci.mjs:131 CONST "return [...(status" -> "return [] || [...(status"
 test("verifier_tool_driver_runs_the_second_tree_test_file - the kata-quarter test file, excluded from test:main by name, runs in this job under the probed CPython and must report exactly the tests it declares, each passed", () => {
   const q = ci as unknown as { QUARTER?: string; QUARTER_TEST?: string; declaredTests?: (text: string) => number;
     quarterTestProblems?: (out: string, status: number | string | null | undefined, declared: number) => string[] };
@@ -207,7 +207,7 @@ test("verifier_tool_driver_runs_the_second_tree_test_file - the kata-quarter tes
   const pkg = JSON.parse(read("package.json")) as { scripts: Record<string, string> }, stem = file.replace(/^test\//, "").replace(/\.test\.ts$/, "");
   assert.ok(pkg.scripts["test:main"]?.includes(`"test/!(${stem}).test.ts"`) && pkg.scripts.test?.includes('"test/*.test.ts"'), "test:main excludes the file by name; npm test still runs it");
   const main = read("scripts/verifier-tool-ci.mjs").split("\nfunction main() {")[1] ?? "";
-  // killer: scripts/verifier-tool-ci.mjs:164 CONST "KATA_QUARTER_PYTHON: exe" -> "KATA_QUARTER_PYTHON: \"\""
+  // killer: scripts/verifier-tool-ci.mjs:162 CONST "KATA_QUARTER_PYTHON: exe" -> "KATA_QUARTER_PYTHON: \"\""
   assert.ok(main.includes("KATA_QUARTER_PYTHON: exe") && main.includes("quarterTestProblems(") && main.includes('["--test", "--test-reporter=tap", QUARTER_TEST]'), "main runs the file under node --test, the probed interpreter given to the helper, and judges it");
   assert.ok(read("test/helpers/kata-quarter-repo.ts").includes("process.env.KATA_QUARTER_PYTHON ||"), "the helper launches the tool with the interpreter the driver names");
 });
