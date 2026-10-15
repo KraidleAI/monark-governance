@@ -378,7 +378,11 @@ test("byo_trace_rendered_equals_trace", () => {
   assert.deepEqual(byo.gate.result, gate?.response?.structuredContent);
   assert.equal(byo.scores_sha256.calibrate, byo.scores_sha256.verdict, "the recorded loop closes");
   assert.deepEqual(Object.keys(byo).sort(), ["accept", "bind", "calibrate", "decision", "gate", "scores_sha256"], "closed projection");
-  const h5 = loadH5Trace(ROOT);
+  // The trace loads: a refused step (a tool error, no structuredContent) is skipped, never shaped as a decision; asserted, so a refusal of the
+  // recorded trace reds by assertion, not by a bare throw.
+  const h5 = ((): ReturnType<typeof loadH5Trace> => {
+    try { return loadH5Trace(ROOT); } catch (e) { return assert.fail(`the recorded end-to-end trace loads: ${e instanceof Error ? e.message : String(e)}`); }
+  })();
   assert.equal(byo.bind, "127.0.0.1", "the BYO loop was recorded on the loopback address (an in-process server)");
   assert.equal(h5.bind, "127.0.0.1", "the end-to-end trace was recorded on the loopback address (an in-process server)");
   assert.ok(!/worker_model|generated_by|claude-|previously/.test(JSON.stringify([byo, h5])), "no generator metadata nor step note reaches a page");

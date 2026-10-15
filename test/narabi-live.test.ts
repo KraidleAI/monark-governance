@@ -576,9 +576,17 @@ test("narabi_gate_facts_read_from_committed_sources — n_calib and scores_sha25
   assert.equal(NARABI_SERVED.gate.predictor_id, USDE_STABLE_RUN_PREDICTOR_ID, "predictor_id = the committed calibration key");
   assert.ok(GATE_TOOL_DESCRIPTION.includes(`For '${NARABI_SERVED.gate.task_class}'`), "the served gate description names the class");
   assert.ok(GATE_TOOL_DESCRIPTION.includes(`(key ${NARABI_SERVED.gate.predictor_id})`), "the served gate description names the key");
-  const { loadHarnessPending } = await import("../apps/site/lib/harness-served-load.ts");
+  const { loadHarnessPending, HARNESS_SERVED_REL, HARNESS_PENDING_REL } = await import("../apps/site/lib/harness-served-load.ts");
   assert.equal(typeof loadHarnessPending, "function", "the openapi check follows the pending snapshot when one exists");
   const pending = loadHarnessPending(ROOT);
+  if (pending === null) { // the check follows a pending snapshot: one written beside this served snapshot (no pending_since) is seen and reds
+    const staged = mkdtempSync(join(tmpdir(), "narabi-pending-"));
+    try {
+      for (const rel of [HARNESS_SERVED_REL, "apps/site/data/manifest.sha256.json"]) { mkdirSync(join(staged, rel, ".."), { recursive: true }); writeFileSync(join(staged, rel), readFileSync(join(ROOT, rel))); }
+      writeFileSync(join(staged, HARNESS_PENDING_REL), "{}\n");
+      assert.throws(() => loadHarnessPending(staged), /carries no pending_since/, "a pending snapshot beside a served one without pending_since reds (fail-closed)");
+    } finally { rmSync(staged, { recursive: true, force: true }); }
+  }
   const openapi = JSON.stringify(buildOpenApi());
   const ca = JSON.parse(readFileSync(join(ROOT, "docs", "deploy-CA-harness.json"), "utf8")) as { checks: { name: string; sha256: string }[] };
   const servedOpenapi = ca.checks.find((c) => c.name === "openapi");

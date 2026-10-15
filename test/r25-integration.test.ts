@@ -132,7 +132,6 @@ test("r25i_fake_branch_name_bypasses_nothing - E-5 (2): a fork named lot/etude-s
 
 // killer: scripts/lot-size-integration.mjs:33 CONST "\"-c\", \"merge.conflictStyle=merge\", " -> ""
 // killer: scripts/lot-size-integration.mjs:86 CONST "\"--remerge-diff\", \"--unified" -> "\"--no-diff-merges\", \"--unified"
-// killer: scripts/oracle/r25.mjs:27 CONST "\"-C\", clone, ...PIN, " -> "\"-C\", clone, "
 // killer: scripts/oracle/r25.mjs:27 CONST "[`--attr-source=${attrTree(clone)}`], " -> "[], "
 test("r25i_conflict_resolution_above_bound_is_red - E-5 (3): through the oracle's r25() with bound 20, a 25-line resolution is red, a 10-line one green, under a hostile git config, user attributes, a machine bigFileThreshold of 1 or a measured .gitattributes * -diff (one line more); 3 lines slipped into a clean merge count 3 (A-3)", () => {
   for (const [n, exit, changed] of [[25, 1, 31], [10, 0, 16]] as const) withFx((fx) => {
@@ -249,7 +248,6 @@ test("r25i_proving_pr_contribution_is_remeasured - G2 B-2: a PR green against an
   assert.deepEqual([r.mode, r.code, r.w[0]], ["integration", 2005, 2005], r.detail.join("\n"));
 }));
 
-// killer: scripts/oracle/r25.mjs:20 CONST "join(import.meta.dirname, \"..\", \"lot-size-integration.mjs\")" -> "join(clone, \"scripts\", \"lot-size-integration.mjs\")"
 // killer: scripts/oracle/r25.mjs:44 CONST "if (!readFileSync(JUDGE).equals(readFileSync(join(clone, \"scripts\", \"lot-size-integration.mjs\")))) return" -> "if (false) return"
 test("oracle_r25_runs_its_own_module_and_refuses_a_foreign_one - G2 B-3: a line makes the measured tree's module answer `integration 0 0`, in an unproven commit or inside a proving PR; the oracle runs its own module, sees foreign bytes and keeps the count of today: red", () => {
   for (const proven of [false, true]) withFx((fx) => {
@@ -316,8 +314,6 @@ test("r25i_merge_time_rename_into_the_code_spec_counts - G2 delta2 B-5: a merge'
   }, ciOf(1205).replace("':(exclude)site/**'", "':(exclude)site/**' ':(exclude)docs/**'"));
 });
 
-// killer: scripts/lot-size-integration.mjs:33 CONST ", \"-c\", \"core.attributesFile=\"" -> ""
-// killer: scripts/lot-size-integration.mjs:33 CONST ", \"-c\", \"core.bigFileThreshold=512m\"" -> ""
 test("r25i_user_git_attributes_do_not_lower_counts - G2 m-a, delta2 m-d: a user attributes file marking every path -diff (XDG default or core.attributesFile), or a machine core.bigFileThreshold of 1, leaves the 300 slipped lines of B-1 and a 7-line commit at 307", () => withFx((fx) => {
   fx.g("checkout", "-q", "-b", "feat");
   const h1 = fx.commit("p1", "src/p1.txt", 10);
@@ -378,6 +374,7 @@ test("oracle_r25_refuses_machine_attributes - G2 delta3 m-f: a $GIT_DIR/info/att
 }));
 
 // killer: scripts/lot-size-integration.mjs:33 CONST "\"-c\", \"diff.renames=true\", " -> ""
+// killer: scripts/oracle/r25.mjs:27 CONST "\"-C\", clone, ...PIN, " -> "\"-C\", clone, "
 test("oracle_r25_w_reads_under_the_module_pin - G2 delta3 m-g: a commit edits one line of src/a.txt (3 000 lines) and copies the old a.txt to src/b.txt; a user's diff.renames=copies (~/.gitconfig through HOME, GIT_CONFIG_GLOBAL, GIT_CONFIG_PARAMETERS) reads 2 unpinned; the oracle's W stays 3 002, as the CI reads it", () => withFx((fx) => {
   const base = fx.commit("a", "src/a.txt", 3000), home = join(fx.dir, ".git", "home");
   copyFileSync(join(fx.dir, "src", "a.txt"), join(fx.dir, "src", "b.txt"));
@@ -437,7 +434,7 @@ test("r25i_build_proof_needs_a_measured_head_and_reads_nothing_for_a_written_pr 
     await assert.rejects(buildProof({ api: api([run("github-actions")], 2), cwd: fx.dir, pr: ev("lot/etude-suite"), base: TARGET }), /paginated/);
     calls.length = 0;
     await assert.rejects(buildProof({ api: api([]), cwd: fx.dir, pr: ev("lot/etude-suite"), base: TARGET, deadline: Date.now() - 1 }), /deadline/);
-    const written = await buildProof({ api: () => Promise.reject(new Error("no API call for a written PR")), cwd: fx.dir, pr: ev("recherches/x"), base: TARGET });
+    const written = await buildProof({ api: api([]), cwd: fx.dir, pr: ev("recherches/x"), base: TARGET });
     assert.deepEqual([written.merged, calls], [[], []]);
   } finally { fx.done(); }
 });
@@ -536,6 +533,8 @@ test("r25a_ci_w_fails_closed_without_the_pinned_read - O-1: a machine $GIT_DIR/i
 });
 
 // killer: scripts/lot-size-integration.mjs:180 CONST "GIT_CONFIG_PARAMETERS: undefined, " -> ""
+// killer: scripts/lot-size-integration.mjs:33 CONST ", \"-c\", \"core.attributesFile=\"" -> ""
+// killer: scripts/lot-size-integration.mjs:33 CONST ", \"-c\", \"core.bigFileThreshold=512m\"" -> ""
 test("r25a_ci_w_reads_under_the_module_pin - O-1, delta3 m-g on the CI side: a PR edits one line of src/a.txt (3 000 lines) and copies the old a.txt to src/b.txt; a GIT_CONFIG_PARAMETERS diff.renames=copies in the job's env reads 2 unpinned, the job reads 3 002, and every PIN option is in force at command scope", () => withFx((fx) => {
   fx.g("checkout", "-q", TARGET);
   fx.commit("a", "src/a.txt", 3000);

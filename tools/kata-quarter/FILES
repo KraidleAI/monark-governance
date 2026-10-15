@@ -1,6 +1,7 @@
 FILES
 quarter_core.py
 quarter_counts.py
+quarter_evidence.py
 quarter_identity.py
 quarter_load.py
 quarter_oracle.py

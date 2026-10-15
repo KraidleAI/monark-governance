@@ -221,7 +221,10 @@ test("l2_day_index_bound_named_stop", async () => { // G2 B-2: past the bound, a
     .map((l) => JSON.stringify(l) + LF).join("")); // G2 bis m-1: an index of about 150 KiB, its last frame read in its tail
   assert.throws(() => M.sealDay({ ...spec, bound: n - 1 }), (e: unknown) => e instanceof M.DayStop && e.code === "index_bound");
   assert.equal(existsSync(dir(out, "BTCUSDT", D)), false);
-  assert.deepEqual(M.sealDay({ ...spec, bound: n }), { sealed: true, dir: dir(out, "BTCUSDT", D), frames: n });
+  const sealed = ((): unknown => { // at the bound, a seal: a named stop there reds by assertion, not by a bare throw
+    try { return M.sealDay({ ...spec, bound: n }); } catch (e) { return assert.fail(`at the bound the day seals, no stop: ${e instanceof Error ? e.message : String(e)}`); }
+  })();
+  assert.deepEqual(sealed, { sealed: true, dir: dir(out, "BTCUSDT", D), frames: n });
   const ranks = [...Array(n).keys()];
   assert.deepEqual(index(out), [...ranks.filter((k) => k % 2 === 0).map((k) => at(a, "20261004T01", k, DEPTH)), ...ranks.filter((k) => k % 2 === 1).map((k) => at(a, "20261004T01", k, TRADE))]);
   for (const r of read(out, "BTCUSDT", D, "SHA256SUMS").split(LF).filter((l) => l !== "").map((l) => l.split("  "))) {
