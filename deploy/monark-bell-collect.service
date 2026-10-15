@@ -1,0 +1,49 @@
+# systemd unit for the MONARK Bell collection (G0 BELL-COLLECT-TIMER-1 DC-3, DC-4; plan of part 3, C3-1 to C3-3, lot 3b-ii). Deployed
+# on Bell's host by docs/RUNBOOK-bell.md (lot 5b), after the acts that make its user, the handoff group and the four directories of
+# BELL_LAYOUT (scripts/bell-deploy.mjs). A Type=oneshot job driven by monark-bell-collect.timer at four UTC slots (NOT a server): each
+# start is one idempotent `--tick` of apps/bell/src/tick.ts (the trading-day unit due, collected through @monark/rpc-guard, checked,
+# pre-validated, deposited in the handoff directory with its sibling manifest) and exits. It holds the RPC and cash keys (the
+# EnvironmentFile below) and NO key of the publication: the signature lives in monark-bell-publish.service, under another user, with no
+# writable path shared with this one (DC-3). Node 24 strips TypeScript.
+[Unit]
+Description=MONARK Bell collection - one idempotent --tick per slot (G0 BELL-COLLECT-TIMER-1)
+Documentation=https://github.com/KraidleAI/monark
+After=network-online.target
+Wants=network-online.target
+# The publication follows every end of the tick (C3-1; faits LSP-8, systemd.unit(5): OnSuccess= since systemd 249, on the "inactive"
+# state; OnFailure= on the "failed" state; the current Bell host runs systemd 259, the new one's is read at its deployment, LSP-9-HOST-1):
+# a tick that exits 1 (handoff_backlog, stalled_unit, close_ref_missing) starts it too, so the backlog drains. The publisher is idempotent
+# (publish.lock, a pure choice, exit 0 on nothing to publish and awaiting_unit). Both name the same unit (bell_publish_trigger_follows_the_collect).
+OnSuccess=monark-bell-publish.service
+OnFailure=monark-bell-publish.service
+
+[Service]
+Type=oneshot
+# The dedicated tree: exactly BELL_COLLECT_TREE_PATHS (the import closure of the tick, never bell-publish.mjs), shipped by git archive at
+# the G7 SHA, root-owned, with the link BELL_COLLECT_TREE_LINK (node_modules/@monark/rpc-guard -> ../../packages/rpc-guard).
+WorkingDirectory=/opt/monark-bell-collect
+# The keys of BELL_COLLECT_ENV_KEYS, in the collection's secrets directory (masked from the publisher by that one name): root:bell-collect
+# 0640, NEVER committed, NEVER printed. No leading `-`: a missing file fails the start, never a mute run.
+EnvironmentFile=/etc/monark/bell-collect/collect.env
+# The closed argv of DC-4 (the --tick form) on the directories of BELL_LAYOUT: the private side (state/, quarantine/ and the guard's
+# ledger/), the handoff directory, and the publisher's status directory (read through the handoff group).
+ExecStart=/usr/bin/env node /opt/monark-bell-collect/apps/bell/src/tick.ts --tick --state /var/lib/monark-bell-collect --handoff /var/lib/monark-bell-handoff --status /var/lib/monark-bell-status --ledger-dir /var/lib/monark-bell-collect/ledger
+# A oneshot has NO start timeout by default (systemd.service(5), FAITS-SYSTEMD-TIMEOUT-1). The bound of one tick is TICK_TIMEOUT_START_SEC,
+# which the tick also reads to refuse a run that may outlive an operator's cycle (C3-3, dated line of 2026-10-15 10:1x UTC): equal, pinned
+# by bell_collect_timeout_covers_the_worst_tick; 1.25 times the worst tick measured in rehearsal replaces it (BELL-TICK-TIMEOUT-MEASURE-1).
+TimeoutStartSec=7200
+# Least privilege: a dedicated non-login user, member of the handoff group, through which it reads the publisher's status (DC-3).
+User=bell-collect
+Group=bell-collect
+SupplementaryGroups=bell-handoff
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+# Its ONLY writable paths: its private side and the handoff directory.
+ReadWritePaths=/var/lib/monark-bell-collect /var/lib/monark-bell-handoff
+# The publisher's private state and Bell's key directory, each masked by one name with everything below it (C-7). No leading `-`: both
+# exist (RUNBOOK-bell step 3), and a missing one fails the start.
+InaccessiblePaths=/var/lib/monark-bell /etc/monark/bell
+# Directories 0750, files 0640: the publisher reads a deposit through the group of the handoff directory (setgid 2750).
+UMask=0027

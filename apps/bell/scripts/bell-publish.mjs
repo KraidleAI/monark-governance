@@ -343,10 +343,10 @@ export function postStartMark({ from, handoffDir, statusDir, clock, clockSynced 
   return { status: "start_mark_posted", from_unit: from, posted_at };
 }
 
-/** --handoff: probe, lock, mark, ONE clock read, the choice (chooseHandoff), then for each chosen bundle the line path of --inbox
- *  (publishOne, no archive: the handoff directory is never written) under the overlap guard, and its status line. A bundle whose runs
- *  are all published already (a stop between the commit and the status line) is recorded at the line that holds them, with no new
- *  line. A refusal of a bundle is recorded in refused.jsonl and stops the call. The SIGTERM handler, set before the lock, releases it. */
+/** --handoff: probe, lock, mark, ONE clock read, the choice (chooseHandoff), then for each chosen bundle the line path of --inbox (publishOne,
+ *  no archive: the handoff directory is never written) under the overlap guard, and its status line; a bundle whose runs are all published
+ *  already (a stop between commit and status line) is recorded at the line that holds them; a refusal of a bundle is recorded and stops the call.
+ *  The call is synchronous: a SIGTERM during it waits for the event loop, the listener set before the lock keeping the default exit off; the finally releases the lock and removes the listener, so its own release never runs mid-call (BELL-PUBLISH-SIGTERM-SYNC-1). */
 export function publishHandoff({ handoffDir, stateDir, statusDir, privateKey, clock, clockSynced = UNSYNCED, bounds = {}, fs: D = DURABLE_FS, n = HANDOFF_N,
   exit = (code) => process.exit(code) }) {
   if (!clockSynced()) refuse("clock_unsynced", "the host clock is not synchronized");
@@ -415,7 +415,7 @@ function handoffCli(argv, deps) {
     return 64;
   }
   try {
-    const clock = () => Date.now(), clockSynced = deps.clockSynced ?? UNSYNCED;
+    const clock = deps.clock ?? (() => Date.now()), clockSynced = deps.clockSynced ?? UNSYNCED;
     const r = f.mode === "start" ? postStartMark({ ...f, clock, clockSynced }) : publishHandoff({ ...f, privateKey: () => keyLoader()("bell-signing-key"), clock, clockSynced });
     process.stdout.write(JSON.stringify(r) + "\n");
     return 0;
@@ -425,8 +425,8 @@ function handoffCli(argv, deps) {
   }
 }
 
-/** CLI: exit 0 with one JSON summary line on stdout, or exit 1 with `bell/publish: <code>: <detail>` on stderr. An argv with --handoff
- *  or --handoff-start and none of the four other mode options takes the --handoff forms (handoffCli; `deps.clockSynced` the probe). */
+/** CLI: exit 0 with one JSON summary line on stdout, or exit 1 with `bell/publish: <code>: <detail>` on stderr. An argv with --handoff or
+ *  --handoff-start and none of the four other mode options takes the --handoff forms (handoffCli; `deps.clockSynced` the probe, `deps.clock` the clock, PLAN-P3 C3-11). */
 export function runCli(argv, deps = {}) {
   if ((argv.includes("--handoff") || argv.includes("--handoff-start")) && !["--inbox", "--generate-key", "--rotate", "--revoke"].some((k) => argv.includes(k))) return handoffCli(argv, deps);
   const arg = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : undefined; };

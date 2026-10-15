@@ -56,3 +56,37 @@ export const BELL_LAYOUT = Object.freeze({
   status: Object.freeze({ path: "/var/lib/monark-bell-status", owner: BELL_PUBLISH_USER, group: BELL_HANDOFF_GROUP, mode: 0o2750 }),
   state: Object.freeze({ path: "/var/lib/monark-bell", owner: BELL_PUBLISH_USER, group: BELL_PUBLISH_USER, mode: 0o755 }),
 });
+// Part 3, lot 3b-ii (G0 DC-3, DC-4; PLAN-P3 C3-1 to C3-3): the handoff's two thresholds (BELL-STATUS-CONSTANTS-DEPLOY-1: DC-4 keeps caps and
+// margins here; apps/bell/src/handoff-status.ts imports them), the committed units, the secrets directory, the collection's tree (which
+// holds this file: Bell's key directory is never named here, bell_collect_unit_never_loads_the_signing_key).
+/** The backlog threshold (DC-4, PLAN-P3 C3-2): above BACKLOG_MAX units awaiting publication, the tick refuses handoff_backlog. */
+export const BACKLOG_MAX = 8;
+/** The purge delay (DC-4, PLAN-P3 C3-2): seven days after the fact that allows the removal. */
+export const PRUNE_AFTER_MS = 7 * 86_400_000;
+/** The committed units (repository paths): the collection and its four-slot timer, and the publisher, which the collection starts at each
+ *  end of a tick (OnSuccess= and OnFailure=, C3-1) and which has no timer of its own. Pinned by test/bell-collect-deploy.test.ts. */
+export const BELL_COLLECT_UNIT = "deploy/monark-bell-collect.service";
+export const BELL_COLLECT_TIMER = "deploy/monark-bell-collect.timer";
+export const BELL_PUBLISH_UNIT = "deploy/monark-bell-publish.service";
+/** The collection's secrets directory, masked from the publisher by this one name (DC-3 l.211, m-11), and the EnvironmentFile inside it
+ *  (BELL_COLLECT_ENV_KEYS; root:bell-collect 0640, never committed, never printed). */
+export const BELL_COLLECT_SECRETS_DIR = "/etc/monark/bell-collect";
+export const BELL_COLLECT_ENV_FILE = "/etc/monark/bell-collect/collect.env";
+/** The collection's dedicated tree (calque of the Dojo's: git archive at the G7 SHA, root-owned, read-only to the unit). */
+export const BELL_COLLECT_TREE_ROOT = "/opt/monark-bell-collect";
+/** The tree: the static import closure of the tick (the unit's one program), the package.json Node reads for it (the `type` scope of each
+ *  .ts file, the `exports` of @monark/rpc-guard); never bell-publish.mjs (G0 N-4). Byte order. Pinned by bell_collect_tree_is_the_import_closure
+ *  and run by bell_collect_unit_runs_the_real_tick. */
+export const BELL_COLLECT_TREE_PATHS = Object.freeze(["apps/bell/package.json", "apps/bell/scripts/bell-chain.mjs", "apps/bell/scripts/bell-validate.mjs",
+  "apps/bell/src/checks.ts", "apps/bell/src/close.ts", "apps/bell/src/collect.ts", "apps/bell/src/digest.ts", "apps/bell/src/discover.ts",
+  "apps/bell/src/ethereum.ts", "apps/bell/src/gap.ts", "apps/bell/src/halts.ts", "apps/bell/src/handoff-status.ts", "apps/bell/src/operators.ts",
+  "apps/bell/src/plan.ts", "apps/bell/src/pools.ts", "apps/bell/src/quorum.ts", "apps/bell/src/reason-canon.ts", "apps/bell/src/rebase-crosscheck.ts",
+  "apps/bell/src/rebase-produce.ts", "apps/bell/src/rebase-scan.ts", "apps/bell/src/rebase-trajectory.ts", "apps/bell/src/residuals.ts",
+  "apps/bell/src/rpc.ts", "apps/bell/src/sessions.ts", "apps/bell/src/supply.ts", "apps/bell/src/tick.ts", "apps/bell/src/trajectory-check.ts",
+  "apps/bell/src/volume.ts", "apps/sentinel/package.json", "apps/sentinel/src/rpc.ts", "apps/sentinel/src/ukemi/rpc2.ts", "packages/rpc-guard/package.json",
+  "packages/rpc-guard/src/bell-methods.ts", "packages/rpc-guard/src/classify.ts", "packages/rpc-guard/src/cli.ts", "packages/rpc-guard/src/client.ts",
+  "packages/rpc-guard/src/cycle.ts", "packages/rpc-guard/src/errors.ts", "packages/rpc-guard/src/guarded.ts", "packages/rpc-guard/src/index.ts",
+  "packages/rpc-guard/src/ledger.ts", "packages/rpc-guard/src/lock.ts", "packages/rpc-guard/src/reconcile.ts", "packages/rpc-guard/src/repair.ts",
+  "packages/rpc-guard/src/tariff.ts", "packages/rpc-guard/src/transport.ts", "scripts/bell-deploy.mjs"]);
+/** How the tree resolves @monark/rpc-guard without npm: [link inside the tree, its relative target] (the Dojo's DOJO_COLLECT_TREE_LINK). */
+export const BELL_COLLECT_TREE_LINK = Object.freeze(["node_modules/@monark/rpc-guard", "../../packages/rpc-guard"]);

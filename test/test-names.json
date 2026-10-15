@@ -96,6 +96,9 @@
  "apps/bell/test/bell-src-clean.test.ts": [
   "universe_src_clean_of_fetch_and_keys"
  ],
+ "apps/bell/test/bell-units-compose.test.ts": [
+  "bell_units_compose_tick_to_publish_to_verify"
+ ],
  "apps/bell/test/bell-validate.test.ts": [
   "bell_publish_inbox_mode_is_unchanged",
   "bell_publish_reexports_the_validate_bindings",
@@ -1907,6 +1910,19 @@
   "bell_publication_anchors_source_holds_no_fixture",
   "bell_publication_anchors_sync_refuses_an_unbound_row_before_writing"
  ],
+ "test/bell-collect-deploy.test.ts": [
+  "bell_collect_slots_follow_every_unit_due_instant_within_one_hour",
+  "bell_collect_timeout_covers_the_worst_tick",
+  "bell_collect_tree_is_the_import_closure",
+  "bell_collect_unit_argv_is_the_tick_contract",
+  "bell_collect_unit_least_privilege_guarded_network",
+  "bell_collect_unit_never_loads_the_signing_key",
+  "bell_collect_unit_reads_status_through_the_handoff_group",
+  "bell_collect_unit_runs_the_real_tick",
+  "bell_publish_trigger_follows_the_collect",
+  "bell_two_units_share_no_writable_path",
+  "bell_units_mask_each_other_private_dir_by_one_name"
+ ],
  "test/bell-contact.test.ts": [
   "bell_contact_mailto_pinned — address, subject, body and encoding of the one Bell contact link",
   "site_builds_one_mailto — the only mailto: under apps/site is the one lib/bell-contact.ts builds"
@@ -1934,7 +1950,7 @@
   "bell_handoff_permissions_on_linux"
  ],
  "test/bell-key-isolation.test.ts": [
-  "bell_key_directory_is_inaccessible_to_every_unit_sharing_its_host"
+  "bell_key_directory_is_inaccessible_to_every_unit_by_host"
  ],
  "test/bell-legal.test.ts": [
   "bell_legal_data_gate_tokens_are_closed — exactly the refused spans, nothing else",

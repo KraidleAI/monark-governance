@@ -79,4 +79,4 @@ export function publishHandoff(opts: {
   exit?: (code: number) => void;
 }): HandoffResult;
 /** The CLI body: returns the exit code (0 or 1; 64 on a usage error of the --handoff forms). */
-export function runCli(argv: readonly string[], deps?: { clockSynced?: () => boolean }): number;
+export function runCli(argv: readonly string[], deps?: { clockSynced?: () => boolean; clock?: () => number }): number;
