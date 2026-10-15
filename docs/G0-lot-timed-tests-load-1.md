@@ -21,8 +21,8 @@ local runs of the #299 branch each failed one of the three tests below; the trun
 - `l2_command_exit_bounded`: `[3, null, false]`, 15495 ms against a bound of 15 000 (local `testmain-3bii-fd29c70d.log` l.4252-4276).
 
 The load that makes them yield is the #299 branch (`d8332d6c`), whose `apps/bell/test/bell-units-compose.test.ts` runs in `test:main`
-with the other files: 62.8 to 66.3 s in the twelve full-suite logs read here (for example `with-5.log` l.118, 63 617 ms), 45 to 50 s
-when it runs alone.
+with the other files: 62.8 to 66.3 s in the thirteen full-suite logs read here (for example `with-5.log` l.118, 63 617 ms), 45 to 50 s
+when it runs alone (45.2 s in the build report of lot 3b-ii, 49.7 s in its review, both local).
 
 ## Measures before the design (this host, Windows, Node 24.21.0 by `node -v`, 24 logical processors by `os.cpus().length`)
 
@@ -34,7 +34,7 @@ its import and at its exit).
 1. Alone, the two files (`probe`): green. Z2 48 ms, the typecheck baseline 54 ms, X1 165 ms, the D-5 baseline 176 ms; l2 5079 ms =
    18 (spawn to the child's clock origin) + 17 (bootstrap) + 29 (import) + 5008 (the grace, `EXIT_GRACE_MS` = 5000) + 7 (teardown).
 2. Under `test:main`, two runs of `probe`: both green (3159 pass, 0 fail). Z2 95 and 89 ms, X1 247 and 241 ms; l2 5223 ms, then
-   7883 ms = **2603 ms before the child's clock origin** + 40 + 211 + 5013 + 16. The grace never moves (5008 to 5013 ms); the start does.
+   7883 ms = **2603 ms before the child's clock origin** + 40 + 211 + 5013 + 16. In these breakdowns the grace did not move (5008 to 5013 ms); the start did (but see the tail of l2, below).
 3. A sampler beside the second run (one `node -e 0` timed by `spawnSync` every 500 ms): 642 samples over 7.5 min, median 66 ms, p90
    153 ms, p99 3461 ms, **max 13 279 ms** (13:11:35 UTC); 16 samples past 1 s; free memory never below 9478 MB, no spawn error. The load
    is not a steady slowdown but bursts in which the start of a process stalls for seconds.
@@ -66,7 +66,7 @@ records of each child that ends on its own.
    the time from `t0` to that line, is measured here; the assertion becomes `Date.now() - t0 < launch + 15_000`, and the kill that
    `spawnSync`'s `timeout: 20_000` gave is armed at the line, 20 s past the launch. The start of the process, where the load lands, is
    out of both bounds; the 5 s grace and the 10 s beyond it are what the test bounds, as before. A `timeout: 120_000` on the spawn reaps
-   a child that never writes its line (an import that hangs): it stays under the runner's `--test-timeout` of 300 s, so such a child is
+   a child that never writes its line (an import that hangs): it stays under the runner's `--test-timeout` of 300 s and is about nine times the longest stall measured (13.3 s), so such a child is
    red in 120 s and does not outlive the test; it is no bound of the test. The assertion is unchanged in form: `[status, signal, bound] = [3, null, true]`.
    The import line l.16 gains `spawn` (no line added above l.199).
 2. **G24 and D-5** (`test/mutants-run.test.ts` l.637-652 and l.705-710): each run ahead goes through `bounded()`. The first run keeps
@@ -76,7 +76,8 @@ records of each child that ends on its own.
    by the tool: the run is void, and runs again with `over` = the larger of `2 * over` and the longest such `ms` / 5, so that its bound
    `10 * over` doubles (the `ms` of a cut child reads its bound plus 9 to 52 ms, never the length of the stall). A red that does not
    depend on load is red in all three runs, so it stays red. Worst realistic case, a cut in the first two runs and a clean third: about
-   150 s for G24 or D-5 with their setup, under the runner's 300 s; measured with two runs, 64.3 s and 73.5 s (`stall-lot-2.tap`). The exit code, not the `ms`, tells the cut: the cuts measured read
+   155 s for G24 and 175 s for D-5, under the runner's 300 s: the two runs measured, 64.3 s and 73.5 s (`stall-lot-2.tap`), plus the cut
+   child's bound in the second run (30 s) and the third run's hanging rows (60 s for G24, about 70 s for D-5). The exit code, not the `ms`, tells the cut: the cuts measured read
    15 009 to 15 052 ms, 9 to 52 ms past the bound, a margin no threshold on `ms` should lean on. The third run is final, whatever it
    shows (`RUNS` = 3, a count of attempts, not a measured bound). G1's module and H1's test sleep `FX_HOLD` = `10 * over + 5000`
    ms, set for each run (5 s past the run's bound, as G1 did; H1 slept 60 s before). A row that hangs (Z1, G1, H1) only runs
@@ -113,11 +114,17 @@ records of each child that ends on its own.
 | with-7 | `d8332d6c` + lot, final bytes | 3158 pass, 1 fail (below) | green | green | green, 5177 ms |
 
 with-7's one red is outside this lot: `probe_smtp_implicit_tls_never_speaks_plaintext` (`test/probe-narabi.test.ts` l.1028, assertion
-l.1037), `'smtp_timeout'` where `'smtp_tls_failed'` is expected, 1792 ms; its probe child runs under `SMTP_DEADLINE_MS: "800"` (l.1036),
-a fixed bound of the same class. Green in the 16 other loaded runs read here (169 to 561 ms). Not in this zone, not touched: item
-**PROBE-SMTP-TLS-DEADLINE-LOAD-1** (tests only, `test/probe-narabi.test.ts`): construction, a deadline that counts from the probe
-child's own start (a line it writes once running, as l2 now does) or that runs only once the connection is open; price, a few lines of
-the test; carrier MONARK; trigger, a red of it in an oracle, or the close of part 3 of the Bell timer at the latest.
+l.1037), `'smtp_timeout'` where `'smtp_tls_failed'` is expected, 1792 ms. Green in the 16 other loaded runs read here (169 to 561 ms).
+Its bound is not a start's: the probe child reads `SMTP_DEADLINE_MS: "800"` (l.1036) and arms that deadline itself, once running,
+just before the connect (`scripts/probe-narabi.mjs` l.477, l.654-656); the fake server lives in the test's own process. So a process
+already running, the child or the test's, stalled past 800 ms in a handshake that fails in milliseconds on a calm host (a deduction from
+the timeout, not a measure). Not in this zone, not touched: item **PROBE-SMTP-TLS-DEADLINE-LOAD-1** (tests only,
+`test/probe-narabi.test.ts`): construction, this test's deadline set far above the longest stall measured, for example 30 s (more than
+twice 13.3 s), and the kill of `runProbeAt` (8000 ms at l.1036, armed at the spawn) above it, both under the runner's 300 s; the green
+run stays as short, since the handshake fails at once, and a mutant whose client waits for a reply goes red at the deadline instead of
+at 0.8 s. The other fixed deadlines of the file (l.851, l.859, l.917) are read in the same pass, each kept or raised by what it tests.
+Price, two values of one test and a run of its killers; carrier MONARK; trigger, a red of it in an oracle, or the close of part 3 of
+the Bell timer at the latest.
 
 The lot has three versions in this table. with-1 to with-3: a cut told by `ms >= 10 * over` alone, one space missing (`t =table`,
 l.708) and a comment worded otherwise (l.639-640). with-4: the space and the comment fixed. with-5: the final bytes, a cut told by the
@@ -138,6 +145,8 @@ injected stall above proves the construction, and these runs show it holds under
 - **The tail of l2**: the lot takes the start out of l2's bound, but a stall of more than 10 s after the child's line (in its grace or
   its exit) still reddens it. Three breakdowns showed the grace steady (5008 to 5013 ms); that does not exclude it, and the sampler times
   the whole life of a `node -e 0`, start and run together. The question goes to the next item: does a stall hit a process already running?
+  with-7 gives one datum (PROBE-SMTP-TLS-DEADLINE-LOAD-1, above): a deadline running in a started process expired, though it does not
+  say which of the two processes stalled.
 - **The source of the stalls**: what holds the start of a process for seconds on this host under `test:main` (free memory stays above
   9 GB) is not identified. Item **HOST-START-STALL-SOURCE-1** (research): trace process creation during a `test:main` (Windows
   performance recorder, process start events) against the sampler's bursts, name the cause, and say whether a stall also hits a process
@@ -145,5 +154,6 @@ injected stall above proves the construction, and these runs show it holds under
 
 ## Size
 
-Two test files, 30 lines added and 15 removed: 45 (`git diff --shortstat f6a2ef0e` outside `docs/**/*.md`). R-25 bound: 1205
+Two test files, 30 lines added and 15 removed: 45 (`git diff --shortstat 00ef74ee` outside `docs/**/*.md`, from the merge base with
+the trunk; the same count as `f6a2ef0e..985bcb66`, before the merge). R-25 bound: 1205
 (`VIBEGATES_PR_LIMIT`, `.github/workflows/ci.yml` l.56).

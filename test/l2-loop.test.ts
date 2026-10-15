@@ -982,7 +982,7 @@ test("l2_record_stop_during_start", async () => {
 test("l2_command_exit_bounded", async () => {
   // m-1 (b): once main resolves, the command line leaves within EXIT_GRACE_MS though a handle lingers (a socket whose peer never answers
   // its CLOSE): leave() sets the exit code, then exits. Lot TIMED-TESTS-LOAD-1: both bounds count from the launch, measured here (t0 to the line the
-  // child writes as it calls leave()): a loaded host stalls the start of a process (13.3 s for a node -e 0 under test:main), not the grace that follows.
+  // child writes as it calls leave()): a loaded host stalls the start of a process (13.3 s for a node -e 0 under test:main); the grace that follows did not move in three measures.
   const t0 = Date.now(), url = new URL("../scripts/record-binance-l2.mjs", import.meta.url).href;
   const c = spawn(process.execPath, ["--input-type=module", "-e", `const m = await import(${JSON.stringify(url)}); setInterval(() => undefined, 1_000); process.stdout.write("leave\\n"); m.leave(3);`],
     { env: {}, stdio: ["ignore", "pipe", "ignore"], timeout: 120_000 }); // 120 s: the reaper of a child that never writes its line, under the runner's 300 s, never the bound
