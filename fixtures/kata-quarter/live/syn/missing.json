@@ -1,0 +1,17 @@
+{
+ "count": 3,
+ "missing": [
+  {
+   "open_time_ms": 1790812800000,
+   "open_time_utc": "2026-10-01T00:00:00Z"
+  },
+  {
+   "open_time_ms": 1794744000000,
+   "open_time_utc": "2026-11-15T12:00:00Z"
+  },
+  {
+   "open_time_ms": 1798155900000,
+   "open_time_utc": "2026-12-24T23:45:00Z"
+  }
+ ]
+}
