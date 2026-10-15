@@ -2901,6 +2901,7 @@
  "test/no-host-address.test.ts": [
   "address_literals_admit_a_listed_literal_in_its_own_file_only",
   "address_literals_admit_the_closed_ranges_in_any_writing_and_refuse_their_neighbours",
+  "address_literals_fixture_refuses_two_paths_equal_once_case_is_folded",
   "address_literals_judge_a_link_by_its_text_never_followed_and_a_gitlink_by_its_path",
   "address_literals_mask_a_path_wherever_its_address_recurs_escaped",
   "address_literals_name_each_skipped_file_that_gitattributes_does_not_declare_binary",
@@ -3654,6 +3655,7 @@
   "case_fold_an_empty_list_gives_no_group",
   "case_fold_distinct_names_and_a_repeated_path_give_no_group",
   "case_fold_two_names_that_differ_only_by_case_are_one_group",
+  "case_fold_two_top_level_names_that_differ_only_by_case_are_one_group",
   "tracked_paths_have_no_case_only_collision"
  ],
  "test/u3-realized-param.test.ts": [
