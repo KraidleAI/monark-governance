@@ -1,18 +1,19 @@
 # claude-opus-5-5 - 2026-10-15 - the loader of the quarter counts tool, tools/kata-quarter/ (CM-5), Python 3.14 standard library only, no
-# network; a sibling module of quarter_counts.py, no block __main__. It reads through io_guard.read (roles series and recorder) and through
-# recalc_p2.load_series of the frozen tool, imported, never copied (D-3: the bytes refused before parsing unless their sha256 is the pin).
+# network; a sibling module of quarter_counts.py, no block __main__. It reads through io_guard.read (roles series and recorder); its own
+# reader of a series (read_candles) keeps every check of recalc_p2.load_series, with its forms imported, but admits a truncated close.
 # Read 1, the sealed series: for quarter 1 the series of wave 1 under its recording range (kata_lib.REC_START to REC_END, ending at S_1)
 # and the pin of recalc_p2.SYMBOLS (sealed_pin); later, the previous quarter's record under its range and posted pin. Read 2, the LIVE
-# series under [S_k, E_k) and its posted pin. The ranges meet at S_k by construction, and load_series refuses a candle outside its range
-# (recalc_p2.py l.111-112): no instant is in both reads, with no check of its own here. The merge: every grid slot from S_k minus the
-# lookback (the caller's) to E_k is present or listed in the missing.json of the read that owns it; an undeclared gap is a named refusal
-# (Refused, exit 2), a declared gap stays a gap (the count decides its drop later). missing.json is held to its form: a whole count, whole
-# open_time_ms values (never a bool, a float or a string) written again by their open_time_utc, none off the grid, outside the read's
-# range or present in the series. Truncated candles: not yet (load_series stops on any irregular close time). The served history
-# (kata-served-history-v1, scripts/served-history.mjs): read whole under the role served-history, held by class (served_history).
+# series under [S_k, E_k) and its posted pin. The ranges meet at S_k by construction, and the reader refuses a candle outside its range:
+# no instant is in both reads, with no check of its own here. The merge: every grid slot from S_k minus the lookback (the caller's) to
+# E_k is present or listed in the missing.json of the read that owns it; an undeclared gap is a named refusal (Refused, exit 2), a
+# declared gap stays a gap (the count decides its drop later). missing.json is held to its form: a whole count, whole open_time_ms values
+# (never a bool, a float or a string) written again by their open_time_utc, none off the grid, outside the read's range or present in the
+# series. Truncated candles (rules 8 and 8 bis, docs/G0-lot-cm5-c1a-2.md): the lists irregular_close and zero_trade, computed and held
+# to the folder's manifest.json; a halt [E, R) for a truncation above one minute. The served history (kata-served-history-v1,
+# scripts/served-history.mjs): read whole under the role served-history, held by class (served_history).
 import datetime
 import hashlib
-import json, re  # re: the forms of the served history's fields, those of its writer
+import json, os, re  # re: the forms of the served history's fields, those of its writer
 
 import io_guard  # already in sys.modules: the entry ran io_guard.py by its path first (never found by name here)
 import kata_lib as K
@@ -61,15 +62,10 @@ def sealed_pin(sym):
 
 
 def read_series(series_dir, sym, pin, start, end):
-    """One read of <series_dir>/<sym>/<sym>-15m.csv by recalc_p2.load_series under the range [start, end), posed on kata_lib for the
-    read and restored after it, then <series_dir>/<sym>/missing.json under the role recorder. Returns the read: its symbol folder, range,
-    pin, candles (open time in ms -> candle), stats, and the slots it declares missing (a frozenset)."""
-    saved = (K.REC_START, K.REC_END)
-    try:
-        K.REC_START, K.REC_END = start, end
-        candles, stats = recalc_p2.load_series(series_dir, sym, pin)
-    finally:
-        K.REC_START, K.REC_END = saved
+    """One read of <series_dir>/<sym>/<sym>-15m.csv by read_candles under the range [start, end), then <series_dir>/<sym>/missing.json
+    and, when the folder holds one, manifest.json under the role recorder. Returns the read: its symbol folder, range, pin, candles (open
+    time in ms -> candle), stats, the slots it declares missing (a frozenset), its lists irregular_close and zero_trade, and its halts."""
+    candles, stats, irregular, zero = read_candles(series_dir, sym, pin, start, end)
     raw = io_guard.read("recorder", f"{series_dir}/{sym}/missing.json")
     try:
         mj = json.loads(raw.decode("utf-8"))
@@ -89,13 +85,15 @@ def read_series(series_dir, sym, pin, start, end):
     present = [t for t in listed if t in candles]
     if present:
         raise Refused(f"{sym}: {len(present)} slots listed in missing.json are present in the series, first {iso(present[0])}")
-    return {"sym": sym, "range": (start, end), "pin": pin, "candles": candles, "stats": stats, "declared": frozenset(listed)}
+    manifest(series_dir, sym, irregular, zero)
+    read = {"sym": sym, "range": (start, end), "pin": pin, "candles": candles, "stats": stats, "declared": frozenset(listed), "irregular": irregular, "zero": zero}
+    return {**read, "halts": halts(read)}
 
 
 def merge(first, second, lookback_ms):
     """The controlled merge of read 1 (sealed) and read 2 (LIVE), which meet at S_k and share no instant (their ranges, held by
-    load_series): every grid slot of [S_k - lookback, E_k) present or declared by the read that owns it. Returns the merged candles, the
-    controlled range, the seam and the declared gaps of each read, sorted."""
+    read_candles): every grid slot of [S_k - lookback, E_k) present or declared by the read that owns it. Returns the merged candles, the
+    controlled range, the seam, the declared gaps of each read, sorted, and the halts of the two reads taken together that end after S_k."""
     (s1, _e1), (s2, e2) = first["range"], second["range"]
     if lookback_ms <= 0 or lookback_ms % K.STEP_MS != 0 or s2 - lookback_ms < s1:
         raise Refused(f"lookback {lookback_ms} ms: not a positive number of grid steps within the range of read 1")
@@ -110,7 +108,9 @@ def merge(first, second, lookback_ms):
     if undeclared:
         raise Refused(f"undeclared gap: {len(undeclared)} grid slots absent from the series and from the missing.json of their read, "
                       f"first {iso(undeclared[0])}")
-    return {"range": (start, e2), "seam": s2, "candles": candles, "gaps": {"sealed": gaps[0], "live": gaps[1]}}
+    both = {"declared": first["declared"] | second["declared"], "zero": first["zero"] | second["zero"], "irregular": {**first["irregular"], **second["irregular"]}}
+    return {"range": (start, e2), "seam": s2, "candles": candles, "gaps": {"sealed": gaps[0], "live": gaps[1]}, "declared": both["declared"],
+            "halts": [(e, r) for e, r in halts(both) if r > s2]}
 
 
 def load_quarter(sealed_dir, live_dir, sym, k, pin1, pin2, lookback_ms):
@@ -202,3 +202,80 @@ def unique(pairs):
     if len({k for k, _ in pairs}) != len(pairs):
         raise Refused(f"served history: a key written twice in one object: {sorted(k for k, _ in pairs)}")
     return dict(pairs)
+
+
+def read_candles(series_dir, sym, pin, start, end):
+    """The candles of <series_dir>/<sym>/<sym>-15m.csv under [start, end): every check of recalc_p2.load_series, its forms and its words
+    imported (D-3: the bytes refused before parsing unless their sha256 is the pin; LF endings; its header; twelve fields; integer and
+    decimal fields; the open time written by open_time_utc; on the grid, in the range, ascending), but the close: admitted in [open, open
+    + 15 min - 1 ms] (rule 8; load_series stops on any other close than open + 15 min - 1 ms, recalc_p2.py l.109-110). Returns the candles
+    and the stats as load_series gives them, the irregular closes {open: close} and the opens of the candles with 0 trades (frozenset)."""
+    data = io_guard.read("series", f"{series_dir}/{sym}/{sym}-15m.csv")
+    digest = hashlib.sha256(data).hexdigest()
+    if digest != pin:
+        raise recalc_p2.Stop(f"D-3: {sym} refused before parsing: sha256 {digest} differs from the pinned {pin}")
+    text = data.decode("ascii")
+    if "\r" in text or not text.endswith("\n"):
+        raise recalc_p2.Stop(f"{sym}: line endings")
+    lines = text.split("\n")[:-1]
+    if lines[0] != recalc_p2.CSV_HEADER:
+        raise recalc_p2.Stop(f"{sym}: header differs from REC l.34-35")
+    candles, irregular, zero, prev = {}, {}, set(), None
+    stats = {"rows": 0, "zeroVolumeCandles": 0, "highBelowLow": 0}
+    for no, ln in enumerate(lines[1:], start=2):
+        f = ln.split(",")
+        if len(f) != 12:
+            raise recalc_p2.Stop(f"{sym}: line {no}: {len(f)} fields")
+        if not all(recalc_p2.RE_INT.match(f[i]) for i in (1, 7, 9)):
+            raise recalc_p2.Stop(f"{sym}: line {no}: integer field")
+        if not all(recalc_p2.RE_DEC.match(f[i]) for i in (2, 3, 4, 5, 6, 8, 10, 11)):
+            raise recalc_p2.Stop(f"{sym}: line {no}: decimal field")
+        ot, ct = int(f[1]), int(f[7])
+        if f[0] != recalc_p2.iso(ot) or not ot <= ct <= ot + K.STEP_MS - 1:
+            raise recalc_p2.Stop(f"{sym}: line {no}: open time, or a close time out of its slot")
+        if ot % K.STEP_MS != 0 or not (start <= ot < end) or (prev is not None and ot <= prev):
+            raise recalc_p2.Stop(f"{sym}: line {no}: off grid, out of range or not ascending")
+        o, h, lo, c, v, tbb = float(f[2]), float(f[3]), float(f[4]), float(f[5]), float(f[6]), float(f[10])
+        candles[ot] = (o, h, lo, c, v, tbb)
+        stats["rows"] += 1
+        stats["zeroVolumeCandles"] += v == 0
+        stats["highBelowLow"] += h < lo
+        if ct != ot + K.STEP_MS - 1:
+            irregular[ot] = ct
+        if int(f[9]) == 0:
+            zero.add(ot)
+        prev = ot
+    return candles, stats, irregular, frozenset(zero)
+
+
+def halts(read):
+    """Rules 8 and 8 bis (S22 l.88-93, S23 l.49-50) on a read's candles, declared slots and lists: a truncation of at most one minute
+    is an ordinary candle; above it, the halt [E, R). E: for a truncated candle with 0 trades, the open of the first candle of the run of
+    0-trade candles on consecutive slots that ends at it; with trades, its close + 1 ms. R: the first slot after it not declared missing
+    (the end of the run of missing.json slots that follows it, else the next candle). No FAITS list, no EE-8 status (plan l.398-399)."""
+    out = []
+    for t, close in sorted(read["irregular"].items()):
+        if close >= t + K.STEP_MS - 1 - 60_000:
+            continue
+        e = t if t in read["zero"] else close + 1
+        while e in read["zero"] and e - K.STEP_MS in read["zero"]:
+            e -= K.STEP_MS
+        r = t + K.STEP_MS
+        while r in read["declared"]:
+            r += K.STEP_MS
+        out.append((e, r))
+    return out
+
+
+def manifest(series_dir, sym, irregular, zero):
+    """The lists computed from the series held to <series_dir>/<sym>/manifest.json, read under the role recorder when the folder holds
+    one: each list it carries (a monark.series.binance.v2 carries both; a v1, none or the ones it carries) equal by its JSON text."""
+    path = f"{series_dir}/{sym}/manifest.json"
+    if not os.path.exists(path):
+        return
+    man = json.loads(io_guard.read("recorder", path).decode("utf-8"))
+    mine = {"irregular_close": [{"open_time_ms": t, "close_time_ms": c} for t, c in sorted(irregular.items())], "zero_trade": sorted(zero)}
+    v2 = man.get("schema") == "monark.series.binance.v2"
+    off = [k for k, v in mine.items() if (k in man or v2) and json.dumps(man.get(k), sort_keys=True) != json.dumps(v, sort_keys=True)]
+    if off:
+        raise Refused(f"{sym}: the lists computed from the series differ from those of its manifest.json: {off}")
