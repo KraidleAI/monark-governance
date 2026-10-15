@@ -839,6 +839,8 @@ finalized slot of J), before the start (6), of which only `provisional/eve.json`
 and no line, and `--history` cannot read it; the FINAL packet (`--first-read` = d, so its last day is d − 1), after the close of d. The
 `--first-read` of the final course is a CLOSED day, read with its check (`readDayLayout`): its `eve.json`, `publish/` and `readings/`
 (ii), never `readings/` alone. Copies by `scp`, digests on both sides to the JOURNAL; none erases, but the act of (iii), on its copy only.
+Dated line (2026-10-15): a course's `--deadline` never passes either operator's next cycle boundary (from its anchor); past it, the course
+refuses `cycle_missing` (`<op> straddle`) before any lock or call: set `--deadline` at or before the boundary, and run on the next cycle.
 
 (i) The `Eve` of o. A-9 (1) to (4) done, on J: the provisional course, in the operator's shell holding the guard's variables and the
 anchor, floor and share of each operator (`DOJO_HISTORY_ENV` and `DOJO_HISTORY_SHARE_ENV`, six variables; the anchor replaces the cycle id, which each course derives) (never displayed), on a new state outside any repository with its `ledger/`, `--cut` a slot

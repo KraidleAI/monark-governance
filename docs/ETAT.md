@@ -1723,8 +1723,8 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     et `--registry`, `compare_check`, `report_check`) et ceux de `tools/kata-quarter/`. Elle rend permanente la course Linux de la
     partie 1. Porteur : RECHERCHES depuis le partage 80/20 (`3b54dd8`, point 3) ; MONARK au G0 de VERIFIERS. Déclencheur : après la
     fusion de l outil figé, et avant le gel de c1a de CM-5 ; sans l étape au tronc, c1a ne gèle pas (`69011fe`). Prix : ~55 lignes,
-    estimation de RECHERCHES (G0 de CM-5 v3, §8, pièce recherches `c3bbc2e` l.777), mesuré à son G0 ; état : ouvert. Inscrit à ETAT
-    (MONARK, 2026-10-07 08:0x UTC).
+    estimation de RECHERCHES (G0 de CM-5 v3, §8, pièce recherches `c3bbc2e` l.777), mesuré à son G0 ; état : fait par #247 (fusion
+    `43f46d9f`, job `g3-verifier-tool`), ligne datée MONARK 2026-10-15. Inscrit à ETAT (MONARK, 2026-10-07 08:0x UTC).
   - SHORT-DIGEST-INVERSION-1 (constat F-1 de la vérification de la spécification 1.1.0, §10 « Short 0/1 sequences ») : gardé depuis le
     2026-10-06 par la porte de `scripts/spec-publish.mjs` (`tableRowProblems`, code `short_digest`), que l écrivain appelle aussi : elle
     refuse toute ligne de n ≤ 30 ou de `p_served` ≤ 30, et toute ligne dont `aux_sha256` ou `series_sha256` est non nul (le nombre de
@@ -2364,7 +2364,11 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     Porteur : MONARK ; déclencheur : une deuxième cause perdue ; état : ouvert.
   - BELL-COURSE-TSLAX-DRIFT-1 : `docs/course-bell/mint_resume-TSLAx-manifest.txt` réécrit (`34ba9798`) sans réhorodatage ; sa preuve
     `.ots` couvre l ancien contenu (blob `a2db06d5`, la copie servie). Options : restaurer ce blob (0 code) ou réhorodater. Porteur :
-    MONARK (exploitation de Bell) ; état : ouvert.
+    MONARK (exploitation de Bell) ; état : clos par #272 (fusion `528818fe`) : le blob ancré `a2db06d5` restauré, tenu par
+    `test/bell-course-manifests.test.ts` ; ligne datée MONARK 2026-10-15.
+  - BELL-OTS-PROOF-BINDING-ALL-1 : chaque preuve `.ots` de `docs/` hors du premier niveau de `docs/course-bell` est liée à l empreinte
+    de son manifeste voisin. Porteur : PAROXYSME ; construit par #274 (fusion `db31f879`), tenu par `test/bell-ots-proofs.test.ts` ;
+    état : clos ; inscrite par MONARK le 2026-10-15.
   - CANONICAL-ROW-REEXPORT-1 (coupe nommée Q-CP-8, appliquée au G0 de C' 3c-4b) : `canonicalRow` réexporte `canonicalJson` (clé non
     ASCII refusée) ; sorti du chantier 1.1.0, aucun octet servi. Porteur : RECHERCHES ; déclencheur : après T0 ; état : ouvert.
   - L2-HARNESS-FIXED-UNTIL-1 (note de l agent de #157) : des tests du harnais L2 assertent juste après un `until` à instant fixe ; sous
