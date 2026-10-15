@@ -23,6 +23,8 @@ export function decodeEntities(s: string): string;
  *  template, a template closer too), on <template> nesting deeper than 256 levels, and on a `<script` or `<!--` left in
  *  the output. */
 export function renderedBody(html: string): string;
+/** The one document-order pass renderedBody starts with: each complete hidden surface removed whole, every other byte copied. */
+export function stripHiddenSurfaces(html: string): string;
 /** Assert the rendered /fleet body carries the header and each note >= 1; throws on failure (vacuity-guarded). */
 export function assertFleetBody(args: {
   html: string;

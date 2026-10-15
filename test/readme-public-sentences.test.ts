@@ -110,15 +110,15 @@ test("readme_and_site_say_the_engine_is_meant_to_power_the_applications — the 
   assert.match(read("apps/site/app/applications/page.tsx"), /A client is meant to install one visible piece/, "the applications lede says what a client is meant to install");
 });
 
-// killer: README.md:205 CONST "sensors (attest · join upcoming)" -> "sensors (attest)"
-test("readme_shogen_row_and_diagram_say_the_join_is_dormant — no price an application can defend, one committed witness projected today, and the attest join drawn upcoming while the served gate refuses every attested (Shōgen L-01, N-14; the seam is PXC-08)", () => {
-  assert.ok(read("apps/harness/src/attestation-binding.ts").includes("so any `attested` is refused"), "premise: the join is dormant; when the seam is served this reds and the README is revisited");
+// killer: README.md:205 CONST "sensors (attest · join building)" -> "sensors (attest)"
+test("readme_shogen_row_and_diagram_say_the_join_is_being_built — no price an application can defend, one committed witness projected today, and the attest join drawn building while the served gate refuses every attested (Shōgen L-01, N-14; the seam is PXC-08)", () => {
+  assert.ok(read("apps/harness/src/attestation-binding.ts").includes("so any `attested` is refused"), "premise: the join does not run yet; when the seam is served this reds and the README is revisited");
   assert.ok(read("apps/harness/src/tools/registry.ts").includes("No caller input: the witness is the committed internal fixture"), "premise: the attest tool projects one committed witness; when it takes a caller's price this reds and the row is revisited");
   const row = readme.find((l) => l.includes("| **Shōgen** — sensor")) ?? "";
   assert.doesNotMatch(row, /can defend/, "the testimony attests origin and bytes, not a price to defend");
-  assert.match(row, /today the attest tool projects one committed witness, and its join into the gate is dormant/, "the row says the witness and the dormant join");
+  assert.match(row, /today the attest tool projects one committed witness, and its join into the gate is being built/, "the row says the witness and the join being built");
   const diagram = section("The interlocking (why the pieces work together)");
-  assert.ok(diagram.some((l) => l.includes("sensors (attest · join upcoming)  →  the gate")), "the diagram draws the attest join upcoming");
+  assert.ok(diagram.some((l) => l.includes("sensors (attest · join building)  →  the gate")), "the diagram draws the attest join building");
   assert.ok(!diagram.some((l) => l.includes("sensors (attest)  →")), "no attest arrow drawn as built");
 });
 

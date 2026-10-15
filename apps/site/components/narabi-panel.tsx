@@ -38,26 +38,26 @@ export function NarabiPanel({ contract, status }: { contract: FrozenContract; st
         status={status}
         action={<DialogTrigger render={<Button variant="outline" size="sm" />}>Open panel</DialogTrigger>}
       >
-        Redemption-run velocity from the attested onchain flow &mdash; a replayable daily timeline.
+        Redemption-run velocity from the onchain redemption flow &mdash; a hash-chained daily timeline.
       </AgentCard>
 
       <DialogContent className={cn(SHEET)}>
         <DialogHeader className="pr-8">
           <DialogTitle>Narabi</DialogTitle>
           <DialogDescription>
-            Redemption-run velocity from the attested onchain flow &mdash; a replayable daily timeline.
+            Redemption-run velocity from the onchain redemption flow &mdash; a hash-chained daily timeline.
           </DialogDescription>
         </DialogHeader>
 
         <div className="mt-2">
           <PanelBlock title="How it works" status="built">
-            Narabi reads the attested redemption flow &mdash; burns, mints and closing supply over a
+            Narabi reads the onchain redemption flow &mdash; burns, mints and closing supply over a
             declared block window, recomputable onchain &mdash; and steps a quantile tracker on the
             realized outcome each window, publishing the whole timeline.
           </PanelBlock>
           <PanelBlock title="How it is built" status="built">
             An adaptive quantile tracker (Angelopoulos, Barber and Bates decaying step) is stepped on each
-            realized outcome; a per-line hash chain makes the timeline replayable; the committed gate
+            realized outcome; a per-line hash chain makes a rewrite of the timeline detectable; the committed gate
             region stays static until a pre-registered drift criterion fires.
           </PanelBlock>
           <WhatInside block={insideFor("narabi")} />
@@ -68,7 +68,7 @@ export function NarabiPanel({ contract, status }: { contract: FrozenContract; st
               automatically.
             </p>
             <p className="mt-2">
-              The timeline is a replayable measurement of realized flow. No coverage is claimed on it, and
+              The timeline is a hash-chained measurement of realized flow. No coverage is claimed on it, and
               it is never a probability of being right.
             </p>
           </PanelBlock>
@@ -77,7 +77,7 @@ export function NarabiPanel({ contract, status }: { contract: FrozenContract; st
             <Link href={NARABI_ROUTE} className="underline underline-offset-4">
               see it on the Narabi page
             </Link>
-            . Each step is a committed, replayable line.
+            . Each step is a committed, hash-chained line.
           </PanelBlock>
           <PanelBlock title="Frozen contract" status="built">
             <p>
@@ -101,8 +101,8 @@ export function NarabiPanel({ contract, status }: { contract: FrozenContract; st
             facts.
           </PanelBlock>
           <PanelBlock title="Traceability" status="built">
-            Every step carries a per-line hash; the published timeline replays to the byte from its
-            committed source.
+            Every step carries a per-line hash chained to the step before, and the Node version that
+            wrote it.
           </PanelBlock>
         </div>
       </DialogContent>

@@ -21,7 +21,7 @@ import { FlowSchema, type FlowStep } from "@/components/docs/schemas/flow";
 export const metadata: Metadata = {
   title: "Verify it yourself · Docs · MONARK",
   description:
-    "Check MONARK yourself with standard tools: the public key, the hash chain, the signatures, the state files, the token address and the timestamps, then the Narabi replay, the site data and the gate's abstention.",
+    "Check MONARK yourself with standard tools: the public key, the hash chain, the signatures, the state files, the token address and the timestamps, then the Narabi windows, the site data and the gate's abstention.",
 };
 
 /** The committed token address, read from the public file the token page is pinned to (fail-closed on a malformed file). */
@@ -157,7 +157,7 @@ export default function DocsVerifyPage() {
         <ul className="d-bullets">
           <li>
             <strong>Narabi.</strong> Pull the two published files, recompute any window from its block range with the logs and the
-            supply of the token, and re-derive the tracker from the score column; the <Link href={NARABI_ROUTE}>Narabi page</Link> runs
+            supply of the token, and check that each line chains to the one before and records its Node version; the <Link href={NARABI_ROUTE}>Narabi page</Link> runs
             the integrity checks in your browser.
           </li>
           <li>

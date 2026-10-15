@@ -1224,3 +1224,25 @@ test("narabi_d8_sentence_is_one_text_in_three_copies — the README quotes the s
   assert.doesNotMatch(D8_SENTENCE, /\battested\b/, "the flow is not called attested while its attestor key is a placeholder");
   assert.match(D8_SENTENCE, /the full timeline is published with the Node version of each line\./, "the timeline is said published with each line's Node version, no replay claim");
 });
+
+// killer: apps/site/lib/narabi-live.ts:941 CONST "recomputable, published with its Node version" -> "attested, published, replayable"
+test("narabi_page_copy_claims_no_attested_flow — the /narabi lede, the level names and the recompute recipe call nothing attested while the attestor key is a placeholder (Narabi L15, T2; NARABI-ATTESTED-WORDS-1, NARABI-K1)", () => {
+  assert.ok(readFileSync(join(ROOT, "apps", "sentinel", "src", "flow.ts"), "utf8").includes('key: "deadbeef"'), "premise: the attestor key is a placeholder; when NARABI-K1 replaces it this reds and the copy is revisited");
+  assert.doesNotMatch(HERO_DEK, /\battested\b/i, "the lede does not call the window attested");
+  assert.match(HERO_DEK, /recomputable, published with its Node version/, "the lede says what a window is");
+  assert.ok(!LEVELS.some((l) => /attested/i.test(l.name)), "no level is named Attested");
+  const src = readFileSync(join(ROOT, "apps", "site", "lib", "narabi-live.ts"), "utf8");
+  assert.ok(!src.includes("`# attestation`") && src.includes("`# flow record (AttestedFlow)`"), "the recipe names the flow record, not an attestation");
+});
+
+// killer: apps/site/lib/narabi-live.ts:925 CONST "a hash-chained timeline whose windows anyone can recompute onchain, each line recording its Node version" -> "a published timeline that anyone can recompute and replay from the two static files"
+test("narabi_page_copy_promises_no_tracker_replay — the rationale for seven steps, the fleet place and the verify hint of /narabi say the hash chain and the Node version each line records, and promise no replay of the tracker (Narabi L19; NARABI-POW-PORTABLE-1 makes a bounded replay true)", () => {
+  assert.ok(readFileSync(join(ROOT, "packages", "hikae", "src", "tracker.ts"), "utf8").includes("base ** (-1 / 2 - params.eps)") && readFileSync(join(ROOT, "apps", "sentinel", "src", "run.ts"), "utf8").includes("interface Provenance { readonly endpoints: readonly string[]; readonly node_version: string; readonly sentinel_sha: string; }"), "premise: the step uses the engine's pow and a line records no platform; when NARABI-POW-PORTABLE-1 lands this reds and the copy is revisited");
+  assert.doesNotMatch(WHY_SEVEN, /anyone can recompute and replay/, "no replay by anyone");
+  assert.match(WHY_SEVEN, /a hash-chained timeline whose windows anyone can recompute onchain, each line recording its Node version/, "the windows recompute onchain, each line records its Node version");
+  assert.match(WHY_SEVEN, /no tracker replay is promised/, "the rationale promises no tracker replay");
+  assert.doesNotMatch(FLEET_PLACE, /public replay/, "the fleet place promises no public replay");
+  assert.match(FLEET_PLACE, /publishes its own daily state, one hash-chained line per day\./, "the fleet place says the hash chain");
+  assert.doesNotMatch(VERIFY_HINT, /Rederive q_t|tracker replay/, "the verify hint does not ask to rederive q");
+  assert.match(VERIFY_HINT, /Each line records the Node version that wrote it\./, "the verify hint says the Node version each line records");
+});
