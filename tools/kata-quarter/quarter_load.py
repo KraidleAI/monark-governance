@@ -8,8 +8,10 @@
 # lookback (the caller's) to E_k is present or listed in the missing.json of the read that owns it; an undeclared gap is a named refusal
 # (Refused, exit 2), a declared gap stays a gap (the count decides its drop later). missing.json is held to its form: a whole count, whole
 # open_time_ms values (never a bool, a float or a string) written again by their open_time_utc, none off the grid, outside the read's
-# range or present in the series. Truncated candles: not yet (load_series stops on any irregular close time).
+# range or present in the series. Truncated candles: not yet (load_series stops on any irregular close time). The served history
+# (kata-served-history-v1, scripts/served-history.mjs): read whole under the role served-history, held by class (served_history).
 import datetime
+import hashlib
 import json
 
 import io_guard  # already in sys.modules: the entry ran io_guard.py by its path first (never found by name here)
@@ -117,3 +119,65 @@ def load_quarter(sealed_dir, live_dir, sym, k, pin1, pin2, lookback_ms):
     first = read_series(sealed_dir, sym, pin1, *sealed_range(k))
     second = read_series(live_dir, sym, pin2, s_k, e_k)
     return first, second, merge(first, second, lookback_ms)
+
+
+HISTORY = ("format", "release_dir", "task_class", "policy_table_sha256", "probe_record_sha256", "merge_commit", "t_e", "t_f", "ca_record_sha256")
+
+
+def second(s):
+    """A real UTC second written YYYY-MM-DDTHH:MM:SSZ, in ms; else None."""
+    try:
+        ms = int(datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.UTC).timestamp()) * 1000
+    except (TypeError, ValueError):
+        return None
+    return ms if iso(ms) == s else None
+
+
+def served_history(path, pin):
+    """The served history, a JSON array of kata-served-history-v1 lines read whole (json.loads of the file, never line by line) under
+    the role served-history, refused before parsing unless its sha256 is the pin. A deployment is a release_dir, in the order of the
+    file: its lines share merge_commit, t_e, t_f and ca_record_sha256, each names one class once, and the deployments go up in t_e and
+    t_f. A class is served from the t_f of each deployment that holds it to the t_f of the next one (open after the last); the
+    deployments that hold a class follow each other, else a gap is refused by name (absent before its first one is no gap). Returns
+    {task_class: [(from_ms, to_ms or None)]}."""
+    data = io_guard.read("served-history", path)
+    got = hashlib.sha256(data).hexdigest()
+    if got != pin:
+        raise Refused(f"served history refused before parsing: sha256 {got} differs from the pinned {pin}")
+    try:
+        lines = json.loads(data.decode("utf-8"))
+    except ValueError:
+        raise Refused("served history: not a JSON text") from None
+    deps = {}
+    for x in lines if type(lines) is list and lines else [None]:
+        if type(x) is not dict or sorted(x) != sorted(HISTORY):
+            raise Refused(f"served history: a line whose fields are not the closed {list(HISTORY)}: {sorted(x) if type(x) is dict else x!r}")
+        if type(x["task_class"]) is not str:
+            raise Refused(f"served history: a line that carries a list of classes, or no class: {x['task_class']!r}")
+        if x["format"] != "kata-served-history-v1" or any(type(x[f]) is not str for f in HISTORY) or None in (second(x["t_e"]), second(x["t_f"])) \
+                or second(x["t_e"]) > second(x["t_f"]):
+            raise Refused(f"served history: {x['release_dir']!r} {x['task_class']}: not a kata-served-history-v1 line (format, strings, t_e <= t_f)")
+        d = deps.setdefault(x["release_dir"], {"common": tuple(x[f] for f in HISTORY[5:]), "classes": []})
+        if x["task_class"] in d["classes"] or d["common"] != tuple(x[f] for f in HISTORY[5:]):
+            raise Refused(f"served history: {x['release_dir']} {x['task_class']}: a pair written twice, or a deployment whose lines differ on "
+                          "merge_commit, t_e, t_f or ca_record_sha256")
+        d["classes"].append(x["task_class"])
+    names, te, tf = list(deps), [second(d["common"][1]) for d in deps.values()], [second(d["common"][2]) for d in deps.values()]
+    if any(a >= b for a, b in [*zip(te, te[1:]), *zip(tf, tf[1:])]):
+        raise Refused(f"served history: deployments not in the order of their t_e and t_f: {names}")
+    service = {}
+    for i, d in enumerate(deps.values()):
+        for c in d["classes"]:
+            service.setdefault(c, []).append((tf[i], tf[i + 1] if i + 1 < len(tf) else None))
+    for c in service:
+        held = [i for i, d in enumerate(deps.values()) if c in d["classes"]]
+        gap = next((names[i] for i in range(held[0], held[-1]) if i not in held), None)
+        if gap:
+            raise Refused(f"served history: gap, {c} is served before and after {gap}, which has no line for it")
+    return service
+
+
+def served_in(spans, s_k, e_k):
+    """The service of a class in Q_k = [s_k, e_k) from its spans: (from_ms, to_ms), a half-open span within Q_k; None if none meets it."""
+    met = [(max(s_k, a), e_k if b is None else min(e_k, b)) for a, b in spans if a < e_k and (b is None or b > s_k)]
+    return (min(a for a, _ in met), max(b for _, b in met)) if met else None
