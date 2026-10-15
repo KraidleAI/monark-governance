@@ -2361,6 +2361,12 @@
   "served_record_archived: add --from-oracle at G1 archives the record and the record it was served from; both host files deleted, the v2 line stays green; a served record whose sha256 is not archived is red archive absent",
   "v1_real_lines_read_as_v1: the v1 lines of the real journal (docs/journal: 21 at M-5c) copied into a throwaway repo without an archive are read as v1: no J-SCHEMA, J-FACTS or J-REDPROOF hit (a v1 line never needs the archive, FM-1.3)"
  ],
+ "test/kata-quarter.test.ts": [
+  "kata_quarter_entry_script_imports_the_input_guard_first - the one entry script of the tool runs io_guard.py of the frozen tool by its path and imports io_guard before any other module; count and month answer not in this lot",
+  "kata_quarter_files_are_regular_100644 - the index holds the tool as merged regular files 100644, named one by one in its list file FILES (the form io_guard reads), and the working tree carries the same names; a launch from a copy of the two trees is admitted",
+  "kata_quarter_names_disjoint_from_kata_recalc - no stem of tools/kata-quarter/ is a stem of tools/kata-recalc/, every file of the folder is quarter_*.py but the list file, and a posed homonym (report.py, listed) is refused by io_guard by name, exit 4",
+  "two_reads_merged_under_check - check reads the sealed and the LIVE series of the fixture, each under its pin, and merges them: the seam at S_1, 10448 slots, the three declared gaps of the LIVE series listed; the same LIVE series with the gap at S_1 undeclared, or a declared slot present, is refused by name"
+ ],
  "test/kata-recalc.test.ts": [
   "kata_recalc_entry_scripts_import_the_input_guard_first - every .py file of the tool that runs as a program imports io_guard before any other module",
   "kata_recalc_guard_admits_two_trees_of_code - io_guard reads the trees tools/kata-recalc and tools/kata-quarter only, and the index holds no third tree under tools/",

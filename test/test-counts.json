@@ -225,6 +225,7 @@
  "test/harness-served.test.ts": 24,
  "test/inner-failures.test.ts": 1,
  "test/journal-index.test.ts": 47,
+ "test/kata-quarter.test.ts": 4,
  "test/kata-recalc.test.ts": 7,
  "test/keep-cause.test.ts": 11,
  "test/killer-lines.test.ts": 1,
