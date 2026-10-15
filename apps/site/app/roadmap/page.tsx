@@ -218,7 +218,7 @@ export default function RoadmapPage() {
         <div className="font-mono text-xs uppercase tracking-wide text-ink2">MONARK Building</div>
         <h1 className="font-heading text-3xl font-semibold tracking-tight text-primary">What is being built, now and next.</h1>
         <p className="max-w-2xl text-lg text-ink2">
-          MONARK is one engine and the on-chain applications it powers. The labels say what exists today and what is only named.
+          MONARK is one engine and the on-chain applications it is meant to power. The labels say what exists today and what is only named.
           This page says what is under way now, what is in preparation next, and the direction beyond it: intentions with the date
           they were written down, never a promised date.
         </p>

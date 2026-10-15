@@ -53,13 +53,13 @@ directement ; **aucun** des deux ne dérive d'un `reason` de gate. L'alerte de r
 ADR n'a pas adopté la branche (a) de M002 D4. « Adaptatif » qualifie la région **trackée** publiée à côté, jamais le verdict
 du gate. Phrase unique, réutilisée verbatim sur toute surface (D8).
 
-**D4 — Persistance, publication, rejouabilité.** Timeline **JSONL append-only** par fenêtre : `day, from_block, to_block,
+**D4 — Persistance, publication, rejouabilité.** (Amendée le 2026-10-08 par ADR-PXC-02 D-7 : la rejouabilité est celle des faits, recalculés onchain, et de la chaîne de hachage ; le rejeu exact du traqueur n'est promis nulle part.) Timeline **JSONL append-only** par fenêtre : `day, from_block, to_block,
 burns, mints, supply_close, s_open, c1_ok, utterance_hash, attested_flow_sha256, v, regime{floor, stress}, pair_status
 {evaluable|non_evaluable|clipped}, s_raw, s, E_tracker, q_before, eta, q_after, T, mean_E_tracker, bound_thm1, digest_T,
 E_static, t_deg, sum_E_static, B_t, rolling90_calm_miss, prev_line_hash, endpoints, node_version, sentinel_sha` ; plus
 `state.json` (= `TrackerState` + `digest` + date projetée `T(bound ≤ δ_target)`). **Chaîne de hash par ligne** (fait +
 score + état + `prev_line_hash`) : une réécriture est **détectable**, jamais certifiée ; **le seul garant des faits est le
-recompute onchain** (`[from_block, to_block]` ⇒ `eth_getLogs` + `totalSupply`) et `trackerReplay(q₁, params, s)` reproduit
+recompute onchain** (`[from_block, to_block]` ⇒ `eth_getLogs` + `totalSupply`) et `trackerReplay(q₁, params, s)` (amendé le 2026-10-08 par ADR-PXC-02 D-7 : ce rejeu n'est pas promis exact ; le pas passe par `**`, qu'ECMA-262 laisse approché selon l'implémentation, et un écart est mesuré entre Linux et Windows sous le même Node ; chaque ligne porte sa version de Node ; NARABI-POW-PORTABLE-1, le calcul en entiers, vise un rejeu borné) reproduit
 `q_{T+1}`. **Canal : option A** — fichiers statiques sur le VPS servis par Caddy sous **`monarkgate.tech/narabi/`**
 (`state.json`, `timeline.jsonl`), écrits par la sentinelle dans son propre répertoire (D5) ; **pas** sous `api.` (dont la
 doc dit « la table des routes EST le registre des outils »). **Caddy (C-1, vérifié : deux blocs sur la même adresse ⇒
@@ -110,7 +110,7 @@ par `honestyText` (tools/call) ; pour que `tools/list` dérive réellement, `GAT
 `${STABLE_RUN_COMMITTED_SENTENCE}` (motif B-2, une constante) et la trace h5 est re-pinnée sur cette base. `Candes` en ASCII
 dans le code (lang:gate/export:check ; précédent `l1-split.ts:6`), diacritique conservé dans les ADR.
 
-**D8 — Nommage, phrase K-1, vocabulaire.** Phrase publique unique (anglais) :
+**D8 — Nommage, phrase K-1, vocabulaire.** Phrase publique unique (anglais ; amendée le 2026-10-08 par ADR-PXC-02 D-7 : « attested » et « so anyone can replay it » retirés, « published with the Node version of each line » ajouté ; texte en vigueur : `apps/site/lib/narabi-live.ts`, `D8_SENTENCE`) :
 > « Narabi runs an adaptive quantile tracker (Angelopoulos–Barber–Bates 2024, decaying step) on the attested daily USDe
 > redemption flow: its state moves each 24h window from the realized outcome, and the full timeline is published so
 > anyone can replay it. What it carries is a deterministic long-run bound that tightens as windows accumulate, printed
@@ -154,7 +154,7 @@ déclaré, hors score).
 - **CUSUM / `B_t < bFloor` comme critère (iii)** : tirent sur du bruit ou in-sample (mesuré).
 
 ## Conséquences
-- **Positives** : (i) et (ii) réellement remplies dès J0 ; « adaptatif » vrai comme mécanisme ; rejouabilité tierce ; phrase
+- **Positives** : (i) et (ii) réellement remplies dès J0 ; « adaptatif » vrai comme mécanisme ; rejouabilité tierce (amendée le 2026-10-08 par ADR-PXC-02 D-7 : celle des faits et de la chaîne de hachage ; le rejeu exact du traqueur n'est pas promis) ; phrase
   d'échangeabilité enfin honnête ; le gate reste sous garantie L1 ; aucune clé, aucun contrat gelé.
 - **Négatives (assumées)** : la borne publiée est vide pendant ~5 ans à ε = 0,1 (ou ~15 mois à ε = 0,01) ; en calme le tracker
   cycle autour de 0 (33 % de fenêtres à burns = 0) — publié tel quel ; un processus réseau sortant sur le VPS ; la page site
