@@ -40,6 +40,10 @@
   retrait ; parties touchées : en-tête, §0 (Une entrée par limite, Champs), §2.2, §3.2, §4 (L-36), §8 ; G2 par une instance neuve
   (`claude-opus-5-5`, effort high), le 2026-10-15 de 03:10 à 03:16 UTC : 11 constats (G2-R15-1 à 11, pièce `G2-rendu.json` du dossier
   `2026-10-15-registres` de la boîte), pliés par la session PAROXYSME à partir de 03:2x UTC : §0 (Champs), L-35, §7 (doutes 7 et 16), §8.
+  Pli d'A-1 (ADR PXC-02 D-8 récrite, §7.14 ; décision du fondateur relayée par MONARK, boîte `5471b92` l.16-27 ; Q-M11 (a), `5ce6f27`
+  l.137-139), le 2026-10-15 à partir de 11:40 UTC (`date -u`), par la session PAROXYSME : N-14 nomme l'item de construction de la jointure,
+  sous la forme que lit le test `shogen_how_it_works_is_building_only_while_its_construction_item_is_open` du lot L2 ; parties touchées :
+  en-tête, N-14 ; G2 par une instance neuve avant la fusion.
 - **Bases** : inventaire mesuré à `d8fe354c`, qui y lit aussi ETAT (empreinte `2ef6f107…`, INV-S l.19), et non à `57a131fc` comme ceux
   du Harnais et du Moteur. Toutes les ancres du tronc sont à la base `87b821b0` de `lot/etude-suite` (tête relue par `git ls-remote` le
   2026-10-07 à 17:07 UTC, message `d4b3d07` l.16-17). Le tronc a avancé depuis par les fusions #241 et #235, jusqu'à `eb1beb01`
@@ -493,7 +497,9 @@
   item : PXC-02 PUBLIC-SENTENCES-2, noyau de la partie 1 (PLAN l.664-665 : statut de l'exception ; « the seam is dormant ») · porteur :
     PAROXYSME ; envoi du site : go donné par le fondateur le 2026-10-08 pour l'envoi qui suit O-1 et la lecture sur place d'I-G2-5 par
     MONARK (ETAT l.486-489 à `565c7065`) ; release du miroir : le fondateur · déclencheur : tâche 2 du TABLEAU (ADR, cp-1, validation,
-    puis la PR ; F1)
+    puis la PR ; F1) · item de construction de la jointure `attest → gate` (A-1, ADR PXC-02 §6, §7.14) : PXC-08 p2 (F4), à former à ETAT par
+    l'amendement n° 3 ; prix : 12-14 j-h ; porteur : PAROXYSME ; déclencheur : la PR de L2 dit le bloc `building` tant que cet item est
+    ouvert, `built` quand il clôt
   état : ouvert (nouvelle) · suite : correction vers moins de revendication, permise pendant l'exception (CL l.38-39 ; INV-S l.277)
 - **N-15** · « Blocs « Living proof » et « Traceability » du panneau, `upcoming` : limites de plateforme jamais routées. »
   source : `apps/site/components/shogen-panel.tsx:75-77`, `:95-97` ; FICHE l.225 (Q5) ; REG27 l.199, écart (8) · touche :
