@@ -9,12 +9,12 @@
 // S-6 operator modes (ADR D9): --generate-key <new file> (prints the public part only); --rotate --state <dir> [--broken]
 // (old key bell-signing-key, new key bell-signing-key-new, both from $CREDENTIALS_DIRECTORY; --broken = old key lost);
 // --revoke <key_id> --from-seq <n> --state <dir> (signed by the active key bell-signing-key).
-import { openSync, readSync, writeSync, fsyncSync, closeSync, renameSync, mkdirSync, existsSync, readFileSync, readdirSync } from "node:fs";
+import { openSync, readSync, writeSync, fsyncSync, closeSync, renameSync, mkdirSync, existsSync, readFileSync, readdirSync, linkSync, unlinkSync } from "node:fs";
 import { join, dirname, basename, isAbsolute } from "node:path";
 import { createPrivateKey, generateKeyPairSync } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { GENESIS, canonical, sha256Hex, lineHash, signLine, keyIdOf, keyringOf, trustOf, walkTimeline, deriveKeyring } from "./bell-chain.mjs";
-import { BOUNDS, BellPublishError, validateBundle } from "./bell-validate.mjs";
+import { BOUNDS, BellPublishError, validateBundle, UNIT_NAME, manifestOf } from "./bell-validate.mjs";
 export { REFUSAL_CODES, BellPublishError, BOUNDS, WHITELIST, NOT_SERVED, KEY_SHAPES } from "./bell-validate.mjs";
 
 const refuse = (code, detail) => { throw new BellPublishError(code, detail); };
@@ -142,36 +142,26 @@ const lineHead = (st, kind, t) => ({ schema: "bell-timeline-v1", seq: st.lines.l
   prev_line_hash: lineHash(st.lines[st.lines.length - 1]) });
 const keyLineResult = (status, l) => ({ status, seq: l.seq, published_at: l.published_at, key_id: l.new_key_id ?? l.key_id, line_hash: lineHash(l) });
 
-/** Publish the ONE pending bundle of `inboxDir` into `stateDir` (ADR D8), or refuse by name with nothing written.
- *  Contract of ADR D12 (named parameters; the keyring derives from privateKey and the state). */
-export function publishToDir({ inboxDir, stateDir, privateKey, clock, bounds = {}, fs: D = DURABLE_FS }) {
-  const t = clock(); // C-3: the ONE clock read of a publication; the envelopes and the line carry the same published_at
-  const published_at = new Date(t).toISOString(), B = { ...BOUNDS, ...bounds };
+/** The line path of ONE bundle, shared by --inbox and --handoff: the start-up check and repairs (openState), `locate()` names the
+ *  bundle, validateBundle, C-in-9 and BELL-REPUBLISH-1 (a bundle whose runs are all published is "nothing_to_publish"), then
+ *  `guard(fresh, lines)` (the --handoff overlap check; absent in --inbox), then the immutables and the commit. It never moves the
+ *  bundle (the archive is publishToDir's). Returns the status, the line (the new one, or the last publication), the bundle, its runs. */
+function publishOne({ stateDir, privateKey, t, B, D, locate, guard }) {
+  const published_at = new Date(t).toISOString();
   const st = openState(stateDir, B, D, privateKey), keyId = keyIdOf(privateKey);
   const keyring = st.keyring ?? keyringOf(privateKey, 1), genesis = st.genesis ?? keyring.keys[0];
-  let entries = [];
-  try { entries = readdirSync(inboxDir, { withFileTypes: true }); } catch { /* an absent inbox is zero bundles */ }
-  if (entries.length !== 1 || !entries[0].isDirectory()) refuse("inbox_not_exactly_one_bundle", `${entries.length} inbox entries`); // C-in-1
-  const bundle = entries[0].name, bdir = join(inboxDir, bundle);
+  const { bundle, bdir } = locate();
   const runs = validateBundle(bdir, B, t); // C-in-1, C-in-10 (bell-validate.mjs)
-  const archive = (seq) => { // step 7
-    const dir = join(stateDir, "archive");
-    ensureDir(dir, D);
-    const dst = existsSync(join(dir, `${seq}-${bundle}`)) ? join(dir, `${seq}-${bundle}-dup-${t}`) : join(dir, `${seq}-${bundle}`);
-    D.renameSync(bdir, dst); D.fsyncDir(dir); D.fsyncDir(inboxDir);
-  };
-  const result = (status, l) => ({ status, seq: l.seq, published_at: l.published_at, state_sha256: l.state_sha256, provenance_sha256: l.provenance_sha256, line_hash: lineHash(l) });
+  const done = (status, line) => ({ status, line, bundle, bdir, lines: st.lines, runs: [...runs] });
   const last = lastPublication(st.lines), tail = st.lines[st.lines.length - 1]; // C-in-9 compares runs: the last PUBLICATION line
-  if (last !== undefined && canonical(last.runs.map((r) => r.bell_sha)) === canonical(runs.map((r) => r.bellSha))) { // C-in-9
-    archive(last.seq);
-    return result("nothing_to_publish", last);
-  }
+  if (last !== undefined && canonical(last.runs.map((r) => r.bell_sha)) === canonical(runs.map((r) => r.bellSha))) return done("nothing_to_publish", last); // C-in-9
   // BELL-REPUBLISH-1 (G2 PR-1 O-1, ADR D4 C-in-10 "never a run published twice"): a run already cited by a COMMITTED publication
   // line is never published again; only the new runs of the bundle are (journaled); none new => nothing to publish.
   const published = new Set(st.lines.filter((l) => l.kind === "publication").flatMap((l) => l.runs.map((r) => r.bell_sha)));
   const fresh = runs.filter((r) => !published.has(r.bellSha));
-  if (fresh.length === 0) { archive(last.seq); return result("nothing_to_publish", last); }
+  if (fresh.length === 0) return done("nothing_to_publish", last);
   if (fresh.length < runs.length) process.stderr.write(`bell/publish: skipped_already_published ${String(runs.length - fresh.length)}\n`);
+  guard?.(fresh, st.lines);
   runs.splice(0, runs.length, ...fresh);
   const seq = st.lines.length + 1;
   const envelope = (schema, key) => canonical({ schema, seq, published_at, runs: runs.map((r) => r[key]) }) + "\n";
@@ -188,8 +178,27 @@ export function publishToDir({ inboxDir, stateDir, privateKey, clock, bounds = {
   if (st.keyring === null) writeDurable(join(stateDir, "keyring.json"), canonical(keyring) + "\n", stateDir, D); // step 3: first run
   commitLine(stateDir, st, genesis, line, [[stg("states", line.state_sha256), join(stateDir, "public", "states", `${line.state_sha256}.json`)],
     [stg("provenance", line.provenance_sha256), join(stateDir, "public", "provenance", `${line.provenance_sha256}.json`)]], D); // steps 3-6
-  archive(seq);
-  return result("published", line);
+  return done("published", line);
+}
+
+/** Publish the ONE pending bundle of `inboxDir` into `stateDir` (ADR D8), or refuse by name with nothing written.
+ *  Contract of ADR D12 (named parameters; the keyring derives from privateKey and the state). */
+export function publishToDir({ inboxDir, stateDir, privateKey, clock, bounds = {}, fs: D = DURABLE_FS }) {
+  const t = clock(); // C-3: the ONE clock read of a publication; the envelopes and the line carry the same published_at
+  const B = { ...BOUNDS, ...bounds };
+  const locate = () => {
+    let entries = [];
+    try { entries = readdirSync(inboxDir, { withFileTypes: true }); } catch { /* an absent inbox is zero bundles */ }
+    if (entries.length !== 1 || !entries[0].isDirectory()) refuse("inbox_not_exactly_one_bundle", `${entries.length} inbox entries`); // C-in-1
+    return { bundle: entries[0].name, bdir: join(inboxDir, entries[0].name) };
+  };
+  const r = publishOne({ stateDir, privateKey, t, B, D, locate });
+  const dir = join(stateDir, "archive"), seq = r.line.seq; // step 7: the archive, also for nothing_to_publish (at the last publication's seq)
+  ensureDir(dir, D);
+  const dst = existsSync(join(dir, `${seq}-${r.bundle}`)) ? join(dir, `${seq}-${r.bundle}-dup-${t}`) : join(dir, `${seq}-${r.bundle}`);
+  D.renameSync(r.bdir, dst); D.fsyncDir(dir); D.fsyncDir(inboxDir);
+  const l = r.line;
+  return { status: r.status, seq: l.seq, published_at: l.published_at, state_sha256: l.state_sha256, provenance_sha256: l.provenance_sha256, line_hash: lineHash(l) };
 }
 
 /** S-6 key rotation (ADR D9): one key_rotation line. Cross-signed: `oldKey` is the active key (sig) and `newKey` signs the same
@@ -232,8 +241,194 @@ export function generateKey(path, D = DURABLE_FS) {
   return { key_id, jwk };
 }
 
-/** CLI: exit 0 with one JSON summary line on stdout, or exit 1 with `bell/publish: <code>: <detail>` on stderr. */
-export function runCli(argv) {
+// ---- The --handoff mode (G0 BELL-COLLECT-TIMER-1 DC-3; plan of part 3, C3-1 to C3-6). The publisher publishes on its own what the
+// collection tick deposits into the handoff directory, which it only reads: unit-<D>[-r<n>]/ with its sibling manifest, and the
+// tombstone unit-<D>.abandoned with its manifest. The status directory holds the start mark `start`, published.jsonl and refused.jsonl
+// (each rewritten whole: a synced temporary file, then a rename). One writer at a time: publish.lock in --state.
+/** N, the bundles one --handoff call publishes at most (plan of part 3, C3-2). */
+export const HANDOFF_N = 8;
+/** The default clock probe: unsynced, so the mode is fail-closed like the tick's; the host form of the probe is item CLOCK-PROBE-FORM-1. */
+const UNSYNCED = () => false;
+const DAY = /^\d{4}-\d{2}-\d{2}$/, TOMBSTONE = /^unit-\d{4}-\d{2}-\d{2}\.abandoned$/;
+const isDay = (d) => DAY.test(d) && new Date(`${d}T00:00:00Z`).toISOString().slice(0, 10) === d;
+const dayOf = (name) => name.slice(5, 15);
+const revOf = (name) => (name.length > 15 ? Number(name.slice(17)) : 0);
+/** The refusals of a bundle (recorded in refused.jsonl); any other refusal is the call's (state, key, lock, clock, mark), never recorded. */
+const BUNDLE_REFUSALS = new Set(["inbox_not_exactly_one_bundle", "too_many_runs", "input_too_large", "schema_mismatch", "unknown_field", "bell_sha_mismatch",
+  "close_like_field", "session_not_yet_publishable", "run_timeline_broken", "provenance_binding_mismatch", "url_or_key_shaped_string", "duplicate_run",
+  "public_state_too_large", "line_too_large", "window_overlaps_published"]);
+const STATUS_FIELDS = { "published.jsonl": ["bundle", "manifest_sha256", "seq", "published_at"], "refused.jsonl": ["bundle", "manifest_sha256", "code", "refused_at"] };
+
+/** The bundles of one --handoff call, PURE (no file, no clock). `names`: the entries of the handoff directory; `manifests`: name ->
+ *  sha256 of its concordant manifest (absent: no manifest, or one that does not match); `published`, `refused`: the entries of the two
+ *  status files; `start`: the from_unit of the mark; `n`: the cap. Walks the D's at or after the mark in ascending order, skips a D
+ *  published (any revision) or abandoned (a tombstone with its concordant manifest), and takes for each D the highest revision whose
+ *  name and manifest sha256 are not refused; a D with no candidate stops the list: `awaiting` names it. */
+export function chooseHandoff({ names, manifests, published, refused, start, n }) {
+  const has = (x) => Object.hasOwn(manifests, x);
+  const bundles = names.filter((x) => !x.startsWith(".tmp-") && UNIT_NAME.test(x)), stones = names.filter((x) => TOMBSTONE.test(x));
+  const done = new Set(published.map((p) => dayOf(p.bundle))), dead = new Set(stones.filter(has).map(dayOf));
+  const isRefused = (x) => refused.some((r) => r.bundle === x && r.manifest_sha256 === manifests[x]);
+  const days = [...new Set([...bundles, ...stones].map(dayOf))].filter((d) => d >= start).sort();
+  const chosen = [];
+  for (const d of days) {
+    if (chosen.length >= n) break;
+    if (done.has(d) || dead.has(d)) continue;
+    const c = bundles.filter((x) => dayOf(x) === d && has(x) && !isRefused(x)).sort((a, b) => revOf(b) - revOf(a))[0];
+    if (c === undefined) return { bundles: chosen, awaiting: d };
+    chosen.push({ bundle: c, manifest_sha256: manifests[c] });
+  }
+  return { bundles: chosen, awaiting: null };
+}
+
+/** name -> sha256 of the manifest, for each bundle or tombstone at or after the mark whose manifest matches: manifestOf of the bundle
+ *  directory (the tick's own function), or `<sha256 of the body>  <name>` for a tombstone (the tick's abandon). */
+function manifestsOf(handoffDir, entries, start) {
+  const out = {};
+  for (const e of entries) {
+    const x = e.name, path = join(handoffDir, x), m = `${path}.manifest`;
+    if (dayOf(x) < start || !existsSync(m)) continue; // before the mark: never chosen, never hashed
+    const text = readFileSync(m, "utf8");
+    let ok = false;
+    try {
+      if (UNIT_NAME.test(x) && e.isDirectory()) ok = manifestOf(path) === text;
+      else if (TOMBSTONE.test(x) && e.isFile()) ok = text === `${sha256Hex(readFileSync(path))}  ${x}\n`;
+    } catch { ok = false; } // a bundle manifestOf refuses has no concordant manifest
+    if (ok) out[x] = sha256Hex(text);
+  }
+  return out;
+}
+/** The entries of a status file (absent: none); a line that is not an object with a string bundle and manifest_sha256 is refused. */
+function readStatus(statusDir, file) {
+  const p = join(statusDir, file), text = existsSync(p) ? readFileSync(p, "utf8") : "";
+  if (text !== "" && !text.endsWith("\n")) refuse("schema_mismatch", `status/${file}: no final newline`);
+  return text.split("\n").slice(0, -1).map((s, i) => {
+    let o = null;
+    try { o = JSON.parse(s); } catch { o = null; }
+    if (typeof o?.bundle !== "string" || typeof o?.manifest_sha256 !== "string") refuse("schema_mismatch", `status/${file} line ${i + 1}`);
+    return o;
+  });
+}
+/** One entry added to a status file, its fields in their fixed order: the whole file to a synced temporary file of the status
+ *  directory, then the rename, then the fsync of the directory (through `D`, the same seam as the commit). */
+function appendStatus(statusDir, file, entry, D) {
+  const p = join(statusDir, file), prior = existsSync(p) ? readFileSync(p, "utf8") : "", tmp = join(statusDir, `.tmp-${file}`);
+  const fd = D.openSync(tmp, "w");
+  try { D.writeSync(fd, prior + JSON.stringify(Object.fromEntries(STATUS_FIELDS[file].map((k) => [k, entry[k]]))) + "\n"); D.fsyncSync(fd); } finally { D.closeSync(fd); }
+  D.renameSync(tmp, p); D.fsyncDir(statusDir);
+}
+/** The from_unit of the start mark, or null when there is none; a mark not of its form is refused. */
+function readStart(statusDir) {
+  const p = join(statusDir, "start");
+  if (!existsSync(p)) return null;
+  let m = null;
+  try { m = JSON.parse(readFileSync(p, "utf8")); } catch { m = null; }
+  if (!isDay(String(m?.from_unit)) || typeof m?.posted_at !== "string") refuse("schema_mismatch", "status/start");
+  return m.from_unit;
+}
+
+/** --handoff-start <D>: poses the start mark {"from_unit":D,"posted_at":<ISO>} once and only once, when every bundle and tombstone of
+ *  the handoff directory starts before D. Created exclusively: a synced temporary file, then a hard link on the final name (an existing
+ *  mark is never replaced). It reads no key: the mark does not depend on it. */
+export function postStartMark({ from, handoffDir, statusDir, clock, clockSynced = UNSYNCED, fs: D = DURABLE_FS }) {
+  if (!clockSynced()) refuse("clock_unsynced", "the host clock is not synchronized");
+  const p = join(statusDir, "start");
+  if (existsSync(p)) refuse("start_mark_exists", "status/start");
+  const late = readdirSync(handoffDir).filter((x) => (UNIT_NAME.test(x) || TOMBSTONE.test(x)) && dayOf(x) >= from);
+  if (late.length > 0) refuse("start_mark_not_after_bundles", `${String(late.length)} bundle(s) of the handoff directory start at or after the mark`);
+  const posted_at = new Date(clock()).toISOString(), tmp = join(statusDir, `.tmp-start-${String(process.pid)}`), fd = D.openSync(tmp, "w");
+  try { D.writeSync(fd, JSON.stringify({ from_unit: from, posted_at }) + "\n"); D.fsyncSync(fd); } finally { D.closeSync(fd); }
+  try { linkSync(tmp, p); } catch (e) { if (e?.code === "EEXIST") refuse("start_mark_exists", "status/start"); throw e; } finally { unlinkSync(tmp); }
+  D.fsyncDir(statusDir);
+  return { status: "start_mark_posted", from_unit: from, posted_at };
+}
+
+/** --handoff: probe, lock, mark, ONE clock read, the choice (chooseHandoff), then for each chosen bundle the line path of --inbox
+ *  (publishOne, no archive: the handoff directory is never written) under the overlap guard, and its status line. A bundle whose runs
+ *  are all published already (a stop between the commit and the status line) is recorded at the line that holds them, with no new
+ *  line. A refusal of a bundle is recorded in refused.jsonl and stops the call. The SIGTERM handler, set before the lock, releases it. */
+export function publishHandoff({ handoffDir, stateDir, statusDir, privateKey, clock, clockSynced = UNSYNCED, bounds = {}, fs: D = DURABLE_FS, n = HANDOFF_N,
+  exit = (code) => process.exit(code) }) {
+  if (!clockSynced()) refuse("clock_unsynced", "the host clock is not synchronized");
+  const key = typeof privateKey === "function" ? privateKey() : privateKey, lock = join(stateDir, "publish.lock");
+  let held = false;
+  const release = () => { if (held) { held = false; unlinkSync(lock); } };
+  const onTerm = () => { try { release(); process.stderr.write("bell/publish: sigterm: publish.lock released\n"); } finally { exit(1); } };
+  process.on("SIGTERM", onTerm);
+  try {
+    try { closeSync(openSync(lock, "wx")); held = true; } catch (e) { if (e?.code === "EEXIST") refuse("lock_held", "publish.lock: another writer holds the state"); throw e; }
+    const start = readStart(statusDir) ?? refuse("handoff_start_missing", "status/start: no start mark (the act --handoff-start poses it)");
+    const t = clock(), B = { ...BOUNDS, ...bounds }, entries = readdirSync(handoffDir, { withFileTypes: true }); // the ONE clock read of the call
+    const choice = chooseHandoff({ names: entries.map((e) => e.name), manifests: manifestsOf(handoffDir, entries, start), published: readStatus(statusDir, "published.jsonl"),
+      refused: readStatus(statusDir, "refused.jsonl"), start, n });
+    const overlap = (fresh, lines) => { // closed intervals [a, b] and [c, d] meet when a <= d and c <= b
+      fresh.forEach((r, i) => { for (const l of lines.filter((x) => x.kind === "publication")) for (const p of l.runs) {
+        if (r.state.window.from_utc_ms <= p.window.to_utc_ms && p.window.from_utc_ms <= r.state.window.to_utc_ms) refuse("window_overlaps_published", `$.runs[${String(i)}].state.window meets a window of line ${String(l.seq)}`);
+      } });
+    };
+    const out = [];
+    for (const { bundle, manifest_sha256 } of choice.bundles) {
+      let r;
+      try { r = publishOne({ stateDir, privateKey: key, t, B, D, locate: () => ({ bundle, bdir: join(handoffDir, bundle) }), guard: overlap }); } catch (e) {
+        if (e instanceof BellPublishError && BUNDLE_REFUSALS.has(e.code)) appendStatus(statusDir, "refused.jsonl", { bundle, manifest_sha256, code: e.code, refused_at: new Date(t).toISOString() }, D);
+        throw e;
+      }
+      const shas = new Set(r.runs.map((x) => x.bellSha)); // healed: the last line that holds a run of the bundle
+      const l = r.status === "published" ? r.line : r.lines.filter((x) => x.kind === "publication" && x.runs.some((y) => shas.has(y.bell_sha))).pop();
+      appendStatus(statusDir, "published.jsonl", { bundle, manifest_sha256, seq: l.seq, published_at: l.published_at }, D);
+      out.push({ bundle, seq: l.seq, ...(r.status === "published" ? {} : { healed: true }) });
+    }
+    const status = choice.awaiting !== null ? "awaiting_unit" : out.length > 0 ? "published" : "nothing_to_publish";
+    return { status, published: out, ...(choice.awaiting !== null ? { awaiting_unit: `unit-${choice.awaiting}` } : {}) };
+  } finally { release(); process.off("SIGTERM", onTerm); }
+}
+
+/** The key loader of the CLI: $CREDENTIALS_DIRECTORY must be an absolute path, then each named key is read from it. */
+function keyLoader() {
+  const credDir = process.env.CREDENTIALS_DIRECTORY; // systemd LoadCredential (ADR D9): the ONLY environment read of this module
+  if (typeof credDir !== "string" || !isAbsolute(credDir)) refuse("signing_key_missing", "$CREDENTIALS_DIRECTORY is not set to an absolute path");
+  return (name) => {
+    let k;
+    try { k = createPrivateKey(readFileSync(join(credDir, name))); } catch { refuse("signing_key_missing", `$CREDENTIALS_DIRECTORY/${name} absent or unreadable`); }
+    if (k.asymmetricKeyType !== "ed25519") refuse("signing_key_missing", `${name} is not an Ed25519 private key`);
+    return k;
+  };
+}
+/** The two --handoff forms, closed: each option once with a value; else null (usage). */
+function handoffForm(argv) {
+  const v = {};
+  for (let i = 0; i < argv.length; i += 2) {
+    const k = argv[i], x = argv[i + 1];
+    if (!["--handoff", "--state", "--status", "--handoff-start"].includes(k) || Object.hasOwn(v, k) || x === undefined || x === "" || x.startsWith("--")) return null;
+    v[k] = x;
+  }
+  const keys = Object.keys(v).sort().join(" ");
+  if (keys === "--handoff --state --status") return { mode: "handoff", handoffDir: v["--handoff"], stateDir: v["--state"], statusDir: v["--status"] };
+  if (keys === "--handoff --handoff-start --status" && isDay(v["--handoff-start"])) return { mode: "start", from: v["--handoff-start"], handoffDir: v["--handoff"], statusDir: v["--status"] };
+  return null;
+}
+/** The CLI of the two --handoff forms: exit 0 with one JSON line on stdout, 1 with `bell/publish: <code>: <detail>` on stderr, 64 on usage. */
+function handoffCli(argv, deps) {
+  const f = handoffForm(argv);
+  if (f === null) {
+    process.stderr.write("bell/publish: usage: --handoff <dir> --state <dir> --status <dir> | --handoff-start <YYYY-MM-DD> --handoff <dir> --status <dir>\n");
+    return 64;
+  }
+  try {
+    const clock = () => Date.now(), clockSynced = deps.clockSynced ?? UNSYNCED;
+    const r = f.mode === "start" ? postStartMark({ ...f, clock, clockSynced }) : publishHandoff({ ...f, privateKey: () => keyLoader()("bell-signing-key"), clock, clockSynced });
+    process.stdout.write(JSON.stringify(r) + "\n");
+    return 0;
+  } catch (e) {
+    process.stderr.write(`bell/publish: ${e instanceof BellPublishError ? `${e.code}: ${e.detail}` : `fatal: ${String(e?.code ?? e?.name ?? "error")}`}\n`);
+    return 1;
+  }
+}
+
+/** CLI: exit 0 with one JSON summary line on stdout, or exit 1 with `bell/publish: <code>: <detail>` on stderr. An argv with --handoff
+ *  or --handoff-start and none of the four other mode options takes the --handoff forms (handoffCli; `deps.clockSynced` the probe). */
+export function runCli(argv, deps = {}) {
+  if ((argv.includes("--handoff") || argv.includes("--handoff-start")) && !["--inbox", "--generate-key", "--rotate", "--revoke"].some((k) => argv.includes(k))) return handoffCli(argv, deps);
   const arg = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : undefined; };
   const inboxDir = arg("--inbox"), stateDir = arg("--state"), genPath = arg("--generate-key"), revoke = arg("--revoke");
   const mode = argv.includes("--generate-key") ? "generate" : argv.includes("--rotate") ? "rotate" : argv.includes("--revoke") ? "revoke" : "publish";
@@ -245,14 +440,7 @@ export function runCli(argv) {
   }
   try {
     if (mode === "generate") { process.stdout.write(JSON.stringify(generateKey(genPath)) + "\n"); return 0; } // reads no environment
-    const credDir = process.env.CREDENTIALS_DIRECTORY; // systemd LoadCredential (ADR D9): the ONLY environment read of this module
-    if (typeof credDir !== "string" || !isAbsolute(credDir)) refuse("signing_key_missing", "$CREDENTIALS_DIRECTORY is not set to an absolute path");
-    const load = (name) => {
-      let k;
-      try { k = createPrivateKey(readFileSync(join(credDir, name))); } catch { refuse("signing_key_missing", `$CREDENTIALS_DIRECTORY/${name} absent or unreadable`); }
-      if (k.asymmetricKeyType !== "ed25519") refuse("signing_key_missing", `${name} is not an Ed25519 private key`);
-      return k;
-    };
+    const load = keyLoader();
     const clock = () => Date.now();
     const r = mode === "rotate" ? rotateKey({ stateDir, oldKey: argv.includes("--broken") ? null : load("bell-signing-key"), newKey: load("bell-signing-key-new"), clock })
       : mode === "revoke" ? revokeKey({ stateDir, key: load("bell-signing-key"), revokedKeyId: revoke, revokedFromSeq: Number(arg("--from-seq")), clock })
