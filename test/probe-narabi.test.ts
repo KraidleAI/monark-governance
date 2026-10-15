@@ -657,18 +657,32 @@ const smtpEnv = (port: number, extra: Record<string, string> = {}): Record<strin
   SMTP_USER: "narabialerts@monarkgate.tech", SMTP_PASS: SMTP_PASS_VALUE,
   ALERT_FROM: "narabialerts@monarkgate.tech", ALERT_TO: "narabialerts@monarkgate.tech", ...extra,
 });
-/** Spawn the real probe at a FIXED out (state persists across shots) and capture stdout/stderr. killMs>0 SIGKILLs a
- *  hung child (bounds the M-ii-16 mutant, which under a drip server would never terminate on its own). */
-async function runProbeAt(out: string, args: readonly string[], env: Record<string, string> = {}, killMs = 0): Promise<ProbeRun & { killed: boolean }> {
-  const child = spawn(process.execPath, [PROBE_MJS, "--out", out, ...args], { cwd: REPO, env: childEnv(env) });
-  let stdout = "", stderr = "", killed = false;
+// Lot PROBE-SMTP-TLS-DEADLINE-LOAD-1: the child's bounds count from a line it writes once running (test/helpers/probe-start-line.mjs,
+// preloaded, on fd 3), never from the spawn: the load of the full suite stalls the start of a process for seconds (its G0). KILL_MS,
+// armed at that line, is twice the probe's SMTP ceiling: it reaps a hung child (the M-ii-16 mutant under a drip server), it bounds no
+// test. REAP_MS, armed at the spawn, reaps a child that never writes its line, under the runner's --test-timeout of 300 s. RUN_BOUND_MS
+// bounds `ran` of a child that ends on its own (a short deadline, or no wait at all): over twice the longest stall of a running child
+// measured under the full suite (6.8 s), under the default deadline (20 s), the shortest wait of the mutants these bounds catch.
+const START_LINE = `--import=${pathToFileURL(join(HERE, "helpers", "probe-start-line.mjs")).href}`;
+const KILL_MS = 2 * MAX_SMTP_DEADLINE_MS, REAP_MS = 120_000, RUN_BOUND_MS = 15_000;
+/** Spawn the real probe at a FIXED out (state persists across shots) and capture stdout/stderr; `ran` is the time from the child's
+ *  start line to its exit. A child killed, without its start line or without narabi.json fails here by name, never by a TypeError. */
+async function runProbeAt(out: string, args: readonly string[], env: Record<string, string> = {}): Promise<ProbeRun & { ran: number }> {
+  const child = spawn(process.execPath, [START_LINE, PROBE_MJS, "--out", out, ...args], { cwd: REPO, env: childEnv(env), stdio: ["pipe", "pipe", "pipe", "pipe"] });
+  let stdout = "", stderr = "", started = NaN, killed = "", killer: ReturnType<typeof setTimeout> | undefined;
   child.stdout?.on("data", (d: Buffer) => { stdout += d.toString(); });
   child.stderr?.on("data", (d: Buffer) => { stderr += d.toString(); });
-  const killer = killMs > 0 ? setTimeout(() => { killed = true; try { child.kill("SIGKILL"); } catch { /* gone */ } }, killMs) : null;
-  const status = await new Promise<number>((resolve) => { child.on("close", (code) => { resolve(code ?? -1); }); });
-  if (killer) clearTimeout(killer);
-  const state = (existsSync(out) ? JSON.parse(readFileSync(out, "utf8")) : null) as NarabiState;
-  return { status, stdout, stderr, state, killed };
+  const kill = (why: string): void => { killed ||= why; try { child.kill("SIGKILL"); } catch { /* gone */ } };
+  const reaper = setTimeout(() => { kill(`by the reaper ${String(REAP_MS)} ms after its spawn`); }, REAP_MS);
+  child.stdio[3]?.once("data", () => { started = Date.now(); killer = setTimeout(() => { kill(`${String(KILL_MS)} ms after its start line`); }, KILL_MS); });
+  const [code, signal] = await new Promise<[number | null, NodeJS.Signals | null]>((ok) => { child.on("close", (n: number | null, s: NodeJS.Signals | null) => { ok([n, s]); }); });
+  const ran = Date.now() - started, issue = `exit ${String(code)}, signal ${String(signal)}, stderr ${JSON.stringify(stderr.slice(-300))}`;
+  clearTimeout(reaper); clearTimeout(killer);
+  assert.equal(killed, "", `the probe child hung and was killed ${killed} (${issue})`);
+  assert.ok(!Number.isNaN(started), `the probe child never wrote its start line (${issue})`);
+  assert.ok(existsSync(out), `the probe must ALWAYS write narabi.json (${issue})`);
+  const state = JSON.parse(readFileSync(out, "utf8")) as NarabiState;
+  return { status: code ?? -1, stdout, stderr, state, ran };
 }
 const freshOut = (): string => join(scratchDir(), `narabi-${String(uniq++)}.json`);
 // The fixture's last line is 2026-09-19. All the state machine is DRIVEN BY STATE, so --now may move freely in time.
@@ -844,19 +858,21 @@ test("probe_secret_never_printed — a fake that echoes the AUTH payload in a 53
 });
 
 // ── C-B-2: a SINGLE global deadline gives up on a drip server / a server silent after DATA (M-ii-16) ──
+// killer: scripts/probe-narabi.mjs:656 CONST "deadlineAt - nowFn()" -> "2147483647"
 test("probe_smtp_global_deadline — a drip server (250- forever) and a server silent after DATA both end as smtp_timeout with narabi.json written and exit 1, WITHIN the bound (a single global deadline, not a per-read inactivity timer that a drip keeps resetting) (C-B-2; M-ii-16)", async () => {
   const drip = await startFakeSmtp({ drip: true });
   try {
     const out = freshOut();
-    const r = await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(drip.port, { SMTP_DEADLINE_MS: "500" }), 8000);
-    assert.equal(r.killed, false, "the global deadline ended the run (M-ii-16 inactivity-only would hang under the drip and be SIGKILLed)");
+    const r = await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(drip.port, { SMTP_DEADLINE_MS: "500" }));
+    assert.ok(r.ran < 500 + RUN_BOUND_MS, `the global deadline ended the run (M-ii-16 inactivity-only hangs under the drip, then KILL_MS) (ran=${String(r.ran)}ms)`);
     assert.equal(r.state.alert_error, "smtp_timeout", "a drip server is smtp_timeout");
     assert.equal(r.status, 1, "smtp_timeout exits 1");
   } finally { await drip.close(); }
   const silent = await startFakeSmtp({ silentAfterData: true });
   try {
     const out = freshOut();
-    const r = await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(silent.port, { SMTP_DEADLINE_MS: "500" }), 8000);
+    const r = await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(silent.port, { SMTP_DEADLINE_MS: "500" }));
+    assert.ok(r.ran < 500 + RUN_BOUND_MS, `the global deadline ended the run (ran=${String(r.ran)}ms)`);
     assert.equal(r.state.alert_error, "smtp_timeout", "a server silent after DATA is smtp_timeout");
     assert.equal(existsSync(out), true, "narabi.json written on timeout");
     assert.equal(r.status, 1);
@@ -864,6 +880,7 @@ test("probe_smtp_global_deadline — a drip server (250- forever) and a server s
 });
 
 // ── C-G2-1: a SINGLE wall-clock deadline covers connect + handshake + conversation (one timer, cleared in finally) ──
+// killer: scripts/probe-narabi.mjs:715 SDL "EHLO monark-probe" -> ""
 test("probe_smtp_single_wall_clock_deadline_covers_whole_exchange — sendSmtp arms EXACTLY ONE timer (injected clock) for the WHOLE exchange; firing it DURING the conversation (past a real loopback connect + EHLO + AUTH) yields smtp_timeout and it is cleared in finally — no 2nd per-phase timer, no residual handle (C-G2-1)", async () => {
   const timers: { cb: () => void; ms: number; cleared: boolean }[] = [];
   const NOW = 1_000_000, DEADLINE = 40_000;
@@ -891,8 +908,9 @@ test("probe_smtp_single_wall_clock_deadline_covers_whole_exchange — sendSmtp a
   const p = sendSmtp({ host: "127.0.0.1", port: (server.address() as { port: number }).port, tls: "none", user: "u@x.tld", pass: "p", from: "u@x.tld", to: "u@x.tld", message: "x\n", deadlineMs: DEADLINE, clock });
   p.catch(() => { /* settled below via the timer; never an unhandled rejection */ });
   try {
+    // Waits for the AUTH in this process, which the load of the full suite stalls too: 60 s, far above the stalls measured (its G0).
     const t0 = Date.now();
-    while (!gotAuth && Date.now() - t0 < 4000) await new Promise((r) => setTimeout(r, 10));
+    while (!gotAuth && Date.now() - t0 < 60_000) await new Promise((r) => setTimeout(r, 10));
     assert.equal(gotAuth, true, "the client got past connect and into the conversation (sent AUTH)");
     assert.equal(timers.length, 1, "EXACTLY ONE timer for the whole exchange (kills a reintroduced separate connect timer)");
     assert.equal(timers[0]?.ms, DEADLINE, "the one timer is armed for the FULL deadline (connect+handshake+conversation)");
@@ -907,6 +925,7 @@ test("probe_smtp_single_wall_clock_deadline_covers_whole_exchange — sendSmtp a
 });
 
 // ── C-G2-1: the connect/handshake phase is bounded by the SAME single deadline (a silent handshake gives up ~1x) ──
+// killer: scripts/probe-narabi.mjs:669 SDL "onDeadline = () => no(" -> ""
 test("probe_smtp_connect_deadline_bounds_handshake — a server that accepts TCP but never completes the implicit-TLS handshake is given up on as smtp_timeout within ~one deadline, narabi.json written, exit 1, NOT SIGKILLed (C-G2-1)", async () => {
   // The server-side socket is PAUSED (no 'data' listener) so it never notices the child's disconnect; capture and
   // destroy it in finally, else server.close() would wait for a connection the child already dropped.
@@ -914,41 +933,35 @@ test("probe_smtp_connect_deadline_bounds_handshake — a server that accepts TCP
   const server = net.createServer((sock) => { srvSock = sock; sock.on("error", () => { /* silent: no ServerHello */ }); });
   await listen(server);
   try {
-    const port = (server.address() as { port: number }).port, DEADLINE = 700, t0 = Date.now();
-    const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(port, { SMTP_TLS: "implicit", SMTP_DEADLINE_MS: String(DEADLINE) }), 8000);
-    const elapsed = Date.now() - t0;
-    assert.equal(r.killed, false, "bounded by the single deadline, not SIGKILLed (connect-deadline-removed -> hang -> SIGKILL)");
+    const port = (server.address() as { port: number }).port, DEADLINE = 700;
+    const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(port, { SMTP_TLS: "implicit", SMTP_DEADLINE_MS: String(DEADLINE) }));
     assert.equal(r.state.alert_error, "smtp_timeout", "a silent handshake is smtp_timeout");
     assert.equal(r.status, 1, "exit 1");
-    assert.ok(elapsed < DEADLINE + 4000, `bounded within ~one deadline + child startup (elapsed=${String(elapsed)}ms)`);
+    assert.ok(r.ran < DEADLINE + RUN_BOUND_MS, `bounded within one deadline from the start line (connect-deadline-removed hangs, then KILL_MS) (ran=${String(r.ran)}ms)`);
   } finally { srvSock?.destroy(); await new Promise<void>((r) => { server.close(() => { r(); }); }); }
 });
 
 // ── C-G2-1: after a SUCCESSFUL send the child exits promptly — the single timer is cleared, no residual handle ──
+// killer: scripts/probe-narabi.mjs:735 SDL "clearT(timer);" -> ""
 test("probe_smtp_no_residual_timer_handle — with a 30 s SMTP_DEADLINE_MS a successful send still lets the child EXIT PROMPTLY: the single deadline timer is cleared in finally (a not-cleared timer would keep the process alive to 30 s) (C-G2-1)", async () => {
   const fake = await startFakeSmtp();
   try {
-    const t0 = Date.now();
-    const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port, { SMTP_DEADLINE_MS: "30000" }), 20000);
-    const elapsed = Date.now() - t0;
+    const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port, { SMTP_DEADLINE_MS: "30000" }));
     assert.equal(r.state.alerted, true, "the mail was delivered — this is the SUCCESS path being timed");
     assert.equal(r.state.alert_error, null, "delivered, no error");
-    assert.equal(r.killed, false, "not SIGKILLed");
-    assert.ok(elapsed < 8000, `child exited well before the 30 s deadline (elapsed=${String(elapsed)}ms) — timer cleared (mutant: not cleared -> lives to 30 s -> SIGKILL)`);
+    assert.ok(r.ran < RUN_BOUND_MS, `child exited well before the 30 s deadline (ran=${String(r.ran)}ms): timer cleared (mutant: not cleared, lives to 30 s)`);
   } finally { await fake.close(); }
 });
 
 // ── C-G2-4: the total-byte bound cuts off a flood > SMTP_MAX_BYTES fast, before the deadline ──
+// killer: scripts/probe-narabi.mjs:699 CONST "total > maxBytes" -> "false"
 test("probe_smtp_byte_bound_stops_flood — a fake that floods > 64 KiB of never-terminating response is cut off as smtp_timeout FAST via the total-byte bound, well before the 20 s deadline, not SIGKILLed (C-G2-4)", async () => {
   const fake = await startFakeSmtp({ flood: true });
   try {
-    const t0 = Date.now();
-    const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port, { SMTP_DEADLINE_MS: "20000" }), 8000);
-    const elapsed = Date.now() - t0;
-    assert.equal(r.killed, false, "the byte bound stopped it (mutant: bound removed -> awaits the 20 s deadline > killMs -> SIGKILL -> killed:true)");
+    const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port, { SMTP_DEADLINE_MS: "20000" }));
     assert.equal(r.state.alert_error, "smtp_timeout", "flooding past SMTP_MAX_BYTES is smtp_timeout");
     assert.equal(r.status, 1, "exit 1");
-    assert.ok(elapsed < 8000, `stopped by the byte bound well before the deadline (elapsed=${String(elapsed)}ms)`);
+    assert.ok(r.ran < RUN_BOUND_MS, `stopped by the byte bound well before the deadline (ran=${String(r.ran)}ms) (mutant: bound removed, awaits the 20 s deadline)`);
   } finally { await fake.close(); }
 });
 
@@ -961,10 +974,11 @@ test("probe_smtp_deadline_ms_is_capped — smtpDeadlineMs clamps an over-MAX SMT
 });
 
 // ── C-G2-6: the reader resolves a reply only on a COMPLETE line (a fragmented "250 AUT"+"H PLAIN" must not resolve early) ──
+// killer: scripts/probe-narabi.mjs:688 CONST "lines.length - 1" -> "lines.length"
 test("probe_smtp_reply_needs_complete_line — a fake that fragments the EHLO reply mid-token on the FINAL '250 ' line still delivers exactly one mail: the reader waits for the complete line before parsing the AUTH mechanism (C-G2-6)", async () => {
   const fake = await startFakeSmtp({ fragmentAuthFinalLine: true });
   try {
-    const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port), 8000);
+    const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port));
     assert.equal(r.state.alert_error, null, "the fragmented '250 AUT'+'H PLAIN' resolves to AUTH PLAIN and delivers (mutant: resolve on the incomplete line -> mech '250 AUT' -> no AUTH -> smtp_auth_failed)");
     assert.equal(r.state.alerted, true, "alerted after the 250");
     assert.equal(fake.cap.delivered, 1, "exactly one mail");
@@ -1025,15 +1039,18 @@ test("probe_smtp_headers_wellformed — composeMail emits From/To/constant Subje
 });
 
 // ── C-B-8: implicit TLS to a plaintext server fails WITHOUT ever speaking EHLO/AUTH in the clear (M-ii-19) ──
+// killer: scripts/probe-narabi.mjs:671 ROR "===" -> "!=="
 test("probe_smtp_implicit_tls_never_speaks_plaintext — SMTP_TLS=implicit to a node:net cleartext server fails the handshake (smtp_tls_failed) and the server receives the binary ClientHello but NEVER 'EHLO' or 'AUTH' in the clear (C-B-8; M-ii-19)", async () => {
   let received = "";
   // A cleartext greeting makes the client's TLS layer reject the first record fast (ERR_SSL_WRONG_VERSION_NUMBER),
-  // so the handshake FAILS instead of hanging; the client's ClientHello is still recorded first (measured spike).
+  // so the handshake FAILS instead of hanging; the client's ClientHello is still recorded first (measured spike). The deadline is the
+  // probe's ceiling: a stall of a running process under the load of the full suite no longer reads as smtp_timeout (lot
+  // PROBE-SMTP-TLS-DEADLINE-LOAD-1), and a client that waits for a reply goes red at that deadline.
   const server = net.createServer((s) => { s.on("error", () => { /* peer RST on TLS-fail destroy — ignored (C-G2-2) */ }); s.write("220 fake plaintext\r\n"); s.on("data", (d: Buffer) => { received += d.toString("latin1"); }); });
   await listen(server);
   try {
     const port = (server.address() as { port: number }).port;
-    const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(port, { SMTP_TLS: "implicit", SMTP_DEADLINE_MS: "800" }), 8000);
+    const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(port, { SMTP_TLS: "implicit", SMTP_DEADLINE_MS: String(MAX_SMTP_DEADLINE_MS) }));
     assert.equal(r.state.alert_error, "smtp_tls_failed", "implicit TLS to a plaintext server fails the handshake");
     assert.equal(r.status, 1);
     assert.ok(received.length > 0, "the server did receive the TLS ClientHello bytes (a real attempt happened)");
@@ -1083,6 +1100,7 @@ test("probe_smtp_unconfigured_is_noisy — an unhealthy verdict with no SMTP con
 });
 
 // ── C-3 (SMTP transport): a closed SMTP port is smtp_unreachable; a server that never greets is smtp_timeout ──
+// killer: scripts/probe-narabi.mjs:682 SDL "onDeadline = () => { dead = true;" -> ""
 test("probe_smtp_unreachable_closed_port_and_timeout — a closed loopback SMTP port yields smtp_unreachable; a server that accepts but never greets yields smtp_timeout; both exit 1 (C-3 SMTP)", async () => {
   const closed = await closedPort();
   const r1 = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(closed));
@@ -1090,7 +1108,8 @@ test("probe_smtp_unreachable_closed_port_and_timeout — a closed loopback SMTP 
   assert.equal(r1.status, 1);
   const fake = await startFakeSmtp({ neverGreet: true });
   try {
-    const r2 = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port, { SMTP_DEADLINE_MS: "500" }), 8000);
+    const r2 = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port, { SMTP_DEADLINE_MS: "500" }));
+    assert.ok(r2.ran < 500 + RUN_BOUND_MS, `the deadline ended the run (ran=${String(r2.ran)}ms)`);
     assert.equal(r2.state.alert_error, "smtp_timeout", "a server that never greets is smtp_timeout");
     assert.equal(r2.status, 1);
   } finally { await fake.close(); }
@@ -1196,15 +1215,13 @@ test("g2_no_test_can_send_real_mail — childEnv strips SMTP_*/ALERT_* even when
 //    deadline timer via the connect-failure catch, which is the ONLY release point on this path (the conversation
 //    finally is never reached when the connect rejects), so the child still EXITS PROMPTLY. The pre-existing
 //    no_residual_timer_handle only pins the SUCCESS path (finally); this twin closes the gap on the failure path. ──
+// killer: scripts/probe-narabi.mjs:676 CONST "clearT(timer); throw e;" -> "throw e;"
 test("probe_smtp_no_residual_timer_handle_on_connect_failure — the FAILURE twin: with a 30 s SMTP_DEADLINE_MS a CONNECT failure (a closed loopback port -> smtp_unreachable) STILL lets the child EXIT PROMPTLY, because the single deadline timer is cleared in the connect-failure catch — the ONLY release on this path, the conversation finally is never reached; a timer left armed there would keep the process alive to the 30 s deadline (C-G2D-1)", async () => {
   const closed = await closedPort();
-  const t0 = Date.now();
-  const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(closed, { SMTP_DEADLINE_MS: "30000" }), 20000);
-  const elapsed = Date.now() - t0;
+  const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(closed, { SMTP_DEADLINE_MS: "30000" }));
   assert.equal(r.state.alert_error, "smtp_unreachable", "the closed port fails the connect — this is the FAILURE path being timed (narabi.json is written before any hang)");
   assert.equal(r.state.alerted, false, "a failed send keeps alerted:false (retry next shot)");
-  assert.equal(r.killed, false, "not SIGKILLed — the connect-failure catch cleared the single timer (mutant: clearT removed from that catch -> timer stays armed to the 30 s deadline > killMs -> SIGKILL -> killed:true)");
-  assert.ok(elapsed < 8000, `child exited well before the 30 s deadline (elapsed=${String(elapsed)}ms) — timer cleared in the connect-failure catch (mutant: not cleared -> lives to 30 s -> SIGKILL)`);
+  assert.ok(r.ran < RUN_BOUND_MS, `child exited well before the 30 s deadline (ran=${String(r.ran)}ms): timer cleared in the connect-failure catch (mutant: clearT removed from that catch, lives to 30 s)`);
   assert.equal(r.status, 1, "smtp_unreachable exits 1");
 });
 
