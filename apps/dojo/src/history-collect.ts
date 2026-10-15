@@ -23,7 +23,7 @@ import { gunzipSync, gzipSync } from "node:zlib";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BudgetExceededError, CHAINSTACK_CYCLE_CAP_RU, HELIUS_CYCLE_CAP_CREDITS, RpcError, TransportError, assertMethodCapsCover, cycleOf, openGuardedClient,
-  runCli, type BudgetedClient, type OperatorLabel } from "@monark/rpc-guard";
+  nextCycleBoundary, runCli, type BudgetedClient, type OperatorLabel } from "@monark/rpc-guard";
 import { withRetry } from "../../bell/src/quorum.ts";
 import { canonical } from "../../bell/scripts/bell-chain.mjs";
 import { DOJO_HISTORY_CREATION as SIG0, DojoHistoryStop, FAULT, admit, checkBounds, checkCreation, checkInstructions, checkSupply, mergeIndexes, readBody,
@@ -172,7 +172,7 @@ function setup(argv: readonly string[], deps: RunDeps): Ctx {
   for (const op of DOJO_HISTORY_OPS) { const [anchor = "", fl = ""] = DOJO_HISTORY_ENV[op].map((k) => deps.env[k]), share = deps.env[DOJO_HISTORY_SHARE_ENV[op]] ?? "";
     try { cycles[op] = cycleOf(deps.nowMs(), anchor, op); } catch { refuse("cycle_missing", `${op} anchor`); } if (!/^[1-9][0-9]{0,8}$/.test(fl)) refuse("cycle_missing", `${op} floor`);
     if (!/^[1-9][0-9]{0,8}$/.test(share) || Number(share) > (op === A ? HELIUS_CYCLE_CAP_CREDITS : CHAINSTACK_CYCLE_CAP_RU)) refuse("cycle_missing", `${op} share`);
-    floors[op] = Number(fl); shares[op] = Number(share);
+    if (a.deadline > nextCycleBoundary(deps.nowMs(), anchor)) refuse("cycle_missing", `${op} straddle`); floors[op] = Number(fl); shares[op] = Number(share);
   }
   const J = Math.floor(deps.nowMs() / 1000 / DAY) - DAY1 + 1, S = PEAK * J;
   if (!(J >= 1)) refuse("usage", "clock before day 1");

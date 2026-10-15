@@ -38,8 +38,8 @@ import { POOLS } from "./pools.ts";
 import { dueInstant, planUnit } from "./plan.ts";
 import { CALENDAR_RANGE, classifySession, isTradingDay, nextTradingDay, refCloseDateOf, SIP_ETH_STATUS } from "./sessions.ts";
 import { checkTrajectory } from "./trajectory-check.ts";
-
-/** The closed list of the tick's named refusals. check_failed, prevalidation_refused and publisher_refused carry a suffix (check_failed:C04). */
+/** The closed list of the tick's named refusals. check_failed, prevalidation_refused and publisher_refused carry a suffix (check_failed:C04).
+ *  close_ref_pending is reserved, unreachable under the strict C14 control: checks.ts emits close_ref_missing for a close pending or absent. */
 export const TICK_REFUSALS = Object.freeze(["usage", "state_missing", "seed_exists", "env_missing", "env_malformed", "calendar_exhausted", "cycle_unknown",
   "cycle_boundary_straddle", "budget_guard", "lock_held", "budget_stop", "share_exhausted", "trajectory_stale", "trajectory_mismatch", "close_ref_pending",
   "close_ref_missing", "stop_cash_cross_mismatch", "cash_cost_cap", "leg_off", "check_failed", "adv_regime_unruled", "prevalidation_refused",
