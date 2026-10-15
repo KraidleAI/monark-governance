@@ -23,8 +23,17 @@ const fold = (segment: string): string => segment.normalize("NFC").toLowerCase()
  * more distinct spellings, sorted; the groups are sorted by their first spelling. No group means the list is safe on NTFS.
  */
 function caseOnlyCollisions(paths: readonly string[]): string[][] {
-  void paths; // the stub of the first commit: every synthetic positive case below is red on it
-  return [];
+  const spellings = new Map<string, Set<string>>(); // folded name -> its distinct spellings
+  for (const p of paths) {
+    const parts = p.split("/").filter((s) => s !== "");
+    for (let i = 1; i <= parts.length; i++) {
+      const name = parts.slice(0, i).join("/"), key = parts.slice(0, i).map(fold).join("/");
+      let seen = spellings.get(key);
+      if (seen === undefined) { seen = new Set(); spellings.set(key, seen); }
+      seen.add(name);
+    }
+  }
+  return [...spellings.values()].filter((s) => s.size > 1).map((s) => [...s].sort()).sort((a, b) => ((a[0] ?? "") < (b[0] ?? "") ? -1 : 1));
 }
 
 test("case_fold_two_names_that_differ_only_by_case_are_one_group", () => {
