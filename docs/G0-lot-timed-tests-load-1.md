@@ -120,20 +120,24 @@ Its bound is not a start's: the probe child reads `SMTP_DEADLINE_MS: "800"` (l.1
 just before the connect (`scripts/probe-narabi.mjs` l.477, l.654-656); the fake server lives in the test's own process. So a process
 already running, the child or the test's, stalled past 800 ms in a handshake that fails in milliseconds on a calm host (a deduction from
 the timeout, not a measure). Not in this zone, not touched: item **PROBE-SMTP-TLS-DEADLINE-LOAD-1** (tests only,
-`test/probe-narabi.test.ts`), which covers the time bounds of the file, of two kinds:
+`test/probe-narabi.test.ts`), which covers the time bounds of the file, of three kinds:
 - (a) deadlines that run in the started child. This test's 800 ms goes to 30 s, the probe's ceiling (`MAX_SMTP_DEADLINE_MS`,
   `scripts/probe-narabi.mjs` l.75 and l.634), more than twice 13.3 s, with the kill of `runProbeAt` above it; the green run stays as
   short, since the handshake fails at once, and a mutant whose client waits for a reply goes red at the deadline instead of at 0.8 s.
-  The other fixed `SMTP_DEADLINE_MS` values (l.851, l.859, l.917, l.932, l.946, l.1093, l.1202) are read in the same pass, each kept or
-  raised by what it tests.
+  The other fixed `SMTP_DEADLINE_MS` values (l.851, l.859, l.917-918, l.932, l.946, l.1093, l.1202) are read in the same pass, each
+  kept or raised by what it tests.
 - (b) bounds that count from before the spawn, the class this lot takes out of l2: the kill of `runProbeAt`, armed at the spawn (l.667;
   8000 or 20 000 ms by test), and the assertions on `elapsed` (l.923, `DEADLINE + 4000`; l.937, l.951 and l.1207, 8000 ms), all within
   reach of the stalls measured above (p99 3461 ms, max 13 279 ms). Construction: they count from a line the child writes once running,
   from a module the test preloads, as l2 now counts from its line; the kill is armed at that line, with a far reaper at the spawn under
   the runner's 300 s.
+- (c) a bound counted in the test's own process: the wait for the fake server's AUTH, 4 s (l.894-895, `Date.now() - t0 < 4000`), also
+  within reach of the stalls; it goes far above them, as in (a). The `spawnSync` timeouts of 60 s (l.73, l.312, l.514, l.547, l.1169),
+  about 4.5 times the longest stall, are kept.
 
-Price, `runProbeAt`, four assertions and the deadline of one test, tests only, and a run of their killers; carrier MONARK; trigger, a
-red of one of them in an oracle, or the close of part 3 of the Bell timer at the latest.
+Price, tests only: `runProbeAt`, the preload module (a new test file), four assertions, the deadline of one test, the wait of (c), the
+deadlines of (a) that are raised, and a run of their killers; carrier MONARK; trigger, a red of one of them in an oracle, or the close
+of part 3 of the Bell timer at the latest.
 
 The lot has three versions in this table. with-1 to with-3: a cut told by `ms >= 10 * over` alone, one space missing (`t =table`,
 l.708) and a comment worded otherwise (l.639-640). with-4: the space and the comment fixed. with-5: the final bytes, a cut told by the
