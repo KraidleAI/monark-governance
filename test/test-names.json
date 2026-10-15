@@ -2415,6 +2415,9 @@
   "served_record_archived: add --from-oracle at G1 archives the record and the record it was served from; both host files deleted, the v2 line stays green; a served record whose sha256 is not archived is red archive absent",
   "v1_real_lines_read_as_v1: the v1 lines of the real journal (docs/journal: 21 at M-5c) copied into a throwaway repo without an archive are read as v1: no J-SCHEMA, J-FACTS or J-REDPROOF hit (a v1 line never needs the archive, FM-1.3)"
  ],
+ "test/kata-quarter-vectors.test.ts": [
+  "u_test_and_fire_cross_equal - vetoFires and uTest of the TS guard equal the 8278 vectors that the tool writes from binom_exact at alpha 0.01, k* - 1, k* and k* + 1 for each n up to 2208 at 1h and 552 at 4h"
+ ],
  "test/kata-recalc.test.ts": [
   "kata_recalc_entry_scripts_import_the_input_guard_first - every .py file of the tool that runs as a program imports io_guard before any other module",
   "kata_recalc_guard_admits_two_trees_of_code - io_guard reads the trees tools/kata-recalc and tools/kata-quarter only, and the index holds no third tree under tools/",

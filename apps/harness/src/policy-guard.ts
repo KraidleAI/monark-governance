@@ -30,7 +30,7 @@ export function vetoFires(n: number, k: number, alpha: string): boolean {
 }
 
 /** u_test of a block (FORMAT.md edge conventions), at the veto level. */
-const uTest = (k: number | null, n: number | null): string | null => (k === null || n === null || n === 0 ? null : k === n ? "1" : missUpperBound(n, k, KATA_BASE_DELTA));
+export const uTest = (k: number | null, n: number | null): string | null => (k === null || n === null || n === 0 ? null : k === n ? "1" : missUpperBound(n, k, KATA_BASE_DELTA));
 
 /** G-2: one kata row of wave 1 or 2 against its class entry and the pins. */
 export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): void {
