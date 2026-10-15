@@ -42,15 +42,19 @@ function unitDirectives(text: string): { sections: string[]; list: Directive[] }
   }
   return { sections, list };
 }
-const EXEC = "/usr/bin/env node --max-old-space-size=448 /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --inbox /var/lib/monark-bell/inbox --state /var/lib/monark-bell";
-/** The CLOSED [Service] set with its pinned values (ADR D10 + "Constantes" C-7). Any added directive (EnvironmentFile, ...) reddens. */
+/** The --handoff form (G0 DC-3, lot 3b-ii): the handoff and the status directories of BELL_LAYOUT, then the state, last (the Caddy root below). */
+const EXEC = "/usr/bin/env node --max-old-space-size=448 /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --handoff /var/lib/monark-bell-handoff --status /var/lib/monark-bell-status --state /var/lib/monark-bell";
+/** The CLOSED [Service] set with its pinned values (ADR D10 + "Constantes" C-7; G0 DC-3: the handoff group, the status directory writable,
+ *  the collection's two private directories masked). Any added directive (EnvironmentFile, ...) reddens. */
 const SERVICE: Readonly<Record<string, string>> = {
   Type: "oneshot", WorkingDirectory: "/opt/monark-bell", ExecStart: EXEC, LoadCredential: "bell-signing-key:/etc/monark/bell/signing-key.pem",
-  TimeoutStartSec: "120", User: "bell", Group: "bell", NoNewPrivileges: "true", ProtectSystem: "strict", ProtectHome: "true", PrivateTmp: "true",
-  ReadWritePaths: "/var/lib/monark-bell", PrivateNetwork: "yes", UMask: "0022", CPUQuota: "25%", MemoryMax: "512M", TasksMax: "32",
+  TimeoutStartSec: "120", User: "bell", Group: "bell", SupplementaryGroups: "bell-handoff", NoNewPrivileges: "true", ProtectSystem: "strict", ProtectHome: "true",
+  PrivateTmp: "true", ReadWritePaths: "/var/lib/monark-bell /var/lib/monark-bell-status", InaccessiblePaths: "/var/lib/monark-bell-collect /etc/monark/bell-collect",
+  PrivateNetwork: "yes", UMask: "0022", CPUQuota: "25%", MemoryMax: "512M", TasksMax: "32",
 };
 
 // S-7. Mutants (each red here): PrivateNetwork removed; EnvironmentFile added; ReadWritePaths=/; any cap value changed.
+// killer: deploy/monark-bell-publish.service:29 CONST "--handoff /var/lib/monark-bell-handoff --status" -> "--inbox /var/lib/monark-bell/inbox --status"
 test("bell_deploy_config_publish_unit_least_privilege_offline", () => {
   const text = read(UNIT), { sections, list } = unitDirectives(text);
   assert.deepEqual(sections, ["Unit", "Service"], "exactly [Unit] + [Service]: no [Install] (never enabled, no timer in lot a, C-1)");
@@ -58,20 +62,21 @@ test("bell_deploy_config_publish_unit_least_privilege_offline", () => {
   const svc = list.filter((d) => d.section === "Service");
   assert.deepEqual(svc.map((d) => d.key).sort(), Object.keys(SERVICE).sort(), "the [Service] directive set is CLOSED (each once; no EnvironmentFile/Environment)");
   for (const d of svc) assert.equal(d.value, SERVICE[d.key], `${d.key}=${d.value} is the pinned value`);
-  assert.deepEqual((svc.find((d) => d.key === "ReadWritePaths")?.value ?? "").split(/\s+/), ["/var/lib/monark-bell"], "the ONLY writable path is the state dir");
+  assert.deepEqual((svc.find((d) => d.key === "ReadWritePaths")?.value ?? "").split(/\s+/), ["/var/lib/monark-bell", "/var/lib/monark-bell-status"], "the ONLY writable paths: the state dir and the status dir");
+  assert.ok(!/BY HAND/.test(text) && /OnSuccess= and OnFailure=/.test(text), "the header says what starts it now: the collection's OnSuccess= and OnFailure=");
   // V8 heap strictly below MemoryMax (both MiB; systemd suffixes are base-1024): V8 fails cleanly before the cgroup OOM killer.
   const heap = Number(/--max-old-space-size=(\d+) /.exec(svc.find((d) => d.key === "ExecStart")?.value ?? "")?.[1]);
   const mem = Number(/^(\d+)M$/.exec(svc.find((d) => d.key === "MemoryMax")?.value ?? "")?.[1]);
   assert.ok(heap > 0 && heap < mem, `heap cap ${String(heap)} MiB < MemoryMax ${String(mem)} MiB, on the ExecStart line`);
   // Bindings: the credential ID is the exact file name bell-publish.mjs reads under $CREDENTIALS_DIRECTORY; the script run is in the CA's
-  // deployed tree (check 11 (a)); the inbox and the state are under the only writable path.
+  // deployed tree (check 11 (a)); the state and the status are its writable paths, the handoff is read through the group.
   // The name the PUBLICATION path reads under $CREDENTIALS_DIRECTORY, in either real form: PR-1 `join(credDir, "<name>")`, PR-2
   // `publishToDir({ ..., privateKey: load("<name>") })` with `load = (name) => ... join(credDir, name)` (the rotation's second
   // credential, `newKey: load("bell-signing-key-new")`, is not the unit's).
   const pub = read("apps/bell/scripts/bell-publish.mjs"), cred = /(?:join\(credDir, |privateKey: load\()"([^"]+)"\)/.exec(pub);
   assert.ok(cred !== null && SERVICE.LoadCredential?.startsWith(`${cred[1] ?? "?"}:`), "LoadCredential ID == the file name the publisher reads");
   assert.ok(BELL_TREE_PATHS.some((p) => EXEC.includes(` /opt/monark-bell/${p} `)), "ExecStart runs a file of the deployed tree");
-  assert.ok(/--inbox \/var\/lib\/monark-bell\/inbox --state \/var\/lib\/monark-bell$/.test(EXEC), "inbox + state under ReadWritePaths");
+  assert.ok(/ --handoff \/var\/lib\/monark-bell-handoff --status \/var\/lib\/monark-bell-status --state \/var\/lib\/monark-bell$/.test(EXEC), "handoff, status, then state");
   // A committed line shaped like a `systemctl cat` file header would blur check 11 (c) (one fragment, no drop-in).
   assert.equal(text.split("\n").filter((l) => /^# \//.test(l)).length, 0, "no line of the unit starts with '# /'");
   assert.ok(UNIT_INSTALLED.endsWith("/monark-bell-publish.service"), "the CA reads the unit under its committed name");

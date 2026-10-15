@@ -186,15 +186,13 @@ test("bell_publish_lock_refuses_a_second_writer", () => {
   assert.throws(() => call(b), isCode("lock_held"));
   assert.deepEqual([readFileSync(lock, "utf8"), timeline(b).length], ["another writer\n", 0], "the refused writer leaves the other's lock and writes nothing");
   rmSync(lock);
-  // SIGTERM in the middle of a call: the handler set by the call releases the lock and exits 1.
-  const listeners = process.listeners("SIGTERM"), exits: number[] = [];
-  let during: boolean | undefined;
-  const fs: P.DurableFs = { ...P.DURABLE_FS, writeSync: (fd, data) => {
-    if (during === undefined) { for (const l of process.listeners("SIGTERM").filter((x) => !listeners.includes(x))) l("SIGTERM"); during = existsSync(lock); }
-    P.DURABLE_FS.writeSync(fd, data);
-  } };
-  assert.equal(call(b, { fs, exit: (c) => { exits.push(c); } }).status, "published");
-  assert.deepEqual([during, exits, existsSync(lock), process.listeners("SIGTERM").length], [false, [1], false, listeners.length], "released on SIGTERM and at the end; the handler removed");
+  // BELL-PUBLISH-SIGTERM-SYNC-1: the call is synchronous, so a SIGTERM during it is served by the event loop only after it returns; what holds
+  // is what this observes: the lock and the SIGTERM listener (which keeps the default exit off meanwhile) during the call, neither after it.
+  const listeners = process.listeners("SIGTERM").length;
+  let during: [boolean, number] | undefined;
+  const fs: P.DurableFs = { ...P.DURABLE_FS, writeSync: (fd, data) => { during ??= [existsSync(lock), process.listeners("SIGTERM").length]; P.DURABLE_FS.writeSync(fd, data); } };
+  assert.equal(call(b, { fs }).status, "published");
+  assert.deepEqual([during, existsSync(lock), process.listeners("SIGTERM").length], [[true, listeners + 1], false, listeners], "held with its listener during the call; released and removed by its finally");
 });
 
 // killer: apps/bell/scripts/bell-publish.mjs:251 CONST "() => false" -> "() => true"
