@@ -51,8 +51,8 @@ test("case_fold_a_directory_segment_counts_like_a_file_name", () => {
 });
 
 test("case_fold_a_combining_mark_that_nfc_merges_is_the_same_name", () => {
-  // "e" then U+0301 (combining acute accent) and U+00E9 (e with acute) are one character once normalised to NFC.
-  const composed = "docs/café.md", decomposed = "docs/café.md", upper = "docs/CAFÉ.md";
+  // "n" then U+0303 (combining tilde) and U+00F1 (n with tilde) are one character once normalised to NFC.
+  const composed = "docs/ma\u00f1ana.md", decomposed = "docs/man\u0303ana.md", upper = "docs/MA\u00d1ANA.md";
   assert.notEqual(composed, decomposed, "the two spellings differ as strings");
   assert.deepEqual(caseOnlyCollisions([composed, decomposed, upper]), [[upper, decomposed, composed]],
     "the three spellings are one group: the mark is merged by NFC before the case is folded");
