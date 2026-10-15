@@ -13,6 +13,15 @@
   partie 1 ; la liste des fichiers au TABLEAU. Les cinq questions de valeur sont tranchées (§8) : la première livraison de code
   n'attend plus rien d'autre du fondateur (`8e5bea2` l.19). Les prototypes cités sont une preuve du plan, hors de tout dépôt ; le code de
   chaque lot sera régénéré par `make-gel.mjs` après l'accord, sur la tête du tronc, puis remesuré (RUL l.20-21, A01).
+- **Amendement daté (dépôt au tronc, 2026-10-15, 08:3x UTC, PAROXYSME)** : la version déposée dans `docs/adr/` est le septième pli
+  (fichier de travail v17, sha256 `8b1f0c2ec5b22860e…`, 1 291 lignes avant cette puce), c'est-à-dire la v10 que le fondateur a validée
+  (v9, sha256 `4f45d750…fdd66ddc`, plus les amendements A-1 et A-2, `5471b92` l.6-14) et les plis 2 à 7 : les décisions de MONARK du
+  2026-10-08 au 2026-10-14 (Q-M8 à Q-M13), les réponses du fondateur du 2026-10-14 (Q-F1 à Q-F7, `5ce6f27` l.110-132 ; Q-F1 (a) et Q-F4
+  (a) changent T14 et T9), les deux questions ouvertes du septième pli (Q-M14, Q-M15, dont les défauts (a) et (a) tiennent, MONARK
+  `acbf19d` l.9) et les corrections des vérifications des plis 5 et 6. Écart à la version validée : ces plis, dont aucun ne change une
+  décision de valeur (§8). La relecture par MONARK du pli v10 (`5471b92` l.42-43) n'est pas consignée dans la boîte au 2026-10-15 : elle
+  est demandée avec la PR qui dépose ce fichier (Q-L1-1 (a), `2026-10-08-MONARK-vers-PAROXYSME-l1-trois-reponses.md` l.19 : « L
+  empreinte au tronc est celle que le fondateur valide. Sinon, un amendement daté nomme l écart. »).
 - **Cette passe (pli n° 1)** : le 2026-10-08, `date -u` lu à 06:27:03 (première lecture de la passe), 07:40:27, 07:56:27 et 08:07:24 ;
   worker de PAROXYSME, modèle résolu `claude-opus-5-5`, effort `max` ; mission `tache2-pli/MISSION.md` (sha256 `aa6abdb7…`) et
   complément de MONARK `9b20ad2` l.6-9. Quatre sources de changement : (1) la re-mesure à `5e976a1a` ; (2) O-1, la liste (a) étendue
