@@ -19,22 +19,26 @@
   tree's list), and `identity()` holds, as `if`s with exit 2 (never an `assert`), that the `io_guard` module of `sys.modules` is the one
   at `tools/kata-recalc/io_guard.py`, that every module loaded under a name of the frozen tool's list, or from its folder, is that file,
   and that no module of this folder bears one of those names. Subcommands: `check` (this lot), `count` and `month` (they print
-  `not in this lot` and exit 2). An exception nothing names is caught at the top: its type and message, no trace, exit 2.
+  `not in this lot` and exit 2). Every argument is parsed under the top-level catch (ASCII digits only): a bad one is the usage, a
+  refusal or an exception nothing names one line, its type and message, no trace, exit 2. `pinned` is admitted for quarter 1 only.
 - `quarter_load.py`, the loader (no `__main__`). Two reads of one symbol by `recalc_p2.load_series`, imported from the frozen tool,
   never copied (each read hashes the bytes and refuses them before parsing unless the sha256 is the pin it is given): read 1, the sealed
   series under its original range (quarter 1: `kata_lib.REC_START` to `REC_END`, which ends at S_1, and the pin of `recalc_p2.SYMBOLS`
   through `sealed_pin`; a later quarter: the previous quarter under its range and the posted pin); read 2, the LIVE series under
-  [S_k, E_k) and the pin posted at its sealing. Both pins come to `check` as arguments and are printed. Then the controlled merge:
-  read 1 ends exactly where read 2 starts (S_k); no instant is in both; every grid slot from S_k minus the lookback (the longest input
-  window of the rows counted, an argument of `check`, 404 hours for the 4h EWMA band) to E_k is present in the merged candles or listed
-  in the `missing.json` of the read that owns it. An **undeclared gap is a named refusal**; a declared gap stays a gap (the count
-  decides its drop later); a slot listed missing and present in the series, listed off the grid or outside its read's range, is refused.
+  [S_k, E_k) and the pin posted at its sealing. Both pins come to `check` as arguments and are printed. The two ranges meet at S_k by
+  construction, and `load_series` refuses any candle outside the range it reads under (`tools/kata-recalc/recalc_p2.py` l.111-112, « off
+  grid, out of range or not ascending »): that is what keeps the two reads apart, and the merge has no check of its own for it. The
+  controlled merge: every grid slot from S_k minus the lookback (the longest input window of the rows counted, an argument of `check`,
+  404 hours for the 4h EWMA band) to E_k is present in the merged candles or listed in the `missing.json` of the read that owns it. An
+  **undeclared gap is a named refusal**; a declared gap stays a gap (the count decides its drop later). `missing.json` is held to its
+  form: a whole count, whole `open_time_ms` values (never a bool, a float or a string), each written again by its `open_time_utc`; a
+  slot listed missing and present in the series, listed off the grid or outside its read's range, is refused.
 - `FILES`, the list file of the second tree, in the form io_guard reads: ASCII, one name per line ended by LF, sorted, each once, the
   list file named in it.
 
 `check` prints the quarter, the two reads (range, pin, rows), the merged range (its seam, slots, present, gaps), each declared gap, the
 inputs io_guard noted, and `VERDICT: GREEN`. Usage: `python -E -S -s -B -P quarter_counts.py check <sealed series dir> <live series dir>
-<symbol folder> <quarter k> <sealed sha256 | pinned> <live sha256> <lookback hours>`.
+<symbol folder> <quarter k> <sealed sha256 | pinned, quarter 1 only> <live sha256> <lookback hours>`.
 
 ## 2. The three contract points, folded
 
@@ -46,44 +50,46 @@ inputs io_guard noted, and `VERDICT: GREEN`. Usage: `python -E -S -s -B -P quart
 3. The prologue above follows the entry contract: the frozen tool's folder at the end of `sys.path`, `io_guard.py` launched by its path,
    `import io_guard` the first import after `os` and `sys` (held by `kata_quarter_entry_script_imports_the_input_guard_first`).
 
-## 3. Tests and their killers (`test/kata-quarter.test.ts`, four tests)
+## 3. Tests and their killers (`test/kata-quarter.test.ts`, five tests)
 
 Every launch of the tool in a test runs from the temporary git repository of `test/helpers/kata-quarter-repo.ts`: one per test file
 under `os.tmpdir()`, a copy of `tools/kata-recalc/` and `tools/kata-quarter/` taken from the working tree (regular files only), one
 commit, the launch under the `FORM` of `io_guard.py` (read as text, as the CI driver reads it), with none of the caller's `GIT_*`
-variables, by the `python` of PATH (else `python3`). The fixture `fixtures/kata-quarter/` holds made-up 15-minute candles of a made-up
+variables, by the interpreter that `KATA_QUARTER_PYTHON` names (the job's pinned CPython, set by the driver), else the `python` of PATH
+(else `python3`) for a run by hand. The fixture `fixtures/kata-quarter/` holds made-up 15-minute candles of a made-up
 symbol `syn` (an LCG, no real series): the sealed folder, the 1616 candles of the 404 hours before S_1; the live folder, the 8829
 candles of quarter 1 with three slots declared missing (S_1 itself, the seam; 2026-11-15T12:00Z; 2026-12-24T23:45Z). Each data file is
 declared and hashed in a `PROVENANCE-*.md` of its folder (the root test `series_pinned_are_declared_and_hashed` re-verifies it); the
 fixture is excluded from the R-25 count.
 
-| Test | What it holds | Killer (one line of production code or of the list file) |
+| Test | What it holds | Killers (lines of production code or of the list file) |
 |---|---|---|
-| `kata_quarter_entry_script_imports_the_input_guard_first` | the one `__main__` of the folder; the prologue, then `import io_guard`; no subcommand gives the usage and exit 2; `count` and `month` answer `not in this lot`, exit 2 | `tools/kata-quarter/quarter_counts.py:20 CONST "import io_guard" -> "import kata_lib"` |
-| `two_reads_merged_under_check` | `check` on the fixture: the two reads under their pins, the merged range from S_1 minus 404 h to E_1 (10448 slots, 10445 present), the three declared gaps listed, `VERDICT: GREEN`; the gap at S_1 left undeclared is refused by name; the candle at S_1 present and declared missing is refused by name | `tools/kata-quarter/quarter_load.py:108 CONST "if undeclared:" -> "if False:"` |
-| `kata_quarter_files_are_regular_100644` | every index entry under the folder a merged regular file 100644; `FILES` in its form, equal to the names of the index and of the working tree; the launch from the copy admitted | `tools/kata-quarter/FILES:2 CONST "quarter_counts.py" -> "quarter_count.py"` |
-| `kata_quarter_names_disjoint_from_kata_recalc` | no stem of the folder (or of the list) is a stem of the frozen tool; every file `quarter_*.py` but `FILES`; a posed, listed homonym refused by io_guard, exit 4 | `tools/kata-quarter/FILES:3 CONST "quarter_load.py" -> "report.py"` |
+| `kata_quarter_entry_script_imports_the_input_guard_first` | the one `__main__` of the folder; the prologue, then `import io_guard`; no subcommand gives the usage and exit 2; `count` and `month` answer `not in this lot`, exit 2; a quarter written `²` gives the usage, no trace; `pinned` for quarter 2 is refused by name | `quarter_counts.py:14 CONST "import io_guard" -> "import kata_lib"`; `quarter_counts.py:77 CONST "a.isascii() and " -> ""`; `quarter_counts.py:50 CONST "pin1 == \"pinned\" and k != 1" -> "False"` |
+| `two_reads_merged_under_check` (L-T18) | `check` on the fixture: the two reads under their pins, the merged range from S_1 minus 404 h to E_1 (10448 slots, 10445 present), the three declared gaps listed, `VERDICT: GREEN`; refused by name: the gap at S_1 undeclared, the candle at S_1 present and declared missing, the candle at S_1 in the sealed read too (an instant in both reads, refused by the range of read 1), and a `missing.json` with a float, a string, a bool count or a wrong `open_time_utc` | `quarter_load.py:108 CONST "if undeclared:" -> "if False:"`; `quarter_load.py:67 CONST "= start, end" -> "= start, end + K.STEP_MS"`; `quarter_load.py:75` (the whole-number test, and the `open_time_utc` test); `quarter_load.py:78 CONST "bad or not whole(count)" -> "bad"` |
+| `series_pinned_before_parse` (L-T5) | a sealed read and a LIVE read under another pin: exit 2, the refusal of D-3 before parsing, both digests named | `tools/kata-recalc/recalc_p2.py:89 CONST "got != pinned" -> "False"` (the check is the frozen tool's own) |
+| `kata_quarter_files_are_regular_100644` (L-T21) | every index entry under the folder a merged regular file 100644; `FILES` in its form, equal to the names of the index and of the working tree; the launch from the copy admitted | `FILES:2 CONST "quarter_counts.py" -> "quarter_count.py"` |
+| `kata_quarter_names_disjoint_from_kata_recalc` (L-T22) | no stem of the folder (or of the list) is a stem of the frozen tool; every file `quarter_*.py` but `FILES`; a posed, listed homonym refused by io_guard, exit 4 | `FILES:3 CONST "quarter_load.py" -> "report.py"` |
 
-**Red-before recipe** (run at the freeze, logs kept): for each killer, the line is changed as written, `node --test
-test/kata-quarter.test.ts` runs, the named test is red, the file is restored from the index (sha256 checked). Measured: killer 1 reds
-tests 1, 2 and 3; killer 2 reds test 2 alone; killers 3 and 4 red all four (io_guard refuses every launch on a list out of its form).
-At the trunk the first assertion of each test is the existence of the file this lot adds (red by assertion, as red-proof wants).
+**Red-before recipe** (run at the freeze, logs kept): for each killer, the line is changed as written, the test file runs, the named test
+is red, the file is restored from the bytes read before (sha256 checked). Measured: each of the eleven killers of this file reds its
+test; the import killer reds tests 1 to 4, the two list killers all five (io_guard refuses every launch on a list out of its form). At
+the trunk the first assertion of each test is the existence of a file this lot adds (red by assertion, as red-proof wants).
 
 ## 4. The CI driver, counts and measures
 
-- `scripts/verifier-tool-ci.mjs` gains the run of `quarter_counts.py check` on the fixture for the second tree: a list of its own
-  (`quarterSteps`, judged by `secondTreeProblems`), run by `main()` after the six runs of the frozen tool, whose list and line numbers
-  the driver's tests pin (`test/verifier-tool-ci.test.ts`, outside this lot: they still hold, the second tree judged apart). The run is
-  judged like the others: exit 0, one `VERDICT: GREEN`, no `FAIL` or `RED` line.
-- R-25: 446 changed lines (442 insertions, 4 deletions; bound 547): the tool 213, the tests and the helper 189, the driver 21, the two
-  provenance files 23. Above the 420 target of the plan, with rule 8 already left out (below).
+- **The job of the test file** (plan section 5.4, C15, way (ii), the plan's default): `test/kata-quarter.test.ts` is excluded by name from
+  `test:main` (its root glob `test/!(kata-quarter).test.ts`; `npm test` still runs it) and run in the internal job `g3-verifier-tool`:
+  `scripts/verifier-tool-ci.mjs` runs `node --test --test-reporter=tap test/kata-quarter.test.ts` after the six runs of the frozen tool,
+  with `KATA_QUARTER_PYTHON` set to the interpreter it probed (the pinned CPython 3.14.8 of `setup-python`), and requires exit 0 and a
+  summary of exactly the tests the file declares, each passed (`quarterTestProblems`); a second tree on disk without that file is refused
+  by `accountProblems` again. The job's Python setup and its bound are unchanged; no other job sets up or runs a Python.
+- R-25: 537 changed lines (524 insertions, 13 deletions; bound 547), after the fold (446 before it).
 - Python: the CI pins CPython 3.14.8; this container runs CPython 3.11.15, under which io_guard's form check, both list checks and the
-  hook admit the tool (measured by the tests and by a run of `check`: exit 0). The CI driver refuses this container's interpreter (not a
-  3.14) and the spec vectors are absent here, so its full run is CI's. The job that runs the main suite has no `setup-python`: the test
-  file uses the runner's `python`; a red there names it.
-- Tests: 4 added in 1 new file. With the trunk at `006effba` merged in: 3154 tests in 308 files, 3131 passed, 23 skipped (the skips
-  of the trunk), 0 failures, run offline (no egress, 0 refused connections) under the host lock; `test/test-counts.json` and
-  `test/test-names.json` by `node scripts/test-count-floor.mjs write`, and `node scripts/test-count-check.mjs --base 006effba` green.
+  hook admit the tool. The test file was run here under 3.11.15 and, through the driver, under a CPython 3.14.8 build (5 tests, 5 pass).
+- Tests: 3151 in 307 files in `test:main` (3128 passed, 23 skipped, the trunk's skips; 0 failures), run offline (no egress, 0
+  refused connections) under the host lock; `test/kata-quarter.test.ts` (5 tests) runs in `g3-verifier-tool`. `test/test-counts.json`
+  and `test/test-names.json` by `node scripts/test-count-floor.mjs write`; `node scripts/test-count-check.mjs --base 006effba` green, 0
+  drops (the base never held the file).
 
 ## 5. Not in this lot
 
@@ -91,7 +97,17 @@ At the trunk the first assertion of each test is the existence of the file this 
   computed and compared to the manifest, fixture C) and the test `truncated_candle_rule8`: left to the pre-declared **CM5-c1a-2**, as the
   plan allows when the count of this lot would exceed 420 with it (it is at 446 without). `recalc_p2.load_series` still stops on any
   irregular close time; the loader's header says so.
-- The test `series_pinned_before_parse`: the pin check is `load_series`'s own (D-3 of the frozen tool), exercised by `check` under its two
-  pins; a test of its own goes with CM5-c1a-2.
 - The identity of the tool at its commit (the `tool-tree` role, `git_tree`, the refusal in the run when the folder differs from the
   commit's blobs) and the tests of the launch form: **CM5-c1d**. The subcommands `count` and `month`: CM5-c1b, CM5-c2 and CM5-e.
+
+## 6. Fold of the review round 1
+
+| Finding | What changed |
+|---|---|
+| m-1, a lax parse of `missing.json` | `tools/kata-quarter/quarter_load.py:72-81`: `whole()` (l.26-28, `type(v) is int`), every `open_time_ms` and the count whole, each `open_time_utc` equal to `iso(open_time_ms)`, a named refusal otherwise; four variants in `two_reads_merged_under_check` |
+| m-2, no duplicate case, unreachable merge checks | the seam and both-reads checks of `merge()` dropped (`merge()`, `quarter_load.py:93-97`, no dead code): the range of `load_series` keeps the reads apart (`recalc_p2.py` l.111-112, said in the header and in section 1); the instant in both reads added to the test, refused by name |
+| m-3, an argument refusal with a trace | `tools/kata-quarter/quarter_counts.py:76-89`: arguments parsed inside the try, `a.isascii() and a.isdigit()`; the case `²` in the entry test |
+| m-4, a driver refusal that could not fire | `secondTreeProblems`, `quarterSteps` and `QUARTER_FIXTURE` removed from `scripts/verifier-tool-ci.mjs`; `quarterTestProblems` and `declaredTests` (l.126-133) judge the run of the test file, and `accountProblems` again refuses a second tree without its run (l.147); `verifier_tool_driver_runs_the_second_tree_test_file` in `test/verifier-tool-ci.test.ts`, red when the judge is made constant |
+| m-5, the job of the test file not chosen | way (ii), section 4: `package.json:17`; `test/ci-gates.test.ts` (a) and `test/test-count-floor.test.ts:107` read the one exclusion of the root glob; the helper takes `KATA_QUARTER_PYTHON` (`test/helpers/kata-quarter-repo.ts:45`); the assertion « no other job sets up or runs a Python » of `test/verifier-tool-ci.test.ts` holds as written |
+| nit-6, L-T5 moved without a decision | `series_pinned_before_parse` added: L-T5 is in this lot |
+| nit-7, `pinned` for any quarter | `quarter_counts.py:50-52`: refused by name for quarter 2 and later; one case |
