@@ -93,7 +93,7 @@ test("bell_chain_ed25519_rfc8032_kat", async (t) => {
 });
 
 // ---- S-1 (d) + B-5: the publication scripts import Node built-ins only (allowlist), no network or dynamic loading ----
-// Per-file allowlists (PLAN-P2 lot 2a-i, ruling of 2026-10-14): bell-chain.mjs imports node: built-ins only; bell-publish.mjs adds
+// Per-file allowlists (the collection timer, lot 2a-i, ruling of 2026-10-14): bell-chain.mjs imports node: built-ins only; bell-publish.mjs adds
 // ./bell-chain.mjs and ./bell-validate.mjs; bell-validate.mjs imports exactly node:fs, node:path and ./bell-chain.mjs, never the publisher.
 // killer: apps/bell/scripts/bell-validate.mjs:6 CONST "\"node:path\";" -> "\"node:path\"; import { pathToFileURL } from \"node:url\";"
 test("bell_scripts_import_allowlist_no_network", () => {

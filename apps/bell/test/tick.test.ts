@@ -223,7 +223,8 @@ test("bell_tick_exits_nonzero_on_every_named_refusal", async () => {
   h = await seeded(); await note(h, run(h, tickArgv(h), { runUnit: () => Promise.reject(new Error("rpc-guard: no operators requested (cycles is empty, fail-closed)")) }));
   const viaSeam = TICK_REFUSALS.filter((c) => !seen.has(c));
   for (const c of viaSeam) { h = await seeded(); await note(h, run(h, tickArgv(h), { runUnit: refusing(c) })); }
-  assert.ok(viaSeam.length <= 5,`refusals of later lots only reach the tick through the seam: ${viaSeam.join(" ")}`);
+  assert.ok(viaSeam.length <= 5, "refusals of later lots, and close_ref_pending (reserved, unreachable under the strict C14 control: checks.ts emits "
+    + `close_ref_missing for a close pending or absent), only reach the tick through the seam: ${viaSeam.join(" ")}`);
   assert.deepEqual([...seen.keys()].sort(), [...TICK_REFUSALS].sort(), "every name of the closed list is seen");
   assert.deepEqual([...seen].filter(([c, x]) => x !== (c === "usage" ? 64 : 1)), [], "usage exits 64, every other refusal 1, never 0");
 });
@@ -377,6 +378,21 @@ test("bell_tick_closure_excludes_the_publisher", () => {
   assert.deepEqual(rel.filter((f) => f.endsWith("bell-publish.mjs")), [], "the tick never loads the publisher");
   assert.deepEqual(problems, [], "no file of the closure, packages included, imports the publisher or child_process, reads the signing credential or the environment");
   assert.equal(readFileSync(TICK, "utf8").split("process.env").length, 2, "process.env once, at the command-line entry of tick.ts");
+  // Every environment read of tick.ts, by its reader: checkEnv (presence and shape), cyclesOf and sharesOf (the anchor and share keys
+  // built by keyOf, never a credential), the narrowed environment (the only one a stage receives) and creds (the values withheld from
+  // every printed line). A read anywhere else, or by a dotted name, is a new reader of a key: named here, never silent.
+  // killer: apps/bell/src/tick.ts:187 CONST "readCashKeys(env)" -> "readCashKeys({ DATABENTO_API_KEY: env[\"DATABENTO_API_KEY\"] })"
+  let owner = "";
+  const sites = codeLines(readFileSync(TICK, "utf8")).flatMap((l) => {
+    owner = /^(?:export )?(?:async )?(?:function|const) (\w+)/.exec(l)?.[1] ?? owner;
+    return [...l.matchAll(/(?:\bdeps\.)?\benv\[[^\]]*\]/g)].map((m) => {
+      const before = l.slice(0, m.index), reader = /\bnarrowed = /.test(before) ? "narrowed" : /\bconst creds = /.test(before) ? "creds" : owner;
+      return `${reader} ${m[0]}`;
+    });
+  });
+  assert.deepEqual(sites.sort(), ["checkEnv env[k]", "creds deps.env[k]", 'cyclesOf env[keyOf(op, "ANCHOR_UTC")]', "narrowed deps.env[k]",
+    'sharesOf env[keyOf(op, "SHARE")]'], "the environment of tick.ts is read by these readers only");
+  assert.deepEqual(codeLines(readFileSync(TICK, "utf8")).filter((l) => /\benv\s*\.\s*[A-Za-z_$]/.test(l)), [], "no key read by a dotted name");
   // The guard on a synthetic tree: a package reached only through @monark/*, then one relative step, is walked and named.
   const t = tmp("bell-closure-"), w = (p: string, s: string): void => { mkdirSync(dirname(join(t, p)), { recursive: true }); writeFileSync(join(t, p), s); };
   w("packages/p/package.json", JSON.stringify({ name: "@monark/p", exports: { ".": "./src/index.ts" } }));

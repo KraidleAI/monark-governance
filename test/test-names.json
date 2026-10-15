@@ -532,6 +532,7 @@
   "dojo_history_pages_order_inputs_and_raw_files_as_declared",
   "dojo_history_passes_its_declared_shares",
   "dojo_history_per_account_pages_until_fixpoint",
+  "dojo_history_refuses_a_course_that_straddles_a_cycle_boundary",
   "dojo_history_resume_from_last_complete_unit",
   "dojo_history_secret_forms_cover_every_alignment_and_the_url_floor",
   "dojo_history_shares_only_the_operators_it_requests",
@@ -1796,6 +1797,7 @@
   "repair_tail_without_lock_takes_and_releases_it"
  ],
  "packages/rpc-guard/test/share.test.ts": [
+  "rpc_guard_budget_error_declares_its_refusal_code",
   "rpc_guard_refusal_carries_its_reason_code",
   "rpc_guard_refuses_a_share_above_the_code_cap",
   "rpc_guard_share_caps_cumulative_spend_across_runs",
@@ -2929,6 +2931,7 @@
   "no_secret_in_repo"
  ],
  "test/oracle-run.test.ts": [
+  "oracle_ci_only_withdraws_the_two_sudo_blocks_of_the_handoff_job_only — any other sudo block stays a gate",
   "oracle_clone_takes_no_machine_template - G2 delta3 m-f: a machine git template (GIT_TEMPLATE_DIR, or init.templateDir) carrying info/attributes `* -diff` never reaches the clone: r25 reads the 3 lines of the lot, green (0 lines before)",
   "oracle_cv4_refuses_the_suite — free memory or node.exe out of bounds => exit 3, no suite, lock released; defaults 4096 MB free and 40 node.exe (M12, X13)",
   "oracle_gates_are_the_run_lines_of_ci_yml — derived at launch, CI-only listed, npm test once; one more run: => one more gate; a run: | block runs under bash -e; the run and the lock take name the tree (M2, M3, X8, X9)",

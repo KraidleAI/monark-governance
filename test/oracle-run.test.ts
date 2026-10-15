@@ -125,6 +125,21 @@ test("oracle_gates_are_the_run_lines_of_ci_yml — derived at launch, CI-only li
   assert.deepEqual([c.status, c.rec?.gates.at(-1)?.exit], [1, 1], "a run: | block runs under bash -e: a failing line fails the gate (K-E)");
 }));
 
+// killer: scripts/oracle/run.mjs:32 CONST "(?:groupadd --system bell-handoff|env \"PATH=\\$PATH\" npm run test:handoff-perms)\\b" -> ""
+test("oracle_ci_only_withdraws_the_two_sudo_blocks_of_the_handoff_job_only — any other sudo block stays a gate", () => withFx((fx) => {
+  // The job g3-bell-handoff-perms, copied from the real ci.yml, then a foreign job whose block starts with sudo. --static-only: no gate
+  // outside the static lane runs, so the foreign block is never executed here; it must be absent from ci_only (it would run as a gate).
+  const real = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8").replace(/\r\n/g, "\n"), at = real.indexOf("\n  g3-bell-handoff-perms:\n");
+  assert.ok(at > 0, "the real ci.yml holds the job g3-bell-handoff-perms");
+  const end = real.slice(at + 1).search(/\n {2}[\w-]+:\n/), job = real.slice(at + 1, end < 0 ? undefined : at + 1 + end + 1);
+  appendFileSync(join(fx.repo, ".github", "workflows", "ci.yml"), `${job}  foreign:\n    steps:\n      - run: |\n          sudo true\n`);
+  git(fx.repo, "commit", "-qam", "the handoff job and a foreign sudo block");
+  const a = oracle(fx, ["--role", "G1", "--static-only"]);
+  assert.deepEqual(a.rec?.ci_only?.map((c) => c.cmd.split("\n")[0]), ["npm ci", "npm audit --audit-level=high", "sudo groupadd --system bell-handoff",
+    'sudo env "PATH=$PATH" npm run test:handoff-perms > handoff-perms.tap 2>&1 || STATUS=$?'],
+  `the two blocks of the job only, never the foreign one: ${a.out}`);
+}));
+
 // G2 delta A-3: the npm overrides win under any case on every OS. On Windows a case-insensitive env merge lets NPM_CONFIG_OFFLINE
 // stand in for npm_config_offline; on POSIX both names reach the gate, so the gate must see npm's two override names only.
 // killer: scripts/oracle/run.mjs:47 COR " || /^npm_config_(offline|logs_dir)$/i.test(k)" -> ""

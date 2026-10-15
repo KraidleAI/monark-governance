@@ -28,8 +28,8 @@ const CI_ONLY = [
   [/^npm sbom\b/, "per-run CI artefact (serialNumber, timestamp); scripts/sbom.mjs mirrors it"],
   [/^npm run build -w @monark\/site\b/, "build site: next build writes .next/ (job g3-site)"],
   [/^node scripts\/assert-fleet-html\.mjs\b/, "build site: O-2 reads the next build output (job g3-site)"],
-  [/^node scripts\/verifier-tool-ci\.mjs\b/, "frozen verifier tool: runs under the CPython the CI pins (job g3-verifier-tool), not the host's"], [/^sudo /, "root on the runner: g3-bell-handoff-perms makes the users and runs test:handoff-perms as root, Linux only (lot 2d)"],
-];
+  [/^node scripts\/verifier-tool-ci\.mjs\b/, "frozen verifier tool: runs under the CPython the CI pins (job g3-verifier-tool), not the host's"],
+  [/^sudo (?:groupadd --system bell-handoff|env "PATH=\$PATH" npm run test:handoff-perms)\b/, "root on the runner: the two blocks of g3-bell-handoff-perms"]];
 const STATIC = /^(npm run (gate:vocab|typecheck|lint|lint:ratchet|lang:gate|export:check)|bash enforcement\/lint-model-pinning\.sh \.|r25)$/;
 const REQUIRED = ["schema", "role", "tree", "base", "key", "pid", "start", "end", "static_only", "gates", "tests", "r25", "residues", "ci_only", "cv4", "exit", "served_from"];
 const ENV_KEY = ["NODE_OPTIONS", "NODE_ENV", "TZ", "LANG", "LC_ALL", "CI"]; // the declared env of the D4 key
