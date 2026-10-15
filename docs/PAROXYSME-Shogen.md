@@ -40,10 +40,11 @@
   retrait ; parties touchées : en-tête, §0 (Une entrée par limite, Champs), §2.2, §3.2, §4 (L-36), §8 ; G2 par une instance neuve
   (`claude-opus-5-5`, effort high), le 2026-10-15 de 03:10 à 03:16 UTC : 11 constats (G2-R15-1 à 11, pièce `G2-rendu.json` du dossier
   `2026-10-15-registres` de la boîte), pliés par la session PAROXYSME à partir de 03:2x UTC : §0 (Champs), L-35, §7 (doutes 7 et 16), §8.
-  Pli d'A-1 (ADR PXC-02 D-8 récrite, §7.14 ; décision du fondateur relayée par MONARK, boîte `5471b92` l.16-27 ; Q-M11 (a), `5ce6f27`
-  l.137-139), le 2026-10-15 à partir de 11:40 UTC (`date -u`), par la session PAROXYSME : N-14 nomme l'item de construction de la jointure,
-  sous la forme que lit le test `shogen_how_it_works_is_building_only_while_its_construction_item_is_open` du lot L2 ; parties touchées :
-  en-tête, N-14 ; G2 par une instance neuve avant la fusion.
+  Pli d'A-1 (ADR PXC-02 D-8 récrite, §7.14 ; mots du fondateur, boîte `5471b92` l.10-12, lus par MONARK l.14-27 ; Q-M11 (a), `5ce6f27`
+  l.137-139 ; amendement n° 3 à `32663c7`, l.540-542 et l.645-649), le 2026-10-15 à partir de 11:40 UTC (`date -u`), par la session PAROXYSME
+  (`claude-fable-5-1`) : N-14 nomme les items de construction de la jointure, sous la forme que lit le test
+  `shogen_how_it_works_is_building_only_while_its_construction_item_is_open` du lot L2 ; G2 par une instance neuve (`claude-opus-5-5`, effort
+  high), de 11:45 à 11:52 UTC : cinq constats (C1 M, C2 à C5 m), pliés à partir de 11:5x UTC ; parties touchées : en-tête, N-14, §8.
 - **Bases** : inventaire mesuré à `d8fe354c`, qui y lit aussi ETAT (empreinte `2ef6f107…`, INV-S l.19), et non à `57a131fc` comme ceux
   du Harnais et du Moteur. Toutes les ancres du tronc sont à la base `87b821b0` de `lot/etude-suite` (tête relue par `git ls-remote` le
   2026-10-07 à 17:07 UTC, message `d4b3d07` l.16-17). Le tronc a avancé depuis par les fusions #241 et #235, jusqu'à `eb1beb01`
@@ -497,9 +498,10 @@
   item : PXC-02 PUBLIC-SENTENCES-2, noyau de la partie 1 (PLAN l.664-665 : statut de l'exception ; « the seam is dormant ») · porteur :
     PAROXYSME ; envoi du site : go donné par le fondateur le 2026-10-08 pour l'envoi qui suit O-1 et la lecture sur place d'I-G2-5 par
     MONARK (ETAT l.486-489 à `565c7065`) ; release du miroir : le fondateur · déclencheur : tâche 2 du TABLEAU (ADR, cp-1, validation,
-    puis la PR ; F1) · item de construction de la jointure `attest → gate` (A-1, ADR PXC-02 §6, §7.14) : PXC-08 p2 (F4), à former à ETAT par
-    l'amendement n° 3 ; prix : 12-14 j-h ; porteur : PAROXYSME ; déclencheur : la PR de L2 dit le bloc `building` tant que cet item est
-    ouvert, `built` quand il clôt
+    puis la PR ; F1) · item de construction de la jointure `attest → gate` (A-1 ; ADR PXC-02 §6 l.939-941, §7.14 l.1056-1064) : PXC-08 p2 (F4) :
+    MONARK-SHOGEN-VERIF-EXEC-1, à transcrire (L-04 ; amendement n° 3 l.645-649), puis ATTEST-KATA-SUBJECT-1 (PXC-08 p3, F5), à re-former ;
+    prix : 12-14 j-h pour PXC-08 entier (ADR §6 ; CC l.308), dont partie 2 : 5 j-h (amendement n° 3 l.540-542) ; porteur : PAROXYSME ; ligne
+    d'ETAT : MONARK · déclencheur : partie 2 de PXC-08 (F4, PLAN l.613-614) ; lien au statut : le test de L2 lit cette entrée (ADR §7.14)
   état : ouvert (nouvelle) · suite : correction vers moins de revendication, permise pendant l'exception (CL l.38-39 ; INV-S l.277)
 - **N-15** · « Blocs « Living proof » et « Traceability » du panneau, `upcoming` : limites de plateforme jamais routées. »
   source : `apps/site/components/shogen-panel.tsx:75-77`, `:95-97` ; FICHE l.225 (Q5) ; REG27 l.199, écart (8) · touche :
@@ -861,7 +863,8 @@ l.513, l.515, l.551 et l.576 à `565c7065` ; aucune ne forme une limite de Shōg
 
 **Ligne PAROXYSME (2026-10-07, décisions de MONARK pliées, 20:1x UTC ; constat 9 de la G2 plié, 21:4x UTC ; question de N-07 ajoutée, 2026-10-08, 04:5x UTC ;
 item de L-47 précisé, 05:4x UTC ; pli de l'après-#245, 2026-10-08 à partir de 07:41 UTC ; pli de l'après-#253, 2026-10-08 à partir de 12:27 UTC ;
-pli de l'après-#282, 2026-10-15 à partir de 02:57 UTC ; sa G2 pliée à partir de 03:2x UTC).** Au pli de l'après-#282 : 54 entrées, de L-07 à
+pli de l'après-#282, 2026-10-15 à partir de 02:57 UTC ; sa G2 pliée à partir de 03:2x UTC ; pli d'A-1, 2026-10-15 à partir de 11:40 UTC, sa G2 pliée
+à partir de 11:5x UTC).** Au pli de l'après-#282 : 54 entrées, de L-07 à
 L-53 (dont L-36, close) et de S-01 à S-07, portent la mention de périmètre (§0, Champs ; `39c0425` l.6-15 ; Q-SH-1 (a), `ae8a0fa` l.6-8),
 sans changement d'état : 76 entrées, 74 ouvertes (71 « ouvert », 3 « changé »), 2 closes, avant et après ce pli ; sous la mention, 27 entrées
 gardent PAROXYSME parmi leurs porteurs et 14 une demande au mainteneur : trace d'avant le 2026-10-08, Q-SH-2 et Q-SH-3 à MONARK (§7, doute
@@ -887,6 +890,8 @@ Fichiers du tronc lus à `87b821b0` (`git show 87b821b0:<f> | sha256sum`) ; fich
 (`sha256sum`). Pour le pli des décisions : ETAT lu aussi à `5437cd0d` (`git show 5437cd0d:docs/ETAT.md | sha256sum`), MSG à son
 commit `d6331f6` (`git show d6331f6:<f> | sha256sum`). Pour le constat 9 de la G2 : MSG2 à son commit `8eb9a46` (même commande).
 Pour le second tour : `verify-registres.mjs` à son commit `84bc889`, `G2-Shogen.md` et `PLI-Shogen.md` à leur commit `0a5ca61` (même commande).
+Pour le pli d'A-1 : l'ADR PXC-02 lue au tronc `ebabd0f9` (`git show ebabd0f9:docs/adr/ADR-PXC-02-PUBLIC-SENTENCES-2.md | sha256sum`), les
+messages `5471b92` et `5ce6f27` à leur commit, l'amendement n° 3 à `32663c7` (même commande).
 
 | Source | Lignes | sha256 |
 |---|---|---|
@@ -910,6 +915,10 @@ Pour le second tour : `verify-registres.mjs` à son commit `84bc889`, `G2-Shogen
 | `fixtures/s3-binance.verdict.txt` | 16 | `b2528be9c75b388f538a4a2aa81daa268a3da4ecf4b6c5d52e314b9a27d3663d` |
 | `docs/adr/ADR-CM-chantier-moteur-audit-P3.md` | 331 | `64aa3e11a87ac59ce633d5191952824d06010970c34b73c749e1c1caa2430c7b` |
 | `docs/adr/ADR-M017-attested-price-dans-gate.md` | 162 | `c067405786aad8cf5d08fbc21e5cbf905ecf20502f11745abf3c30b0edebdfaf` |
+| `docs/adr/ADR-PXC-02-PUBLIC-SENTENCES-2.md` à `ebabd0f9` (pli d'A-1) | 1 300 | `62990a900e36f304fcaccc16d57db2cfc084eef2a03ab3c779e93d1a519e8db2` |
+| message `5471b92` (boîte, `…adr-validee-amendements.md`) | 48 | `080817b436ebf121be28976a364b0efd69bf8f4373ac02c73791c0ae7e3e763a` |
+| message `5ce6f27` (boîte, `…reprise-autonomie-1014.md`) | 170 | `c8c46626127d3f3a1fb19ff87ed99402cf4f7ea1909e3363b66459f32b19a3c0` |
+| amendement n° 3 à `32663c7` (boîte, `AMENDEMENT-3-PLAN-DE-ROUTE.md`) | 1 115 | `7af9f22156cb3bdda6e1f73ba9ab6e39cb25c5db74cd35098e7cbba5a5855d50` |
 | `docs/G0-lot-cm-2b-surfaces.md` | 75 | `b3d5b19ea901a681ccf09c85e232815b77a256265928aeccce89408403a1a4db` |
 | `scripts/verify-harness.mjs` | 588 | `2cf68a6026d65b765002df0c05c4601bfe8896b8d6f06d36872aba047ae686cf` |
 | `test/site-docs.test.ts` | 831 | `f41b47c6ec322e02b1da4ff1d70f091b4b4e19d06592039467f3968103162525` |
