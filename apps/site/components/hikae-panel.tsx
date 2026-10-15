@@ -61,7 +61,7 @@ export function HikaePanel({ contract, status }: { contract: FrozenContract; sta
           <WhatInside block={insideFor("hikae")} />
           <PanelBlock title="Honest limits" status="built">
             <p>
-              Hikae is a monitor &mdash; a second-level check, not a promise about any single case. Its
+              Hikae is a second-level check, not a promise about any single case. Its
               coverage holds on average over exchangeable calibration data at one minus a chosen
               miscoverage level &alpha;; it is not conditional on the individual input, so the gate makes
               no conditional-coverage claim, and &alpha; is that miscoverage level (coverage is one

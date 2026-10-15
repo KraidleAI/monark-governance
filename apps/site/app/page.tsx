@@ -143,7 +143,7 @@ export default function HomePage() {
               <h3 className="c-h3"><ShogenMark /> sensors <span className="c-label">attest</span></h3>
               <p className="c-muted">
                 A sensor writes down what it saw, as bytes anyone can recompute: an attested price testimony (Shōgen), an
-                attested redemption flow (Narabi); Bell&rsquo;s signed session record
+                onchain redemption flow (Narabi); Bell&rsquo;s signed session record
                 {noGapYet ? <>, whose gap needs a closing price that its latest publication does not carry</> : null}. No score
                 rides on it.
               </p>
@@ -216,7 +216,7 @@ export default function HomePage() {
             <Link className="c-card" href={NARABI_ROUTE} aria-label="MONARK Narabi">
               <NarabiLockup className="c-logo" />
               <p className="c-muted">
-                Redemption-flow sensor: one attested daily UTC window per line, a published replayable timeline, a
+                Redemption-flow sensor: one recomputable daily UTC window per line, a published hash-chained timeline, a
                 pre-registered drift criterion, a long-run bound printed with T. The tracker adapts; the gate does not yet.
               </p>
               {narabi === "built" ? (

@@ -56,15 +56,15 @@ export const INSIDE: Record<string, InsideBlock> = {
       "A conformal region for the liquidable amount, delivered by the gate only once a calibration is committed; until then it abstains by construction",
     ],
   },
-  // ── Narabi — built. Points: the attested flow, the quantile tracker, the published replayable timeline + per-line
+  // ── Narabi — built. Points: the onchain flow, the quantile tracker, the published timeline + per-line
   //    hash chain, the static committed gate region. Digit-free and paper-free (method names only), like the three
   //    engines. ──
   narabi: {
     kind: "built",
     points: [
-      "Attested redemption flow: burns, mints and closing supply over a declared block window, recomputable onchain",
+      "Onchain redemption flow: burns, mints and closing supply over a declared block window, recomputable onchain",
       "An adaptive quantile tracker (Angelopoulos, Barber and Bates decaying step), stepped on the realized outcome each window",
-      "A published, replayable timeline with a per-line hash chain; the committed gate region stays static until a pre-registered drift criterion fires",
+      "A published timeline with a per-line hash chain, each line recording its Node version; the committed gate region stays static until a pre-registered drift criterion fires",
     ],
   },
 
@@ -122,13 +122,14 @@ export const INSIDE: Record<string, InsideBlock> = {
     points: ["Kyokusen's Nelson-Siegel yield-curve fitting across maturities"],
   },
   // MONARK Bell (built) — "What's inside" says only what is served today: the signed chained timeline and its reader-side check, the named abstentions
-  // (the first record abstains on every session: no closing price is read into it), the anchored journal. No gap
-  // is claimed: the cash leg is not connected (the /bell page says so in plain words).
+  // (the rule of the /bell page: a gap where one is computed from the closing price of the session's reference day,
+  // otherwise a named abstention),
+  // the anchored journal.
   bell: {
     kind: "built",
     points: [
       "A public timeline served from a MONARK host that also runs the Dōjō and a Narabi probe, one signed, hash-chained line per publication, checked by a reader-side verifier against a committed keyring",
-      "Named abstentions instead of estimates, each counted in the published state; no closing price is read into the first record, so it carries no gap",
+      "Named abstentions instead of estimates, each counted in the published state: a gap where one is computed from the closing price of the session's reference day, a named abstention otherwise",
       "A hash-chained collection journal whose manifests are anchored to a public timestamp",
     ],
   },

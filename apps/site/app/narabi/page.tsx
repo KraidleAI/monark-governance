@@ -15,7 +15,7 @@ import { loadNarabiServed } from "@/lib/narabi-served-load";
 export const metadata: Metadata = {
   title: "Narabi — daily · MONARK",
   description:
-    "Narabi, the redemption-flow sensor: one attested daily UTC window per line, a published replayable timeline, a pre-registered drift criterion, and a long-run bound printed with T. Read-only.",
+    "Narabi, the redemption-flow sensor: one recomputable daily UTC window per line, a published hash-chained timeline, a pre-registered drift criterion, and a long-run bound printed with T. Read-only.",
   icons: { icon: [{ url: "/icons/narabi.svg", type: "image/svg+xml" }] },
 };
 
