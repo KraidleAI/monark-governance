@@ -22,7 +22,8 @@ local runs of the #299 branch each failed one of the three tests below; the trun
 
 The load that makes them yield is the #299 branch (`d8332d6c`), whose `apps/bell/test/bell-units-compose.test.ts` runs in `test:main`
 with the other files: 62.8 to 66.3 s in the thirteen full-suite logs read here (for example `with-5.log` l.118, 63 617 ms), 45 to 50 s
-when it runs alone (45.2 s in the build report of lot 3b-ii, 49.7 s in its review, both local).
+when it runs alone (45.2 s in `RENDU-3b-ii.md` l.96, 49.7 s in `REVUE-3b-ii.md` l.136, the build report and the review of lot 3b-ii, both
+local).
 
 ## Measures before the design (this host, Windows, Node 24.21.0 by `node -v`, 24 logical processors by `os.cpus().length`)
 
@@ -119,12 +120,20 @@ Its bound is not a start's: the probe child reads `SMTP_DEADLINE_MS: "800"` (l.1
 just before the connect (`scripts/probe-narabi.mjs` l.477, l.654-656); the fake server lives in the test's own process. So a process
 already running, the child or the test's, stalled past 800 ms in a handshake that fails in milliseconds on a calm host (a deduction from
 the timeout, not a measure). Not in this zone, not touched: item **PROBE-SMTP-TLS-DEADLINE-LOAD-1** (tests only,
-`test/probe-narabi.test.ts`): construction, this test's deadline set far above the longest stall measured, for example 30 s (more than
-twice 13.3 s), and the kill of `runProbeAt` (8000 ms at l.1036, armed at the spawn) above it, both under the runner's 300 s; the green
-run stays as short, since the handshake fails at once, and a mutant whose client waits for a reply goes red at the deadline instead of
-at 0.8 s. The other fixed deadlines of the file (l.851, l.859, l.917) are read in the same pass, each kept or raised by what it tests.
-Price, two values of one test and a run of its killers; carrier MONARK; trigger, a red of it in an oracle, or the close of part 3 of
-the Bell timer at the latest.
+`test/probe-narabi.test.ts`), which covers the time bounds of the file, of two kinds:
+- (a) deadlines that run in the started child. This test's 800 ms goes to 30 s, the probe's ceiling (`MAX_SMTP_DEADLINE_MS`,
+  `scripts/probe-narabi.mjs` l.75 and l.634), more than twice 13.3 s, with the kill of `runProbeAt` above it; the green run stays as
+  short, since the handshake fails at once, and a mutant whose client waits for a reply goes red at the deadline instead of at 0.8 s.
+  The other fixed `SMTP_DEADLINE_MS` values (l.851, l.859, l.917, l.932, l.946, l.1093, l.1202) are read in the same pass, each kept or
+  raised by what it tests.
+- (b) bounds that count from before the spawn, the class this lot takes out of l2: the kill of `runProbeAt`, armed at the spawn (l.667;
+  8000 or 20 000 ms by test), and the assertions on `elapsed` (l.923, `DEADLINE + 4000`; l.937, l.951 and l.1207, 8000 ms), all within
+  reach of the stalls measured above (p99 3461 ms, max 13 279 ms). Construction: they count from a line the child writes once running,
+  from a module the test preloads, as l2 now counts from its line; the kill is armed at that line, with a far reaper at the spawn under
+  the runner's 300 s.
+
+Price, `runProbeAt`, four assertions and the deadline of one test, tests only, and a run of their killers; carrier MONARK; trigger, a
+red of one of them in an oracle, or the close of part 3 of the Bell timer at the latest.
 
 The lot has three versions in this table. with-1 to with-3: a cut told by `ms >= 10 * over` alone, one space missing (`t =table`,
 l.708) and a comment worded otherwise (l.639-640). with-4: the space and the comment fixed. with-5: the final bytes, a cut told by the
