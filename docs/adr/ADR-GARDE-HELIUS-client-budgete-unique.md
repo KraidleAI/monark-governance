@@ -131,6 +131,11 @@ sont **amendées** par ce fold (supersède le texte antérieur là où il diverg
     own sum past the share by that delta, as it already can for the cycle cap, so the claim is "no writer outside its declared share,
     as the ledger models the tariff", never an exact cap. Tests: `packages/rpc-guard/test/share.test.ts`. The deployed trees of the
     Dojo and the sentinel change at their next redeployment, with no change of behaviour (neither passes a share).
+  - Dated amendment, 2026-10-15 (MONARK, Bell collection timer, part 2): the `BudgetExceededError` that a refusal of `meter` throws
+    carries `reason`, the refusal code of the `refused` ledger line it writes (`cycle_share`, `cycle_cap`, `run_calls`, ...); the class
+    declares the optional field `readonly reason?: string`, undefined on a stop that writes no refused line. A caller reads that code,
+    never the message: the Bell collection tick (`apps/bell/src/tick.ts`) renders `cycle_share` as its refusal `share_exhausted`, any
+    other budget stop as `budget_stop`. The constructor and the messages are unchanged. Test: `packages/rpc-guard/test/share.test.ts`.
 - **C-V-2 — surface publique** (`index.ts`, `guarded.ts`). `resolveOperators`/`resolveConfig`/`InMemorySink`/`makeClient`/`openOperatorLedger`/
   `acquireLock`/`runUnlock` **ne sont plus exportés** (tests par import relatif). Unique chemin public payant : `openGuardedClient(env, limits,
   ledgerDir, cycleId)` = mètre + commit + `CycleLedger` durable + verrou. **T2** = sonde fonctionnelle (P6 : depuis l'API publique, tout `fetch`

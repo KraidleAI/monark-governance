@@ -135,3 +135,23 @@ test("rpc_guard_refusal_carries_its_reason_code", async () => {
     assert.deepEqual([reasons, refused], [["cycle_share", "cycle_share"], ["cycle_share", "cycle_share"]], "the thrown code is the ledger's reason");
   } finally { globalThis.fetch = realFetch; cleanup(); }
 });
+
+// killer: packages/rpc-guard/src/errors.ts:8 CONST " readonly reason?: string; " -> " "
+test("rpc_guard_budget_error_declares_its_refusal_code", async () => {
+  // The meter's BudgetExceededError carries `reason`, the code of its refused ledger line, as a field the class declares: a caller reads
+  // e.reason typed, without a cast (the typecheck holds that read), and a stop that writes no refused line carries the field undefined.
+  const bare = new BudgetExceededError("rpc-guard: a stop");
+  assert.deepEqual([Object.hasOwn(bare, "reason"), bare.reason, bare.message], [true, undefined, "rpc-guard: a stop"],
+    "declared by the class, undefined until a refusal sets it; the constructor and its message unchanged");
+  const { dir, cleanup } = tmp();
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = () => okFetch();
+  try {
+    const client = openGuardedClient(FAKE_HELIUS_ENV, limitsOf({ cycleShare: { helius: 10 } }), dir, { helius: "c-field" });
+    await client.call(HELIUS, GTFA, GTFA_P100);
+    const e = await client.call(HELIUS, GTFA, GTFA_P100).then(() => null, (x: unknown) => x);
+    assert.ok(e instanceof BudgetExceededError, "the share refusal is a budget stop");
+    const code: string | undefined = e.reason; // the typed read, no cast
+    assert.deepEqual([code, e.message], ["cycle_share", "rpc-guard: cycle_share (fail-closed)"], "the code of the cycle_share refusal; the message unchanged");
+  } finally { globalThis.fetch = realFetch; cleanup(); }
+});

@@ -545,16 +545,38 @@ test("dojo_history_passes_its_declared_shares", async () => {
 // killer: apps/dojo/src/history-collect.ts:173 CONST "cycleOf(deps.nowMs(), anchor, op)" -> "anchor"
 test("dojo_history_derives_its_cycles_from_the_anchors", async () => {
   // Each operator's own anchor, each in its own offset: helius 2026-08-12T12:00Z, chainstack 2026-08-12T14:30+02:00 (12:30Z). A phase A
-  // at 11:59Z and one at 12:45Z on 2026-09-12 (the clock of these worlds) run on two cycles per operator, named from each anchor.
+  // at 11:59Z and one at 12:45Z on 2026-09-12 (the clock of these worlds) run on two cycles per operator, named from each anchor. The first
+  // course ends at the helius boundary (its --deadline), so it never straddles it.
   const env = { ...ENV, HELIUS_CYCLE_ANCHOR_UTC: "2026-08-12T12:00:00Z", CHAINSTACK_CYCLE_ANCHOR_UTC: "2026-08-12T14:30:00+02:00" }, got: string[][] = [];
-  for (const at of [Date.UTC(2026, 8, 12, 11, 59), Date.UTC(2026, 8, 12, 12, 45)]) {
+  for (const [at, end] of [[Date.UTC(2026, 8, 12, 11, 59), "2026-09-12T12:00:00Z"], [Date.UTC(2026, 8, 12, 12, 45), "2026-09-12T13:00:00Z"]] as const) {
     const f = fresh();
     sim.nowMs = at;
-    assert.equal(await stopOf(f, "A", {}, { env }), null, `phase A at ${new Date(at).toISOString()}`);
+    assert.equal(await stopOf(f, "A", { "--deadline": end }, { env }), null, `phase A at ${new Date(at).toISOString()}`);
     got.push(tree(f).filter((n) => n.endsWith(".jsonl")).sort());
   }
   assert.deepEqual(got, [["chainstack-2026-08-12/chainstack.jsonl", "helius-2026-08-12/helius.jsonl"],
     ["chainstack-2026-09-12/chainstack.jsonl", "helius-2026-09-12/helius.jsonl"]], "one cycle per operator and per side of its boundary");
+});
+
+// killer: apps/dojo/src/history-collect.ts:175 ROR "a.deadline > nextCycleBoundary" -> "a.deadline >= nextCycleBoundary"
+test("dojo_history_refuses_a_course_that_straddles_a_cycle_boundary", async () => {
+  // The cycles are derived once, at setup, and a course calls only while the clock is before --deadline (late()). A --deadline past an
+  // operator's next cycle boundary would spend in the new cycle on the ledger of the former: refused cycle_missing, "<op> straddle", before
+  // any lock, call or ledger line. A course that ends at the boundary (its last call leaves before it) or before it is not refused.
+  // Anchors: helius 2026-08-12T12:00Z, chainstack 2026-08-12T14:30+02:00, so the boundaries of 2026-09-12 are 12:00Z and 12:30Z.
+  const env = { ...ENV, HELIUS_CYCLE_ANCHOR_UTC: "2026-08-12T12:00:00Z", CHAINSTACK_CYCLE_ANCHOR_UTC: "2026-08-12T14:30:00+02:00" };
+  const course = async (at: number, end: string): Promise<unknown[]> => {
+    const f = fresh();
+    sim.nowMs = at;
+    const why = await run(f, "A", { "--deadline": end }, { env }).then((r) => `stop ${String(r)}`, (e: unknown) => (e as Error).message);
+    return [why, sim.reqs.length, tree(f).length > 0];
+  };
+  const H = Date.UTC(2026, 8, 12, 11, 59), C = Date.UTC(2026, 8, 12, 12, 10); // before the helius boundary; after it, before the chainstack one
+  assert.deepEqual(await course(H, "2026-09-12T12:00:01Z"), ["dojo/history-collect: cycle_missing: helius straddle", 0, false], "one second past it");
+  assert.deepEqual(await course(H, "2026-09-12T13:00:00Z"), ["dojo/history-collect: cycle_missing: helius straddle", 0, false], "an hour past it");
+  assert.deepEqual(await course(C, "2026-09-12T12:30:01Z"), ["dojo/history-collect: cycle_missing: chainstack straddle", 0, false], "the second operator");
+  assert.deepEqual((await course(H, "2026-09-12T12:00:00Z")).slice(0, 1), ["stop null"], "a course that ends at the helius boundary runs");
+  assert.deepEqual((await course(C, "2026-09-12T12:30:00Z")).slice(0, 1), ["stop null"], "a course that ends at the chainstack boundary runs");
 });
 
 // killer: apps/dojo/src/history-collect.ts:423 CONST "cycleShare: c.shares" -> "cycleShare: { ...c.shares, \"solana-foundation\": 1 }"

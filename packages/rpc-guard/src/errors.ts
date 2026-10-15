@@ -5,7 +5,7 @@
 //
 // It is NOT a transport fault: quorum2 / withRetry / withUniverseRetry re-throw it immediately (never benched as
 // a {provider,status}) so the run STOPS (exit != 0), never presenting a budget-truncated pool as complete.
-export class BudgetExceededError extends Error {}
+export class BudgetExceededError extends Error { readonly reason?: string; } // the refusal code of the meter's refused ledger line, never the message
 
 // The CANONICAL, TYPED transport fault (GARDE-HELIUS-2 C-V-2). Every one of the four failure paths of a paid call -
 // network/timeout/abort, HTTP non-ok, non-JSON body, and a JSON-RPC error at HTTP 200 - throws THIS (never resolves

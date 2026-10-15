@@ -70,7 +70,7 @@ systemd.exec(5) ignores a missing path only with `-`). No top-level `evidence/`:
 (`rmdir`: the key directory is removed only while empty).
 
 ## 3. A-3 — the collect tree at G7 and its resolution link
-
+Redeploy on the running host (2026-10-15): section 4 env file BEFORE this archive; anchor and share present before the collector restarts (ADR-DOJO-PR-2B).
 ```bash
 git -C /f/Monark rev-parse --verify '<G7 merge commit>^{commit}' > /f/tmp/dojo-dn/G7.txt && cat /f/tmp/dojo-dn/G7.txt
 ```
