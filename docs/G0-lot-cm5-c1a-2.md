@@ -69,15 +69,39 @@ it, only the stand-in of L-T16b did. The same object is on the JSON line that `c
 
 ## 5. Tests and killers
 
-| Test | What it holds | Killers |
+`test/kata-quarter.test.ts` (30 tests; the series of each case written under the test's temporary folder):
+
+| Test | What it holds | Killers (`tools/kata-quarter/`) |
 |---|---|---|
-| `truncated_candle_rule8` (L-T16) | filled at the freeze | the plan's: `quarter_load.py:<threshold> CONST "60_000" -> "0"` |
+| `truncated_candle_rule8` (L-T16), l.925, new | on Q_1 with no gap and, on 2026-11-10, four 0-trade candles from 11:30 and the candle at 12:30 truncated: **A**, 30 s, and one minute exactly, at 0 trades with the five candles from 12:45 missing: no halt, the counts of the regular candle; **B**, 10 min at 0 trades, same missing candles: halt [11:30, 14:00), and against the regular candle one more drop at 1h (t = 11:00) for range and path, two at 4h for range (t = 08:00 and 12:00, a range label reads two closes only); **C**, 10 min with trades, no candle missing: halt [12:35:00.000, 12:45), one more drop at t = 12:00 for each row; the lists computed held to a `manifest.json` (a v2 with the computed lists and a v1 with none counted; a v2 without the truncated candle in `zero_trade`, a v2 with no `zero_trade`, a v1 that carries an empty `irregular_close`: refused by name); inside the original range (a truncation in the sealed series at 2026-09-20T12:30Z): counted, no halt printed (it ends before S_1), and `recalc_p2.load_series`, called on that read by a stand-in, stops with « open or close time » | the plan's `quarter_load.py:258 CONST "60_000" -> "0"`; `:258 ROR "close >= t" -> "close > t"`; `:261` (the run of 0-trade candles); `:264` (the run of declared slots); `:260` (E with trades); `:279` twice and `:280` (the manifest); `:113` (the halts that end before S_k); `quarter_core.py:102` (drop (a)) |
+| `served_history_reader_refuses_gap`, l.794, changed | four cases more (KQ-SERVED-FORMS-TEST-1, section 4), each refused by the form check | `quarter_load.py:188` twice (the forms of `release_dir` and `task_class`), `:189` (64 hexadecimals), `:195` (the year from 100); the review's N-form-rd, N-form-tc, N-form-hex and N-day-100 |
+| `venue_instance_one_interval` (L-T16b), l.317, changed | its stand-in now sets the halts of `merge`, which the venue pass reads | `quarter_core.py:82 CONST "min(es)" -> "es[0]"` (unchanged) |
+| `series_pinned_before_parse` (L-T5), l.133, changed | the pin check is the loader's reader's (the frozen tool's words) | `quarter_load.py:215 CONST "digest != pin" -> "False"` (the plan's form, l.914) |
+| `two_reads_merged_under_check` (L-T18), l.92, changed | the range check is the reader's | `quarter_load.py:236 CONST "not (start <= ot < end)" -> "not (start <= ot <= end)"`; the other killers moved with their lines |
+
+**Red-before recipe** (logs kept under the author's scratchpad): each killer of the five tests above applied alone at its file:line,
+only its test run under TAP, offline, the file restored and its sha256 checked: 39 of 39 killed, all restored; the review's four mutants
+of KQ-SERVED-FORMS-TEST-1, by the review's own applier: 4 of 4 killed. At the trunk, `truncated_candle_rule8` is red by assertion
+(fixture A refused, « open or close time », exit 2).
 
 ## 6. Estimate (R-25: lot bound 547, the plan's rule of an estimate under 547 at +30 %, plan l.580)
 
 Code ~80 changed lines (the reader ~40, `halts` ~15, the manifest ~12, `read_series` and `merge` ~10, `venue_halts` 2, headers);
 tests ~110 (L-T16 ~50, the four cases ~6, the stand-in ~4, the killers moved with the lines ~40, ins + del); the driver and its
 test ~4; the count records ~4. About **200**, **260** at +30 %: under 547, no split.
+
+**Measured** (R-25 in CI form, `scripts/oracle/r25.mjs` against `1479a670`): **246** changed lines (204 insertions, 42 deletions),
+under the lot bound 547; content 0. The count records are unchanged (`test/kata-quarter.test.ts` is outside `test:main`, and no test of
+`test:main` was added): the write tool on a fresh offline run gives 314 files and 3233 tests, and the count check against `1479a670`
+is green, 0 drops.
+
+## 6 bis. Runs
+
+- `test/kata-quarter.test.ts` under CPython 3.14.8 (the driver's interpreter, `KATA_QUARTER_PYTHON`), offline, no `node_modules`:
+  30 tests, 30 pass; the driver's judge (`quarterTestProblems`, the 30 names of `QUARTER_TESTS`) finds nothing. The same under the
+  case-folding git wrapper: 0 case-only collisions; the folders that the new test writes without git: 0.
+- `test:main` offline: 3233 tests, 3210 pass, 23 skipped (the trunk's), 0 failures. `lint:ratchet` 69/69; `tsc --noEmit` and eslint
+  on the touched `.ts` files, `gate:vocab`, `lang:gate`, `export:check`: green; the killers of the touched test files: 126, each anchored on its line.
 
 ## 7. Not in this lot
 
