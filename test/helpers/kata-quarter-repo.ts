@@ -1,0 +1,50 @@
+// test/helpers/kata-quarter-repo.ts -- CM-5, the quarter counts tool (docs/G0-lot-cm5-c1a.md): one temporary git repository per test
+// file, under os.tmpdir(), holding a copy of tools/kata-recalc/ and tools/kata-quarter/ taken from the working tree (regular files only:
+// no link, no __pycache__), committed once. Every launch of the tool in a test runs from it, under the FORM of io_guard.py (read as text,
+// as scripts/verifier-tool-ci.mjs reads it), the interpreter `python` of PATH (else `python3`), and none of the caller's GIT_* variables
+// in git nor in the tool (TEST-GIT-ENV-ISOLATION-1). A later lot compares the tool's folder to the blobs of that commit in the run itself;
+// here the repository is the place the tool runs from, never the repository under test. Removed at exit.
+import { spawnSync } from "node:child_process";
+import { copyFileSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { formOf } from "../../scripts/verifier-tool-ci.mjs";
+
+/** The two trees of io_guard's closed list, the frozen tool first. */
+export const TREES = ["tools/kata-recalc", "tools/kata-quarter"] as const;
+export const ENTRY = "quarter_counts.py";
+const BARE: NodeJS.ProcessEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.toUpperCase().startsWith("GIT_")));
+export type Run = { status: number | null; stdout: string; stderr: string };
+export type ToolRepo = {
+  dir: string; python: string; form: string[];
+  /** python <FORM> <script> <args>, from the repository, the caller's GIT_* variables stripped. */
+  launch: (script: string, args: string[]) => Run;
+  /** The entry script of the copy, tools/kata-quarter/quarter_counts.py, with args. */
+  run: (args: string[]) => Run;
+};
+
+function git(dir: string, args: string[]): void {
+  const r = spawnSync("git", ["-C", dir, "-c", "user.name=kata-quarter test", "-c", "user.email=test@localhost", ...args], { env: BARE, encoding: "utf8" });
+  if (r.status !== 0) throw new Error(`git ${args.join(" ")} failed (fail-closed): ${String(r.error ?? r.stderr)}`);
+}
+
+/** The temporary repository: the two trees copied from `root` (the repository under test), one commit. */
+export function toolRepo(root: string): ToolRepo {
+  const dir = mkdtempSync(join(tmpdir(), "kata-quarter-repo-"));
+  process.on("exit", () => { try { rmSync(dir, { recursive: true, force: true, maxRetries: 3 }); } catch { /* a folder left in tmp */ } });
+  for (const tree of TREES) {
+    const src = join(root, tree), dst = join(dir, tree);
+    mkdirSync(dst, { recursive: true });
+    for (const n of readdirSync(src)) if (lstatSync(join(src, n)).isFile()) copyFileSync(join(src, n), join(dst, n));
+  }
+  git(dir, ["init", "-q"]);
+  git(dir, ["add", "--", "tools"]);
+  git(dir, ["commit", "-q", "-m", "the two trees of the tool under test"]);
+  const form = formOf(readFileSync(join(dir, TREES[0], "io_guard.py"), "utf8"));
+  const python = ["python", "python3"].find((p) => spawnSync(p, ["-c", "0"], { env: BARE }).status === 0) ?? "python";
+  const launch = (script: string, args: string[]): Run => {
+    const r = spawnSync(python, [...form, script, ...args], { cwd: dir, env: BARE, encoding: "utf8", maxBuffer: 1 << 26, timeout: 120_000 });
+    return { status: r.status, stdout: r.stdout ?? "", stderr: r.stderr ?? String(r.error ?? "") };
+  };
+  return { dir, python, form, launch, run: (args) => launch(join(dir, TREES[1], ENTRY), args) };
+}

@@ -117,6 +117,18 @@ export const outputProblems = (check, out, status, want, win) => {
   return { problems: problems.map((p) => `${check}: ${p}`), skipped };
 };
 
+/** The second tree of TREES, tools/kata-quarter (CM-5, docs/G0-lot-cm5-c1a.md), and its one run today: quarter_counts.py check on the
+ *  synthetic fixture of fixtures/kata-quarter (two reads of a made-up symbol under their pins, no real series), 1 VERDICT: GREEN. Its
+ *  runs are a list of their own, beside the six of steps() that the driver's tests pin; main() judges the tree by secondTreeProblems
+ *  and runs the list after steps(). The pins are the sha256 of the fixture's files, as their PROVENANCE-*.md declare them. */
+export const QUARTER = "tools/kata-quarter";
+export const QUARTER_FIXTURE = { dir: "fixtures/kata-quarter", symbol: "syn", quarter: "1", lookback: "404",
+  sealed: "9c3ef680b5e1e7959b19632d13b6cec9770d530a3f85a5cdd17f9c9b750ff1f1", live: "5f7f1601a6dd339492ba2f5668408637c573744c68d6a6164604118aa1d47f2a" };
+export const quarterSteps = (repo) => [["quarter_counts.py", `${QUARTER}/quarter_counts.py`, ["check", join(repo, QUARTER_FIXTURE.dir, "sealed"),
+  join(repo, QUARTER_FIXTURE.dir, "live"), QUARTER_FIXTURE.symbol, QUARTER_FIXTURE.quarter, QUARTER_FIXTURE.sealed, QUARTER_FIXTURE.live, QUARTER_FIXTURE.lookback], 1]];
+/** The refusals of the second tree: on disk with no run of this job, or a run while it is absent. */
+export const secondTreeProblems = (present, runs) => (present === (runs.length > 0) ? [] : [present ? `${QUARTER}: a tree of the tool that this job does not run` : `${QUARTER}: a run of a tree that is absent`]);
+
 function main() {
   const repo = resolve(import.meta.dirname, ".."), win = process.platform === "win32", pin = process.env.VERIFIER_TOOL_PYTHON, problems = [];
   if (!win && process.platform !== "linux") problems.push(`a platform this job does not name: ${process.platform}`);
@@ -124,17 +136,18 @@ function main() {
   const [head = "", full = py.error?.message] = (py.stdout ?? "").split("\n"), [implementation = "", version = "", releaselevel = ""] = head.split(" ");
   console.log(`python: ${full}; pinned by the job: ${pin ?? "none named here"}`);
   problems.push(...interpreterProblems({ implementation, version, releaselevel }, pin));
-  let form = [];
+  let form = [], second = [];
   try {
-    const guard = readFileSync(join(repo, TOOL, "io_guard.py"), "utf8"), trees = treesOf(guard);
+    const guard = readFileSync(join(repo, TOOL, "io_guard.py"), "utf8"), trees = treesOf(guard), present = Object.fromEntries(trees.map((t) => [t, existsSync(join(repo, t))]));
     form = formOf(guard);
-    problems.push(...accountProblems(trees, Object.fromEntries(trees.map((t) => [t, existsSync(join(repo, t))])), readdirSync(join(repo, TOOL)).filter((n) => n.endsWith("_check.py")), steps(repo, "", win)));
+    second = present[QUARTER] ? quarterSteps(repo) : []; // the second tree, judged apart from the first (accountProblems holds the six runs of the first)
+    problems.push(...accountProblems(trees, { ...present, [QUARTER]: false }, readdirSync(join(repo, TOOL)).filter((n) => n.endsWith("_check.py")), steps(repo, "", win)), ...secondTreeProblems(present[QUARTER], second));
     problems.push(...vectorsProblems(existsSync(join(repo, VECTORS.path)) ? readFileSync(join(repo, VECTORS.path)) : null));
   } catch (e) {
     problems.push(e.message);
   }
   const work = mkdtempSync(join(tmpdir(), "verifier-tool-ci-")), named = [];
-  for (const [check, script, args, want] of problems.length ? [] : steps(repo, work, win)) {
+  for (const [check, script, args, want] of problems.length ? [] : [...steps(repo, work, win), ...second]) {
     const t = Date.now(), r = spawnSync("python", [...form, join(repo, script), ...args], { cwd: repo, encoding: "utf8", maxBuffer: 64 << 20, timeout: 300_000 });
     const out = `${r.stdout ?? ""}${r.stderr ?? ""}`, judged = outputProblems(check, out, r.status ?? r.signal ?? r.error?.code, want, win);
     console.log(`${out.trimEnd()}\n== ${check}: exit ${r.status}, ${Math.round((Date.now() - t) / 1000)} s (python ${form.join(" ")} ${script})`);
