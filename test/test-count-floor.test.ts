@@ -104,7 +104,7 @@ test("test_count_floor_refuses_a_file_whose_process_ended_before_it_reported", (
 test("test_main_loads_the_counts_reporter_and_the_export_ships_it", () => {
   const main = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> }).scripts["test:main"] ?? "";
   // killer: package.json:17 CONST " --test-reporter=./scripts/test-counts-reporter.mjs --test-reporter-destination=test-counts.out.json" -> ""
-  assert.ok(main.includes(` ${OPTIONS} "test/*.test.ts" `), `test:main carries, right before its globs: ${OPTIONS}`);
+  assert.ok(main.includes(` ${OPTIONS} "test/!(kata-quarter).test.ts" `), `test:main carries, right before its globs: ${OPTIONS}`);
   const loaded = [...main.matchAll(/--test-reporter=\.\/(\S+)/g)].map((m) => m[1]!), kept = new Set(collectFiles(ROOT).kept.map((f) => f.rel));
   assert.deepEqual(loaded, ["scripts/test-counts-reporter.mjs"], "test:main loads the counts reporter of the repository, by its path");
   assert.deepEqual(loaded.filter((f) => !kept.has(f)), [], "each reporter that test:main loads is in collectFiles(ROOT).kept: the mirror's CI launches test:main");
