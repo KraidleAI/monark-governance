@@ -1690,7 +1690,7 @@ test("no_css_of_the_site_draws_building — no content declaration in the .css f
   const css = (readdirSync(join(ROOT, "apps", "site", "app"), { recursive: true }) as string[]).filter((f) => f.endsWith(".css")).map((f) => "apps/site/app/" + f.split("\\").join("/"));
   assert.ok(css.includes("apps/site/app/globals.css") && css.includes("apps/site/app/docs/docs.css"), "the scan reads the site's CSS (false-green guard)");
   const unescape = (v: string): string => v.replace(/\\([0-9a-f]{1,6})\s?/gi, (_, x: string) => String.fromCodePoint(parseInt(x, 16))).replace(/\\(.)/g, "$1");
-  const drawn = css.flatMap((f) => [...read(f).matchAll(/\bcontent\s*:\s*([^;}]*)/g)].map((m) => `${f}: ${m[1] ?? ""}`));
+  const drawn = css.flatMap((f) => [...read(f).matchAll(/\bcontent\s*:\s*((?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[^;}"'])*)/g)].map((m) => `${f}: ${m[1] ?? ""}`)); // a quoted value may hold ; or }
   assert.deepEqual(drawn.filter((d) => unescape(d).replace(/[^a-z]/gi, "").toLowerCase().includes("building")), [], "no CSS content spells building");
 });
 
