@@ -7,7 +7,7 @@
 # check: two reads of one symbol through quarter_load and their merge, VERDICT: GREEN; count: the counts of the region rows of a wave 1
 # registry, and of the core registry wave2.json when given (quarter_wave2: attempt 2, the child rule), on Q_k (quarter_core), one JSON
 # line under fdlibm_log, then each decision math.log changes, and the evidence (quarter_evidence) into <out dir>/quarter-<k>.json, named
-# on the line "evidence", for the rows the served history serves in Q_k; check <act>: an oracle act; vectors: the L-T7 vectors; month: quarter_month.
+# on the line "evidence", for the rows the served history serves in Q_k; check <act>: an oracle act; vectors: the L-T7 vectors; month: quarter_month; estimate: quarter_2b.
 import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked both folders (IO-GUARD-POSED-FILES-1)
 if "io_guard" not in sys.modules:  # io_guard.py of the frozen tool, run by its path, never found by name: nothing posed or installed stands in for it
     sys.path.append(_d := os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "kata-recalc"))  # the frozen tool's folder, last in sys.path: -P is in FORM
@@ -151,6 +151,9 @@ if __name__ == "__main__":
         if sub == "count" and len(args) >= 11 and all(map(hex64, args[1:6:2])) and number(args[8]) and all(map(spec, args[10:])):
             a = [os.path.abspath(x) for x in args[:10]]  # the core registry and its pin after the registry's: args 3, 5 and 8 as they are
             sys.exit(count(a[0], args[1], a[4], args[5], a[6], a[7], int(args[8]), a[9], args[10:], (a[2], args[3])))
+        if sub == "estimate":  # the three wave 2b estimators on their frozen fits: its usage and its refusals are quarter_2b's
+            import quarter_2b as B  # here, so that no line of the module's head moves
+            sys.exit(B.estimate(args, identity_line))
         if sub == "vectors" and len(args) == 1:
             sys.exit(vectors(os.path.abspath(args[0])))
         if sub != "check" or len(args) != 7 or not (number(args[3]) and number(args[6])) \
