@@ -61,9 +61,9 @@ const S1 = Date.UTC(2026, 9, 1), CANDLE_S1 = `2026-10-01T00:00:00Z,${S1},100.00,
 // reddened by: a .py of tools/kata-quarter/ other than quarter_counts.py with a block __main__, an entry whose code (after its comments)
 // does not open with the prologue of the frozen tool in its two-tree form (io_guard.py run by its path, the frozen tool's folder last in
 // sys.path, then import io_guard before any other module), or a launch of the entry answering otherwise than written: no subcommand or
-// an unknown one, the usage and exit 2; month, "not in this lot" and exit 2
+// an unknown one, the usage and exit 2; month with no argument, its own usage (quarter_month.py, lot e) and exit 2
 // killer: tools/kata-quarter/quarter_counts.py:16 CONST "import io_guard" -> "import kata_lib"
-test("kata_quarter_entry_script_imports_the_input_guard_first - the one entry script of the tool runs io_guard.py of the frozen tool by its path and imports io_guard before any other module; month answers not in this lot", () => {
+test("kata_quarter_entry_script_imports_the_input_guard_first - the one entry script of the tool runs io_guard.py of the frozen tool by its path and imports io_guard before any other module; month with no argument answers its own usage", () => {
   assert.ok(existsSync(join(REPO, QUARTER, ENTRY)), `${QUARTER}/${ENTRY} absent`);
   const entries = readdirSync(join(REPO, QUARTER)).filter((f) => f.endsWith(".py") && /^if __name__ == "__main__":$/m.test(read(f))).sort();
   assert.deepEqual(entries, [ENTRY], "the entry script of the tool, and no other .py file with a block __main__");
@@ -82,7 +82,7 @@ test("kata_quarter_entry_script_imports_the_input_guard_first - the one entry sc
   for (const sub of ["month"]) {
     const r = t.run([sub]);
     assert.equal(r.status, 2, `${sub}: exit 2\n${r.stdout}${r.stderr}`);
-    assert.match(r.stdout, new RegExp(`^${sub}: not in this lot`), `${sub} answers that it is not in this lot`);
+    assert.match(r.stdout, new RegExp(`^usage: python -E -S -s -B -P quarter_counts\\.py ${sub} <registry> `), `${sub} with no argument answers its own usage`);
   }
   const [sealed, live] = [join(FIXTURE, "sealed"), join(FIXTURE, "live")], livePin = sha256(join(live, SYM, SERIES));
   // killer: tools/kata-quarter/quarter_counts.py:140 CONST "a.isascii() and " -> ""
@@ -1324,4 +1324,227 @@ test("equals_wave2_registry_on_its_blocks - on a made series of the three veto b
   })(join(work, "2")));
   assert.equal(bad.r.status, 1, `a kTest with its month, a UTest, a label drop and a vetoed (FWD-2 of range-1h, the bridge still first) changed: exit 1\n${bad.r.stdout}${bad.r.stderr}`);
   assert.deepEqual(bad.rep?.differences.map((d) => /^(\S+) \S+ (\S+):/.exec(d)?.slice(1).join(" ")), ["syn-range-1h bridge.kTest", "syn-range-1h bridge.months", "syn-range-4h test.drops", "syn-range-1h fwd.UTest", "syn-range-1h fwd.vetoed"], "each difference named, by block, row and field");
+});
+
+// The monthly reading (docs/G0-lot-cm5-e.md): `month` gives one UTC month the rank of the quarter, a report only (D6 of ADR 0006, addendum
+// 9 point 7), written into <out dir>/month-<YYYY-MM>.json, format kata-month-counts-v1, named by its sha256 on the line report. The folders
+// of a month are cut from the fixture's LIVE series of Q_1 (2027-01 is its October moved by three months); the read before 2026-10 is the
+// sealed fixture, before any later month the month before it.
+const MONTH_KEYS = ["format", "grid", "halts", "identity", "log", "month", "pose", "registry_sha256", "rows", "series", "served_history_sha256"];
+const MONTH_ROW = ["alpha", "calib_attempt", "drops_label", "flags", "horizon", "k_test", "key", "n_test", "out_input", "served_from", "served_tables", "served_to", "task_class", "u_test"];
+type MonthRow = Counted & { u_test: string | null; flags: boolean };
+type MonthReport = { format: string; month: { name: string; start: string; end: string; quarter: number }; rows: MonthRow[]; grid: Counts["grid"];
+  series: Record<string, Record<string, unknown>>; identity: Record<string, string>; pose: Record<string, unknown> } & Record<string, unknown>;
+const NOV = Date.UTC(2026, 10, 1), DEC = Date.UTC(2026, 11, 1);
+/** The fixture's LIVE series cut to [from, to), its candles and its declared slots there, every time moved by dt. */
+const within = (from: number, to: number, dt = 0): Series => {
+  const { csv, missing } = fixtureOf("live"), [header = "", ...rows] = linesOf(csv).filter((l) => l !== ""), at = (r: string): number => Number(r.split(",")[1]);
+  const kept = rows.filter((r) => at(r) >= from && at(r) < to).map((r) => { const f = r.split(","), t = at(r) + dt; return [iso(t), t, ...f.slice(2, 7), Number(f[7]) + dt, ...f.slice(8)].join(","); });
+  const gone = missing.missing.map((m) => m.open_time_ms as number).filter((t) => t >= from && t < to).map((t) => t + dt);
+  return { text: `${[header, ...kept].join("\n")}\n`, missing: { count: gone.length, missing: gone.map((t) => ({ open_time_ms: t, open_time_utc: iso(t) })) } };
+};
+/** The folder of each month under work (<work>/<month>/syn/), and under 2026-09 the folder read before 2026-10, the sealed fixture. */
+const monthDirs = (work: string): Record<string, string> => ({ "2026-09": join(FIXTURE, "sealed"), "2026-10": put(join(work, "2026-10"), SYM, within(S1, NOV)),
+  "2026-11": put(join(work, "2026-11"), SYM, within(NOV, DEC)), "2026-12": put(join(work, "2026-12"), SYM, within(DEC, E1)), "2027-01": put(join(work, "2027-01"), SYM, within(S1, NOV, E1 - S1)) });
+const before = (name: string): string => iso(Date.UTC(Number(name.slice(0, 4)), Number(name.slice(5, 7)) - 2, 1)).slice(0, 7);
+/** month <name> on a registry and a served history, read from the folder of the month before and its own (o.before, o.during: others),
+ *  each symbol pinned by its bytes (o.spec: others); its report under o.out (a new folder by default): the run, the report and its text
+ *  (null and "" when none is written), and the counts of its JSON line. */
+const monthly = (dirs: Record<string, string>, name: string, o: { reg?: string; served?: [string, string]; out?: string; core?: [string, string]; repo?: ToolRepo;
+  before?: string; during?: string; spec?: string[]; extra?: string[] } = {}): { r: Run; rep: MonthReport | null; raw: string; c: Counts } => {
+  const prior = o.before ?? dirs[before(name)] ?? "", during = o.during ?? dirs[name] ?? "", reg = o.reg ?? REG;
+  const out = o.out ?? join(mkdtempSync(join(tmpdir(), "kata-quarter-month-")), "m"), file = join(out, `month-${name}.json`);
+  const spec = o.spec ?? [`${SYM}:${sha256(join(prior, SYM, SERIES))}:${sha256(join(during, SYM, SERIES))}`];
+  const r = (o.repo ?? tool()).run(["month", reg, sha256(reg), ...(o.core ?? []), ...(o.served ?? history()), prior, during, name, out, ...spec, ...(o.extra ?? [])]);
+  const raw = existsSync(file) ? readFileSync(file, "ascii") : "";
+  return { r, rep: raw ? (JSON.parse(raw) as MonthReport) : null, raw, c: JSON.parse(linesOf(r.stdout).find((l) => l.startsWith("{")) ?? "null") as Counts };
+};
+
+// reddened by: a report of month in another format than kata-month-counts-v1 (that of the quarter's evidence, which a retire list
+// reads), a key more or less in it or in a row (a key of a cause, of entries or of a fire, the months of the misses), a value that is not
+// an integer, a string, a boolean or null, a file that is not one canonical ASCII line named by its sha256, a word of a retire list or of
+// a cause in it, a row that flags written otherwise than as a row of a report, the identity block not the line identity, the served
+// history not read under its role; or an output folder under a folder named retire admitted (as given, in another case, or through a
+// link; as given only: a link named retire to a folder named otherwise), or a report written there
+// killer: tools/kata-quarter/quarter_month.py:49 CONST "(os.path.abspath(out), os.path.realpath(out))" -> "(os.path.realpath(out),)"
+// killer: tools/kata-quarter/quarter_month.py:28 CONST "ROW_KEYS = (" -> "ROW_KEYS = (\"months\", "
+// killer: tools/kata-quarter/quarter_month.py:49 CONST "p.casefold() == \"retire\"" -> "p == \"retire\""
+// killer: tools/kata-quarter/quarter_month.py:49 CONST "(os.path.abspath(out), os.path.realpath(out))" -> "(os.path.abspath(out),)"
+// killer: tools/kata-quarter/quarter_month.py:86 CONST "outside_retire(out)" -> "None"
+// killer: tools/kata-quarter/quarter_month.py:26 CONST "\"kata-month-counts-v1\"" -> "\"kata-quarter-counts-v1\""
+test("month_writer_never_names_a_cause - month writes the reading of 2026-11 into <out dir>/month-2026-11.json, named by its sha256 on the line report: one canonical ASCII line of the closed format kata-month-counts-v1, no key of a cause, of entries or of a fire and no word of a retire list, a row that flags among its rows; an output folder under a folder named retire, in any case or through a link, is refused by name, exit 2, nothing written", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_month.py")), `${QUARTER}/quarter_month.py absent`);
+  const work = mkdtempSync(join(tmpdir(), "kata-quarter-month-format-")), dirs = monthDirs(work), h = history();
+  const reg = regWith(work, "q0.json", (rows) => rows.map((x) => (x.taskClass === "syn-range-1h" ? { ...x, calib: { qhat: 0 } } : x))); // a miss wherever two closes differ: it flags
+  const { r, rep, raw } = monthly(dirs, "2026-11", { reg, served: h });
+  assert.equal(r.status, 0, `month 2026-11: exit 0\n${r.stdout}${r.stderr}`);
+  assert.ok(linesOf(r.stdout).includes(`report month-2026-11.json sha256 ${hex(raw)}`), `named by its sha256\n${r.stdout}`);
+  assert.ok(raw.length > 0 && [...raw].every((ch) => ch >= " " && ch <= "~") && canonicalJson(JSON.parse(raw)) === raw, "one canonical line of printable ASCII");
+  assert.deepEqual([Object.keys(rep ?? {}), rep?.format], [MONTH_KEYS, "kata-month-counts-v1"], "the closed keys, sorted, and the format");
+  assert.deepEqual(rep?.rows.map((x) => [x.task_class, Object.keys(x)]), ["syn-range-1h", "syn-range-4h", "syn-mae-down-1h"].map((c) => [c, MONTH_ROW]), "each row served in the month, its closed keys");
+  const keys = (v: unknown): string[] => (v !== null && typeof v === "object" ? Object.entries(v).flatMap(([k, x]) => [...(Array.isArray(v) ? [] : [k]), ...keys(x)]) : []);
+  const leaves = (v: unknown): unknown[] => (v !== null && typeof v === "object" ? Object.values(v).flatMap(leaves) : [v]);
+  assert.deepEqual(keys(rep).filter((k) => /cause|entr|fire|retire|months|miss|price|time/i.test(k)), [], "no key of a cause, of entries or of a fire, no month or instant of a miss");
+  assert.deepEqual(leaves(rep).filter((v) => typeof v === "string" && /retire|cause|live:/i.test(v)), [], "no word of a retire list or of a cause in its values");
+  assert.deepEqual(leaves(rep).filter((v) => !(v === null || typeof v === "boolean" || typeof v === "string" || Number.isSafeInteger(v))), [], "no double");
+  assert.deepEqual(vocabularyHits(raw), [], "the public vocabulary gate");
+  const all = rep?.rows.find((x) => x.task_class === "syn-range-1h");
+  assert.deepEqual([2 * (all?.k_test ?? 0) > (all?.n_test ?? 0), all?.flags], [true, true], "a row that misses at most of its points flags, a row of a report still: no fire, no entry");
+  const id = IDENTITY.exec(r.stdout) ?? [];
+  assert.deepEqual(rep?.identity, { commit: id[1], kata_recalc_tree_sha256: id[2], kata_quarter_manifest_sha256: id[3] }, "the identity block, the line identity");
+  assert.ok(linesOf(r.stdout).includes(`input served-history served-history.json sha256 ${h[1]} bytes ${readFileSync(h[0]).length}`), `the served history read under its role\n${r.stdout}`);
+  const target = join(work, "a", "retire"), store = join(work, "store");
+  for (const d of [target, store, join(work, "x")]) mkdirSync(d, { recursive: true });
+  symlinkSync(target, join(work, "alias"), "junction"); // a link to a folder named retire (a junction on win32)
+  symlinkSync(store, join(work, "x", "retire"), "junction"); // a link named retire to a folder named otherwise: refused as given
+  for (const out of [join(target, "m"), join(work, "b", "Retire"), join(work, "c", "RETIRE", "m"), join(work, "alias", "m"), join(work, "x", "retire", "m")]) {
+    mkdirSync(dirname(out), { recursive: true });
+    const x = monthly(dirs, "2026-11", { reg, served: h, out });
+    assert.equal(x.r.status, 2, `an output folder ${out}: exit 2\n${x.r.stdout}${x.r.stderr}`);
+    assert.equal(x.r.stdout, `REFUSED: the output folder ${out} lies under a folder named retire: a monthly reading is a report, never a retire list\n`, `${out}: refused by name`);
+    assert.ok(!existsSync(join(out, "month-2026-11.json")), `${out}: nothing written`);
+  }
+});
+
+/** u_test as the tool writes it, worked out apart from it: null with no point, "1" when every point misses, else binom_exact.miss_upper_bound
+ *  of the frozen tool under the veto level 0.05, run in a Python of its own. */
+const boundsApart = (pairs: [number, number][]): (string | null)[] => {
+  const some = pairs.filter(([n, k]) => n > 0 && k < n), code = "import json, sys; sys.path.insert(0, sys.argv[1]); import binom_exact as E; print(json.dumps([E.miss_upper_bound(n, k, '0.05') for n, k in json.loads(sys.argv[2])]))";
+  const r = spawnSync(tool().python, ["-I", "-B", "-c", code, join(REPO, FROZEN), JSON.stringify(some)], { encoding: "utf8" }), got = JSON.parse(r.stdout || "null") as string[] | null;
+  assert.ok(r.status === 0 && got?.length === some.length, `binom_exact run apart: exit 0\n${r.stdout}${r.stderr}`);
+  return pairs.map(([n, k]) => (n === 0 ? null : k === n ? "1" : (got[some.findIndex(([a, b]) => a === n && b === k)] ?? "")));
+};
+/** The binomial rule at alpha 0.01 as fixtures/kata-quarter/veto-vectors.json holds the guard's vetoFires: (n, k) fires iff k >= k*(n). */
+const firesByVectors = (): ((h: string, n: number, k: number) => boolean | "out_of_domain") => {
+  const veto = JSON.parse(readFileSync(join(FIXTURE, "veto-vectors.json"), "ascii")) as { vectors: Record<string, [number, number, string, boolean][]> };
+  const star = new Map(Object.entries(veto.vectors).map(([h, rows]) => {
+    const fire = new Map(rows.map((v) => [`${v[0]} ${v[1]}`, v[3]]));
+    return [h, new Map(rows.filter((v) => v[3] && fire.get(`${v[0]} ${v[1] - 1}`) === false).map((v) => [v[0], v[1]]))];
+  }));
+  return (h, n, k) => { const s = star.get(h)?.get(n); return s === undefined ? "out_of_domain" : k >= s; };
+};
+
+// reddened by: a month counted otherwise than its quarter on its instants (another span or grid, other reads, the read before the month
+// not the month before it), its rows not those of its quarter (the core rows left out, or counted in a month whose quarter does not
+// count them), its u_test not the exact bound of binom_exact under 0.05 worked out apart ("1" when every point misses), or its flags not
+// the binomial rule of the quarter at the row's alpha (the guard's vetoFires, as fixtures/kata-quarter/veto-vectors.json holds it: a
+// row at k*(n) - 1 does not flag, one at k*(n) flags); or the report's completeness counts of a symbol (its candles in the month, the
+// month's slots, the declared slots of the merged range, complete at 999 in 1000) or, with the core registry, its pin not those read
+// killer: tools/kata-quarter/quarter_month.py:108 CONST "r[\"k_test\"], r[\"alpha\"])" -> "r[\"k_test\"] + 1, r[\"alpha\"])"
+// killer: tools/kata-quarter/quarter_month.py:111 CONST "\"present\": len(r[1][\"candles\"])" -> "\"present\": len(r[2][\"candles\"])"
+// killer: tools/kata-quarter/quarter_month.py:114 CONST "1000 * s[\"present\"] >= 999 * s[\"expected\"]" -> "True"
+// killer: tools/kata-quarter/quarter_month.py:111 CONST "\"gaps\": sum(map(len, r[2][\"gaps\"].values()))" -> "\"gaps\": 0"
+// killer: tools/kata-quarter/quarter_month.py:118 CONST "(\"core_registry_sha256\",) * (core is not None)" -> "(\"core_registry_sha256\",) * 0"
+// killer: tools/kata-quarter/quarter_month.py:116 CONST "core and core[1]" -> "core and pin"
+// killer: tools/kata-quarter/quarter_month.py:108 CONST "O.u_test(r[\"n_test\"], r[\"k_test\"])" -> "O.u_test(r[\"n_test\"], 0)"
+// killer: tools/kata-quarter/quarter_month.py:108 CONST "r[\"k_test\"], r[\"alpha\"])" -> "r[\"k_test\"], \"0.5\")"
+// killer: tools/kata-quarter/quarter_month.py:90 CONST "core, reg, pin, Q.quarter(k)[0])" -> "None, reg, pin, Q.quarter(k)[0])"
+// killer: tools/kata-quarter/quarter_month.py:90 CONST "Q.quarter(k)[0])" -> "s_m)"
+// killer: tools/kata-quarter/quarter_month.py:104 CONST "(s_m, e_m), venue)" -> "(s_m, e_m - 3_600_000), venue)"
+test("month_counts_equal_quarter_restricted_to_the_month - with the core registry, 2026-10, 2026-11 and 2026-12 give each row of Q_1, at attempt 1 and 2, the n_test and k_test of its month in the quarter's count, and sum to its drops, its instants out and its grid; u_test is binom_exact's bound under 0.05 worked out apart, flags the quarter's binomial rule; with a core registry whose data end at 2026-11-01, Q_1 counts no core row, nor does 2026-11", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_month.py")), `${QUARTER}/quarter_month.py absent`);
+  const work = mkdtempSync(join(tmpdir(), "kata-quarter-month-equal-")), dirs = monthDirs(work), core = pinned(CORE), q = count(join(FIXTURE, "sealed"), join(FIXTURE, "live"), 1, [SYM], { core });
+  assert.equal(q.r.status, 0, `count on Q_1 with the core registry: exit 0\n${q.r.stdout}${q.r.stderr}`);
+  const quarter = q.c.rows as (Counted & { months: Record<string, { n: number; k: number }> })[], id = (x: Counted): string => `${x.task_class} ${x.key} ${x.calib_attempt}`;
+  const sums: Record<string, number[]> = {}, grid: Record<string, number> = {}, got: MonthRow[] = [], reps: Record<string, MonthReport | null> = {};
+  for (const m of ["2026-10", "2026-11", "2026-12"]) {
+    const { r, rep } = monthly(dirs, m, { core });
+    assert.equal(r.status, 0, `month ${m} with the core registry: exit 0\n${r.stdout}${r.stderr}`);
+    reps[m] = rep;
+    assert.deepEqual(rep?.rows.map((x) => [id(x), x.n_test, x.k_test]), quarter.map((x) => [id(x), x.months[m]?.n ?? 0, x.months[m]?.k ?? 0]), `${m}: the rows of Q_1, attempt 2 among them, each with the n and k of ${m} in the quarter's count`);
+    for (const x of rep?.rows ?? []) { const s = (sums[id(x)] ??= [0, 0]); s[0] = (s[0] ?? 0) + x.drops_label; s[1] = (s[1] ?? 0) + x.out_input; got.push(x); }
+    for (const [hz, g] of Object.entries(rep?.grid ?? {})) grid[hz] = (grid[hz] ?? 0) + g.instants;
+  }
+  assert.deepEqual(sums, Object.fromEntries(quarter.map((x) => [id(x), [x.drops_label, x.out_input]])), "the drops and the instants out of the three months, those of the quarter");
+  assert.deepEqual(grid, Object.fromEntries(Object.entries(q.c.grid).map(([hz, g]) => [hz, g.instants])), "the instants of the three months, those of the quarter's grid");
+  const fires = firesByVectors(), apart = boundsApart(got.map((x) => [x.n_test, x.k_test]));
+  assert.ok(got.some((x) => x.flags) && got.some((x) => !x.flags && x.k_test > 0), "rows that flag (the core rows, at their qhat), and a row with misses that does not");
+  assert.deepEqual(got.map((x) => [id(x), x.u_test, x.flags]), got.map((x, i) => [id(x), apart[i], fires(x.horizon, x.n_test, x.k_test)]), "u_test worked out apart, flags the quarter's rule at alpha 0.01");
+  const [oct = "", nov = ""] = [dirs["2026-10"], dirs["2026-11"]], pins = { before_sha256: sha256(join(oct, SYM, SERIES)), month_sha256: sha256(join(nov, SYM, SERIES)) };
+  assert.deepEqual([reps["2026-11"]?.core_registry_sha256, reps["2026-11"]?.series[SYM]], [core[1], { ...pins, gaps: 1, present: 2879, expected: 2880, complete: true }], "2026-11 with the core registry: its pin, and syn's 2880 slots, 2879 candles, the one declared (2026-11-15T12:00Z) a gap of the merged range");
+  // the rule's edge at the n of 2026-11 (k*(88) = 4, k*(619) = 12 by binom_exact): syn-range-4h at k* (qhat 2), then at k* - 1 (qhat 2.3); syn-range-1h at k* - 1 (qhat 2.05)
+  const edge = (name: string, q4: number, q1: number): unknown[] => monthly(dirs, "2026-11", { reg: regWith(work, name, (rows) => rows.map((x) => (x.status !== "region" ? x : x.taskClass === "syn-range-4h" ? { ...x, calib: { qhat: q4 } } : x.taskClass === "syn-range-1h" ? { ...x, calib: { qhat: q1 } } : x))) }).rep?.rows.map((x) => [x.task_class, x.n_test, x.k_test, x.flags]) ?? [];
+  assert.deepEqual([fires("4h", 88, 3), fires("4h", 88, 4), fires("1h", 619, 11), fires("1h", 619, 12)], [false, true, false, true], "k*(88) = 4, k*(619) = 12 in the guard's vetoFires");
+  assert.deepEqual([edge("edge-at.json", 2, 2.05), edge("edge-below.json", 2.3, 3)], [[["syn-range-1h", 619, 11, false], ["syn-range-4h", 88, 4, true], ["syn-mae-down-1h", 618, 1, false]], [["syn-range-1h", 619, 0, false], ["syn-range-4h", 88, 3, false], ["syn-mae-down-1h", 618, 1, false]]], "a row at k* flags, a row at k* - 1 does not");
+  // two more slots of 2026-11 declared missing: 2877 candles of 2880, under 999 in 1000
+  const all = within(NOV, DEC), [head = "", ...lines] = linesOf(all.text).filter((l) => l !== ""), gone = [Date.UTC(2026, 10, 5, 0, 15), Date.UTC(2026, 10, 25, 16, 45)];
+  const holes = [...all.missing.missing.map((m) => m.open_time_ms as number), ...gone].sort((a, b) => a - b), thin = monthly(dirs, "2026-11", { during: put(join(work, "thin"), SYM, {
+    text: `${[head, ...lines.filter((l) => !gone.includes(Number(l.split(",")[1])))].join("\n")}\n`, missing: { count: holes.length, missing: holes.map((t) => ({ open_time_ms: t, open_time_utc: iso(t) })) } }) });
+  assert.deepEqual(thin.rep?.series[SYM], { before_sha256: pins.before_sha256, month_sha256: sha256(join(work, "thin", SYM, SERIES)), gaps: 3, present: 2877, expected: 2880, complete: false }, `2026-11 with three slots declared missing: not complete\n${thin.r.stdout}`);
+  const late = toolRepo(REPO, (dir) => writeFileSync(join(dir, QUARTER, "quarter_wave2.py"), `${read("quarter_wave2.py")}\nCALIB_END = ${NOV}\n`));
+  const lq = count(join(FIXTURE, "sealed"), join(FIXTURE, "live"), 1, [SYM], { core, repo: late }), lm = monthly(dirs, "2026-11", { core, repo: late });
+  assert.deepEqual([lq.r.status, lm.r.status], [0, 0], `the core data ending at 2026-11-01: exit 0\n${lq.r.stdout}${lm.r.stdout}${lm.r.stderr}`);
+  assert.deepEqual([(lq.c.rows as Counted[]).filter((x) => x.calib_attempt === 2).length, lm.rep?.rows.filter((x) => x.calib_attempt === 2).length], [0, 0], "the child rule of the month's quarter: no core row in Q_1, none in 2026-11");
+});
+
+// reddened by: a month whose grid does not run from its first instant (00:00Z of its first day) to its last (its end minus h), a month
+// named in its report with other bounds or another quarter (2026-12, the last month of Q_1, ending at E_1; 2027-01, the first of Q_2,
+// whose read before is a month of Q_1), the read before 2026-10 not the sealed series of wave 1 (under its recording range: a candle of
+// 2026-08-31 in it), a month before S_1 admitted, or a month before any served row read (a class served from 2026-11-10 counted in
+// 2026-10, or not from that instant in 2026-11), or after its service ended (served until 2026-10-20 11:00Z, counted in 2026-11)
+// killer: tools/kata-quarter/quarter_month.py:91 CONST "s_m, e_m) for r, _, _ in rows}" -> "Q.quarter(k)[0], e_m) for r, _, _ in rows}"
+// killer: tools/kata-quarter/quarter_month.py:44 CONST "if i == 0 else" -> "if i < 0 else"
+// killer: tools/kata-quarter/quarter_month.py:43 CONST "Q._first_of(i + 1)" -> "Q._first_of(i + 1) - 86_400_000"
+// killer: tools/kata-quarter/quarter_month.py:44 CONST "i // 3 + 1" -> "(i + 1) // 3 + 1"
+// killer: tools/kata-quarter/quarter_month.py:41 ROR "i < 0" -> "i < -1"
+// killer: tools/kata-quarter/quarter_month.py:92 CONST "rows = [x for x in rows if service[x[0][\"taskClass\"]]]" -> "rows = rows"
+// killer: tools/kata-quarter/quarter_month.py:91 CONST "s_m, e_m) for r, _, _ in rows}" -> "s_m, e_m + 2_678_400_000) for r, _, _ in rows}"
+test("month_bounds_first_and_last_instants - each month counts from 00:00Z of its first day to its end minus h: 2026-10 after the sealed series of wave 1, 2026-11, 2026-12 to E_1 - h, 2027-01 of Q_2 after a month of Q_1; 2026-09, before S_1, is refused by name; under a history that serves from 2026-11-10, 2026-10 is refused by name, no row served, and 2026-11 serves from that instant", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_month.py")), `${QUARTER}/quarter_month.py absent`);
+  const work = mkdtempSync(join(tmpdir(), "kata-quarter-month-bounds-")), dirs = monthDirs(work);
+  const g = (s: number, n1: number, e: number): Counts["grid"] => ({ "1h": { instants: n1, first: iso(s), last: iso(e - H) }, "4h": { instants: n1 / 4, first: iso(s), last: iso(e - 4 * H) } });
+  for (const [name, s, e, n1, k] of [["2026-10", S1, NOV, 744, 1], ["2026-11", NOV, DEC, 720, 1], ["2026-12", DEC, E1, 744, 1], ["2027-01", E1, Date.UTC(2027, 1, 1), 744, 2]] as const) {
+    const { r, rep } = monthly(dirs, name);
+    assert.equal(r.status, 0, `month ${name}: exit 0\n${r.stdout}${r.stderr}`);
+    assert.deepEqual([rep?.month, rep?.grid, rep?.pose.rec_end], [{ name, start: iso(s), end: iso(e), quarter: k }, g(s, n1, e), iso(e)], `${name}: its bounds, its quarter and its grid`);
+    assert.equal(rep?.series[SYM]?.before_sha256, sha256(join(dirs[before(name)] ?? "", SYM, SERIES)), `${name}: read after ${name === "2026-10" ? "the sealed series of wave 1" : before(name)}`);
+  }
+  const early = monthly(dirs, "2026-09", { before: join(FIXTURE, "sealed"), during: dirs["2026-10"] ?? "" });
+  assert.deepEqual([early.r.status, early.r.stdout, early.raw], [2, "REFUSED: month 2026-09: before S_1 2026-10-01T00:00:00Z; the monthly reading begins with the first quarter\n", ""], "a month before S_1, refused by name");
+  const later = history(days(["2026-11-10", CLASSES]));
+  const oct = monthly(dirs, "2026-10", { served: later }), nov = monthly(dirs, "2026-11", { served: later });
+  assert.deepEqual([oct.r.status, oct.r.stdout, oct.raw], [2, "REFUSED: no region row of the registry is served at an instant of the month 2026-10 by the served history: nothing to read\n", ""], "a month before any served row, refused by name");
+  assert.equal(nov.r.status, 0, `2026-11 under the history from 2026-11-10: exit 0\n${nov.r.stdout}${nov.r.stderr}`);
+  assert.deepEqual(nov.rep?.rows.map((x) => [x.task_class, x.served_from, x.served_to, x.n_test + x.drops_label + x.out_input]), ["syn-range-1h", "syn-range-4h", "syn-mae-down-1h"].map((c) => [c, "2026-11-10T11:00:00Z", iso(DEC), c.endsWith("4h") ? 180 : 720]), "served from 2026-11-10 11:00Z, counted on every instant of the month");
+  const sealed = fixtureOf("sealed"), [head = "", ...rows] = linesOf(sealed.csv), aug = variant(work, "aug", [head, candleAt(Date.UTC(2026, 7, 31, 23, 45)), ...rows].join("\n"), sealed.missing);
+  const ended = history(days(["2026-09-01", CLASSES], ["2026-10-20", ["alt-range-1h"]])), e10 = monthly(dirs, "2026-10", { before: aug, served: ended }), e11 = monthly(dirs, "2026-11", { served: ended });
+  assert.equal(e10.r.status, 0, `2026-10 after a sealed series with a candle of 2026-08-31: exit 0\n${e10.r.stdout}${e10.r.stderr}`);
+  assert.deepEqual([e10.rep?.series[SYM]?.before_sha256, e10.rep?.rows.map((x) => [x.task_class, x.served_from, x.served_to])], [sha256(join(aug, SYM, SERIES)), ["syn-range-1h", "syn-range-4h", "syn-mae-down-1h"].map((c) => [c, iso(S1), "2026-10-20T11:00:00Z"])], "2026-10 read after the sealed series under its recording range, each syn class served until 2026-10-20 11:00Z");
+  assert.deepEqual([e11.r.status, e11.r.stdout, e11.raw], [2, "REFUSED: no region row of the registry is served at an instant of the month 2026-11 by the served history: nothing to read\n", ""], "a service ended before the month: none in 2026-11, refused by name");
+});
+
+// reddened by: a month not written YYYY-MM admitted (a thirteenth month, one digit, three), an option admitted or refused without its
+// name, a month whose record stops before its end (open) read, or refused otherwise than by its name, 'pinned' admitted after 2026-10,
+// refused at 2026-10 or taken there for a pin and not for the sealed series of its folder (which syn has not: quarter_load.sealed_pin
+// refuses it), a symbol folder named twice or a folder outside the venue admitted, an output in an input folder admitted, or a report
+// written for any of them
+// killer: tools/kata-quarter/quarter_month.py:38 CONST "re.fullmatch(" -> "re.match("
+// killer: tools/kata-quarter/quarter_month.py:95 CONST " and prior != Q.sealed_range(1)" -> ""
+// killer: tools/kata-quarter/quarter_month.py:101 CONST "Q.sealed_pin(f) if p1 == \"pinned\" else p1" -> "p1"
+// killer: tools/kata-quarter/quarter_month.py:38 CONST "(0[1-9]|1[0-2])" -> "[0-9]{2}"
+// killer: tools/kata-quarter/quarter_month.py:66 CONST "if bad := [a for a in args if a.startswith(\"--\")]:" -> "if bad := []:"
+// killer: tools/kata-quarter/quarter_month.py:95 CONST " and prior != Q.sealed_range(1)" -> " and False"
+// killer: tools/kata-quarter/quarter_month.py:95 CONST "len(folders) != len(specs) or " -> ""
+// killer: tools/kata-quarter/quarter_month.py:97 CONST "if sorted(folders) != venue:" -> "if False:"
+// killer: tools/kata-quarter/quarter_month.py:88 CONST "V.place(out, (before, during))" -> "None"
+// killer: tools/kata-quarter/quarter_month.py:57 CONST "if end < e_m:" -> "if False:"
+test("month_refuses_by_name - month refuses by name, exit 2 and no report written: a month written 2026-13 or 2026-1, an option, a month whose record stops before its end, 'pinned' after 2026-10, a symbol folder named twice or outside the venue, an output in an input folder", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_month.py")), `${QUARTER}/quarter_month.py absent`);
+  const work = mkdtempSync(join(tmpdir(), "kata-quarter-month-refused-")), dirs = monthDirs(work), [oct = "", nov = ""] = [dirs["2026-10"], dirs["2026-11"]];
+  const spec = `${SYM}:${sha256(join(oct, SYM, SERIES))}:${sha256(join(nov, SYM, SERIES))}`, open = put(join(work, "open"), SYM, within(NOV, Date.UTC(2026, 10, 20)));
+  const cases: [string, ReturnType<typeof monthly>, string][] = [
+    ["2026-13", monthly(dirs, "2026-13", { before: oct, during: nov, spec: [spec] }), "month '2026-13': not a UTC month written YYYY-MM"],
+    ["2026-1", monthly(dirs, "2026-1", { before: oct, during: nov, spec: [spec] }), "month '2026-1': not a UTC month written YYYY-MM"],
+    ["2026-111", monthly(dirs, "2026-111", { before: oct, during: nov, spec: [spec] }), "month '2026-111': not a UTC month written YYYY-MM"],
+    ["pinned at 2026-10", monthly(dirs, "2026-10", { spec: [`${SYM}:pinned:${sha256(join(oct, SYM, SERIES))}`] }), "no pinned sealed series for the symbol folder 'syn' in recalc_p2.SYMBOLS"],
+    ["an option", monthly(dirs, "2026-11", { extra: ["--calls"] }), "--calls: not an option of month, which takes none: no call or traffic enters its counts"],
+    ["a month whose record stops at 2026-11-20", monthly(dirs, "2026-11", { during: open }), "month open: the series of syn for 2026-11 accounts for no slot from 2026-11-20T00:00:00Z, before its end 2026-12-01T00:00:00Z: a month is read once it is over and recorded to its end"],
+    ["pinned after 2026-10", monthly(dirs, "2026-11", { spec: [`${SYM}:pinned:${sha256(join(nov, SYM, SERIES))}`] }), "a symbol folder named twice, or 'pinned' for a month after 2026-10 (it names the sealed series of wave 1)"],
+    ["a folder named twice", monthly(dirs, "2026-11", { spec: [spec, spec] }), "a symbol folder named twice, or 'pinned' for a month after 2026-10 (it names the sealed series of wave 1)"],
+    ["a folder outside the venue", monthly(dirs, "2026-11", { spec: [spec, `alt${spec.slice(SYM.length)}`] }), "the symbol folders named ['alt', 'syn'] are not the venue's ['syn'], those of the registry's rows"],
+    ["an output in the month's folder", monthly(dirs, "2026-11", { out: join(nov, "m") }), `the output folder ${join(nov, "m")}: its parent is not a folder, it is a link, or it lies in an input folder`]];
+  for (const [name, x, why] of cases) {
+    assert.equal(x.r.status, 2, `${name}: exit 2\n${x.r.stdout}${x.r.stderr}`);
+    assert.deepEqual([x.r.stdout, x.raw], [`REFUSED: ${why}\n`, ""], `${name}: refused by name, no report`);
+  }
 });

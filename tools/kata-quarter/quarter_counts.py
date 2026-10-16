@@ -7,7 +7,7 @@
 # check: two reads of one symbol through quarter_load and their merge, VERDICT: GREEN; count: the counts of the region rows of a wave 1
 # registry, and of the core registry wave2.json when given (quarter_wave2: attempt 2, the child rule), on Q_k (quarter_core), one JSON
 # line under fdlibm_log, then each decision math.log changes, and the evidence (quarter_evidence) into <out dir>/quarter-<k>.json, named
-# on the line "evidence", for the rows the served history serves in Q_k; check <act>: an oracle act; vectors: the L-T7 vectors; month: exit 2.
+# on the line "evidence", for the rows the served history serves in Q_k; check <act>: an oracle act; vectors: the L-T7 vectors; month: quarter_month.
 import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked both folders (IO-GUARD-POSED-FILES-1)
 if "io_guard" not in sys.modules:  # io_guard.py of the frozen tool, run by its path, never found by name: nothing posed or installed stands in for it
     sys.path.append(_d := os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "kata-recalc"))  # the frozen tool's folder, last in sys.path: -P is in FORM
@@ -29,7 +29,7 @@ USAGE = ("usage: python -E -S -s -B -P quarter_counts.py check <sealed series di
          "       python -E -S -s -B -P quarter_counts.py count <registry> <registry sha256> [<core registry> <core registry sha256>] <served history> <served history sha256> "
          "<sealed series dir> <live series dir> <quarter k> <out dir> <symbol folder>:<sealed sha256 | pinned, quarter 1 only>:<live sha256> ...\n"
          "       python -E -S -s -B -P quarter_counts.py vectors <out dir>\n" + O.USAGE)
-NOT_YET = "not in this lot: the month counts arrive with lot e"
+import quarter_month as M  # the monthly reading of D6 (lot e): the rank of count on a UTC month, kata-month-counts-v1, a report only
 FLAGS = []  # closed: count takes no option, so no call or traffic enters a count (addendum 9 point 2; L-T2)
 FROZEN = os.path.dirname(os.path.realpath(io_guard.__file__))
 
@@ -133,9 +133,9 @@ def vectors(out):
 if __name__ == "__main__":
     identity()
     sub, args = (sys.argv[1] if len(sys.argv) > 1 else ""), sys.argv[2:]
-    if sub == "month":
-        print(f"{sub}: {NOT_YET}", flush=True)
-        sys.exit(2)
+    if sub == "month":  # its arguments, its usage and its refusals (REFUSED, exit 2, never a trace) are quarter_month's own
+        sys.exit(M.main(args, identity_line))
+    # count, check and vectors: the arguments parsed below, as before the monthly reading
     try:  # every argument parsed here: a bad one is the usage, exit 2, never a trace
         number = lambda a: a.isascii() and a.isdigit() and int(a) > 0  # noqa: E731 (ASCII digits only: int() refuses others)
         hex64 = lambda a: len(a) == 64 and all(c in "0123456789abcdef" for c in a)  # noqa: E731 (a one-line form of a sha256)
