@@ -68,6 +68,9 @@ const sourceFile = (rel: string, text?: string): ts.SourceFile =>
 /** Rendered texts of a TSX source (the honesty-lint walker: JSX text, JSX child literals, visible attributes). */
 const renderedOf = (rel: string, text?: string): string[] => renderedTexts(sourceFile(rel, text)).map((t) => t.text);
 
+/** The rendered text of a TSX source, white space collapsed: a JSX comment is not rendered, so a sentence moved into one is gone. */
+const saidIn = (rel: string): string => renderedOf(rel).join(" ").replace(/\s+/g, " ");
+
 /** Every string literal and every static part of a template literal in a source, with the name of the JSX attribute it
  *  sits in when it sits in one. */
 function literalsOf(sf: ts.SourceFile): { text: string; attr: string | null }[] {
@@ -826,7 +829,8 @@ test("no_surface_presents_the_attest_join_as_live", () => {
   ];
   for (const [rel, stale, now] of surfaces) {
     assert.ok(!read(rel).includes(stale), `${rel}: "${stale}" is gone`);
-    assert.ok(read(rel).includes(now), `${rel}: says "${now}"`);
+    // A page or component is read as it renders; a module or a document by its text.
+    assert.ok((rel.endsWith(".tsx") ? saidIn(rel) : read(rel)).includes(now), `${rel}: says "${now}"`);
   }
 });
 
@@ -842,6 +846,25 @@ test("docs_hikae_words_say_the_served_gate — no monitor, no split-conformal cl
   assert.ok(!words.some((s) => /\bmonitor\b/i.test(s)), "the served gate keeps no monitor");
   assert.ok(!/per task class/.test(h.summary), "the summary claims no split-conformal calibration per task class (the kata classes are risk-control)");
   assert.ok(!/per class/.test(read("apps/site/app/docs/research/page.tsx")), "the research page's Hikae method line claims no calibration per class either (the same decision as the design page)");
+  // The premise reads the code, not its comment: the handler factory handed to createMcpHandler builds a new McpServer in
+  // its own body, so each request gets a fresh server and no state is kept between calls.
+  const serverAst = ts.createSourceFile("server.ts", read("apps/harness/src/server.ts"), ts.ScriptTarget.Latest, true);
+  let freshServerPerRequest = false;
+  const visitServer = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "createMcpHandler") {
+      const factory = node.arguments[0];
+      if (factory !== undefined && (ts.isArrowFunction(factory) || ts.isFunctionExpression(factory))) {
+        const findNew = (n: ts.Node): void => {
+          if (ts.isNewExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "McpServer") freshServerPerRequest = true;
+          ts.forEachChild(n, findNew);
+        };
+        findNew(factory.body);
+      }
+    }
+    ts.forEachChild(node, visitServer);
+  };
+  visitServer(serverAst);
+  assert.ok(freshServerPerRequest, "premise: the served gate's handler factory builds a fresh McpServer per request and keeps no session; when one server is shared this reds and the words are revisited");
   assert.ok(/no state kept between calls/.test(h.tagline) && /keeps no state between calls/.test(h.summary), "the words say the gate keeps no state");
   assert.ok(h.entry.lines.includes("optional: an attested testimony, refused today on every class"), "the entry says the testimony is refused today");
   assert.ok(h.mechanism.lines.includes("a split-conformal margin q-hat from a committed calibration or the caller's own scores"), "the margin comes from a committed calibration or the caller's own scores");
@@ -880,8 +903,9 @@ test("docs_narabi_pages_claim_no_attested_flow_and_no_replay — the Narabi docs
     assert.doesNotMatch(src, /\battested\s+(?:onchain|redemption|daily|flow)/i, rel + " calls a flow attested");
     assert.doesNotMatch(src, /anyone can replay|\breplayable\b|the Narabi replay|re-derive the tracker/i, rel + " promises a replay of the tracker");
   }
-  assert.match(read("apps/site/app/docs/research/page.tsx"), /a quantile tracker, a hash-chained timeline/, "the research table says the timeline is hash-chained");
-  assert.match(read("apps/site/app/docs/verify/page.tsx"), /check that each line chains to the one before and records its Node version/, "the verify page says the hash chain and the Node version");
+  // The research row is a string the table renders: read from the parsed page, where a comment holds no literal.
+  assert.ok(literalsOf(sourceFile("apps/site/app/docs/research/page.tsx")).some((l) => l.text === "a recomputable daily flow, a quantile tracker, a hash-chained timeline"), "the research table says the timeline is hash-chained");
+  assert.match(saidIn("apps/site/app/docs/verify/page.tsx"), /recompute any window from its block range with the logs and the supply of the token, and check that each line chains to the one before and records its Node version; the/, "the verify page, as it renders, says the hash chain and the Node version");
 });
 
 // killer: apps/site/components/docs/piece-doc-page.tsx:99 CONST "the later ones retry it the same day" -> "the later ones are idle"
@@ -891,4 +915,6 @@ test("docs_narabi_piece_page_says_the_retry_slots — the piece page says the sl
   const piece = read("apps/site/components/docs/piece-doc-page.tsx");
   assert.doesNotMatch(piece, /sentinel publishes at the UTC slots/, "the slots are not said to publish each");
   assert.match(piece, /sentinel runs at the UTC slots \{served\.sentinel_timer\.on_calendar_utc\.join\(", "\)\}, each plus up to\{" "\}\s*\{String\(Math\.round\(served\.sentinel_timer\.randomized_delay_s \/ 60\)\)\} minutes: the first publishes the closed day, the later ones retry it the same day\./, "the page says the delay and the retries");
+  const said = saidIn("apps/site/components/docs/piece-doc-page.tsx");
+  for (const part of ["The sentinel runs at the UTC slots", ", each plus up to", "minutes: the first publishes the closed day, the later ones retry it the same day."]) assert.ok(said.includes(part), `the piece page, as it renders, says "${part}"`);
 });

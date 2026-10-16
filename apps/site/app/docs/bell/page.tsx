@@ -56,8 +56,8 @@ export default function DocsBellPage() {
 
       <DocSection id="what" title="What Bell is">
         <p>
-          MONARK Bell is an application on the DeFi side, with its own gate: {bell.segment}. It connects to {bell.connects}, and
-          it publishes at its own web address, <a href={BELL_HOST}>{BELL_HOST}</a>. The
+          MONARK Bell is an application on the DeFi side, with its own gate: {bell.segment}. It publishes at its own web
+          address, <a href={BELL_HOST}>{BELL_HOST}</a>. The
           register&rsquo;s served note: <em>{bell.served.note}</em>.
         </p>
         <p>

@@ -602,7 +602,7 @@ exceeds(θ) = | VWAP_share − P_close | / P_close > θ`}</pre>
         <dl className="c-kv" style={{ marginTop: 20 }}>
           <dt>this page</dt>
           <dd>
-            version dated {rev.committed_at.slice(0, 10)}, the date of the collector source revision it restates,{" "}
+            version dated {rev.committed_at.slice(0, 10)}, the date of the collector source revision it restates (that source is not in the public export yet),{" "}
             <span className="c-mono">{rev.commit.slice(0, 7)}</span>
           </dd>
           <dt>contact</dt>
