@@ -254,7 +254,7 @@ const put = (dir: string, folder: string, s: Series): string => {
   write(join(dir, folder, MISSING), `${JSON.stringify(s.missing)}\n`);
   return dir;
 };
-type Row = { task_class: string; horizon: string; n_test: number; k_test: number; drops_label: number; out_input: number; served_from: string; served_to: string; served_tables: string[] };
+type Row = { task_class: string; calib_attempt: number; horizon: string; n_test: number; k_test: number; drops_label: number; out_input: number; served_from: string; served_to: string; served_tables: string[] };
 type Counts = { grid: Record<string, { instants: number; first: string; last: string }>; halts: unknown[]; rows: Row[] };
 const hex = (t: string): string => createHash("sha256").update(t).digest("hex");
 /** The line of the class c in the served history for the deployment of the day d (t_e at 10:00Z, t_f at 11:00Z), made-up digests. */
