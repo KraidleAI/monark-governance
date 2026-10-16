@@ -254,7 +254,8 @@ test("bell_probe_detects_rewrite_against_kept_copy", async () => {
 
 // reddened by: an exit other than 0 healthy / 1 unhealthy or a failed mail or a refused write / 2 usage; a mail off the machine (one on entry,
 // one a UTC day, one on recovery, at most one a run); a password taken from the environment or a password file off its rules; a usage error
-// that writes; a report written in place, a temporary file left, or a report the disk refuses that exits 0
+// that writes; a report written in place, a temporary file left, or a report the disk refuses that exits 0. The mode-bit and symbolic-link
+// cases run on POSIX only, the procfs case on Linux only (the CI): on win32 they do not run, and nothing in the report says so.
 // killer: scripts/probe-bell.mjs:375 CONST " || r.alert_error !== null" -> ""
 test("bell_probe_exits_1_when_unhealthy_or_mail_fails", async () => {
   const MAIL = { SMTP_HOST: "127.0.0.1", SMTP_PORT: "2525", SMTP_TLS: "none", SMTP_USER: "probe", ALERT_FROM: "probe@monark.test", ALERT_TO: "ops@monark.test" };
@@ -435,7 +436,8 @@ test("bell_probe_due_instant_is_the_planners_on_the_whole_calendar", () => {
 
 // reddened by: a verdict of the probe's own chain code off walkTimeline's (ok, the failing seq and its reason; active, head, voided and breaks)
 // on the publisher's real output, cross-signed and lost-key rotations and a revocation included, on altered lines and keyrings, or in the
-// probe's incremental form (each case walked from every index up to its first altered line, the lines before it carried unchecked)
+// probe's incremental form (each case walked from every index up to its first altered line, the lines before it carried unchecked; each
+// keyring case up to its first line in error, so a keyring's revoked_from_seq is judged on a kept copy too)
 // killer: scripts/probe-bell.mjs:119 CONST "check && l.prev_line_hash !== prev" -> "false"
 test("bell_probe_chain_verdict_equals_the_readers_on_a_corpus", () => {
   const { state, pub: dir } = servedState(K1, 3);
@@ -470,7 +472,7 @@ test("bell_probe_chain_verdict_equals_the_readers_on_a_corpus", () => {
     ["K1 revoked from 2", { ...ring, keys: [{ ...(entry(K1) as Obj), revoked_from_seq: 2 }, entry(K2), entry(K3)] }],
     ["revoked without seq", { ...ring, keys: [{ ...(entry(K1) as Obj), status: "revoked" }, entry(K2)] }], ["bad seq marker", { ...ring, keys: [{ ...(entry(K1) as Obj), revoked_from_seq: 0 }] }],
     ["key_id off", { ...ring, keys: [{ ...(entry(K1) as Obj), key_id: idOf(K2) }] }], ["duplicate", { ...ring, keys: [entry(K1), entry(K1)] }],
-    ["empty", { ...ring, keys: [] }], ["schema", { ...ring, schema: "bell-keyring-v0" }], ["null", null]] as const) cases.push([`keyring ${name}`, real, r, 0]);
+    ["empty", { ...ring, keys: [] }], ["schema", { ...ring, schema: "bell-keyring-v0" }], ["null", null]] as const) cases.push([`keyring ${name}`, real, r, real.length]);
   const reasons = new Set<string>();
   for (const [name, lines, r, upTo] of cases) {
     const reader = readerTrustOf(r), own = P.trustOf(r);
@@ -479,7 +481,8 @@ test("bell_probe_chain_verdict_equals_the_readers_on_a_corpus", () => {
     const want = walkTimeline(lines, reader);
     assert.deepEqual(P.walkLines(lines, own), want, name);
     // killer: scripts/probe-bell.mjs:117 CONST "check = i >= from," -> "check = i >= from && (from === 0 || i > from),"
-    for (let from = 1; from <= upTo; from++) assert.deepEqual(P.walkLines(lines, own, from), want, `${name}, incremental from ${String(from)}`);
+    // killer: scripts/probe-bell.mjs:114 CONST "k.revoked_from_seq !== undefined)" -> "k.revoked_from_seq !== undefined && from === 0)"
+    for (let from = 1; from <= (want.ok ? upTo : Math.min(upTo, want.seq - 1)); from++) assert.deepEqual(P.walkLines(lines, own, from), want, `${name}, incremental from ${String(from)}`);
     reasons.add(want.ok ? (want.voided.length > 0 && want.breaks.length > 0 ? "ok, voided and broken" : "ok") : want.reason);
   }
   assert.deepEqual([...reasons].sort(), ["chain_broken", "key_not_active", "key_not_in_keyring", "ok", "ok, voided and broken", "revocation_malformed", "rotation_key_not_in_keyring",

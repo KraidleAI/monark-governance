@@ -245,7 +245,7 @@ async function check(r, a, nowMs, prior, get, keptPath) {
     const n = linesOf(got.body.subarray(kept.length)), w = walkLines([...k.parsed, ...n.parsed], trust, k.parsed.length);
     const good = w.ok ? n.parsed.length : w.seq - 1 - k.parsed.length;
     if (n.torn) r.alerts.push("timeline_malformed");
-    if (!w.ok) r.alerts.push((n.raws[w.seq - 1 - k.parsed.length]?.length ?? 0) > MAX_LINE_BYTES ? "too_large" : w.reason); // bell-verify.mjs:90
+    if (!w.ok) r.alerts.push((n.raws[w.seq - 1 - k.parsed.length]?.length ?? 0) > MAX_LINE_BYTES ? "too_large" : w.reason); // bell-verify.mjs:90, for the line where the walk fails (the reader names any too-long line first)
     else if (w.head !== null && w.voided.includes(w.head.seq)) r.alerts.push("head_signed_by_revoked_key");
     Object.assign(r, { served_lines: k.parsed.length + n.parsed.length, new_lines: good });
     lines = [...k.parsed, ...n.parsed.slice(0, good)];
