@@ -1667,7 +1667,7 @@ test("har_candle_and_rogers_satchell_forms - har-rv15-sp-v1 on a made series equ
       assert.equal(got[utc(T0 + d)]?.["har-rv15-sp-v1"], want, `${form} at ${horizon}, ${utc(T0 + d)}`);
       assert.ok(i === 2 || /^0\.0[0-9]+$/.test(want ?? ""), `a value, not ${want}`);
     }
-    assert.equal(got[utc(T0 + ts[2])]?.["har-rv15-sp-v1"], NE, `${form}: a candle of its week absent, non_evaluable`);
+    assert.equal(got[utc(T0 + ts[2]!)]?.["har-rv15-sp-v1"], NE, `${form}: a candle of its week absent, non_evaluable`);
   }
   const odd = estimate(series, input(work, "odd", { horizon: "1h", span: 10 * DAY, form: "parkinson", instants: { [utc(T0 + 8 * DAY)]: "1.00" } }));
   assert.equal(odd.status, 2, `the form parkinson: exit 2\n${odd.stdout}${odd.stderr}`);
