@@ -948,9 +948,10 @@ configuration: no ordering directive binds them (`monark-bell-collect.service` n
 by `OnSuccess=` and `OnFailure=`; `monark-bell-publish.service` names none), a tick may run `TimeoutStartSec=7200` s while two slots of
 `monark-bell-collect.timer` are 60 min apart, and the publisher has `TimeoutStartSec=120` s. So the purge of a tick (`apps/bell/src/tick.ts:332`,
 the bundle, then its manifest) may remove, between the publisher's listing and its read, an entry published, settled or before the mark. The
-publisher skips an entry, a file of it or a manifest absent at its read (`ENOENT`, `apps/bell/scripts/bell-publish.mjs:291` and `:294`) as if it
-were not listed, as it did before the fold of m-1: such a removal is never a `bell/publish: fatal:` line, and it touches neither `refused.jsonl`
-nor the budget of `<D>`. The row `bell/publish: fatal: <errno>` → **STOP** above stays true for every other errno (`EACCES`, `EBUSY`, `EISDIR`, …).
+publisher skips an entry, a file of it or a manifest absent at its read (`ENOENT`, `apps/bell/scripts/bell-publish.mjs:291` and `:294`), as it
+did before the fold of m-1: such a removal is never a `bell/publish: fatal:` line, and it touches neither `refused.jsonl` nor the budget of
+`<D>`. A bundle so skipped is as if it were not listed; a tombstone so skipped keeps its name in the listing, so that one call answers
+`{"status":"awaiting_unit",…,"awaiting_unit":"unit-<D>"}` for its `<D>` (no act: the next call lists again and goes past it; the same at the base). The row `bell/publish: fatal: <errno>` → **STOP** above stays true for every other errno (`EACCES`, `EBUSY`, `EISDIR`, …).
 
 **Dated line, 2026-10-16 02:5x UTC (same fold, r2-3; review of lot 3b-i, n-2):** the publisher and the tick do not read a tombstone the same
 way: the publisher holds `<D>` abandoned only when `unit-<D>.abandoned` matches its manifest (`apps/bell/scripts/bell-publish.mjs:270`, `:293`),
