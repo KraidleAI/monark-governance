@@ -1130,7 +1130,23 @@ const keyOf = (h: string, kata = "ewma-vol-hw-v1"): string => `kata:${kata}@bina
 // reddened by: a wave2.json with a key outside its format admitted (in a row, at the top level, in a month of a block) or a key missing,
 // a row at another attempt than 2, a factor table other than its wave 1 row's (with its own digest, or the parent's), bytes off the byte
 // form (compact, CR LF), a key written twice, another pin, another alpha, a region row with no qhat, a status or a vetoedBy off the
-// order of its blocks, or a month outside its block admitted; or the core region rows not given to the count with the fields it reads
+// order of its blocks, or a month outside its block admitted; or the core region rows not given to the count with the fields it reads;
+// or (fold of review round 1) a cell written twice, a vetoed row counted (its class served), months out of order, a U+2028, a kTest
+// null on a calibrated row, months on a block with no kTest, months whose n or k do not sum to nTest or kTest, a direction cell, or a
+// kataId, a W, a venue or a trialId other than its cell's admitted
+// killer: tools/kata-quarter/quarter_wave2.py:121 CONST "!= len(out):" -> "!= len(out) and False:"
+// killer: tools/kata-quarter/quarter_wave2.py:137 CONST "x[0][\"status\"] == \"region\"" -> "x[0][\"calib\"][\"status\"] == \"region\""
+// killer: tools/kata-quarter/quarter_wave2.py:51 CONST "keys = sorted(v) if" -> "keys = list(v) if"
+// killer: tools/kata-quarter/quarter_wave2.py:69 CONST "\"\\u2028\" not in text and \"\\u2029\" not in text and " -> ""
+// killer: tools/kata-quarter/quarter_wave2.py:91 CONST "(b[\"kTest\"] is None) == (qhat is None)" -> "True"
+// killer: tools/kata-quarter/quarter_wave2.py:91 CONST "m == {} if b[\"kTest\"] is None" -> "True if b[\"kTest\"] is None"
+// killer: tools/kata-quarter/quarter_wave2.py:92 CONST "sum(x[\"n\"] for x in m.values()) == b[\"nTest\"]" -> "True"
+// killer: tools/kata-quarter/quarter_wave2.py:92 CONST "sum(x[\"k\"] for x in m.values()) == b[\"kTest\"]" -> "True"
+// killer: tools/kata-quarter/quarter_wave2.py:101 CONST "cell[\"kind\"] != \"dir\"" -> "True"
+// killer: tools/kata-quarter/quarter_wave2.py:102 CONST "and cell[\"kata\"] == r[\"kataId\"] and" -> "and"
+// killer: tools/kata-quarter/quarter_wave2.py:102 CONST "safe(r[\"W\"]) and r[\"W\"] == K.W[cell[\"kata\"]] and " -> ""
+// killer: tools/kata-quarter/quarter_wave2.py:102 CONST "r[\"venue\"] == recalc_p2.VENUE" -> "True"
+// killer: tools/kata-quarter/quarter_wave2.py:103 CONST "r[\"trialId\"] == f\"{r['taskClass']}|{r['kataId']}|{r['venue']}|{r['symbol']}|{h}|W2-CALIB\"" -> "True"
 // killer: tools/kata-quarter/quarter_wave2.py:104 CONST "== 2" -> ">= 1"
 // killer: tools/kata-quarter/quarter_wave2.py:52 CONST "list(v) != list(keys)" -> "False"
 // killer: tools/kata-quarter/quarter_wave2.py:69 CONST " and text == K.js_json_pretty(doc) + \"\\n\"" -> ""
@@ -1143,16 +1159,23 @@ const keyOf = (h: string, kata = "ewma-vol-hw-v1"): string => `kata:${kata}@bina
 test("wave2_registry_reader_closed - count reads the synthetic core registry of the fixture under the role registry and counts its two region rows at attempt 2 with the fields it reads; a key outside the format or missing, an attempt other than 2, a factor table other than the wave 1 row's, bytes off the byte form, a key twice, another pin, another alpha, no qhat on a region row, a status off its blocks or a month outside its block is refused by name, exit 2", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_wave2.py")), `${QUARTER}/quarter_wave2.py absent`);
   assert.ok(existsSync(CORE), "fixtures/kata-quarter/registry/wave2-syn.json absent");
-  const [sealed, live] = [join(FIXTURE, "sealed"), join(FIXTURE, "live")], ok = count(sealed, live, 1, [SYM], { core: pinned(CORE) });
+  // the served history serves the class of the vetoed row too (syn-mae-up-1h, a silence row in wave 1): its status alone leaves it out
+  const [sealed, live] = [join(FIXTURE, "sealed"), join(FIXTURE, "live")], ok = count(sealed, live, 1, [SYM], { core: pinned(CORE), served: history([["2026-09-01", [...CLASSES, "syn-mae-up-1h"]]]) });
   assert.equal(ok.r.status, 0, `count with the core registry: exit 0\n${ok.r.stdout}${ok.r.stderr}`);
   assert.deepEqual((ok.c.rows as Counted[]).map((x) => [x.task_class, x.key, x.calib_attempt, x.alpha, x.horizon]), [["syn-range-1h", keyOf("1h"), 1, "0.01", "1h"],
     ["syn-range-4h", keyOf("4h"), 1, "0.01", "4h"], ["syn-mae-down-1h", keyOf("1h"), 1, "0.01", "1h"], ["syn-range-1h", keyOf("1h"), 2, "0.01", "1h"], ["syn-range-4h", keyOf("4h"), 2, "0.01", "4h"]],
-  "the wave 1 region rows, then the two core region rows at attempt 2 (the silence, the vetoed and the under_calib rows left out)");
+  "the wave 1 region rows, then the two core region rows at attempt 2 (the silence, the vetoed, whose class is served, and the under_calib rows left out)");
   assert.ok(linesOf(ok.r.stdout).includes(`input registry wave2-syn.json sha256 ${sha256(CORE)} bytes ${readFileSync(CORE).length}`), `read under the role registry\n${ok.r.stdout}`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-core-")), row0 = `core row syn-range-1h ${keyOf("1h")}: not `, BYTES = "wave2.json: not its byte form, JSON.stringify(registry, null, 1) and one line feed";
   const own = (d: CoreDoc, digest: (f: unknown[]) => string): void => { const r = d.rows[0], f = [1.5, ...(r?.hourOfWeekFactors ?? []).slice(1)]; if (r) { r.hourOfWeekFactors = f; r.factorTableSha256 = digest(f); } };
   const first = (d: CoreDoc): CoreRow2 => d.rows[0] ?? ({} as CoreRow2);
-  const cases: [string, [string, string], string][] = [
+  const CELL = `${row0}a band or path cell of the core with its kata, W, venue and trial id`, SUMS = "blocks whose months are of the block and sum to nTest and kTest";
+  const month = (d: CoreDoc, f: (m: { n: number; k: number }) => void): void => { const m = first(d).test.months["2023-11"]; if (m) f(m); };
+  const recell = (r: CoreRow2 | undefined, o: Record<string, unknown>): void => { if (r) { Object.assign(r, o); r.trialId = [r.taskClass, r.kataId, r.venue, r.symbol, r.horizon, "W2-CALIB"].join("|"); } };
+  // a direction cell of syn at 1h, a silence row of the core and of a wave 1 registry that holds that cell with the same factor table
+  const DIR = { taskClass: "syn-dir-1h", key: "kata:trend-ema-v1@binance/SYNUSDT/1h/up-b1", kataId: "trend-ema-v1", W: 200 };
+  const dirReg = regWith(work, "wave1-dir.json", (rows) => [...rows, { ...rows.find((r) => r.taskClass === "syn-mae-up-1h"), ...DIR }]);
+  const cases: [string, [string, string], string, string?][] = [
     ["a key outside the format in a row", coreWith(work, "row-key.json", (d) => { first(d).note = 1; }), "wave2.json: rows[0]: ['taskClass', 'key', "],
     ["a key outside the format at the top level", coreWith(work, "top-key.json", (d) => { d.note = "x"; }), "wave2.json: the top level: ['plan', 'engine', 'trialRegistryHead', 'rows', 'note']"],
     ["a key outside the format in a month", coreWith(work, "month-key.json", (d) => { Object.assign(first(d).bridge.months["2025-10"] ?? {}, { x: 1 }); }), "wave2.json: rows[0].bridge.months.2025-10: ['n', 'k', 'x']"],
@@ -1169,9 +1192,21 @@ test("wave2_registry_reader_closed - count reads the synthetic core registry of 
     ["a region row with no qhat", coreWith(work, "no-qhat.json", (d) => { first(d).calib.qhat = null; }), `${row0}a qhat, a finite number, iff calibrated`],
     ["a bridge fired under the status region", coreWith(work, "status.json", (d) => { first(d).bridge.vetoed = true; first(d).vetoedBy = "bridge"; }), `${row0}its status and vetoedBy by the order of its blocks`],
     ["a bridge fired under vetoedBy test", coreWith(work, "vetoed-by.json", (d) => { first(d).bridge.vetoed = true; first(d).status = "vetoed"; first(d).vetoedBy = "test"; }), `${row0}its status and vetoedBy by the order of its blocks`],
-    ["a month outside its block", coreWith(work, "month.json", (d) => { const { "2023-10": m, ...rest } = first(d).test.months; first(d).test.months = { "2023-09": m ?? { n: 0, k: 0 }, ...rest }; }), `${row0}blocks whose months are of the block`]];
-  for (const [name, core, re] of cases) {
-    const x = count(sealed, live, 1, [SYM], { core });
+    ["a month outside its block", coreWith(work, "month.json", (d) => { const { "2023-10": m, ...rest } = first(d).test.months; first(d).test.months = { "2023-09": m ?? { n: 0, k: 0 }, ...rest }; }), `${row0}blocks whose months are of the block`],
+    ["a cell written twice", coreWith(work, "cell-twice.json", (d) => { d.rows.splice(1, 0, JSON.parse(JSON.stringify(first(d))) as CoreRow2); }), "wave2.json: a cell (taskClass, key) written twice"],
+    ["months out of order", coreWith(work, "months-order.json", (d) => { const { "2023-10": m, ...rest } = first(d).test.months; first(d).test.months = { ...rest, "2023-10": m ?? { n: 0, k: 0 } }; }), "wave2.json: rows[0].test.months: ['2023-11', "],
+    ["a U+2028 in a string", coreWith(work, "u2028.json", (d) => { d.engine = "monark-governance fixture\u202800000000"; }), BYTES],
+    ["a kTest null on a calibrated row", coreWith(work, "ktest-null.json", (d) => { first(d).test = { nTest: 0, kTest: null, UTest: null, vetoed: false, months: {} }; }), `${row0}${SUMS}`],
+    ["months on a block with no kTest", coreWith(work, "months-no-ktest.json", (d) => { const u = d.rows[4]; if (u) u.test.months = { "2023-10": { n: 0, k: 0 } }; }), `core row syn-range-4h ${keyOf("4h", "realized-vol-hw-v1")}: not ${SUMS}`],
+    ["months whose n do not sum to nTest", coreWith(work, "sum-n.json", (d) => month(d, (m) => { m.n += 1; })), `${row0}${SUMS}`],
+    ["months whose k do not sum to kTest", coreWith(work, "sum-k.json", (d) => month(d, (m) => { m.k += 1; })), `${row0}${SUMS}`],
+    ["a direction cell", coreWith(work, "dir.json", (d) => recell(d.rows[2], DIR)), `core row ${DIR.taskClass} ${DIR.key}: not a band or path cell of the core with its kata, W, venue and trial id`, dirReg],
+    ["the kataId of another kata", coreWith(work, "kata.json", (d) => recell(first(d), { kataId: "realized-vol-hw-v1" })), CELL],
+    ["W 49 on an ewma row", coreWith(work, "w.json", (d) => { first(d).W = 49; }), CELL],
+    ["another venue", coreWith(work, "venue.json", (d) => recell(first(d), { venue: "bybit" })), CELL],
+    ["a trialId of another block", coreWith(work, "trial.json", (d) => { first(d).trialId = String(first(d).trialId).replace("|W2-CALIB", "|W1-CALIB"); }), CELL]];
+  for (const [name, core, re, reg] of cases) {
+    const x = count(sealed, live, 1, [SYM], { core, ...(reg ? { reg } : {}) });
     assert.equal(x.r.status, 2, `${name}: exit 2\n${x.r.stdout}${x.r.stderr}`);
     assert.ok(x.r.stdout.startsWith("REFUSED: ") && x.r.stdout.includes(re), `${name}: refused by name\n${x.r.stdout}`);
   }
@@ -1263,24 +1298,30 @@ const coreBlocks = (work: string, name: string, change: (rows: CoreRow2[]) => vo
 
 // reddened by: a block of the core registry other than the format's (a bound moved), a field of a block (months, label drops, kTest,
 // UTest) changed in the registry and not named, the label drops taken from the instants out, an under_calib row compared, a silence
-// row vetoed by the tool, or the report not naming the rows compared and the grid of each block
+// row vetoed by the tool, or the report not naming the rows compared and the grid of each block; or (fold of review round 1) the act
+// run with another pin of the wave 1 registry, or a vetoed changed in the registry and not named
 // killer: tools/kata-quarter/quarter_wave2.py:21 CONST "K.utc_ms(2024, 10, 1))}" -> "K.utc_ms(2024, 9, 1))}"
 // killer: tools/kata-quarter/quarter_oracle.py:175 CONST "\"months\": got[\"months\"], " -> ""
 // killer: tools/kata-quarter/quarter_oracle.py:175 CONST "\"drops\": got[\"drops_label\"]" -> "\"drops\": got[\"out_input\"]"
 // killer: tools/kata-quarter/quarter_oracle.py:164 CONST " if x[0][\"calib\"][\"qhat\"] is not None]" -> "]"
+// killer: tools/kata-quarter/quarter_wave2.py:81 CONST "!= pin:" -> "!= pin and False:"
+// killer: tools/kata-quarter/quarter_oracle.py:176 CONST "\"vetoed\": bool(" -> "\"vetoed\": r[b][\"vetoed\"] if True else bool("
 // killer: tools/kata-quarter/quarter_oracle.py:176 CONST "r[\"calib\"][\"status\"] == \"region\" and " -> ""
 test("equals_wave2_registry_on_its_blocks - on a made series of the three veto blocks of wave 2, the act counts each core row with a qhat on the bridge, TEST-2 and FWD-2 and gives the registry's nTest, kTest, UTest, vetoed, months and label drops of each block, exit 0, its report naming the rows and the grid of each block; a kTest with its month, a UTest and a label drop changed in the registry are named, exit 1", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_wave2.py")), `${QUARTER}/quarter_wave2.py absent`);
   assert.ok(existsSync(CORE), "fixtures/kata-quarter/registry/wave2-syn.json absent");
-  const name = "equals_wave2_registry_on_its_blocks", work = mkdtempSync(join(tmpdir(), "kata-quarter-l-o3-")), ok = act(name, join(work, "1"), coreBlocks(work, "ok.json")(join(work, "1")));
+  const name = "equals_wave2_registry_on_its_blocks", work = mkdtempSync(join(tmpdir(), "kata-quarter-l-o3-")), okArgs = coreBlocks(work, "ok.json"), ok = act(name, join(work, "1"), okArgs(join(work, "1")));
   assert.equal(ok.r.status, 0, `every field equal: exit 0\n${ok.r.stdout}${ok.r.stderr}`);
+  const other = act(name, join(work, "3"), okArgs(join(work, "3")).map((a, i) => (i === 1 ? "0".repeat(64) : a)));
+  assert.deepEqual([other.r.status, other.rep, linesOf(other.r.stdout).filter((l) => l.startsWith("REFUSED: "))], [2, null, [`REFUSED: registry refused before parsing: sha256 ${sha256(REG)} differs from the pinned ${"0".repeat(64)}`]],
+    `the act with another pin of the wave 1 registry: refused before parsing, exit 2, no report\n${other.r.stdout}${other.r.stderr}`);
   const res = ok.rep?.result as { rows?: string[][]; blocks?: Record<string, { grid: Record<string, { instants: number; first: string; last: string }> }> } | undefined;
   assert.deepEqual([ok.rep?.equal, linesOf(ok.r.stdout).at(-2), res?.rows], [true, "VERDICT: GREEN", [["syn-range-1h", keyOf("1h")], ["syn-range-4h", keyOf("4h")], ["syn-mae-up-1h", keyOf("1h")]]], "the rows with a qhat compared, named");
   assert.deepEqual(Object.fromEntries(Object.entries(res?.blocks ?? {}).map(([b, x]) => [b, x.grid["1h"]])), Object.fromEntries(Object.entries(BLOCKS2).map(([b, [s, e]]) => [b, { instants: (e - s) / H, first: iso(s), last: iso(e - H) }])), "the grid of each block");
   const bad = act(name, join(work, "2"), coreBlocks(work, "bad.json", ([range1, range4]) => {
     const m = range1?.bridge.months["2025-11"];
-    if (m && range1 && range4) { m.k += 1; range1.bridge.kTest = (range1.bridge.kTest ?? 0) + 1; range1.fwd.UTest = UTS.bridge ?? ""; range4.drops.test = 1; }
+    if (m && range1 && range4) { m.k += 1; range1.bridge.kTest = (range1.bridge.kTest ?? 0) + 1; range1.fwd.UTest = UTS.bridge ?? ""; range4.drops.test = 1; range1.fwd.vetoed = false; }
   })(join(work, "2")));
-  assert.equal(bad.r.status, 1, `a kTest with its month, a UTest and a label drop changed: exit 1\n${bad.r.stdout}${bad.r.stderr}`);
-  assert.deepEqual(bad.rep?.differences.map((d) => /^(\S+) \S+ (\S+):/.exec(d)?.slice(1).join(" ")), ["syn-range-1h bridge.kTest", "syn-range-1h bridge.months", "syn-range-4h test.drops", "syn-range-1h fwd.UTest"], "each difference named, by block, row and field");
+  assert.equal(bad.r.status, 1, `a kTest with its month, a UTest, a label drop and a vetoed (FWD-2 of range-1h, the bridge still first) changed: exit 1\n${bad.r.stdout}${bad.r.stderr}`);
+  assert.deepEqual(bad.rep?.differences.map((d) => /^(\S+) \S+ (\S+):/.exec(d)?.slice(1).join(" ")), ["syn-range-1h bridge.kTest", "syn-range-1h bridge.months", "syn-range-4h test.drops", "syn-range-1h fwd.UTest", "syn-range-1h fwd.vetoed"], "each difference named, by block, row and field");
 });

@@ -2,6 +2,12 @@
 
 - **Author**: RECHERCHES (`claude-opus-5-5`, effort high), 2026-10-16. Base: trunk `lot/etude-suite` at `a2264edd` (#311, the
   Windows-safe case folders of CM5-c1a-3); the branch merges the trunk at `576a63d0` (#312, no file of the tool) before its push.
+- **2026-10-16, fold of review round 1** (RECHERCHES, `claude-opus-5-5`, effort high; no code of the tool changed): 15 red cases
+  inside the four tests, one for each mutant the review found green, each with its killer line (section 5): in
+  `wave2_registry_reader_closed` 12 refusals (a cell written twice, the months order, U+2028, `kTest` null iff no `qhat` and
+  `months` `{}` then, the sums of n and of k, the direction cell, the kata, W, venue and trial id) and the class of its vetoed row
+  served; in `equals_wave2_registry_on_its_blocks` a run with another pin of the wave 1 registry and a `vetoed` changed. The item
+  KQ-LO3-EXCLUSIONS-1 and the differences it explains are named in section 4 (limit (a)) and section 6; `on_blocks` is l.160-180.
 - **Plan**: the quarter counts plan of CM-5 (recherches, `coordination/pieces/2026-10-07-G0-cm-5/G0-CM-5-PLAN-1.md`): row c3 (section 5,
   l.595), the registry row of section 4.1 (l.524), the tests of section 5.3 (l.884-965: l.894-902 the existence assertion, L-T12 l.921,
   L-T19 l.929, L-T23 l.933), the host act L-O3 (l.949-953), the child rule (section 3.1, l.322-325) and the vocabulary rule (l.95-102).
@@ -45,7 +51,7 @@
 - `tools/kata-quarter/quarter_evidence.py` l.56: the key `core_registry_sha256` enters the evidence when the count read a core registry,
   and only then.
 - `tools/kata-quarter/quarter_oracle.py`: the act `equals_wave2_registry_on_its_blocks` (L-O3) in `ACTS` (l.31), its usage
-  (l.35, the text `USAGE` of `tools/kata-quarter/quarter_wave2.py`), its arguments (l.128, l.134-137) and its code `on_blocks` (l.160-182), at the end of the file.
+  (l.35, the text `USAGE` of `tools/kata-quarter/quarter_wave2.py`), its arguments (l.128, l.134-137) and its code `on_blocks` (l.160-180), at the end of the file.
 
 ```
 python -E -S -s -B -P tools/kata-quarter/quarter_counts.py count <registry> <sha256> <core registry> <sha256> <served history> <sha256> <sealed dir> <live dir> <k> <out dir> <folder>:<sha256|pinned>:<sha256> ...
@@ -120,31 +126,45 @@ when every field is equal, 1 otherwise.
 
 Limits, written for MONARK's run: (a) the historical exclusion instances (addendum 4 §1) are not an input of the tool: a decision that
 one of them excludes is counted here, and its difference is listed as not explained; MONARK's report reads such a line against the
-dated list of wave 2 halts. (b) An `under_calib` row (no `qhat`; on the recorded series, only the n = 0 rows of a symbol absent by
-rule) is not compared, its blocks having no `kTest`; the venue is the folders of the rows compared. (c) The series form is the tool's
+dated list of wave 2 halts. The item KQ-LO3-EXCLUSIONS-1 of RECHERCHES (`coordination/ITEMS-PORTES.md`, opened at review round 1 of
+this lot) carries that input: on the freeze of the dated list of exclusions at P0-2, and before MONARK's run of L-O3, the act reads
+the pinned list (the straddle times and the intervals of each symbol) and drops those decisions as the writer of the registry does.
+While it is open, the host run is expected to show these differences, from the case H-EE-9-1 of the draft list (SOLUSDT, FWD-2,
+2024-04-29 07:00, straddling windows dropped; review round 1, `coordination/pieces/2026-10-16-g2-cm5-c3-r1/README.md` l.72 and
+l.125): on each SOLUSDT 4h row with a `qhat`, `fwd.nTest` higher than the registry's by at least 1, `fwd.months` with its `2024-04`
+n higher by the same, `fwd.drops` lower by the same, and `fwd.UTest`, computed again from n and k, may differ with them;
+`fwd.kTest` higher only by the excluded decisions that miss, and `fwd.vetoed` different only if those move the exact tail across
+0.05. A SOLUSDT 1h row shows the same lines only if the window of D5 is wider than the label window, which the review leaves open.
+Any other difference is not explained by the item. (b) An `under_calib` row (no `qhat`; on the recorded series, only the n = 0
+rows of a symbol absent by rule) is not compared, its blocks having no `kTest`; the venue is the folders of the rows compared. (c) The series form is the tool's
 (one file per symbol over `READS`); the sealed monthly files of wave 2 are put in that form by the run.
 
 ## 5. Tests (`test/kata-quarter.test.ts`; each red at the base by its first assertion, `existsSync(quarter_wave2.py)`)
 
 | Test (plan) | What it holds | Its killers (`test/kata-quarter.test.ts`, the comment lines above the declaration; red-proof reads the last) |
 |---|---|---|
-| `wave2_registry_reader_closed` (L-T19) | count on the fixture with `wave2-syn.json`: its two region rows at attempt 2 with their key, alpha and horizon after the three wave 1 rows; 17 named refusals, exit 2 | nine, test l.1134-1142: the plan's (attempt « == 2 » → « >= 1 »), the closed keys, the byte form, the pin, both halves of the factor table, the status, `vetoedBy`, the months within their block |
-| `child_row_counted_from_first_quarter_after_its_data` (L-T12) | calibration data ending at CALIB-2's end or at S_1: both core rows counted on every instant of Q_1, the counts of their wave 1 rows but their own misses; ending at S_1 + 15 min: not counted | two, test l.1183-1184: the plan's (ROR « >= » → « > »), and the rule made true |
-| `core_registry_to_evidence_row_composition` (L-T23) | on hourly closes 100 and 101 in turn: the evidence rows at attempt 2 (range-1h: 2208 instants, the misses where the factor is 1 or 1.25 at qhat 0.75, a fire; range-4h: every instant out), the pin of the core registry; the rest of the evidence equal to the count without it | five, test l.1205-1209: the plan's, fixed here (the core rows given at attempt 1), the core rows dropped, the pin, the key of the evidence, the core pair of the command line dropped |
-| `equals_wave2_registry_on_its_blocks` (L-O3 in CI, on the fixture only) | on a made series of the three blocks and a registry derived from the fixture whose blocks are worked out from it (UTest by `binom_exact` run apart from the tool): exit 0, the rows and each block's grid named; a kTest with its month, a UTest and a label drop changed: four differences named, exit 1 | five, test l.1267-1271: the end of FWD-2 moved, the months and the drops of the comparison, the under_calib row compared, the silence row vetoed by the tool |
+| `wave2_registry_reader_closed` (L-T19) | count on the fixture with `wave2-syn.json`: its two region rows at attempt 2 with their key, alpha and horizon after the three wave 1 rows, under a served history that also serves the class of the vetoed row, so that its status alone leaves it out; 29 named refusals, exit 2 | 22, test l.1137-1158: the plan's (attempt « == 2 » → « >= 1 », l.1150), the closed keys, the byte form, the pin, both halves of the factor table, the status, `vetoedBy`, the months within their block; and, from the fold of review round 1 (l.1137-1149), a cell written twice admitted, the vetoed rows counted, the order of the months, U+2028, `kTest` null iff no `qhat` and `months` `{}` then, the sums of n and of k, the direction cell, the kata, W, venue and trial id of the cell |
+| `child_row_counted_from_first_quarter_after_its_data` (L-T12) | calibration data ending at CALIB-2's end or at S_1: both core rows counted on every instant of Q_1, the counts of their wave 1 rows but their own misses; ending at S_1 + 15 min: not counted | two, test l.1218-1219: the plan's (ROR « >= » → « > »), and the rule made true |
+| `core_registry_to_evidence_row_composition` (L-T23) | on hourly closes 100 and 101 in turn: the evidence rows at attempt 2 (range-1h: 2208 instants, the misses where the factor is 1 or 1.25 at qhat 0.75, a fire; range-4h: every instant out), the pin of the core registry; the rest of the evidence equal to the count without it | five, test l.1240-1244: the plan's, fixed here (the core rows given at attempt 1), the core rows dropped, the pin, the key of the evidence, the core pair of the command line dropped |
+| `equals_wave2_registry_on_its_blocks` (L-O3 in CI, on the fixture only) | on a made series of the three blocks and a registry derived from the fixture whose blocks are worked out from it (UTest by `binom_exact` run apart from the tool): exit 0, the rows and each block's grid named; the same run with another pin of the wave 1 registry: refused before parsing, exit 2, no report; a kTest with its month, a UTest, a label drop and a `vetoed` changed: five differences named, exit 1 | seven, test l.1303-1309: the end of FWD-2 moved, the months and the drops of the comparison, the under_calib row compared, the silence row vetoed by the tool; and, from the fold of review round 1 (l.1307-1308), the pin of the wave 1 registry in the act and its `vetoed` taken from the registry |
 
 Each killer, applied alone to the working tree and that test run alone (offline, CPython 3.14.8): **21 of 21 killed** (L-T19 9,
 L-T12 2, L-T23 5, L-O3 5); each file restored and its sha256 checked after each run. Each test is red at the base by its first
-assertion, the absence of `quarter_wave2.py`; red-proof reads the killer on the line right above each declaration.
+assertion, the absence of `quarter_wave2.py`; red-proof reads the killer on the line right above each declaration. After the fold
+of review round 1, the same replay: **36 of 36 killed** (L-T19 22, L-T12 2, L-T23 5, L-O3 7), the 15 new lines among them, each
+also first applied as the review wrote it and killed by the case added for it.
 
 The killers of the earlier tests on `quarter_oracle.py` l.138-144 moved by four lines with the branch of L-O3 (six killer lines); every
 killer line of the file holds its text once on its line at the head (148 lines checked). `scripts/verifier-tool-ci.mjs` names the four
 new tests on the last line of `QUARTER_TESTS`, and `test/verifier-tool-ci.test.ts` their number, 34. The file runs in 167 s here
-(121 s at the base, and the same in CI at #311): the driver's bound for the file is 300 s.
+(121 s at the base, and the same in CI at #311): the driver's bound for the file is 300 s. After the fold: 163 killer lines, each
+holding its text once on its line, the 148 earlier ones on the same line as at the previous head; the file runs in 185 s here.
 
 ## 6. Left to MONARK and to later lots
 
 - **MONARK**: the host run of L-O3 and its report, after `wave2.json` and `PROVENANCE-wave2.md` are classified (plan l.953), and the
-  checks of `wave2.json` that need the posted digests (the snapshots, `seriesSha256`); the Windows replay of the test file.
+  checks of `wave2.json` that need the posted digests (the snapshots, `seriesSha256`); the Windows replay of the test file. The
+  run reads the historical exclusions only once the item KQ-LO3-EXCLUSIONS-1 of RECHERCHES is closed (limit (a) of section 4); until
+  then its report shows the differences listed there, and only those are explained by the item.
 - **Later lots**: the reader of the retire list with two registries (RETIRE-READER-WAVE2-1, plan l.340-342); the 2b registry and its
   count (c4, c4b and L-O4); the calibration checks of the reader list left out above, if a lot reads those fields.
