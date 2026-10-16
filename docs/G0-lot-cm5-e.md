@@ -126,7 +126,9 @@ at most 2 misses in a month, which do not flag at 0.001 either, and the attempt 
 which turns those flags off, and an assertion that rows flag and that a row with misses does not was added. Each test is red at the
 base by its first assertion (shown with `quarter_month.py` set aside: four `ERR_ASSERTION` « tools/kata-quarter/quarter_month.py
 absent »). `scripts/verifier-tool-ci.mjs` names the four tests at the end of `QUARTER_TESTS`, and `test/verifier-tool-ci.test.ts`
-their number, 38. The file runs in 203 s here (189 s at the base), under the driver's bound of 300 s.
+their number, 38; the four names are written on the last line of the list, so that no line of the driver moves and the killers of
+`test/verifier-tool-ci.test.ts` keep their anchors (every killer line of the tree holds its text once on its line: 2414 checked). The
+file runs in 194 s here (189 s at the base, offline, CPython 3.14.8), under the driver's bound of 300 s.
 
 ## 7. Left to MONARK and to later lots
 
