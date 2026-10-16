@@ -347,8 +347,8 @@ export function snapshotDrift(committedText, built, textOf) {
 }
 
 /** --check (SYNC-CHECK-MODE-1): build the snapshot the sources serve now, exactly as the write does, and compare it with the
- *  committed file under `root` (snapshotDrift). Writes nothing. A difference: one line on stderr naming the fields, exit 1;
- *  a committed pending_since is named on stderr and does not fail the check. Same: one line on stdout (exit 0). */
+ *  committed file under `root` (snapshotDrift), then its manifest entry (manifestEntryHolds). Writes nothing. A difference: one
+ *  line on stderr, exit 1; a committed pending_since is named on stderr and does not fail the check. Same: one line on stdout. */
 export async function checkUkemiServed({ root, get = fetch, ca }) {
   const out = await buildUkemiServed({ root, get, ca });
   let res;
@@ -356,6 +356,10 @@ export async function checkUkemiServed({ root, get = fetch, ca }) {
   if (res.pendingSince !== null) console.error(`sync-ukemi-served --check: note: ${OUT_REL} carries pending_since ${res.pendingSince} (a pending snapshot; export-public --out refuses it until the promotion).`);
   if (res.drift.length > 0) {
     console.error(`sync-ukemi-served --check: ${OUT_REL} no longer says what the harness serves now, on {${res.drift.join(", ")}}; re-run without --check.`);
+    process.exit(1);
+  }
+  if (!manifestEntryHolds(root, OUT_REL)) {
+    console.error(`sync-ukemi-served --check: the manifest entry of ${OUT_REL} is not its sha256; re-run without --check.`);
     process.exit(1);
   }
   console.log(`sync-ukemi-served --check OK — ${OUT_REL} says what the harness serves now (read_at and pending_since aside).`);
@@ -406,6 +410,13 @@ export function promotedManifest(root, manifestText, servedRel, sha, pendingRel)
   if (pendingRel in files) return removeManifestEntry(next, pendingRel);
   const disk = readFileSync(join(root, servedRel), "utf8");
   return !/"pending_since"/.test(disk) && files[servedRel] === sha256(Buffer.from(lf(disk), "utf8")) ? next : removeManifestEntry(next, pendingRel);
+}
+
+/** Does the site manifest under `root` hold, for `rel`, the CRLF->LF sha256 of the committed file (reads only)? The --check of a
+ *  served snapshot requires it, as scripts/sync-narabi-served.mjs does (narabiEntryFix): the site loaders refuse a wrong entry. */
+export function manifestEntryHolds(root, rel) {
+  const entry = JSON.parse(readFileSync(join(root, MANIFEST_REL), "utf8"))?.files?.[rel];
+  return entry === sha256(Buffer.from(lf(readFileSync(join(root, rel), "utf8")), "utf8"));
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await (process.argv.includes("--pending") ? pendingMain() : process.argv.includes("--check") ? checkUkemiServed({ root: ROOT, get: fetch, ca: readFileSync(join(ROOT, CA_REL), "utf8") }) : main());

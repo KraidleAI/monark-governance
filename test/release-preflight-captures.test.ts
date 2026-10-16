@@ -3,7 +3,8 @@
  * five site capture tools before any gh read (capturePreflight, through a runner; captureGate aborts on a problem), and
  * scripts/export-public.mjs, which stays without network and without child process, judges the results (captureCheckProblems).
  * The runners here are injected, except the default runner, called on the one tool that reads no network
- * (sync-ukemi-course.mjs); the four network checks never run in a test. captureGate exits the process by RELEASE ABORTED, so it
+ * (sync-ukemi-course.mjs) and on a temporary root whose tool dies before its exit; the four network checks never run in a
+ * test. captureGate exits the process by RELEASE ABORTED, so it
  * runs in a PILOT process whose status and stderr are read (model: test/release-public-flow.test.ts). The storefront runbook's
  * step before the export names the same five commands (a procedure guard, the export itself does not refuse without them).
  * Each test loads what it judges inside its body: a missing export reds by assertion, not by import.
@@ -11,7 +12,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -53,6 +54,21 @@ test("export_preflight_fails_closed_when_host_unreachable", async () => {
   assert.deepEqual(captureCheckProblems(zeros().slice(1)), ["scripts/sync-harness-served.mjs --check has no result"], "a missing tool is a problem");
   assert.deepEqual(captureCheckProblems([...zeros(), { tool: "sync-other.mjs", exit: 0, stderr: "" }, { tool: "sync-ukemi-course.mjs", exit: 0, stderr: "" }, { tool: 3 }]), ["sync-other.mjs is not a capture tool", "sync-ukemi-course.mjs has more than one result", 'a malformed capture check result: {"tool":3}'], "an unknown, a doubled and a malformed result are problems");
   assert.deepEqual(captureCheckProblems("none"), ["the capture check results are not a list"], "not a list: a problem");
+  // The default runner on a child that never reaches an exit: a tool that kills itself by a signal (POSIX); win32 maps that
+  // self-kill to exit 1 (test/dojo-publish-e2e.test.ts), so there the tool outgrows spawnSync's output bound and spawnSync kills it.
+  // killer: scripts/release-public.mjs:80 CONST "? r.status : null" -> "? r.status : 0"
+  const { defaultRunCheck } = rel as typeof import("../scripts/release-public.mjs");
+  const tmp = mkdtempSync(join(tmpdir(), "capture-killed-"));
+  try {
+    mkdirSync(join(tmp, "scripts"));
+    writeFileSync(join(tmp, "scripts", "sync-ukemi-course.mjs"), 'if (process.platform === "win32") process.stdout.write("x".repeat(2 * 1024 * 1024));\nelse process.kill(process.pid, "SIGKILL");\n');
+    const r = defaultRunCheck({ root: tmp, tool: "sync-ukemi-course.mjs" });
+    assert.equal(r.exit, null, `a check killed before its exit reaches no exit status:\n${r.stderr}`);
+    const problems = captureCheckProblems(zeros().map((z) => (z.tool === r.tool ? r : z)));
+    assert.ok(problems.length === 1 && /^scripts\/sync-ukemi-course\.mjs --check did not run to an exit/.test(problems[0] ?? ""), `the default runner's killed child is a problem, never a pass: ${JSON.stringify(problems)}`);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 // killer: scripts/release-public.mjs:78 CONST ", \"--check\"]" -> "]"
@@ -69,6 +85,7 @@ test("release_preflight_runs_the_five_real_checks", async () => {
   assert.equal(r.tool, "sync-ukemi-course.mjs");
 });
 
+// killer: scripts/release-public.mjs:99 CONST ".replace(/\\.$/, \"\")" -> ""
 // killer: scripts/release-public.mjs:99 CONST "if (problems.length > 0) " -> "if (false) "
 test("release_preflight_refuses_by_exit_status", async () => {
   const rel: Release = await import("../scripts/release-public.mjs");
@@ -78,7 +95,7 @@ test("release_preflight_refuses_by_exit_status", async () => {
     const pilot = join(tmp, "pilot.mjs");
     writeFileSync(pilot, `import { captureGate, CAPTURE_CHECKS } from ${JSON.stringify(pathToFileURL(join(ROOT, "scripts", "release-public.mjs")).href)};
 const fail = process.env.GATE_FAIL;
-captureGate({ root: process.cwd(), runCheck: ({ tool }) => ({ tool, exit: tool === fail ? 1 : 0, stderr: tool === fail ? "the capture is stale" : "" }) });
+captureGate({ root: process.cwd(), runCheck: ({ tool }) => ({ tool, exit: tool === fail ? 1 : 0, stderr: tool === fail ? "the capture is stale." : "" }) });
 console.log("pilot: passed " + CAPTURE_CHECKS.length);
 `);
     const run = (fail: string): { status: number | null; out: string; err: string } => {
@@ -90,7 +107,8 @@ console.log("pilot: passed " + CAPTURE_CHECKS.length);
     };
     const red = run("sync-ukemi-served.mjs");
     assert.equal(red.status, 1, `one check at 1: the gate exits 1:\n${red.err}`);
-    assert.match(red.err, /RELEASE ABORTED: a site capture does not say what its source serves now: scripts\/sync-ukemi-served\.mjs --check exited 1: the capture is stale\./, "the RELEASE ABORTED line names the tool and its line");
+    assert.match(red.err, /RELEASE ABORTED: a site capture does not say what its source serves now: scripts\/sync-ukemi-served\.mjs --check exited 1: the capture is stale\. Re-run the sync/, "the RELEASE ABORTED line names the tool and its line");
+    assert.ok(!red.err.includes(".. Re-run"), `a problem that ends with a period is not followed by a second one:\n${red.err}`);
     assert.ok(!red.out.includes("pilot: passed"), "nothing runs after the refusal");
     const green = run("");
     assert.equal(green.status, 0, `five checks at 0: the gate lets the release go on:\n${green.err}`);

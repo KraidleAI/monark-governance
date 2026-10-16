@@ -71,5 +71,7 @@ export function buildUkemiServed(opts: { root: string; get?: Get; ca: string }):
 /** --check of a served snapshot: the top-level keys that differ (read_at and pending_since aside; "layout" for bytes alone) and
  *  the committed pending_since day or null. */
 export function snapshotDrift(committedText: string, built: Record<string, unknown>, textOf: (snapshot: Record<string, unknown>) => string): { drift: string[]; pendingSince: string | null };
+/** Does the site manifest under `root` hold, for `rel`, the CRLF->LF sha256 of the committed file? Reads only. */
+export function manifestEntryHolds(root: string, rel: string): boolean;
 /** --check: exits 1 on a difference, returns on a match. Writes nothing. */
 export function checkUkemiServed(opts: { root: string; get?: Get; ca: string }): Promise<void>;

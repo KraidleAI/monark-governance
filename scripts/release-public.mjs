@@ -96,7 +96,7 @@ export function capturePreflight({ root, runCheck = defaultRunCheck }) {
 /** The capture gate of the preflight: RELEASE ABORTED, exit 1, on the first problem of capturePreflight, naming every one. */
 export function captureGate({ root, runCheck = defaultRunCheck }) {
   const problems = capturePreflight({ root, runCheck });
-  if (problems.length > 0) abort(`a site capture does not say what its source serves now: ${problems.join("; ")}. Re-run the sync that writes it, commit, then release.`);
+  if (problems.length > 0) abort(`a site capture does not say what its source serves now: ${problems.join("; ").replace(/\.$/, "")}. Re-run the sync that writes it, commit, then release.`);
 }
 
 // ============================================================ CLI helpers (run-guarded; not exported) ===
@@ -180,9 +180,9 @@ function parseArgs(argv) {
 
 /** Every fail-closed refusal that must precede ANY preparation (ADR-M010 section 4/5; ADR-PUBLIC-CADENCE-1 D1), so a
  *  bad invocation — INCLUDING a --dry-run — refuses before any gate runs and before the mirror clone is touched: the
- *  message gate (CA-1.1), the mirror path and the noreply identity (CA-1.4), the branch guard, gh, the visibility of
- *  the governance repository (CA-1.7), and the pending snapshot (RELEASE-PREFLIGHT-SEND-GUARD-1). Returns what main()
- *  consumes. */
+ *  message gate (CA-1.1), the mirror path and the noreply identity (CA-1.4), the branch guard, the pending snapshot
+ *  (RELEASE-PREFLIGHT-SEND-GUARD-1), then the five site capture checks (captureGate: each capture tool's --check, before
+ *  any gh read), gh, and the visibility of the governance repository (CA-1.7). Returns what main() consumes. */
 function preflight(opts) {
   if (!opts.message) abort("--message <file> is required: the English commit message (ADR-PUBLIC-CADENCE-1 D1).");
   if (!existsSync(opts.message)) abort(`--message file not found: ${opts.message}`);

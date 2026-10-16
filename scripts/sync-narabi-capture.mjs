@@ -5,7 +5,7 @@
 //   node scripts/sync-narabi-capture.mjs            re-capture (only when the served files changed); print the manifest sha256
 //   node scripts/sync-narabi-capture.mjs --check    write nothing; exit 1 unless the committed capture is still a faithful
 //                                                   prefix of what is served now AND at most CAPTURE_LAG_BOUND_T tracker
-//                                                   steps behind it (see checkCommitted)
+//                                                   steps, and as many lines, behind it (see checkCommitted)
 //
 // Two GETs on https://monarkgate.tech/narabi/ (https only, a redirect is refused, 200 only, body bounded), then FAIL-CLOSED
 // checks before any write (servedChecks):
@@ -45,11 +45,16 @@ export function projectTimeline(servedText) {
   return lines.map((l) => projectServedLine(JSON.parse(l))).join("\n") + (lines.length > 0 ? "\n" : "");
 }
 
-/** The capture's lag bound, in tracker steps T (SYNC-CHECK-MODE-1): --check refuses a capture whose
- *  stored T is more than this many steps behind the served T. Source: the G1 of 2026-09-24 (docs/G1-lot-site-5j-int.md, section 6)
+/** The capture's lag bound, in tracker steps T, applied to the served lines too (SYNC-CHECK-MODE-1): --check refuses a capture
+ *  whose stored T is more than this many steps behind the served T, or that holds more than this many lines fewer than are
+ *  served. Source: the G1 of 2026-09-24 (docs/G1-lot-site-5j-int.md, section 6)
  *  read a capture at T=6 as a faithful prefix and wrote that it would be stale around T=7, i.e. at the first step served after
  *  it; the sentinel steps T at most once a UTC day (deploy/monark-sentinel.timer: one line a day, the slots after the first are
- *  same-day retries). So 0: a capture is fresh until the next served step, and a send after that step needs a resync first. */
+ *  same-day retries). So 0: a capture is fresh until the next served step, and a send after that step needs a resync first.
+ *  The lines: the sentinel also writes a line that does not step T, on a day it cannot evaluate or that does not follow the
+ *  previous one (step of apps/sentinel/src/timeline.ts), and state.json does not change then (stateSummary carries no day).
+ *  Every step comes with its line, so a capture k steps behind is at least k lines behind, and the count of lines also catches
+ *  the lines that do not step T: at 0, every served line beyond the stored prefix is a lag. */
 export const CAPTURE_LAG_BOUND_T = 0;
 
 /** GET one served file under BASE (https, a redirect refused, 200 only, the body bounded); `get` is fetch, or a test's seam. */
@@ -86,8 +91,9 @@ async function servedChecks(stateJson, servedTimeline) {
   return { lines, state };
 }
 
-/** --check (pure): the committed capture `old` is still a faithful prefix of what is served now, and its stored T is at most
- *  CAPTURE_LAG_BOUND_T steps behind the served T. The problems, empty when it holds. */
+/** --check (pure): the committed capture `old` is still a faithful prefix of what is served now, its stored T is at most
+ *  CAPTURE_LAG_BOUND_T steps behind the served T, and it holds at most that many lines fewer than are served. The problems,
+ *  empty when it holds. */
 export function checkCommitted(old, stateJson, servedTimeline) {
   const problems = [];
   const servedLines = servedTimeline.split("\n").filter((l) => l.trim().length > 0);
@@ -104,6 +110,7 @@ export function checkCommitted(old, stateJson, servedTimeline) {
   if (servedT === storedT && stateJson !== old.state_json) problems.push("state.json served now differs from the stored one at the same T");
   if (!Number.isSafeInteger(servedT) || !Number.isSafeInteger(storedT)) problems.push("the served or the stored state.json carries no integer tracker.t");
   else if (servedT - storedT > CAPTURE_LAG_BOUND_T) problems.push(`the capture (T=${String(storedT)}) is ${String(servedT - storedT)} step(s) behind what is served now (T=${String(servedT)}), more than the bound of ${String(CAPTURE_LAG_BOUND_T)}: re-capture before any send`);
+  if (servedLines.length - storedLines.length > CAPTURE_LAG_BOUND_T) problems.push(`the capture holds ${String(storedLines.length)} of the ${String(servedLines.length)} lines served now, ${String(servedLines.length - storedLines.length)} behind, more than the bound of ${String(CAPTURE_LAG_BOUND_T)}: re-capture before any send`);
   return problems;
 }
 

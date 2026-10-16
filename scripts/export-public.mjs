@@ -567,7 +567,7 @@ function doExport(root, outDir) {
 
 // ---- CAPTURE CHECKS (SYNC-CHECK-MODE-1) ------------------------------------------------------
 // The five site capture tools whose --check a send runs first: release-public.mjs in its preflight, and the step of
-// docs/RUNBOOK-vitrine.md before --out. This export stays without network and without child process (line 2): it only JUDGES
+// docs/RUNBOOK-vitrine.md before --out. This export stays without network and without child process: it only JUDGES
 // the results that the caller obtained, one { tool, exit, stderr } per tool.
 export const CAPTURE_CHECK_TOOLS = Object.freeze([
   "sync-harness-served.mjs", "sync-ukemi-served.mjs", "sync-ukemi-course.mjs", "sync-narabi-capture.mjs", "sync-narabi-served.mjs",

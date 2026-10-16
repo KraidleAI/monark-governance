@@ -48,7 +48,7 @@ import { SHAPES, stripRefs } from "../apps/site/lib/harness-served-load.ts";
 // The deploy check's request bodies, imported (never a copy), so they cannot drift before deployment (G2 of CM-2b surfaces, M2):
 // each served response hashes to the sha256 the committed check recorded.
 import { GATE_BODY, GATE_LIQ_BODY, CALIBRATE_BODY, CASCADE_BODY } from "./verify-harness.mjs";
-import { setManifestEntry, promotedManifest, applyWrites, MANIFEST_REL, snapshotDrift } from "./sync-ukemi-served.mjs";
+import { setManifestEntry, promotedManifest, applyWrites, MANIFEST_REL, snapshotDrift, manifestEntryHolds } from "./sync-ukemi-served.mjs";
 import { handleJsonMirror } from "../apps/harness/src/http.ts";
 import { HARNESS_TOOLS } from "../apps/harness/src/tools/registry.ts";
 import { API_SERVER_URL } from "../apps/harness/src/openapi.ts";
@@ -194,9 +194,9 @@ async function main() {
 }
 
 /** --check (SYNC-CHECK-MODE-1): build the snapshot the sources serve now, exactly as the write does, and compare it with the
- *  committed file under `root`, read_at and pending_since aside (snapshotDrift). Writes nothing. A difference: one line on
- *  stderr naming the fields, exit 1; a committed pending_since is named on stderr and does not fail the check (export-public
- *  --out refuses it). Same: one line on stdout, the caller goes on (exit 0). */
+ *  committed file under `root`, read_at and pending_since aside (snapshotDrift), then its manifest entry (manifestEntryHolds).
+ *  Writes nothing. A difference: one line on stderr, exit 1; a committed pending_since is named on stderr and does not fail
+ *  the check (export-public --out refuses it). Same: one line on stdout, the caller goes on (exit 0). */
 export async function checkHarnessServed({ root, get = fetch, ca }) {
   const { out, exempt } = await buildHarnessServed({ get, ca });
   let res;
@@ -204,6 +204,10 @@ export async function checkHarnessServed({ root, get = fetch, ca }) {
   if (res.pendingSince !== null) console.error(`sync-harness-served --check: note: ${OUT_REL} carries pending_since ${res.pendingSince} (a pending snapshot; export-public --out refuses it until the promotion).`);
   if (res.drift.length > 0) {
     console.error(`sync-harness-served --check: ${OUT_REL} no longer says what the harness serves now, on {${res.drift.join(", ")}}; re-run without --check.`);
+    process.exit(1);
+  }
+  if (!manifestEntryHolds(root, OUT_REL)) {
+    console.error(`sync-harness-served --check: the manifest entry of ${OUT_REL} is not its sha256; re-run without --check.`);
     process.exit(1);
   }
   console.log(`sync-harness-served --check OK — ${OUT_REL} says what the harness serves now (read_at and pending_since aside).`);

@@ -175,6 +175,8 @@ function readReport(reportPath) {
 
 function main() {
   const argv = process.argv.slice(2), reportPath = arg(argv, "--report");
+  const usage = "usage: node scripts/sync-ukemi-course.mjs --report <path to hyp-report-<event>.json> | --check [--report <path>]";
+  if (argv.includes("--report") && (reportPath === undefined || reportPath === "" || reportPath.startsWith("--"))) fail(usage); // a --report without its path, never the manifest check alone
   if (argv.includes("--check")) {
     const problems = courseCheckProblems(ROOT, reportPath === undefined ? undefined : readReport(reportPath));
     if (problems.length > 0) {
@@ -184,7 +186,7 @@ function main() {
     console.log(`sync-ukemi-course --check OK — ${OUT_REL} matches its manifest entry${reportPath === undefined ? "" : " and is what the report composes now"}.`);
     return;
   }
-  if (reportPath === undefined) fail("usage: node scripts/sync-ukemi-course.mjs --report <path to hyp-report-<event>.json> | --check [--report <path>]");
+  if (reportPath === undefined) fail(usage);
   let done;
   try {
     done = writeSiteCourse(ROOT, readReport(reportPath));
