@@ -400,6 +400,7 @@ test("bell_publish_handoff_fails_by_name_on_an_unreadable_bundle", (t) => {
 // published, settled or before the mark. The entry is skipped as if it were not listed, as at the base: no fatal, no refusal, the next unit
 // published. The purge runs inside the listing: readdirSync of node:fs replaced, then syncBuiltinESMExports, restored in a finally (the
 // reviewer's probe, probe-race.snippet.ts).
+// killer: apps/bell/scripts/bell-publish.mjs:294 SDL "if (err?.code === \"ENOENT\") continue; " -> ""
 test("bell_publish_handoff_skips_an_entry_purged_after_the_listing", () => {
   api();
   const fsc = createRequire(import.meta.url)("node:fs") as { readdirSync: unknown }, real = fsc.readdirSync as (...a: unknown[]) => unknown;
