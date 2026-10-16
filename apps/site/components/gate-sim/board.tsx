@@ -427,7 +427,7 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
                   <dt style={{ color: "var(--ink2)" }}>act</dt>
                   <dd style={{ margin: 0 }}>{finger.wiring.act}</dd>
                 </dl>
-                <div style={teaser}>{finger.connects}</div>
+                {finger.connects === "" ? null : <div style={teaser}>{finger.connects}</div>}
               </>
             ) : (
               <div style={teaser}>

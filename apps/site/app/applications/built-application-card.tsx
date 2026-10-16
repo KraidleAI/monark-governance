@@ -70,9 +70,11 @@ export function BuiltApplicationCard({
           </p>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">
-        Connects: <RegisterValue text={product.connects} />
-      </p>
+      {product.connects === "" ? null : (
+        <p className="text-xs text-muted-foreground">
+          Connects: <RegisterValue text={product.connects} />
+        </p>
+      )}
       <WhatInside block={inside} />
       <div className="mt-auto flex flex-wrap items-center gap-4 pt-1 text-sm">
         {links.map((link) =>

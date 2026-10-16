@@ -28,7 +28,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
-import { assertFleetBody, renderedBody, decodeEntities, SITE_BUILD_RUN, FLEET_HEADER } from "../scripts/assert-fleet-html.mjs";
+import { assertFleetBody, renderedBody, decodeEntities, stripHiddenSurfaces, SITE_BUILD_RUN, FLEET_HEADER } from "../scripts/assert-fleet-html.mjs";
 import { derivePublicWorkflow, collectFiles, CI_WORKFLOW_PATH } from "../scripts/export-public.mjs";
 import ts from "typescript";
 import { renderedTexts } from "../apps/site/test/honesty-lint.ts";
@@ -54,6 +54,8 @@ import {
   registerNames,
 } from "../apps/site/lib/fleet.ts";
 import { INSIDE, insideFor } from "../apps/site/lib/fleet-presentation.ts";
+import { PICKER_PROFILES } from "../apps/site/lib/profiles.ts";
+import { PIECE_DOCS } from "../apps/site/lib/docs-pieces.ts";
 import { listFrozenContracts, frozenContractsSummary, UNSERVED_CONTRACT_FILES } from "../apps/site/app/roadmap/frozen-contracts.ts";
 import { loadBellServed } from "../apps/site/lib/bell-served-load.ts";
 import { GATE_TOOL_DESCRIPTION } from "../apps/harness/src/tools/gate.ts";
@@ -234,6 +236,14 @@ const renderedOf = (rel: string): string[] => {
   const sf = ts.createSourceFile(rel, src, ts.ScriptTarget.Latest, true, kind);
   return renderedTexts(sf).map((rt) => rt.text);
 };
+
+/** The rendered text of one apps/site source, white space collapsed: a JSX comment is not rendered, so a sentence moved into
+ *  one is gone from it. */
+const saidIn = (rel: string): string => renderedOf(rel).join(" ").replace(/\s+/g, " ");
+
+/** The rendered text of a block's inner source (panelBlock), parsed as the children of a fragment, white space collapsed. */
+const saidInBlock = (inner: string): string =>
+  renderedTexts(ts.createSourceFile("block.tsx", `<>${inner}</>`, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)).map((rt) => rt.text).join(" ").replace(/\s+/g, " ");
 
 /** Literal parts of `export const metadata = { …, description }`: a string, or a template's head and tails (its
  *  interpolations are code, not text). Returns [] when the page exports no metadata description. */
@@ -1127,6 +1137,7 @@ test("registry_notes_say_non_llm_once_per_page — 'non-LLM' at most once on /, 
   assert.ok(perPage.some(([, n]) => n === 1), "the phrase still rides once where it belongs (false-green guard)");
 });
 
+// killer: apps/site/lib/fleet.ts:340 CONST "segment: \"tokenized equities, off-hours\"," -> "segment: \"<<bell_segment>>\","
 test("owner_decisions_of_2026_09_24_retired_wording_stays_out — B_t caller-carried, no guarantee title, the engine reachable, no skill-hub handle, Bell segment and connections decided, engines complete, register tagline (decisions of the owner, 2026-09-24)", () => {
   const kept = collectFiles(ROOT).kept.filter((f) => f.rel.startsWith("apps/site/") && !BINARY_EXPORT.test(f.rel));
   assert.ok(kept.length >= 50, "the exported apps/site files are scanned (false-green guard)");
@@ -1184,13 +1195,38 @@ test("owner_decisions_of_2026_09_24_retired_wording_stays_out — B_t caller-car
   // /integrators and /roadmap: the engine is reachable (the fleet keeps its per-piece status on /fleet).
   assert.ok(renderedOf("apps/site/app/integrators/page.tsx").some((t) => t.includes("The engine, reachable by your agent.")));
   assert.ok(renderedOf("apps/site/app/roadmap/page.tsx").some((t) => t.includes("The same engine made reachable by other agents over HTTP or MCP.")));
-  // Bell's segment and connections are register values; the connections name register agents (a renamed agent fails the
-  // build). Mutant: registerNames(["Hikae", "Shogun"]) => throws.
+  // Bell's segment is a register value; register names are checked against the agents (a renamed agent fails the build).
+  // Its connections are held by bell_surfaces_name_no_connection_while_bell_depends_on_neither. Mutant:
+  // registerNames(["Hikae", "Shogun"]) => throws.
   const bell = PRODUCTS.find((p) => p.key === "bell");
   assert.equal(bell?.segment, "tokenized equities, off-hours");
-  assert.equal(bell?.connects, registerNames(["Hikae", "Shōgen"]));
-  assert.equal(bell?.connects, "Hikae and Shōgen");
+  assert.equal(registerNames(["Hikae", "Shōgen"]), "Hikae and Shōgen");
   assert.throws(() => registerNames(["Hikae", "Shogun"]), /not an agent of the fleet register/);
+});
+
+/** The visible text of a rendered page: hidden surfaces and comments taken out (stripHiddenSurfaces), then ONE walk over its tags and texts that keeps the texts, tags made spaces (ADR-CODEQL-ALERTS-1 D3: no regex filter), entities decoded, white space collapsed. */
+const visibleText = (html: string): string => decodeEntities([...stripHiddenSurfaces(html).matchAll(/<[^>]*>|[^<]+/g)].map(([t]) => (t.startsWith("<") ? " " : t)).join("")).replace(/\s+/g, " ");
+
+// killer: apps/site/lib/fleet.ts:353 CONST "connects: \"\"," -> "connects: registerNames([\"Hikae\", \"Shōgen\"]),"
+test("bell_surfaces_name_no_connection_while_bell_depends_on_neither — /docs/bell and the Bell card of /applications, rendered on the server, say no connection to Hikae or Shōgen, and the board renders no Bell line, while the Bell package depends on no package of the gate, the engine or the attest sensor; when it does, the connection is revisited", async () => {
+  const deps = Object.keys((JSON.parse(read("apps/bell/package.json")) as { dependencies?: Record<string, string> }).dependencies ?? {});
+  assert.ok(deps.length > 0 && !deps.some((d) => ["@monark/hikae", "@monark/harness", "@monark/monark", "@monark/contracts"].includes(d)), "premise: MONARK Bell depends on no package of Hikae or Shōgen; when it does this reds and the connection is revisited");
+  const bell = PRODUCTS.find((p) => p.key === "bell");
+  assert.equal(bell?.connects, "", "the register names no connection for MONARK Bell");
+  const html = await renderOpen(["docs/bell/page.tsx", "applications/page.tsx"]);
+  const docs = visibleText(html["docs/bell/page.tsx"] ?? ""), apps = visibleText(html["applications/page.tsx"] ?? "");
+  assert.ok(docs.includes("MONARK Bell is an application on the DeFi side, with its own gate: tokenized equities, off-hours. It publishes at its own web address,"), "/docs/bell renders its first sentence (false-green guard)");
+  assert.doesNotMatch(docs, /\bconnects? to\b|Hikae and Sh[oō]gen/i, "/docs/bell names no connection of MONARK Bell");
+  assert.ok(apps.includes("MONARK Bell") && apps.includes("How it is served"), "/applications renders the Bell card (false-green guard)");
+  // The Bell card alone: the built section opens it and the upcoming section follows it (the upcoming cards name the shared
+  // gate and say "It will connect to", which is true of them).
+  const cardStart = apps.indexOf("Built · served on a tested path"), cardEnd = apps.indexOf("Upcoming · named, not delivered");
+  assert.ok(cardStart >= 0 && cardEnd > cardStart, "/applications renders the built section before the upcoming one (false-green guard)");
+  const bellCard = apps.slice(cardStart, cardEnd);
+  assert.ok(bellCard.includes("MONARK Bell") && bellCard.includes("How it is served"), "the slice is the Bell card (false-green guard)");
+  assert.doesNotMatch(bellCard, /Connects:|\bconnects? to\b|Hikae|Sh[oō]gen/i, "the Bell card of /applications names no connection, in any wording");
+  assert.ok(PICKER_PROFILES.every((p) => p.productKey !== "bell"), "premise: no profile of the board picks MONARK Bell, so the board renders no Bell line");
+  assert.ok(!renderedOf("apps/site/components/gate-sim/board.tsx").some((t) => /Hikae and Sh[oō]gen/.test(t)), "the board writes no connection of its own");
 });
 
 // KITCHEN-PUBLIC-1 — the internal work vocabulary never rides on the public storefront. A CLOSED list of forms, scanned
@@ -1648,7 +1684,7 @@ test("shogen_how_it_works_is_building_while_the_join_does_not_run — the block 
   const block = panelBlock(read("apps/site/components/shogen-panel.tsx"), "How it works");
   assert.equal(block.status, "building", "How it works is building");
   assert.doesNotMatch(block.inner, /\b(?:served|already|committed)\b/i, "a building block states no served fact (H8)");
-  assert.match(block.inner, /the join from attest into the gate is being built/, "the block says the join is being built");
+  assert.match(saidInBlock(block.inner), /the join from attest into the gate is being built/, "the block, as it renders, says the join is being built");
 });
 
 // killer: apps/site/components/shogen-panel.tsx:50 CONST "<BuildingPanelBlock title=\"How it works\" status=\"building\">" -> "<PanelBlock title=\"How it works\" status=\"built\">"
@@ -1659,6 +1695,18 @@ test("shogen_how_it_works_is_building_only_while_its_construction_item_is_open �
   assert.equal(block.status, open ? "building" : "built", "How it works is building while its construction item is open in the register, built once it closes");
   const diagram = read("README.md").split(/\r?\n/).filter((l) => l.includes("sensors (attest"));
   assert.deepEqual(diagram.map((l) => l.includes("join building")), [open], "the README diagram draws the join building exactly while the item is open");
+  // The six other surfaces that say the join is being built follow the same entry: while it is open each says so; once it
+  // closes, this reds and each sentence is revisited with the block.
+  const shogen = FLEET_AGENTS.find((a) => a.name === "Shōgen");
+  const sentences: [string, string, string][] = [
+    ["README.md (Shōgen row)", read("README.md").split(/\r?\n/).find((l) => l.includes("| **Shōgen** — sensor")) ?? "", "its join into the gate is being built"],
+    ["docs words (Shōgen summary)", PIECE_DOCS.shogen?.summary ?? "", "Its join into the gate's verdict is being built"],
+    ["register (Shōgen served_by)", shogen?.status === "built" ? shogen.wiring.served_by : "", "its join is being built"],
+    ["register (Shōgen note)", shogen?.status === "built" ? shogen.wiring.note : "", "its join into the gate is being built"],
+    ["/roadmap", saidIn("apps/site/app/roadmap/page.tsx"), "its join into the verdict being built"],
+    ["Shōgen panel (Honest limits)", saidInBlock(panelBlock(read("apps/site/components/shogen-panel.tsx"), "Honest limits").inner), "a join being built"],
+  ];
+  for (const [where, text, phrase] of sentences) assert.equal(text.includes(phrase), open, `${where} says "${phrase}" exactly while the construction item is open`);
 });
 
 // killer: apps/site/components/what-inside.tsx:4 CONST "import { PanelBlock } from" -> "import { BuildingPanelBlock, PanelBlock } from"
@@ -1714,7 +1762,7 @@ test("shogen_panel_says_the_adapter_join_is_being_built — the Honest limits of
   assert.ok(read("apps/harness/src/attestation-binding.ts").includes("so any `attested` is refused"), "premise: the join does not run yet; when the seam is served this reds and the panel is revisited");
   const limits = panelBlock(read("apps/site/components/shogen-panel.tsx"), "Honest limits").inner;
   assert.doesNotMatch(limits, /the number is read by a downstream Hikae-side adapter/, "no adapter reads the number today");
-  assert.match(limits, /a downstream Hikae-side adapter is meant to read it, a join being built/, "the panel says the adapter join is being built");
+  assert.match(saidInBlock(limits), /a downstream Hikae-side adapter is meant to read it, a join being built/, "the panel, as it renders, says the adapter join is being built");
 });
 
 // killer: apps/site/lib/fleet-presentation.ts:132 CONST "a gap where one is computed from the closing price of the session's reference day, a named abstention otherwise" -> "no closing price is read into the first record, so it carries no gap"
@@ -1735,8 +1783,16 @@ test("site_narabi_surfaces_claim_no_attested_flow_and_no_replay — the home pag
     assert.doesNotMatch(read(rel), /\breplayable\b|replays to the byte/i, rel + " calls Narabi's timeline replayable");
   }
   for (const p of insideFor("narabi").points) assert.doesNotMatch(p, /\battested\b|\breplayable\b/i, "a Narabi presentation point calls the flow attested or the timeline replayable: " + p);
-  assert.match(read("apps/site/components/narabi-panel.tsx"), /Narabi reads the onchain redemption flow/, "the panel names the flow it reads");
-  assert.match(read("apps/site/components/narabi-panel.tsx"), /a per-line hash chain makes a rewrite of the timeline detectable/, "the panel says what the hash chain does");
+  assert.match(saidIn("apps/site/components/narabi-panel.tsx"), /Narabi reads the onchain redemption flow/, "the panel, as it renders, names the flow it reads");
+  assert.match(saidIn("apps/site/components/narabi-panel.tsx"), /a per-line hash chain makes a rewrite of the timeline detectable/, "the panel, as it renders, says what the hash chain does");
+  // The note of the code-version row of /narabi, a JSX attribute: read from the parsed page, where a JSX comment holds no attribute.
+  const notes: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isJsxAttribute(node) && node.name.getText() === "note" && node.initializer !== undefined && ts.isStringLiteral(node.initializer)) notes.push(node.initializer.text);
+    ts.forEachChild(node, visit);
+  };
+  visit(ts.createSourceFile("narabi-live.tsx", read("apps/site/components/narabi/narabi-live.tsx"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX));
+  assert.ok(notes.some((n) => n.includes("the sentinel_sha hashes the sentinel's own top-level source files, not the packages it imports")), "the code-version note, as /narabi renders it, says what the witness leaves out");
 });
 
 // killer: apps/site/components/hikae-panel.tsx:64 CONST "Hikae is a second-level check" -> "Hikae is a monitor &mdash; a second-level check"
@@ -1745,8 +1801,9 @@ test("hikae_panel_and_how_say_no_monitor — the Hikae panel and /how call the s
   assert.doesNotMatch(harness, /\bimocpStep\b|\barrivedErrors\b|\bbudgetAt\b/, "premise: the served gate imports none of the online-monitor functions of @monark/hikae; when it does this reds and the words are revisited");
   for (const rel of ["apps/site/components/hikae-panel.tsx", "apps/site/app/how/page.tsx"]) {
     assert.doesNotMatch(read(rel), /Hikae is a monitor/, rel + " calls Hikae a monitor");
-    assert.match(read(rel), /Hikae is a second-level check, not a promise about any single case/, rel + " says what the gate is");
+    assert.match(saidIn(rel), /Hikae is a second-level check, not a promise about any single case/, rel + ", as it renders, says what the gate is");
   }
   assert.doesNotMatch(read("apps/site/app/how/page.tsx"), /calibrate &amp; monitor/, "the /how gate layer names a monitor the served gate does not run");
   assert.match(read("apps/site/app/how/page.tsx"), /layer: <>gate · calibrate<\/>,/, "the /how gate layer says calibrate");
+  assert.ok(renderedOf("apps/site/app/how/page.tsx").includes("gate · calibrate"), "the /how gate layer, as it renders, says calibrate");
 });
