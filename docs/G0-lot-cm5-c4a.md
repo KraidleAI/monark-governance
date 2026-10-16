@@ -209,3 +209,26 @@ after the fold of the first review, 400 (395 insertions, 5 deletions).
 - **The file**: 42 of 42 in 201 s (bound 300 s), the four tests about 10 s of it; `test/verifier-tool-ci.test.ts` 10 of 10.
   Under the case-folding git wrapper, 42 of 42 in 554 s, every `git add` clean (21 checks); the 3263 names of the temporary folders
   of these runs, 0 equal once case is folded, 0 that Windows refuses.
+
+## 14. Amendment of Q5, 2026-10-16: the GARCH window counts bars
+
+- **The decision**: reading B of the window question raised by the review of the wave 2b format, decided in recherches commit
+  `f5f0bf8`. W counts bars, as for every kata: ADR 0005 D4 l.55, « W counts bars, and a window of W bars holds W - 1 one-bar returns »;
+  ADR 0006 D4 l.132, « capped at 720 bars at 1h and 180 at 4h », read to the letter, with no addendum. Q5's default (« W returns read
+  from W + 1 bars ») is withdrawn; the seed stays a frozen string, the first variance of the window.
+- **What changed** (`tools/kata-quarter/quarter_2b.py`, lines changed in place, none moved): `garch()` reads the W bars that end at t
+  (`window_at(bars, t, w, h)`) and runs the recursion on their W − 1 one-bar log returns, u from 1 to W − 1, each deseasonalized by the
+  factor of its own bar, from s² = seed; nothing else of the recursion changes. W = 1 reads the one bar [t − h, t) and has no return:
+  s² = seed, sigma_fit_t = √seed (`NE` when that bar is absent). `window()` prints the residual seed weight p^(W−1), the weight of the
+  seed after the W − 1 steps, the exact rational rounded once to binary64 (1 at W = 1, also when p = 0); ADR 0006 D4 l.133 names p^W,
+  and the value printed is p^(W−1), said as it is: it differs from p^W by the factor 1/p. The output key stays `seed_weight` (no test and
+  no format names another), and the second line of `estimate` now ends « seed_weight is p^(W-1) ». The statements of sections 4, 7 and
+  10 on « the W one-bar log returns of the W + 1 bars » and « W + 1 bars for GARCH » read W − 1 returns of W bars from this date.
+- **What did not change**: W itself (the smallest integer from 1 with p^W ≤ 3/100, exact on the frozen strings as rationals, capped at
+  `CAP`), the cap flag, the refusal of a + b ≥ 1, the input format, the HAR and the EWMA, the two passes of the log, every name of a test.
+  At the cap, the W bars of a first decision are the 30 days of inputs before its block, so no decision is lost to the window.
+- **Tests** (`test/kata-quarter.test.ts`, inside the same two tests): the test's own GARCH computation reads W bars and W − 1 returns;
+  at the cap (720 at 1h, 180 at 4h, on a series of 31 days) a value from W bars and from W + 1 bars, each the test's own, and
+  `non_evaluable` from W − 1; at W = 1 the root of the seed, `non_evaluable` without the bar [t − h, t); the seed weight p^(W−1), exact
+  at p = 0.5 (0.03125 at W = 6), 1 at W = 1 and at p = 0. Five mutation lines more (the weight p^W, the weight at W = 1, the window of
+  W + 1 bars, a return more, a return less).
