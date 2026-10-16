@@ -94,6 +94,13 @@ export const GLOSSARY: { term: string; def: string }[] = [
   { term: "under_calib", def: "Too few calibration points for a population: the gate abstains for it, serving no region while its state is published. A named state, never a number." },
 ];
 
+// Which definition of the sentinel_sha the served lines carry, the one the code-version entry above and the note of
+// the code-version row describe: "top-level-sources", the sentinel's own top-level source files, until the first line
+// written by a sentinel that hashes its execution closure is read on the served timeline; then "execution-closure".
+// It moves with the sentence it describes, never ahead of the served lines.
+export type ServedWitness = "top-level-sources" | "execution-closure";
+export const SERVED_WITNESS: ServedWitness = "top-level-sources";
+
 export const FLEET_PLACE =
   "Narabi is the sensor of the first vertical. Shōgen attests, Hikae reads coverage, Ukemi carries the prediction contract; Narabi's measured redemption flow produced the committed calibration of the gate's one class, and the daily timeline is published beside it, not read by the gate. It is the first MONARK piece that publishes its own daily state, one hash-chained line per day.";
 

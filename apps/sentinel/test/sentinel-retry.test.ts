@@ -240,7 +240,7 @@ test("sentinel_never_prints_endpoint_url — an endpoint's key-bearing path neve
 });
 
 // ── C-1 (no leak) + NARABI-OPS-1d (D-degrade): CHAINSTACK_ETH_URL ALONE no longer opens the leg ───────────────
-// killer: apps/sentinel/src/run.ts:349 CONST ": [...PUBLIC_ENDPOINTS];" -> ": [...PUBLIC_ENDPOINTS.slice(0, 1), ...PUBLIC_ENDPOINTS.slice(0, -1)];"
+// killer: apps/sentinel/src/run.ts:347 CONST ": [...PUBLIC_ENDPOINTS];" -> ": [...PUBLIC_ENDPOINTS.slice(0, 1), ...PUBLIC_ENDPOINTS.slice(0, -1)];"
 test("sentinel_chainstack_url_alone_degrades_to_keyless — with CHAINSTACK_ETH_URL set but NO cycle config (CHAINSTACK_CYCLE_ID/ORIGIN absent), the guarded leg is unconfigured: the run publishes the 7 keyless endpoints, chainstack=false, chainstack_guard=unconfigured, and the key path never leaks (C-1; NARABI-OPS-1d D-degrade — supersedes the pre-migration 'URL alone flags chainstack + publishes a redacted 8th endpoint')", () => {
   const l3 = fixtureLines()[2]!;
   const dir = seedState(2);
