@@ -24,7 +24,11 @@ const ROOT = join(import.meta.dirname, "..");
 const git = (cwd: string, ...args: string[]): string => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 interface RunOpts { mirror?: string | null; email?: string; vis?: string; gates?: string[][]; dirty?: boolean }
 
+// killer: scripts/release-public.mjs:147 SDL "if (code !== 0) console.error(\"\\nRELEASE ABORTED: RELEASE-PREFLIGHT-SEND-GUARD-1 could not read the exported tree" -> ""
+// killer: scripts/release-public.mjs:207 SDL "if (!sg.ok) abort(" -> ""
 // killer: scripts/release-public.mjs:212 SDL "captureGate({ root: SRC, runCheck" -> ""
+// killer: scripts/release-public.mjs:215 SDL "if (!vis.ok || vis.out !== \"private\") abort(" -> ""
+// killer: scripts/release-public.mjs:215 ROR "vis.out !== \"private\"" -> "vis.out === \"public\""
 // killer: scripts/release-public.mjs:252 SDL "    abort(\"export failed\");" -> ""
 test("release_public_flow — message gate, refusals before any gate, export:check before export, one local commit, no push, gh reads only", async () => {
   const tmp = mkdtempSync(join(tmpdir(), "monark-release-flow-"));
@@ -140,6 +144,7 @@ test("release_public_flow — message gate, refusals before any gate, export:che
     refuse([
       ["unexpected remote (C-G2-1)", ["--message", ok], { mirror: mirrorX }, "points at an unexpected remote"],
       ["visibility public (CA-1.7, M1-q)", ["--message", ok], { vis: "public" }, "visibility reads 'public'"],
+      ["visibility internal (CA-1.7)", ["--message", ok], { vis: "internal" }, "visibility reads 'internal'"],
       ["visibility unreadable (CA-1.7, M1-q)", ["--message", ok], { vis: "fail" }, "visibility reads ''"],
     ]);
 
