@@ -87,7 +87,9 @@ test("kata_quarter_entry_script_imports_the_input_guard_first - the one entry sc
 // reddened by: the merge admitting a grid slot that is neither in the series nor in the missing.json of the read that owns it (the candle
 // at S_k absent from the LIVE series and from its declaration), a declared gap refused or not listed, a slot both declared missing and
 // present admitted, an instant in both reads admitted (the sealed series read past S_k), a missing.json out of its form admitted (a count
-// or an open_time_ms that is not a whole number, an open_time_utc that does not write it), or the merged range off the lookback and E_k
+// or an open_time_ms that is not a whole number, an open_time_utc that does not write it), or the merged range off the lookback and E_k;
+// or one of the reader's own checks dropped or loosened: line endings, header, twelve fields, integer and decimal fields, open_time_utc,
+// the close inside its slot (not after it, not before its open), the grid, the order (an open time repeated or going back)
 // killer: tools/kata-quarter/quarter_load.py:108 CONST "if undeclared:" -> "if False:"
 test("two_reads_merged_under_check - check reads the sealed and the LIVE series of the fixture, each under its pin, and merges them: the seam at S_1, 10448 slots, the three declared gaps of the LIVE series listed; the same LIVE series with the gap at S_1 undeclared, a declared slot present, an instant in both reads, or a missing.json out of its form, is refused by name", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_load.py")), `${QUARTER}/quarter_load.py absent`);
@@ -124,6 +126,38 @@ test("two_reads_merged_under_check - check reads the sealed and the LIVE series 
     const r = t.run(checkArgs(join(FIXTURE, "sealed"), variant(work, name.replace(" ", "-"), csv, decl)));
     assert.equal(r.status, 2, `a missing.json with a ${name} out of its form: exit 2\n${r.stdout}${r.stderr}`);
     assert.match(r.stdout, form, `a missing.json with a ${name} out of its form, refused by name`);
+  }
+  // the reader's own checks (those of recalc_p2.load_series, its words but the close's), each refused by name on the LIVE series with one
+  // change: CR LF, no final LF, another header, 13 fields, a signed integer, a decimal with an exponent, an open_time_utc that does not
+  // write the open time, a close 1 ms after its slot or 1 ms before its open, an open time off the grid, repeated, or going back
+  // killer: tools/kata-quarter/quarter_load.py:218 CONST "if \"\\r\" in text or not text.endswith(\"\\n\"):" -> "if False:"
+  // killer: tools/kata-quarter/quarter_load.py:221 CONST "if lines[0] != recalc_p2.CSV_HEADER:" -> "if False:"
+  // killer: tools/kata-quarter/quarter_load.py:227 ROR "len(f) != 12" -> "len(f) < 12"
+  // killer: tools/kata-quarter/quarter_load.py:229 CONST "if not all(recalc_p2.RE_INT.match(f[i]) for i in (1, 7, 9)):" -> "if False:"
+  // killer: tools/kata-quarter/quarter_load.py:231 CONST "if not all(recalc_p2.RE_DEC.match(f[i]) for i in (2, 3, 4, 5, 6, 8, 10, 11)):" -> "if False:"
+  // killer: tools/kata-quarter/quarter_load.py:234 CONST "f[0] != recalc_p2.iso(ot) or " -> ""
+  // killer: tools/kata-quarter/quarter_load.py:234 CONST "ot <= ct <= ot + K.STEP_MS - 1" -> "ot <= ct <= ot + K.STEP_MS"
+  // killer: tools/kata-quarter/quarter_load.py:234 CONST "not ot <= ct <=" -> "not ct <="
+  // killer: tools/kata-quarter/quarter_load.py:236 CONST "ot % K.STEP_MS != 0 or " -> ""
+  // killer: tools/kata-quarter/quarter_load.py:236 CONST " or (prev is not None and ot <= prev)" -> ""
+  // killer: tools/kata-quarter/quarter_load.py:236 ROR "ot <= prev" -> "ot < prev"
+  const i = 100, no = i + 2, step = 900_000, cells = (r: string | undefined): string[] => (r ?? "").split(","), ot = Number(cells(rows[i])[1]), off = ot + 60_000;
+  const utc = (ms: number): string => new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z"), lf = [header, ...rows].join("\n");
+  const one = (f: (x: string[]) => string[]): string => [header, ...rows.map((r, j) => (j === i ? f(cells(r)).join(",") : r))].join("\n");
+  const set = (k: number, v: string) => (x: string[]): string[] => x.map((y, j) => (j === k ? v : y));
+  const slot = "open time, or a close time out of its slot", order = "off grid, out of range or not ascending";
+  const reader: [string, string, string][] = [["CR LF", lf.replaceAll("\n", "\r\n"), "line endings"], ["no final LF", lf.slice(0, -1), "line endings"],
+    ["another header", [header.toUpperCase(), ...rows].join("\n"), "header differs from REC l.34-35"], ["13 fields", one((x) => [...x, "0"]), `line ${no}: 13 fields`],
+    ["a signed integer", one(set(9, "+1")), `line ${no}: integer field`], ["a decimal with an exponent", one(set(6, "1e0")), `line ${no}: decimal field`],
+    ["another open_time_utc", one(set(0, utc(ot + step))), `line ${no}: ${slot}`], ["a close 1 ms after its slot", one(set(7, String(ot + step))), `line ${no}: ${slot}`],
+    ["a close before its open", one(set(7, String(ot - 1))), `line ${no}: ${slot}`],
+    ["an open time off the grid", one((x) => [utc(off), String(off), ...x.slice(2, 7), String(off + step - 1), ...x.slice(8)]), `line ${no}: ${order}`],
+    ["a repeated open time", [header, ...rows.slice(0, i + 1), rows[i] ?? "", ...rows.slice(i + 1)].join("\n"), `line ${no + 1}: ${order}`],
+    ["an open time going back", [header, ...rows.slice(0, i), rows[i + 1] ?? "", rows[i] ?? "", ...rows.slice(i + 2)].join("\n"), `line ${no + 1}: ${order}`]];
+  for (const [name, text, why] of reader) {
+    const r = t.run(checkArgs(join(FIXTURE, "sealed"), variant(work, `reader-${name.replaceAll(" ", "-")}`, text, missing)));
+    assert.equal(r.status, 2, `the LIVE series with ${name}: exit 2\n${r.stdout}${r.stderr}`);
+    assert.ok(linesOf(r.stdout).includes(`REFUSED: syn: ${why}`), `the LIVE series with ${name}: refused by name, "${why}"\n${r.stdout}${r.stderr}`);
   }
 });
 
@@ -907,26 +941,42 @@ test("evidence_written_whole_or_not_at_all - the evidence is written as quarter-
 });
 
 // Truncated candles (docs/G0-lot-cm5-c1a-2.md, rules 8 and 8 bis): Q_1 with no gap, and on 2026-11-10 the candle at 11:15 with 1 trade, the
-// four from 11:30 with 0 trades, the candle at T = 12:30 truncated by `cut` ms with `trades`, the candles at `drop` removed and declared.
+// four from 11:30 with 0 trades, the candle at T = 12:30 truncated by `cut` ms with `trades`, the candles at `drop` removed and declared;
+// or the truncated candle at another slot t, after another number of 0-trade candles (`zeros`), the one before them with 1 trade.
 const T = Date.UTC(2026, 10, 10, 12, 30), M = 900_000, GONE = [1, 2, 3, 4, 5].map((i) => T + i * M);
-const truncated = (dir: string, cut: number, trades: number, drop: number[] = []): string => {
-  const live = fullQ1(dir, { drop }), file = join(live, SYM, SERIES), at = (t: number, close: number, n: number): string => `${iso(t)},${t},100.00,100.10,99.90,100.05,1.000,${close},100.02,${n},0.500,50.01`;
-  const set = new Map<number, string>([[T - 5 * M, at(T - 5 * M, T - 4 * M - 1, 1)], ...[4, 3, 2, 1].map((i): [number, string] => [T - i * M, at(T - i * M, T - (i - 1) * M - 1, 0)]), [T, at(T, T + M - 1 - cut, trades)]]);
-  writeFileSync(file, `${linesOf(readFileSync(file, "utf8")).filter((l) => l !== "").map((l) => set.get(Number(l.split(",")[1])) ?? l).join("\n")}\n`);
+const candle = (t: number, close: number, n: number): string => `${iso(t)},${t},100.00,100.10,99.90,100.05,1.000,${close},100.02,${n},0.500,50.01`;
+/** The series file with the lines of the open times of `set` replaced by its lines, and those of `gone` removed. */
+const retouch = (file: string, set: Map<number, string>, gone: number[] = []): void => writeFileSync(file, `${linesOf(readFileSync(file, "utf8"))
+  .filter((l) => l !== "" && !gone.includes(Number(l.split(",")[1]))).map((l) => set.get(Number(l.split(",")[1])) ?? l).join("\n")}\n`);
+const truncated = (dir: string, cut: number, trades: number, drop: number[] = [], { t = T, zeros = 4 } = {}): string => {
+  const live = fullQ1(dir, { drop }), run = Array.from({ length: zeros }, (_, i) => t - (i + 1) * M), first = t - (zeros + 1) * M;
+  retouch(join(live, SYM, SERIES), new Map([[first, candle(first, first + M - 1, 1)], ...run.map((s): [number, string] => [s, candle(s, s + M - 1, 0)]), [t, candle(t, t + M - 1 - cut, trades)]]));
   return live;
 };
+/** The lists irregular_close and zero_trade of the series of live/SYM as the recorder writes them, its candle at t truncated by cut ms. */
+const listsOf = (live: string, cut: number, t = T): { irregular_close: { open_time_ms: number; close_time_ms: number }[]; zero_trade: number[] } => ({
+  irregular_close: cut === 0 ? [] : [{ open_time_ms: t, close_time_ms: t + M - 1 - cut }],
+  zero_trade: linesOf(readFileSync(join(live, SYM, SERIES), "utf8")).slice(1).filter((l) => l !== "").map((l) => l.split(",")).filter((f) => f[9] === "0").map((f) => Number(f[1])) });
 
 // reddened by: a truncation of at most one minute taken for a halt (30 s, 60 s); E of a truncated candle with 0 trades other than the open
 // of the run of 0-trade candles that ends at it, or E of one with trades other than its close + 1 ms; R other than the end of the run of
 // declared slots that follows it, or than the next candle when none is; a decision whose label window meets [E, R) counted, or one that
 // does not dropped; a halt that ends before S_1 printed; a list computed from the series that a manifest contradicts admitted (a v2, or a
-// v1 that carries the list), or a manifest with no list refused; or a fixture whose truncation the frozen tool's load_series admits
+// v1 that carries the list), or a manifest with no list refused; a truncation of at most one minute left out of irregular_close (a v2
+// manifest that lists it refused); a manifest that is not a JSON object, or writes a key twice, admitted or refused by another error; a
+// bound of [E, R) or of the label window closed (the decision at t = R, or the one whose window ends at E, dropped); a halt across the
+// seam S_1 that takes its 0-trade run, its truncation or its declared slots from read 2 alone; or a fixture whose truncation the frozen
+// tool's load_series admits
 // killer: tools/kata-quarter/quarter_load.py:258 CONST "60_000" -> "0"
 test("truncated_candle_rule8 - a truncation of 30 s or 60 s is an ordinary candle; one of 10 min at 0 trades after four 0-trade candles halts from the first of them to the resumption after the missing candles, one of 10 min with trades from its close + 1 ms to the next candle: the decisions whose label window meets [E, R) are dropped and [E, R) is printed; the lists computed are held to the manifest; recalc_p2.load_series stops on such a candle", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_load.py")), `${QUARTER}/quarter_load.py absent`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-rule8-")), sealed = join(FIXTURE, "sealed");
-  const run = (name: string, cut: number, trades: number, drop: number[] = [], from = sealed, o: { repo?: ToolRepo } = {}): { r: Run; c: Counts; live: string } => {
-    const live = truncated(join(work, name), cut, trades, drop), x = count(from, live, 1, [SYM], o);
+  const v2 = { schema: "monark.series.binance.v2" }, v1 = { schema: "monark.series.binance.v1" };
+  /** count on the series of truncated (o.t, o.zeros), its lists held to a v2 manifest.json beside it when o.v2. */
+  const run = (name: string, cut: number, trades: number, drop: number[] = [], from = sealed, o: { repo?: ToolRepo; t?: number; zeros?: number; v2?: boolean } = {}): { r: Run; c: Counts; live: string } => {
+    const live = truncated(join(work, name), cut, trades, drop, o);
+    if (o.v2) writeFileSync(join(live, SYM, "manifest.json"), `${JSON.stringify({ ...v2, ...listsOf(live, cut, o.t) })}\n`);
+    const x = count(from, live, 1, [SYM], o);
     assert.equal(x.r.status, o.repo ? 2 : 0, `${name}: exit ${o.repo ? 2 : 0}\n${x.r.stdout}${x.r.stderr}`);
     return { ...x, live };
   };
@@ -934,12 +984,14 @@ test("truncated_candle_rule8 - a truncation of 30 s or 60 s is an ordinary candl
   /** The counts of base with d[i] more drops and as many fewer instants in n_test, for range-1h, range-4h and mae-down-1h. */
   const moved = (base: Counts, d: number[]): Record<string, number[]> =>
     Object.fromEntries(["syn-range-1h", "syn-range-4h", "syn-mae-down-1h"].map((c, i) => { const [n = NaN, k = NaN, o = NaN] = byClass(base)[c] ?? []; return [c, [n - (d[i] ?? 0), k + (d[i] ?? 0), o]]; }));
-  // fixture A, and one minute exactly: an ordinary candle, the counts of the regular candle
+  // fixture A, and one minute exactly: an ordinary candle, the counts of the regular candle; still listed in irregular_close, held to a
+  // v2 manifest that lists it (the recorder lists every close other than open + 15 min - 1 ms)
   // killer: tools/kata-quarter/quarter_load.py:258 ROR "close >= t" -> "close > t"
+  // killer: tools/kata-quarter/quarter_load.py:243 CONST "if ct != ot + K.STEP_MS - 1:" -> "if ct < ot + K.STEP_MS - 1 - 60_000:"
   const base = run("regular", 0, 0, GONE);
   for (const [name, cut] of [["30 s", 30_000], ["60 s", 60_000]] as const) {
-    const a = run(name, cut, 0, GONE);
-    assert.deepEqual([a.c.halts, byClass(a.c)], [[], byClass(base.c)], `a truncation of ${name}: no halt, no drop`);
+    const a = run(name, cut, 0, GONE, sealed, { v2: true });
+    assert.deepEqual([a.c.halts, byClass(a.c)], [[], byClass(base.c)], `a truncation of ${name}, its lists held to a v2 manifest: no halt, no drop`);
   }
   // fixture B, 10 min at 0 trades: E = 11:30 (the run of 0-trade candles, 8 bis), R = 14:00 (after the five missing candles); drop (a): at
   // 1h t = 11:00, whose window [11:00, 12:00) meets [11:30, 14:00) (12:00 and 13:00 are dropped or out already); at 4h t = 08:00 and 12:00
@@ -954,21 +1006,36 @@ test("truncated_candle_rule8 - a truncation of 30 s or 60 s is an ordinary candl
   // killer: tools/kata-quarter/quarter_load.py:260 CONST "e = t if t in read[\"zero\"] else close + 1" -> "e = t"
   const c = run("C", 600_000, 1);
   assert.deepEqual([c.c.halts, byClass(c.c)], [halt(T + 300_000, T + M), moved(run("regular C", 0, 1).c, [1, 1, 1])], "fixture C: [12:35:00.000, 12:45) and its drops (a)");
+  // the bounds, half-open: 10 min with trades at 12:45, [12:50, 13:00), so t = 13:00 counted at 1h (t < R); a 0-trade run from 12:00 to a
+  // 0-trade truncation at 12:30, [12:00, 12:45), so t = 11:00 counted at 1h and t = 08:00 at 4h (E < t + h); t = 12:00 dropped for each row
+  // killer: tools/kata-quarter/quarter_core.py:102 ROR "t < x and" -> "t <= x and"
+  // killer: tools/kata-quarter/quarter_core.py:102 ROR "e < t + h" -> "e <= t + h"
+  const atR = run("R at 13:00", 600_000, 1, [], sealed, { t: T + M }), atE = run("E at 12:00", 600_000, 0, [], sealed, { zeros: 2 });
+  assert.deepEqual([atR.c.halts, byClass(atR.c)], [halt(T + M + 300_000, T + 2 * M), moved(run("regular R", 0, 1, [], sealed, { t: T + M }).c, [1, 1, 1])], "R = 13:00: t = 13:00 counted");
+  assert.deepEqual([atE.c.halts, byClass(atE.c)], [halt(T - 2 * M, T + M), moved(run("regular E", 0, 0, [], sealed, { zeros: 2 }).c, [1, 1, 1])], "E = 12:00: t = 11:00 counted");
   // the lists computed from B's series (its truncated candle, its 0-trade candles) held to a manifest.json beside it
-  const fields = linesOf(readFileSync(join(b.live, SYM, SERIES), "utf8")).slice(1).filter((l) => l !== "").map((l) => l.split(","));
-  const lists = { irregular_close: [{ open_time_ms: T, close_time_ms: T + M - 1 - 600_000 }], zero_trade: fields.filter((f) => f[9] === "0").map((f) => Number(f[1])) };
-  const under = (m: object): Run => { writeFileSync(join(b.live, SYM, "manifest.json"), `${JSON.stringify(m)}\n`); return count(sealed, b.live, 1, [SYM]).r; };
-  const v2 = { schema: "monark.series.binance.v2" }, v1 = { schema: "monark.series.binance.v1" };
+  const lists = listsOf(b.live, 600_000);
+  const under = (m: object | string): Run => { writeFileSync(join(b.live, SYM, "manifest.json"), typeof m === "string" ? m : `${JSON.stringify(m)}\n`); return count(sealed, b.live, 1, [SYM]).r; };
   assert.ok(lists.zero_trade.includes(T) && lists.zero_trade.length >= 5, "the truncated candle among the 0-trade candles");
   assert.deepEqual([under({ ...v2, ...lists }).status, under(v1).status], [0, 0], "a v2 manifest whose lists are the computed ones, and a v1 with none: counted");
-  // killer: tools/kata-quarter/quarter_load.py:280 CONST "if off:" -> "if False:"
-  // killer: tools/kata-quarter/quarter_load.py:279 CONST "(k in man or v2)" -> "(v2)"
-  // killer: tools/kata-quarter/quarter_load.py:279 CONST "(k in man or v2)" -> "(k in man)"
+  // killer: tools/kata-quarter/quarter_load.py:286 CONST "if off:" -> "if False:"
+  // killer: tools/kata-quarter/quarter_load.py:285 CONST "(k in man or v2)" -> "(v2)"
+  // killer: tools/kata-quarter/quarter_load.py:285 CONST "(k in man or v2)" -> "(k in man)"
   for (const [name, m, off] of [["a v2 without the truncated candle in zero_trade", { ...v2, ...lists, zero_trade: lists.zero_trade.filter((t) => t !== T) }, "'zero_trade'"],
     ["a v2 with no zero_trade", { ...v2, irregular_close: lists.irregular_close }, "'zero_trade'"], ["a v1 that carries an empty irregular_close", { ...v1, irregular_close: [] }, "'irregular_close'"]] as const) {
     const r = under(m);
     assert.equal(r.status, 2, `${name}: exit 2\n${r.stdout}${r.stderr}`);
     assert.equal(r.stdout, `REFUSED: syn: the lists computed from the series differ from those of its manifest.json: [${off}]\n`, `${name}: refused by name`);
+  }
+  // the manifest held to its form, as missing.json is: not a JSON text, not an object, or a key written twice, each refused by name
+  // killer: tools/kata-quarter/quarter_load.py:279 CONST "except ValueError:" -> "except KeyError:"
+  // killer: tools/kata-quarter/quarter_load.py:281 CONST "type(man) is not dict" -> "False"
+  // killer: tools/kata-quarter/quarter_load.py:278 CONST ", object_pairs_hook=lambda p: unique(p, f\"{sym}: manifest.json\")" -> ""
+  for (const [name, text, why] of [["not a JSON text", "{\n", " is not a JSON text"], ["a JSON array", "[]\n", " is not a JSON object: list"],
+    ["a key written twice", `{"schema":"${v1.schema}","schema":"${v1.schema}"}\n`, ": a key written twice in one object: ['schema', 'schema']"]] as const) {
+    const r = under(text);
+    assert.equal(r.status, 2, `a manifest.json that is ${name}: exit 2\n${r.stdout}${r.stderr}`);
+    assert.equal(r.stdout, `REFUSED: syn: manifest.json${why}\n`, `a manifest.json that is ${name}: refused by name`);
   }
   // inside the original range: a truncation at 2026-09-20T12:30Z in the sealed series; counted (its halt ends before S_1, nothing printed)
   // under the tool's reader; the frozen tool's load_series, called on the sealed read by a stand-in, stops on it
@@ -978,4 +1045,19 @@ test("truncated_candle_rule8 - a truncation of 30 s or 60 s is an ordinary candl
   assert.deepEqual(run("in range", 0, 0, [], cut).c.halts, [], "a halt that ends before S_1: no label window of Q_1 meets it");
   const frozen = standIn("_read = read_series\n\n\ndef read_series(series_dir, sym, pin, start, end):\n    if start == K.REC_START:\n        recalc_p2.load_series(series_dir, sym, pin)\n    return _read(series_dir, sym, pin, start, end)");
   assert.match(run("frozen", 0, 0, [], cut, { repo: frozen }).r.stdout, new RegExp(`^REFUSED: syn: line ${line}: open or close time$`, "m"), "recalc_p2.load_series stops on it, inside its range");
+  // across the seam S_1, the halts of both reads taken together: a 0-trade truncation at S_1 in the LIVE series after two 0-trade candles
+  // at the end of the sealed one, E in read 1; a truncation with trades at S_1 - 30 min in the sealed series, S_1 - 15 min declared missing
+  // there and S_1 in the LIVE series (the fixture's), R in read 2
+  // killer: tools/kata-quarter/quarter_load.py:111 CONST "\"zero\": first[\"zero\"] | second[\"zero\"]" -> "\"zero\": second[\"zero\"]"
+  // killer: tools/kata-quarter/quarter_load.py:111 CONST "\"irregular\": {**first[\"irregular\"], **second[\"irregular\"]}" -> "\"irregular\": second[\"irregular\"]"
+  // killer: tools/kata-quarter/quarter_load.py:111 CONST "first[\"declared\"] | second[\"declared\"]" -> "second[\"declared\"]"
+  const seam = (name: string, set: Map<number, string>, gone: number[] = []): string => {
+    const decl = [...sf.missing.missing, ...gone.map((g) => ({ open_time_ms: g, open_time_utc: iso(g) }))], dir = put(join(work, name), SYM, { text: sf.csv, missing: { count: decl.length, missing: decl } });
+    retouch(join(dir, SYM, SERIES), set, gone);
+    return dir;
+  };
+  const zeroEnd = seam("seam zero", new Map([[S1 - 3 * M, candle(S1 - 3 * M, S1 - 2 * M - 1, 1)], ...[2, 1].map((i): [number, string] => [S1 - i * M, candle(S1 - i * M, S1 - (i - 1) * M - 1, 0)])]));
+  assert.deepEqual(run("seam E", 600_000, 0, [], zeroEnd, { t: S1, zeros: 0 }).c.halts, halt(S1 - 2 * M, S1 + M), "E in read 1: the 0-trade run that ends at the truncation at S_1");
+  const declEnd = seam("seam declared", new Map([[S1 - 2 * M, candle(S1 - 2 * M, S1 - M - 1 - 600_000, 1)]]), [S1 - M]), r2 = count(declEnd, join(FIXTURE, "live"), 1, [SYM]);
+  assert.deepEqual([r2.r.status, r2.c?.halts], [0, halt(S1 - 2 * M + 300_000, S1 + M)], `R in read 2: S_1 - 15 min declared in read 1, S_1 in read 2\n${r2.r.stdout}${r2.r.stderr}`);
 });

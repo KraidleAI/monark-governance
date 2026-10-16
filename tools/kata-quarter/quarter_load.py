@@ -197,10 +197,10 @@ def day(s):
         return False
 
 
-def unique(pairs):
-    """The object_pairs_hook of the reader: a key written twice in one object is refused by name (json.loads would keep the last)."""
+def unique(pairs, what="served history"):
+    """The object_pairs_hook of the readers: a key written twice in one object is refused by name (json.loads would keep the last)."""
     if len({k for k, _ in pairs}) != len(pairs):
-        raise Refused(f"served history: a key written twice in one object: {sorted(k for k, _ in pairs)}")
+        raise Refused(f"{what}: a key written twice in one object: {sorted(k for k, _ in pairs)}")
     return dict(pairs)
 
 
@@ -269,11 +269,17 @@ def halts(read):
 
 def manifest(series_dir, sym, irregular, zero):
     """The lists computed from the series held to <series_dir>/<sym>/manifest.json, read under the role recorder when the folder holds
-    one: each list it carries (a monark.series.binance.v2 carries both; a v1, none or the ones it carries) equal by its JSON text."""
+    one, a JSON object with no key twice: each list it carries (a v2 carries both; a v1, none or the ones it carries) equal by its JSON text."""
     path = f"{series_dir}/{sym}/manifest.json"
     if not os.path.exists(path):
         return
-    man = json.loads(io_guard.read("recorder", path).decode("utf-8"))
+    raw = io_guard.read("recorder", path)
+    try:
+        man = json.loads(raw.decode("utf-8"), object_pairs_hook=lambda p: unique(p, f"{sym}: manifest.json"))
+    except ValueError:
+        raise Refused(f"{sym}: manifest.json is not a JSON text") from None
+    if type(man) is not dict:
+        raise Refused(f"{sym}: manifest.json is not a JSON object: {type(man).__name__}")
     mine = {"irregular_close": [{"open_time_ms": t, "close_time_ms": c} for t, c in sorted(irregular.items())], "zero_trade": sorted(zero)}
     v2 = man.get("schema") == "monark.series.binance.v2"
     off = [k for k, v in mine.items() if (k in man or v2) and json.dumps(man.get(k), sort_keys=True) != json.dumps(v, sort_keys=True)]
