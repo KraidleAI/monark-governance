@@ -108,9 +108,9 @@ trees, offline, stdout compared with each tool's identity masked (the line `iden
 (15 lines; evidence without identity sha256 `91abbd78…`), the same with the core registry (16 lines; `40715f45…`), `check
 original_values_byte_equal` (its report `497a3ccf…`), a refusal of `count`, the usage, and `vectors` (`7ab8f570…`, the file of the
 fixture). The 34 earlier tests of the file pass; the test of the entry now asks `month` with no argument for its own usage, where it
-asked for « not in this lot ».
+asked for the old refusal (`tools/kata-quarter/quarter_counts.py` l.32 at `0c05e1eb`).
 
-## 6. Tests (`test/kata-quarter.test.ts` l.1329-1513; each red at the base by its first assertion, `existsSync(quarter_month.py)`)
+## 6. Tests (the section that ends `test/kata-quarter.test.ts` at this change, from l.1329; each red at the base by its first assertion, `existsSync(quarter_month.py)`)
 
 | Test (plan) | What it holds | Its killers (the comment lines above the declaration; the plan's is the last) |
 |---|---|---|
