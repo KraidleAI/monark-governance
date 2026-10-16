@@ -72,3 +72,10 @@ export const PENDING_MARKED_FILES: string[];
 /** What blocks a send (`--out`, so also release-public.mjs) in `kept`: each snapshot file, and each served file carrying
  *  pending_since (an unreadable one blocks). Empty: the send may go. Pure; `readText` is readTextOrNull in the CLI. */
 export function pendingSendBlockers(kept: CollectedFile[], readText: (abs: string) => string | null): string[];
+
+/** SYNC-CHECK-MODE-1: the five site capture tools whose --check a send runs first (release-public preflight, RUNBOOK-vitrine). */
+export const CAPTURE_CHECK_TOOLS: readonly string[];
+/** One capture check result: the tool's file name, its exit (null: no exit reached) and its stderr. */
+export interface CaptureCheckResult { tool: string; exit: number | null; stderr: string }
+/** The problems of a set of results (pure, no network, no process): malformed, unknown or doubled, missing, non-zero exit. */
+export function captureCheckProblems(results: unknown): string[];

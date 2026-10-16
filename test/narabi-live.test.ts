@@ -1166,7 +1166,7 @@ test("narabi_committed_records_fail_closed — the served-facts record and the c
 // T0-TOOLING-1 (review B-3, c bis): the Narabi sync sets its own manifest entry (canonical form) instead of printing it for a
 // hand edit. Replayed on a copy of the committed record: the same facts and read_at give back the committed bytes and entry;
 // new facts move the entry to the new file, and the site loader accepts it. No network: the sync's write step only.
-// killer: scripts/sync-narabi-served.mjs:144 CONST "return next === text ? null : next;" -> "return null;"
+// killer: scripts/sync-narabi-served.mjs:152 CONST "return next === text ? null : next;" -> "return null;"
 test("narabi_sync_sets_its_manifest_entry", async () => {
   const sync = (await import(new URL("../scripts/sync-narabi-served.mjs", import.meta.url).href)) as Record<string, unknown>;
   const write = sync["writeNarabiServed"] as ((root: string, facts: unknown, readAt: string) => string) | undefined;
