@@ -3027,6 +3027,21 @@
   "pin_bell_legal_refuses_any_argument",
   "pin_bell_legal_restores_on_a_failed_postcondition"
  ],
+ "test/probe-bell.test.ts": [
+  "bell_probe_alerts_on_stale_broken_or_rewritten",
+  "bell_probe_calendar_free_bound_alerts_whatever_the_calendar",
+  "bell_probe_chain_verdict_equals_the_readers_on_a_corpus",
+  "bell_probe_closure_holds_no_bell_verification_code",
+  "bell_probe_detects_rewrite_against_kept_copy",
+  "bell_probe_due_instant_is_the_planners_on_the_whole_calendar",
+  "bell_probe_exits_1_when_unhealthy_or_mail_fails",
+  "bell_probe_freshness_follows_the_trading_calendar",
+  "bell_probe_old_origin_serves_the_same_bytes",
+  "bell_probe_reads_the_origin_constant_only",
+  "bell_probe_reads_the_timeline_incrementally_and_checks_the_kept_prefix",
+  "bell_probe_site_status_is_optional_and_compared_when_served",
+  "bell_probe_verifies_against_the_committed_keyring_not_the_served_key"
+ ],
  "test/probe-coinbase-bounds.test.ts": [
   "coinbase_probe_asks_three_windows_of_one_week_and_writes_no_price",
   "coinbase_probe_command_line_prints_one_line_and_exits",
