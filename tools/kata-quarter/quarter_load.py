@@ -269,7 +269,7 @@ def halts(read):
 
 def manifest(series_dir, sym, irregular, zero):
     """The lists computed from the series held to <series_dir>/<sym>/manifest.json, read under the role recorder when the folder holds
-    one, a JSON object with no key twice: each list it carries (a v2 carries both; a v1, none or the ones it carries) equal by its JSON text."""
+    one, a JSON object with no key twice, of the recorder's schema v1 or v2: each list it carries (v2: both; v1: none or some) equal by its JSON text."""
     path = f"{series_dir}/{sym}/manifest.json"
     if not os.path.exists(path):
         return
@@ -281,7 +281,11 @@ def manifest(series_dir, sym, irregular, zero):
     if type(man) is not dict:
         raise Refused(f"{sym}: manifest.json is not a JSON object: {type(man).__name__}")
     mine = {"irregular_close": [{"open_time_ms": t, "close_time_ms": c} for t, c in sorted(irregular.items())], "zero_trade": sorted(zero)}
-    v2 = man.get("schema") == "monark.series.binance.v2"
+    schema = man.get("schema")
+    if schema not in ("monark.series.binance.v1", "monark.series.binance.v2"):  # those of scripts/record-binance-klines.d.mts
+        what = "names no schema" if "schema" not in man else f"names the schema {schema!r}"
+        raise Refused(f"{sym}: manifest.json {what}, neither monark.series.binance.v1 nor monark.series.binance.v2")
+    v2 = schema == "monark.series.binance.v2"
     off = [k for k, v in mine.items() if (k in man or v2) and json.dumps(man.get(k), sort_keys=True) != json.dumps(v, sort_keys=True)]
     if off:
         raise Refused(f"{sym}: the lists computed from the series differ from those of its manifest.json: {off}")
