@@ -4,7 +4,8 @@
 // orchestrator BEFORE a storefront build and before an upload:
 //   node scripts/sync-narabi-capture.mjs            re-capture (only when the served files changed); print the manifest sha256
 //   node scripts/sync-narabi-capture.mjs --check    write nothing; exit 1 unless the committed capture is still a faithful
-//                                                   prefix of what is served now (see checkCommitted)
+//                                                   prefix of what is served now AND at most CAPTURE_LAG_BOUND_T tracker
+//                                                   steps, and as many lines, behind it (see checkCommitted)
 //
 // Two GETs on https://monarkgate.tech/narabi/ (https only, a redirect is refused, 200 only, body bounded), then FAIL-CLOSED
 // checks before any write (servedChecks):
@@ -44,8 +45,21 @@ export function projectTimeline(servedText) {
   return lines.map((l) => projectServedLine(JSON.parse(l))).join("\n") + (lines.length > 0 ? "\n" : "");
 }
 
-async function get(name) {
-  const res = await fetch(BASE + name, { redirect: "manual", signal: AbortSignal.timeout(30_000) });
+/** The capture's lag bound, in tracker steps T, applied to the served lines too (SYNC-CHECK-MODE-1): --check refuses a capture
+ *  whose stored T is more than this many steps behind the served T, or that holds more than this many lines fewer than are
+ *  served. Source: the G1 of 2026-09-24 (docs/G1-lot-site-5j-int.md, section 6)
+ *  read a capture at T=6 as a faithful prefix and wrote that it would be stale around T=7, i.e. at the first step served after
+ *  it; the sentinel steps T at most once a UTC day (deploy/monark-sentinel.timer: one line a day, the slots after the first are
+ *  same-day retries). So 0: a capture is fresh until the next served step, and a send after that step needs a resync first.
+ *  The lines: the sentinel also writes a line that does not step T, on a day it cannot evaluate or that does not follow the
+ *  previous one (step of apps/sentinel/src/timeline.ts), and state.json does not change then (stateSummary carries no day).
+ *  Every step comes with its line, so a capture k steps behind is at least k lines behind, and the count of lines also catches
+ *  the lines that do not step T: at 0, every served line beyond the stored prefix is a lag. */
+export const CAPTURE_LAG_BOUND_T = 0;
+
+/** GET one served file under BASE (https, a redirect refused, 200 only, the body bounded); `get` is fetch, or a test's seam. */
+export async function servedGet(name, get = fetch) {
+  const res = await get(BASE + name, { redirect: "manual", signal: AbortSignal.timeout(30_000) });
   if (res.status !== 200) fail(`GET ${name} answered ${String(res.status)} (200 only, no redirect followed)`);
   const buf = Buffer.from(await res.arrayBuffer());
   if (buf.length === 0 || buf.length > MAX_BYTES) fail(`GET ${name} body size ${String(buf.length)} out of bounds`);
@@ -77,8 +91,10 @@ async function servedChecks(stateJson, servedTimeline) {
   return { lines, state };
 }
 
-/** --check: the committed capture is still a faithful prefix of what is served now. */
-function checkCommitted(old, stateJson, servedTimeline) {
+/** --check (pure): the committed capture `old` is still a faithful prefix of what is served now, its stored T is at most
+ *  CAPTURE_LAG_BOUND_T steps behind the served T, and it holds at most that many lines fewer than are served. The problems,
+ *  empty when it holds. */
+export function checkCommitted(old, stateJson, servedTimeline) {
   const problems = [];
   const servedLines = servedTimeline.split("\n").filter((l) => l.trim().length > 0);
   const storedLines = old.timeline_jsonl.split("\n").filter((l) => l.trim().length > 0);
@@ -92,7 +108,29 @@ function checkCommitted(old, stateJson, servedTimeline) {
   const servedT = JSON.parse(stateJson)?.tracker?.t;
   const storedT = JSON.parse(old.state_json)?.tracker?.t;
   if (servedT === storedT && stateJson !== old.state_json) problems.push("state.json served now differs from the stored one at the same T");
+  if (!Number.isSafeInteger(servedT) || !Number.isSafeInteger(storedT)) problems.push("the served or the stored state.json carries no integer tracker.t");
+  else if (servedT - storedT > CAPTURE_LAG_BOUND_T) problems.push(`the capture (T=${String(storedT)}) is ${String(servedT - storedT)} step(s) behind what is served now (T=${String(servedT)}), more than the bound of ${String(CAPTURE_LAG_BOUND_T)}: re-capture before any send`);
+  if (servedLines.length - storedLines.length > CAPTURE_LAG_BOUND_T) problems.push(`the capture holds ${String(storedLines.length)} of the ${String(servedLines.length)} lines served now, ${String(servedLines.length - storedLines.length)} behind, more than the bound of ${String(CAPTURE_LAG_BOUND_T)}: re-capture before any send`);
   return problems;
+}
+
+/** The capture the sync writes (pure): state.json as served, the projected timeline, the served sha256 and length, and the
+ *  previous capture `prev` named. Throws if a URL survives the projection. */
+export function captureRecord(prev, stateJson, servedTimeline, capturedAt) {
+  const projected = projectTimeline(servedTimeline);
+  if (projected.includes("://")) throw new Error("a URL survived the projection");
+  return {
+    $comment: COMMENT,
+    schema: "monark-site-narabi-capture-v1",
+    source: BASE,
+    captured_at: capturedAt,
+    state_json: stateJson,
+    state_sha256: sha256(stateJson),
+    timeline_jsonl: projected,
+    timeline_sha256: sha256(projected),
+    served: { timeline_sha256: sha256(servedTimeline), timeline_chars: servedTimeline.length },
+    previous_capture: { captured_at: prev.captured_at, served_timeline_sha256: prev.served.timeline_sha256, served_timeline_chars: prev.served.timeline_chars },
+  };
 }
 
 export const COMMENT =
@@ -103,8 +141,8 @@ async function main() {
   const outAbs = join(ROOT, OUT_REL);
   if (!existsSync(outAbs)) fail(`${OUT_REL} is absent: a capture extends the committed one (append-only chain of captures)`);
   const old = JSON.parse(readFileSync(outAbs, "utf8"));
-  const stateJson = await get("state.json");
-  const servedTimeline = await get("timeline.jsonl");
+  const stateJson = await servedGet("state.json");
+  const servedTimeline = await servedGet("timeline.jsonl");
   const { lines, state } = await servedChecks(stateJson, servedTimeline);
   if (check) {
     const problems = checkCommitted(old, stateJson, servedTimeline);
@@ -123,20 +161,8 @@ async function main() {
     console.log(`sync-narabi-capture: unchanged — the served files equal the capture of ${String(old.captured_at)}; nothing written.`);
     return;
   }
-  const projected = projectTimeline(servedTimeline);
-  if (projected.includes("://")) fail("a URL survived the projection");
-  const out = {
-    $comment: COMMENT,
-    schema: "monark-site-narabi-capture-v1",
-    source: BASE,
-    captured_at: new Date().toISOString().slice(0, 10),
-    state_json: stateJson,
-    state_sha256: sha256(stateJson),
-    timeline_jsonl: projected,
-    timeline_sha256: sha256(projected),
-    served: { timeline_sha256: sha256(servedTimeline), timeline_chars: servedTimeline.length },
-    previous_capture: { captured_at: old.captured_at, served_timeline_sha256: prevServed.timeline_sha256, served_timeline_chars: prevServed.timeline_chars },
-  };
+  let out;
+  try { out = captureRecord(old, stateJson, servedTimeline, new Date().toISOString().slice(0, 10)); } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
   const text = JSON.stringify(out, null, 2) + "\n";
   writeFileSync(outAbs, text);
   console.log(`sync-narabi-capture OK — ${OUT_REL} written (T=${String(state.tracker.t)}, ${String(lines.length)} lines); manifest sha256 (CRLF->LF): ${sha256(text.replace(/\r\n/g, "\n"))}`);

@@ -48,7 +48,7 @@ import { SHAPES, stripRefs } from "../apps/site/lib/harness-served-load.ts";
 // The deploy check's request bodies, imported (never a copy), so they cannot drift before deployment (G2 of CM-2b surfaces, M2):
 // each served response hashes to the sha256 the committed check recorded.
 import { GATE_BODY, GATE_LIQ_BODY, CALIBRATE_BODY, CASCADE_BODY } from "./verify-harness.mjs";
-import { setManifestEntry, promotedManifest, applyWrites, MANIFEST_REL } from "./sync-ukemi-served.mjs";
+import { setManifestEntry, promotedManifest, applyWrites, MANIFEST_REL, snapshotDrift, manifestEntryHolds } from "./sync-ukemi-served.mjs";
 import { handleJsonMirror } from "../apps/harness/src/http.ts";
 import { HARNESS_TOOLS } from "../apps/harness/src/tools/registry.ts";
 import { API_SERVER_URL } from "../apps/harness/src/openapi.ts";
@@ -112,9 +112,9 @@ for (const p of [...ATTESTED, BYO_CLAUSE, NEVER_CALLS]) need(GATE_TOOL_DESCRIPTI
 const TOOL_NOTES = { cascade: "This cascade tool is v0", gate: NEVER_CALLS, calibrate: CALIBRATE_LABEL.split(". ")[0] };
 const INTERNAL = /\bADR-|\b[CDKU]-\d|\bD\d+\b|\bP1\b|\bKraidle\b|binance|coinbase|databento|massive|polygon|helius|chainstack|tenderly|drpc|blastapi|nodies|cloudfront|\bverified\b|guarantee|partner|autonomous/i;
 
-async function read(url, init = {}) {
+async function read(get, url, init = {}) {
   need(new URL(url).protocol === "https:", `${url} is not an https URL (https only)`);
-  const res = await fetch(url, { ...init, redirect: "manual", signal: AbortSignal.timeout(30_000) });
+  const res = await get(url, { ...init, redirect: "manual", signal: AbortSignal.timeout(30_000) });
   need(res.status === 200, `${init.method ?? "GET"} ${url} answered ${String(res.status)} (200 only, no redirect followed)`);
   const declared = Number(res.headers.get("content-length") ?? "0");
   need(!(declared > MAX_BYTES), `${url} declares a body of ${String(declared)} bytes (cap ${String(MAX_BYTES)})`);
@@ -129,7 +129,7 @@ async function read(url, init = {}) {
   need(text.length > 0, `${url} body is empty`);
   return text;
 }
-const post = (url, body, accept = "application/json") => read(url, { method: "POST", headers: { "content-type": "application/json", accept }, body: JSON.stringify(body) });
+const post = (get, url, body, accept = "application/json") => read(get, url, { method: "POST", headers: { "content-type": "application/json", accept }, body: JSON.stringify(body) });
 const sse = (text) => { const line = text.split(/\r?\n/).find((l) => l.startsWith("data:")); return JSON.parse(line ? line.slice(5).trim() : text); };
 /** The key sets of a CLOSED object schema: required, and the declared properties that are not required. */
 const keySets = (s, what) => {
@@ -138,31 +138,35 @@ const keySets = (s, what) => {
   return { required, optional: Object.keys(s.properties).filter((k) => !required.includes(k)) };
 };
 
-async function main() {
-  const ca = JSON.parse(readFileSync(join(ROOT, CA_REL), "utf8"));
-  const caSha = Object.fromEntries(ca.checks.map((c) => [c.name, c.sha256]));
-  need(ca.checks.length > 0 && ca.checks.every((c) => c.ok === true) && ca.tls?.authorized === true && ca.tls_mcp?.authorized === true, `${CA_REL} is not green on every control with an authorized TLS on both hosts`);
-  const api = ca.url, mcpHost = ca.mcp_url;
-  need([new URL(api).host, new URL(mcpHost).host].includes(ca.tls.host), `${CA_REL} tls.host is neither the api host nor the MCP host`);
+/** The served snapshot (read_at included) and the one string its leak scan exempts (the registry's repository URL): every
+ *  body read through `get` (fetch by default: the seam of scripts/sync-dojo-served.mjs) and bound to the deploy check record
+ *  `ca` (the JSON text of docs/deploy-CA-harness.json, an input: main reads it under ROOT, a test passes its own). Fail-closed:
+ *  any check exits 1, nothing written. Shared by the write and by --check. */
+export async function buildHarnessServed({ get = fetch, ca }) {
+  const rec = JSON.parse(ca);
+  const caSha = Object.fromEntries(rec.checks.map((c) => [c.name, c.sha256]));
+  need(rec.checks.length > 0 && rec.checks.every((c) => c.ok === true) && rec.tls?.authorized === true && rec.tls_mcp?.authorized === true, `${CA_REL} is not green on every control with an authorized TLS on both hosts`);
+  const api = rec.url, mcpHost = rec.mcp_url;
+  need([new URL(api).host, new URL(mcpHost).host].includes(rec.tls.host), `${CA_REL} tls.host is neither the api host nor the MCP host`);
   const bodies = {};
   const got = async (key, caName, p) => { const t = await p; need(sha256(t) === caSha[caName], `${key} drifted from the deploy check (${caName}); re-run scripts/verify-harness.mjs first`); bodies[key] = sha256(t); return t; };
 
-  const health = JSON.parse(await got("/health", "health", read(`${api}/health`)));
-  const openapi = JSON.parse(await got("/openapi.json", "openapi", read(`${api}/openapi.json`)));
-  const registry = JSON.parse(await read(REGISTRY, { headers: { accept: "application/json" } }));
+  const health = JSON.parse(await got("/health", "health", read(get, `${api}/health`)));
+  const openapi = JSON.parse(await got("/openapi.json", "openapi", read(get, `${api}/openapi.json`)));
+  const registry = JSON.parse(await read(get, REGISTRY, { headers: { accept: "application/json" } }));
   const latest = (registry.servers ?? []).filter((s) => s._meta?.["io.modelcontextprotocol.registry/official"]?.isLatest === true);
   need(latest.length === 1, "the registry lists no single isLatest entry");
   const entry = latest[0].server, meta = latest[0]._meta["io.modelcontextprotocol.registry/official"];
   const remote = entry.remotes?.[0];
   need(remote !== undefined && remote.url === `${mcpHost}/mcp`, "the registry remote is not the deploy check's MCP host /mcp");
   const MCP_ACCEPT = "application/json, text/event-stream";
-  const init = sse(await read(remote.url, { method: "POST", headers: { "content-type": "application/json", accept: MCP_ACCEPT }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "monark-site-sync", version: "0.0.0" } } }) }));
-  const list = sse(await got("tools/list", "mcp_tools_list", post(remote.url, { jsonrpc: "2.0", id: 1, method: "tools/list" }, MCP_ACCEPT))).result.tools;
-  const gateCall = JSON.parse(await got("/gate", "gate_call", post(`${api}/gate`, GATE_BODY)));
-  const liqCall = JSON.parse(await got("/gate liquidation-eligible-coverage", "gate_liq_call", post(`${api}/gate`, GATE_LIQ_BODY)));
-  const calCall = JSON.parse(await got("/calibrate", "calibrate_call", post(`${api}/calibrate`, CALIBRATE_BODY)));
-  const attCall = JSON.parse(await got("/attest", "attest_call", post(`${api}/attest`, {})));
-  const casCall = JSON.parse(await got("/cascade", "cascade_call", post(`${api}/cascade`, CASCADE_BODY)));
+  const init = sse(await read(get, remote.url, { method: "POST", headers: { "content-type": "application/json", accept: MCP_ACCEPT }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "monark-site-sync", version: "0.0.0" } } }) }));
+  const list = sse(await got("tools/list", "mcp_tools_list", post(get, remote.url, { jsonrpc: "2.0", id: 1, method: "tools/list" }, MCP_ACCEPT))).result.tools;
+  const gateCall = JSON.parse(await got("/gate", "gate_call", post(get, `${api}/gate`, GATE_BODY)));
+  const liqCall = JSON.parse(await got("/gate liquidation-eligible-coverage", "gate_liq_call", post(get, `${api}/gate`, GATE_LIQ_BODY)));
+  const calCall = JSON.parse(await got("/calibrate", "calibrate_call", post(get, `${api}/calibrate`, CALIBRATE_BODY)));
+  const attCall = JSON.parse(await got("/attest", "attest_call", post(get, `${api}/attest`, {})));
+  const casCall = JSON.parse(await got("/cascade", "cascade_call", post(get, `${api}/cascade`, CASCADE_BODY)));
   const { version, api: apiFacts, ...shapes } = shapesFrom({ health, openapi, list, gateCall, liqCall, calCall, attCall, casCall });
   need(version === init.result.serverInfo.version && version === entry.version, `version mismatch: openapi ${version}, serverInfo ${init.result.serverInfo.version}, registry ${entry.version}`);
   need(apiFacts.url === api, "openapi servers[0].url is not the deploy check URL");
@@ -176,12 +180,37 @@ async function main() {
     mcp: { url: remote.url, remote_type: remote.type, server_name: init.result.serverInfo.name },
     ...shapes,
     registry: { name: entry.name, version: entry.version, status: meta.status, published_at: meta.publishedAt, repository_url: entry.repository.url },
-    deploy_check: { checked_at: ca.checked_at, count: ca.checks.length, ok_count: ca.checks.filter((c) => c.ok).length, tls_host: ca.tls.host, tls_valid_to: ca.tls.valid_to },
+    deploy_check: { checked_at: rec.checked_at, count: rec.checks.length, ok_count: rec.checks.filter((c) => c.ok).length, tls_host: rec.tls.host, tls_valid_to: rec.tls.valid_to },
     bodies_sha256: bodies,
   };
+  return { out, exempt: entry.repository.url };
+}
+
+async function main() {
+  const { out, exempt } = await buildHarnessServed({ get: fetch, ca: readFileSync(join(ROOT, CA_REL), "utf8") });
   let done;
-  try { done = writeServed(ROOT, out, entry.repository.url); } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
-  console.log(`sync-harness-served OK — ${OUT_REL} written (version ${version}, ${String(out.tools.length)} tools); manifest entry set to ${done.sha}${done.promoted ? `; the pending snapshot is promoted, ${PENDING_REL} and its manifest entry removed` : ""}. Then: node scripts/repin-served.mjs`);
+  try { done = writeServed(ROOT, out, exempt); } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+  console.log(`sync-harness-served OK — ${OUT_REL} written (version ${out.version}, ${String(out.tools.length)} tools); manifest entry set to ${done.sha}${done.promoted ? `; the pending snapshot is promoted, ${PENDING_REL} and its manifest entry removed` : ""}. Then: node scripts/repin-served.mjs`);
+}
+
+/** --check (SYNC-CHECK-MODE-1): build the snapshot the sources serve now, exactly as the write does, and compare it with the
+ *  committed file under `root`, read_at and pending_since aside (snapshotDrift), then its manifest entry (manifestEntryHolds).
+ *  Writes nothing. A difference: one line on stderr, exit 1; a committed pending_since is named on stderr and does not fail
+ *  the check (export-public --out refuses it). Same: one line on stdout, the caller goes on (exit 0). */
+export async function checkHarnessServed({ root, get = fetch, ca }) {
+  const { out, exempt } = await buildHarnessServed({ get, ca });
+  let res;
+  try { res = snapshotDrift(readFileSync(join(root, OUT_REL), "utf8"), out, (o) => snapshotText(o, exempt)); } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+  if (res.pendingSince !== null) console.error(`sync-harness-served --check: note: ${OUT_REL} carries pending_since ${res.pendingSince} (a pending snapshot; export-public --out refuses it until the promotion).`);
+  if (res.drift.length > 0) {
+    console.error(`sync-harness-served --check: ${OUT_REL} no longer says what the harness serves now, on {${res.drift.join(", ")}}; re-run without --check.`);
+    process.exit(1);
+  }
+  if (!manifestEntryHolds(root, OUT_REL)) {
+    console.error(`sync-harness-served --check: the manifest entry of ${OUT_REL} is not its sha256; re-run without --check.`);
+    process.exit(1);
+  }
+  console.log(`sync-harness-served --check OK — ${OUT_REL} says what the harness serves now (read_at and pending_since aside).`);
 }
 
 /** Write the served snapshot `out` under `root`, PROMOTING a pending snapshot when one exists: the pending comparison, the
@@ -323,4 +352,4 @@ function snapshotText(out, exempt) {
 }
 
 // Run-guard: execute only when invoked directly, never on import.
-if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) await (process.argv.includes("--pending") ? pendingMain() : main());
+if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) await (process.argv.includes("--pending") ? pendingMain() : process.argv.includes("--check") ? checkHarnessServed({ root: ROOT, get: fetch, ca: readFileSync(join(ROOT, CA_REL), "utf8") }) : main());
