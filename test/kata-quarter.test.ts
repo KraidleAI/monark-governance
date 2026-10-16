@@ -192,7 +192,7 @@ test("series_pinned_before_parse - check refuses a sealed series or a LIVE serie
 // index or in the working tree) outside the list file FILES, a name of FILES without its file, FILES out of the form io_guard reads
 // (ASCII, one name per line ended by LF, sorted, each once, FILES itself named), or a launch from the helper's repository, whose
 // folders carry these names, that io_guard refuses
-// killer: tools/kata-quarter/FILES:3 CONST "quarter_counts.py" -> "quarter_count.py"
+// killer: tools/kata-quarter/FILES:4 CONST "quarter_counts.py" -> "quarter_count.py"
 test("kata_quarter_files_are_regular_100644 - the index holds the tool as merged regular files 100644, named one by one in its list file FILES (the form io_guard reads), and the working tree carries the same names; a launch from a copy of the two trees is admitted", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "FILES")), `${QUARTER}/FILES absent`);
   const entries = gitOut(REPO, ["ls-files", "-s", "-z", "--", QUARTER]).split("\0").filter((l) => l !== "").map((l) => {
@@ -217,7 +217,7 @@ test("kata_quarter_files_are_regular_100644 - the index holds the tool as merged
 // reads it, is a stem of tools/kata-recalc/ (first in sys.path, it would mask the second), a file that is neither the list file FILES
 // nor quarter_*.py (a name of the standard library there would mask its import while io_guard loads), or a copy of the tool with a posed
 // homonym that io_guard no longer refuses by name
-// killer: tools/kata-quarter/FILES:6 CONST "quarter_load.py" -> "report.py"
+// killer: tools/kata-quarter/FILES:7 CONST "quarter_load.py" -> "report.py"
 test("kata_quarter_names_disjoint_from_kata_recalc - no stem of tools/kata-quarter/ is a stem of tools/kata-recalc/, every file of the folder is quarter_*.py but the list file, and a posed homonym (report.py, listed) is refused by io_guard by name, exit 4", () => {
   assert.ok(existsSync(join(REPO, QUARTER, ENTRY)), `${QUARTER}/${ENTRY} absent`);
   const stems = (ns: string[]): Set<string> => new Set(ns.map((n) => n.split(".")[0] ?? n));
@@ -1679,7 +1679,7 @@ test("garch_and_ewma_on_deseasonalized_inputs - garch11-sf-sp-v1 (each return de
     const want = expected(series.at, T0 + d, HOUR, "candle", factorFn(HOUR, 10 * DAY), Number(wk[i]), 34);
     for (const k of ["garch11-sf-sp-v1", "ewma-vol-sp-v1"]) assert.ok(got.values[utc(T0 + d)]?.[k] === want[k] && (i === 2 || /^0\.0[0-9]+$/.test(want[k] ?? "")), `${k} at ${utc(T0 + d)}: ${want[k]}`);
   }
-  assert.deepEqual([got.values[utc(T0 + ts[2])]?.["garch11-sf-sp-v1"], got.values[utc(T0 + ts[2])]?.["ewma-vol-sp-v1"]], [NE, NE], "a bar of their window absent: non_evaluable");
+  assert.deepEqual([got.values[utc(T0 + ts[2]!)]?.["garch11-sf-sp-v1"], got.values[utc(T0 + ts[2]!)]?.["ewma-vol-sp-v1"]], [NE, NE], "a bar of their window absent: non_evaluable");
 });
 
 // reddened by: a frozen string admitted with a sign, an underscore, a digit that is not ASCII, an infinite value, or as a number, or a
