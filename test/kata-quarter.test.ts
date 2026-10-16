@@ -14,7 +14,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gitOut } from "./helpers/git-tracked.ts";
 import { canonicalJson, vocabularyHits } from "../scripts/spec-publish.mjs";
@@ -35,11 +35,23 @@ const checkArgs = (sealed: string, live: string): string[] =>
   ["check", sealed, live, SYM, "1", sha256(join(sealed, SYM, SERIES)), sha256(join(live, SYM, SERIES)), "404"];
 const names = (): string[] => readFileSync(join(REPO, QUARTER, "FILES"), "ascii").split("\n").slice(0, -1);
 type Missing = { count: unknown; missing: { open_time_ms: unknown; open_time_utc: unknown }[] };
+/** A path segment that Windows refuses (MONARK replays this file under Windows, where a case's folder « R at 13:00 » was ENOENT): a
+ *  character of < > : " / \ | ? *, a control character, a trailing dot or space, or a device name, with an extension or not (the
+ *  device after prn written a[u]x: a French word to lang:gate). */
+const winRefused = (s: string): boolean =>
+  /[<>:"/\\|?*]/.test(s) || /[. ]$/.test(s) || /^(?:con|prn|a[u]x|nul|com[0-9¹²³]|lpt[0-9¹²³])(?:\..*)?$/i.test(s) || [...s].some((c) => c.charCodeAt(0) < 32);
+/** The fixture writer: text written at p, a path under the temporary folder, its folders made; refused by name before anything is
+ *  written, on every system, when a segment of p below that folder is one Windows refuses (so Linux CI is red on it too). */
+const write = (p: string, text: string): void => {
+  const refused = relative(tmpdir(), p).split(sep).filter(winRefused);
+  if (refused.length > 0) throw new Error(`a path segment that Windows refuses: ${JSON.stringify(refused)} in ${p}`);
+  mkdirSync(dirname(p), { recursive: true });
+  writeFileSync(p, text);
+};
 /** A copy of a series folder of the fixture under a work folder, its CSV text and its missing.json replaced. */
 const variant = (work: string, name: string, text: string, decl: Missing): string => {
-  mkdirSync(join(work, name, SYM), { recursive: true });
-  writeFileSync(join(work, name, SYM, SERIES), text);
-  writeFileSync(join(work, name, SYM, MISSING), `${JSON.stringify(decl)}\n`);
+  write(join(work, name, SYM, SERIES), text);
+  write(join(work, name, SYM, MISSING), `${JSON.stringify(decl)}\n`);
   return join(work, name);
 };
 const fixtureOf = (which: string): { csv: string; missing: Missing } =>
@@ -238,9 +250,8 @@ const edit = (csv: string, { fill = [] as number[], drop = [] as number[], dt = 
 };
 /** Writes a series under <dir>/<folder>/ and returns dir. */
 const put = (dir: string, folder: string, s: Series): string => {
-  mkdirSync(join(dir, folder), { recursive: true });
-  writeFileSync(join(dir, folder, `${folder}-15m.csv`), s.text);
-  writeFileSync(join(dir, folder, MISSING), `${JSON.stringify(s.missing)}\n`);
+  write(join(dir, folder, `${folder}-15m.csv`), s.text);
+  write(join(dir, folder, MISSING), `${JSON.stringify(s.missing)}\n`);
   return dir;
 };
 type Row = { task_class: string; horizon: string; n_test: number; k_test: number; drops_label: number; out_input: number; served_from: string; served_to: string; served_tables: string[] };
@@ -269,7 +280,7 @@ const byClass = (c: Counts): Record<string, number[]> => Object.fromEntries(c.ro
 /** The registry with its rows changed by f, written under work. */
 const regWith = (work: string, name: string, f: (rows: Record<string, unknown>[]) => Record<string, unknown>[]): string => {
   const reg = JSON.parse(readFileSync(REG, "utf8")) as { rows: Record<string, unknown>[] };
-  writeFileSync(join(work, name), `${JSON.stringify({ ...reg, rows: f(reg.rows) })}\n`);
+  write(join(work, name), `${JSON.stringify({ ...reg, rows: f(reg.rows) })}\n`);
   return join(work, name);
 };
 /** Q_1 with no gap: the LIVE fixture with its three declared gaps filled by made-up candles. */
@@ -964,7 +975,8 @@ const listsOf = (live: string, cut: number, t = T): { irregular_close: { open_ti
 // does not dropped; a halt that ends before S_1 printed; a list computed from the series that a manifest contradicts admitted (a v2, or a
 // v1 that carries the list), or a manifest with no list refused; a truncation of at most one minute left out of irregular_close (a v2
 // manifest that lists it refused); a manifest that is not a JSON object, or writes a key twice, admitted or refused by another error; a
-// bound of [E, R) or of the label window closed (the decision at t = R, or the one whose window ends at E, dropped); a halt across the
+// manifest with no schema, or one the recorder does not write, admitted; a case's folder that Windows refuses written; a bound of [E, R)
+// or of the label window closed (the decision at t = R, or the one whose window ends at E, dropped); a halt across the
 // seam S_1 that takes its 0-trade run, its truncation or its declared slots from read 2 alone; or a fixture whose truncation the frozen
 // tool's load_series admits
 // killer: tools/kata-quarter/quarter_load.py:258 CONST "60_000" -> "0"
@@ -972,9 +984,11 @@ test("truncated_candle_rule8 - a truncation of 30 s or 60 s is an ordinary candl
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_load.py")), `${QUARTER}/quarter_load.py absent`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-rule8-")), sealed = join(FIXTURE, "sealed");
   const v2 = { schema: "monark.series.binance.v2" }, v1 = { schema: "monark.series.binance.v1" };
-  /** count on the series of truncated (o.t, o.zeros), its lists held to a v2 manifest.json beside it when o.v2. */
+  /** count on the series of truncated (o.t, o.zeros), its lists held to a v2 manifest.json beside it when o.v2. Its folder is the
+   *  case's name with each run of characters other than letters, digits, _ . - written as one - (« R at 13:00 », R-at-13-00: Windows
+   *  refuses a colon); the messages keep the name. */
   const run = (name: string, cut: number, trades: number, drop: number[] = [], from = sealed, o: { repo?: ToolRepo; t?: number; zeros?: number; v2?: boolean } = {}): { r: Run; c: Counts; live: string } => {
-    const live = truncated(join(work, name), cut, trades, drop, o);
+    const live = truncated(join(work, name.replace(/[^\w.-]+/g, "-")), cut, trades, drop, o);
     if (o.v2) writeFileSync(join(live, SYM, "manifest.json"), `${JSON.stringify({ ...v2, ...listsOf(live, cut, o.t) })}\n`);
     const x = count(from, live, 1, [SYM], o);
     assert.equal(x.r.status, o.repo ? 2 : 0, `${name}: exit ${o.repo ? 2 : 0}\n${x.r.stdout}${x.r.stderr}`);
@@ -984,10 +998,30 @@ test("truncated_candle_rule8 - a truncation of 30 s or 60 s is an ordinary candl
   /** The counts of base with d[i] more drops and as many fewer instants in n_test, for range-1h, range-4h and mae-down-1h. */
   const moved = (base: Counts, d: number[]): Record<string, number[]> =>
     Object.fromEntries(["syn-range-1h", "syn-range-4h", "syn-mae-down-1h"].map((c, i) => { const [n = NaN, k = NaN, o = NaN] = byClass(base)[c] ?? []; return [c, [n - (d[i] ?? 0), k + (d[i] ?? 0), o]]; }));
+  // a case's folder that Windows refuses, refused by the fixture writer by name before anything is written, on Linux too: the case named
+  // as it reads (« E at 12:00 », a colon), one name for each other character of the class but / (the separator; \ is the separator on
+  // Windows, so that name is left out there), one for each device stem, with an extension or not, in either case, with a digit or a
+  // superscript (the stem after prn written in two parts: a French word to lang:gate), a trailing dot, a trailing space, a control
+  // character and the last one (0x1f). The guard is test code, which no killer line may name (scripts/red-proof.mjs, KILLER CONVENTION):
+  // each of its clauses dropped, a character of its class but / dropped, a device stem dropped, the superscripts dropped, the bound of
+  // the control characters lowered, or its throw, turns these cases red
+  for (const name of ["E at 12:00", "a<b", "a>b", "a\"b", ...(process.platform === "win32" ? [] : ["a\\b"]), "a|b", "a?b", "a*b", "CON", "prn.txt", "a" + "ux", "Nul.json", "com1", "LPT9", "com¹", "a dot.", "a space ", "a\ttab", "a\x1fb"]) { // winlint-ok: names the writer refuses before any write, none made
+    const p = join(work, name, "q1", SYM, SERIES);
+    assert.throws(() => truncated(join(work, name), 600_000, 0), { message: `a path segment that Windows refuses: ${JSON.stringify([name])} in ${p}` }, `${JSON.stringify(name)}: refused by name`);
+    assert.ok(!existsSync(join(work, name)), `${JSON.stringify(name)}: nothing written`);
+  }
+  // the anchors of the device pattern: a name with more after a device stem (« console », « com10 ») or before it (« icon ») is one
+  // Windows admits, and the writer makes it; the pattern unanchored at its end refuses the first two, at its start the third
+  for (const name of ["console", "com10", "icon"]) {
+    const p = join(work, name, "q1", SYM, SERIES);
+    truncated(join(work, name), 600_000, 0);
+    assert.ok(existsSync(p), `${JSON.stringify(name)}: written`);
+  }
   // fixture A, and one minute exactly: an ordinary candle, the counts of the regular candle; still listed in irregular_close, held to a
   // v2 manifest that lists it (the recorder lists every close other than open + 15 min - 1 ms)
   // killer: tools/kata-quarter/quarter_load.py:258 ROR "close >= t" -> "close > t"
   // killer: tools/kata-quarter/quarter_load.py:243 CONST "if ct != ot + K.STEP_MS - 1:" -> "if ct < ot + K.STEP_MS - 1 - 60_000:"
+  // killer: tools/kata-quarter/quarter_load.py:285 CONST ", \"monark.series.binance.v2\")" -> ")"
   const base = run("regular", 0, 0, GONE);
   for (const [name, cut] of [["30 s", 30_000], ["60 s", 60_000]] as const) {
     const a = run(name, cut, 0, GONE, sealed, { v2: true });
@@ -1017,22 +1051,29 @@ test("truncated_candle_rule8 - a truncation of 30 s or 60 s is an ordinary candl
   const lists = listsOf(b.live, 600_000);
   const under = (m: object | string): Run => { writeFileSync(join(b.live, SYM, "manifest.json"), typeof m === "string" ? m : `${JSON.stringify(m)}\n`); return count(sealed, b.live, 1, [SYM]).r; };
   assert.ok(lists.zero_trade.includes(T) && lists.zero_trade.length >= 5, "the truncated candle among the 0-trade candles");
+  // killer: tools/kata-quarter/quarter_load.py:285 CONST "(\"monark.series.binance.v1\", " -> "("
   assert.deepEqual([under({ ...v2, ...lists }).status, under(v1).status], [0, 0], "a v2 manifest whose lists are the computed ones, and a v1 with none: counted");
-  // killer: tools/kata-quarter/quarter_load.py:286 CONST "if off:" -> "if False:"
-  // killer: tools/kata-quarter/quarter_load.py:285 CONST "(k in man or v2)" -> "(v2)"
-  // killer: tools/kata-quarter/quarter_load.py:285 CONST "(k in man or v2)" -> "(k in man)"
+  // killer: tools/kata-quarter/quarter_load.py:290 CONST "if off:" -> "if False:"
+  // killer: tools/kata-quarter/quarter_load.py:289 CONST "(k in man or v2)" -> "(v2)"
+  // killer: tools/kata-quarter/quarter_load.py:289 CONST "(k in man or v2)" -> "(k in man)"
   for (const [name, m, off] of [["a v2 without the truncated candle in zero_trade", { ...v2, ...lists, zero_trade: lists.zero_trade.filter((t) => t !== T) }, "'zero_trade'"],
     ["a v2 with no zero_trade", { ...v2, irregular_close: lists.irregular_close }, "'zero_trade'"], ["a v1 that carries an empty irregular_close", { ...v1, irregular_close: [] }, "'irregular_close'"]] as const) {
     const r = under(m);
     assert.equal(r.status, 2, `${name}: exit 2\n${r.stdout}${r.stderr}`);
     assert.equal(r.stdout, `REFUSED: syn: the lists computed from the series differ from those of its manifest.json: [${off}]\n`, `${name}: refused by name`);
   }
-  // the manifest held to its form, as missing.json is: not a JSON text, not an object, or a key written twice, each refused by name
+  // the manifest held to its form, as missing.json is: not a JSON text, not an object, or a key written twice, each refused by name; and
+  // to a schema the recorder writes (scripts/record-binance-klines.d.mts: v1 or v2): none, or another, refused by name, its lists aside
   // killer: tools/kata-quarter/quarter_load.py:279 CONST "except ValueError:" -> "except KeyError:"
   // killer: tools/kata-quarter/quarter_load.py:281 CONST "type(man) is not dict" -> "False"
   // killer: tools/kata-quarter/quarter_load.py:278 CONST ", object_pairs_hook=lambda p: unique(p, f\"{sym}: manifest.json\")" -> ""
+  // killer: tools/kata-quarter/quarter_load.py:285 CONST "if schema not in (\"monark.series.binance.v1\", \"monark.series.binance.v2\"):" -> "if False:"
+  // killer: tools/kata-quarter/quarter_load.py:286 CONST "\"names no schema\" if \"schema\" not in man else " -> ""
+  const neither = ", neither monark.series.binance.v1 nor monark.series.binance.v2";
   for (const [name, text, why] of [["not a JSON text", "{\n", " is not a JSON text"], ["a JSON array", "[]\n", " is not a JSON object: list"],
-    ["a key written twice", `{"schema":"${v1.schema}","schema":"${v1.schema}"}\n`, ": a key written twice in one object: ['schema', 'schema']"]] as const) {
+    ["a key written twice", `{"schema":"${v1.schema}","schema":"${v1.schema}"}\n`, ": a key written twice in one object: ['schema', 'schema']"],
+    ["an object with no schema", `${JSON.stringify(lists)}\n`, ` names no schema${neither}`],
+    ["an object of another schema", `${JSON.stringify({ schema: "monark.series.binance.v3", ...lists })}\n`, ` names the schema 'monark.series.binance.v3'${neither}`]] as const) {
     const r = under(text);
     assert.equal(r.status, 2, `a manifest.json that is ${name}: exit 2\n${r.stdout}${r.stderr}`);
     assert.equal(r.stdout, `REFUSED: syn: manifest.json${why}\n`, `a manifest.json that is ${name}: refused by name`);
