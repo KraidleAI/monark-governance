@@ -1,7 +1,7 @@
 # systemd unit for the MONARK Bell publisher (ADR-T1b-backend v2 D8-D10; backlog S-7; G0 BELL-COLLECT-TIMER-1 DC-3, plan of part 3 C3-1,
 # lot 3b-ii). Orchestrator-deployed on the dedicated Bell host (bell.monarkgate.tech, decision 57) by docs/RUNBOOK-bell.md. A Type=oneshot
 # job started by monark-bell-collect.service at each end of a collection tick (its OnSuccess= and OnFailure=, C3-1): NO timer and NO
-# [Install] section of its own, so nothing else starts it and nothing enables it. Each start runs --handoff once: it publishes, in order,
+# [Install] section of its own: nothing enables it, and nothing else starts it but the RUNBOOK's act of rescue (step 10: by hand, the timer stopped, no tick running). Each start runs --handoff once: it publishes, in order,
 # at most HANDOFF_N bundles the tick deposited in the handoff directory from the start mark on (each validated, signed, one timeline line),
 # writes the served files under /var/lib/monark-bell/public (read by Caddy), records each publication and each refusal in the status
 # directory and exits; it computes no fact and never writes the handoff directory.

@@ -57,7 +57,7 @@ const SERVICE: Readonly<Record<string, string>> = {
 // killer: deploy/monark-bell-publish.service:29 CONST "--handoff /var/lib/monark-bell-handoff --status" -> "--inbox /var/lib/monark-bell/inbox --status"
 test("bell_deploy_config_publish_unit_least_privilege_offline", () => {
   const text = read(UNIT), { sections, list } = unitDirectives(text);
-  assert.deepEqual(sections, ["Unit", "Service"], "exactly [Unit] + [Service]: no [Install] (never enabled, no timer in lot a, C-1)");
+  assert.deepEqual(sections, ["Unit", "Service"], "exactly [Unit] + [Service]: no [Install] (never enabled, no timer: the collection starts it, OnSuccess= and OnFailure=, C3-1)");
   assert.deepEqual(list.filter((d) => d.section === "Unit").map((d) => d.key), ["Description", "Documentation"], "no network-online ordering: the job is offline");
   const svc = list.filter((d) => d.section === "Service");
   assert.deepEqual(svc.map((d) => d.key).sort(), Object.keys(SERVICE).sort(), "the [Service] directive set is CLOSED (each once; no EnvironmentFile/Environment)");
