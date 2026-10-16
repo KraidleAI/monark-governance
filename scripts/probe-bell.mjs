@@ -10,7 +10,9 @@
 //      file never imports (L-1: nothing of apps/bell/scripts/, nothing of apps/bell/src/ but sessions.ts, no node:child_process);
 //   4. freshness on the trading calendar (C4-5): the unit due at the latest deadline passed must be covered by a published window; and the
 //      calendar-free bound (PXB-20): the last window ends at most CALENDAR_FREE_BOUND_H before the run, a bound read here, never in sessions.ts;
-//   5. the legacy origin (compareOrigins, tuyau T-o3) and the site's /api/v1/status.json (tuyau T-s2), absent without an alert.
+//   5. the legacy origin (compareOrigins, tuyau T-o3) and the site's /api/v1/status.json (tuyau T-s2), absent without an alert, against the head.
+// THE HEAD is the last publication line, as the reader's (walkTimeline of bell-chain.mjs, head_seq of bell-verify.mjs): bell.json's head_seq and
+// head_line_hash, the mail's head_seq and the hash the site status is compared with; a key line after the last publication moves none of them.
 // CONTRACT: bell.json (BELL_PROBE_KEYS) and the kept copy, under --state, each written atomically (a temporary file, fsync, rename, fsync of
 // the directory). One mail through probe-narabi's sendSmtp on the transition to unhealthy, once a UTC day while it lasts, and on recovery, at
 // most one a run; SMTP_PASS is read from its 0600 file when a mail is sent, never from the environment (DOJO-PROBE-UID-BOUNDARY-1). EXIT: 0
@@ -148,6 +150,7 @@ export const unitEndOf = (d) => preOpenUtc(nextTradingDay(d));
 /** The instant U(d) is due, computed as planUnit does (plan.ts dueInstant, l.37-41): its end plus the margin, or the latest publication
  *  gate of its sessions when later. Equal on the whole committed calendar (bell_probe_due_instant_is_the_planners_on_the_whole_calendar). */
 export const dueInstantOf = (d) => Math.max(unitEndOf(d) + UNIT_DUE_MARGIN_MIN * 60_000, ...SESSIONS.map((s) => earliestPublishUtc(refCloseDateOf(s, d))));
+// LIMIT (C4-5 kept, item BELL-PROBE-CYCLE-STRADDLE-1): a slot the tick refuses (cycle_boundary_straddle, tick.ts cyclesOf) publishes past this.
 /** The instant U(d) must be published by: the first collection slot at or after its due instant, plus the tick's and the publisher's
  *  TimeoutStartSec, plus FRESHNESS_MARGIN_MIN. */
 export function deadlineOf(d) {
@@ -204,8 +207,8 @@ export async function compareOrigins(publicOrigin, legacyOrigin, transport) {
     if (attempt > 0) return { verdict: "differs", alert: "legacy_origin_differs" };
   }
 }
-/** Tuyau T-s2: 404 is "site not served", no alert; 200 compares source.line_hash with the head's line hash, an alert once it differs more
- *  than SITE_STATUS_LAG_MIN after the first run that saw it differ (`since`, kept in bell.json); any other answer is an alert. */
+/** Tuyau T-s2: 404 is "site not served", no alert; 200 compares source.line_hash with the head's (the last publication), an alert past
+ *  SITE_STATUS_LAG_MIN after the first run that saw it differ (`since`, kept in bell.json), none at it; any other answer is an alert. */
 async function siteStatusOf(get, headHash, since, nowMs, checkedAt) {
   const r = await get(`${BELL_PUBLIC_ORIGIN}/api/v1/status.json`, SITE_STATUS_MAX_BYTES);
   if (!r.ok && r.reason === "http_status" && r.status === 404) return { site_status: "not_served", site_status_since: null, alert: null };
@@ -242,13 +245,13 @@ async function check(r, a, nowMs, prior, get, keptPath) {
     const n = linesOf(got.body.subarray(kept.length)), w = walkLines([...k.parsed, ...n.parsed], trust, k.parsed.length);
     const good = w.ok ? n.parsed.length : w.seq - 1 - k.parsed.length;
     if (n.torn) r.alerts.push("timeline_malformed");
-    if (!w.ok) r.alerts.push(w.reason);
+    if (!w.ok) r.alerts.push((n.raws[w.seq - 1 - k.parsed.length]?.length ?? 0) > MAX_LINE_BYTES ? "too_large" : w.reason); // bell-verify.mjs:90
     else if (w.head !== null && w.voided.includes(w.head.seq)) r.alerts.push("head_signed_by_revoked_key");
     Object.assign(r, { served_lines: k.parsed.length + n.parsed.length, new_lines: good });
     lines = [...k.parsed, ...n.parsed.slice(0, good)];
     if (good > 0) keep = Buffer.concat([kept, ...n.raws.slice(0, good)]);
   }
-  const head = lines[lines.length - 1] ?? null, lastEnd = lastWindowEnd(lines), f = freshnessOf(nowMs, lastEnd);
+  const head = lines.filter((l) => l.kind === "publication").at(-1) ?? null, lastEnd = lastWindowEnd(lines), f = freshnessOf(nowMs, lastEnd);
   Object.assign(r, { kept_lines: lines.length, head_seq: head?.seq ?? null, head_line_hash: head === null ? null : lineHashOf(head),
     last_window_end_utc: lastEnd === null ? null : new Date(lastEnd).toISOString(), due_unit: f.due_unit, due_by_utc: f.due_by_utc });
   if (f.stale) r.alerts.push("stale");
