@@ -13,7 +13,7 @@
 #     path row that has a qhat, whatever its status, each named in result.rows.
 #   pseudo_quarter_2026_07_09: the count on [2026-07-01, 2026-10-01) against the sum of the months 2026-07 to 2026-09 of test.months.
 #   fdlibm_measure: the count on the TEST block; its report holds the census of the two logs on POPULATION and the decisions that differ.
-# The runs on the host's real series are MONARK's; the tests run every act on synthetic series.
+#   equals_wave2_registry_on_its_blocks (L-O3, on_blocks): the core rows on their three veto blocks. Host runs: MONARK's; tests: made series.
 import hashlib
 import json
 import os
@@ -23,16 +23,16 @@ import io_guard  # already in sys.modules: the entry ran io_guard.py by its path
 import kata_lib as K
 import quarter_core as C
 import quarter_identity as I
-import quarter_load as Q
+import quarter_load as Q, quarter_wave2 as W  # the reader of the core registry, for the act L-O3
 import recalc_p2
 import report
 
 MODEL = "claude-opus-5-5"
-ACTS = ("original_values_byte_equal", "equals_registry_on_test_block", "pseudo_quarter_2026_07_09", "fdlibm_measure")
+ACTS = ("original_values_byte_equal", "equals_registry_on_test_block", "pseudo_quarter_2026_07_09", "fdlibm_measure", "equals_wave2_registry_on_its_blocks")
 USAGE = ("       python -E -S -s -B -P quarter_counts.py check original_values_byte_equal <sealed series dir> <out dir> <first report.json, "
          "or - for the first invocation> <its sha256, or -> <symbol folder>:<sealed sha256 | pinned> ...\n"
          "       python -E -S -s -B -P quarter_counts.py check <equals_registry_on_test_block | pseudo_quarter_2026_07_09 | fdlibm_measure> "
-         "<registry> <registry sha256> <sealed series dir> <out dir> <symbol folder>:<sealed sha256 | pinned> ...")
+         "<registry> <registry sha256> <sealed series dir> <out dir> <symbol folder>:<sealed sha256 | pinned> ..." + W.USAGE)
 FORMAT = "kata-quarter-oracle-v1"
 RULE = ("report.py l.9-13: each field compared is a decision, held by strict equality; the count of the fdlibm_log pass decides, the "
         "decisions of the math.log pass that differ are listed and stop nothing")
@@ -125,12 +125,16 @@ def act(name, args, identity_line):
     """One act: its report written and named, its differences listed; exit 0 when equal, 1 on a difference."""
     io_guard.declare("series", "recorder", "registry", "oracle-output", "tool-tree")
     ident = I.tool_identity()
-    if len(args) < 5 or not (args[2:4] == ["-", "-"] or hex64(args[3]) if name == ACTS[0] else hex64(args[1])):
+    if len(args) < 5 or not (args[2:4] == ["-", "-"] or hex64(args[3]) if name == ACTS[0] else hex64(args[1]) and (name != ACTS[4] or len(args) >= 7 and hex64(args[3]))):
         raise Q.Refused(f"usage:\n{USAGE}")
     if name == ACTS[0]:
         sealed, out, first, pins = os.path.abspath(args[0]), os.path.abspath(args[1]), None if args[2] == "-" else (os.path.abspath(args[2]), args[3]), specs(args[4:])
         io_guard.output(out)
         result, diffs = original(sealed, pins, first, ident)
+    elif name == ACTS[4]:  # <registry> <sha256> <core registry> <sha256> <sealed series dir> <out dir> <symbol folder>:<pin> ...
+        registry, core, sealed, out = (os.path.abspath(args[i]) for i in (0, 2, 4, 5))
+        io_guard.output(out)
+        result, diffs = on_blocks(registry, args[1], (core, args[3]), sealed, specs(args[6:]))
     else:
         registry, pin, sealed, out, pins = os.path.abspath(args[0]), args[1], os.path.abspath(args[2]), os.path.abspath(args[3]), specs(args[4:])
         io_guard.output(out)
@@ -151,3 +155,26 @@ def act(name, args, identity_line):
              *io_guard.input_lines(), "VERDICT: GREEN" if not diffs else f"VERDICT: RED ({len(diffs)} difference(s), not explained)"]
     print("\n".join(lines), flush=True)
     return 0 if not diffs else 1
+
+
+def on_blocks(registry, pin, core, sealed, pins):
+    """equals_wave2_registry_on_its_blocks (L-O3): each core row with a qhat, whatever its status, counted on the three veto blocks of
+    quarter_wave2.BLOCKS from its sealed series read alone under W.READS (rule 8 on its truncated candles; no merge: an absent slot is out
+    or a drop), held to wave2.json: nTest, kTest, UTest, vetoed and months of each block, and its label drops (drops.<block>)."""
+    rows = [x for x in W.core_rows(*core, W.wave1(registry, pin)) if x[0]["calib"]["qhat"] is not None]
+    venue = sorted({f for _, _, f in rows})
+    if sorted(pins) != venue:
+        raise Q.Refused(f"the symbol folders named {sorted(pins)} are not the venue's {venue}, those of the core rows with a qhat")
+    reads = {f: (r, {"declared": frozenset()}, r) for f, r in ((f, Q.read_series(sealed, f, p, *W.READS)) for f, p in pins.items())}
+    result, diffs = {"registry_sha256": pin, "core_registry_sha256": core[1], "rows": [[r["taskClass"], r["key"]] for r, _, _ in rows], "blocks": {}}, []
+    for b, span in W.BLOCKS.items():
+        res = C.count(reads, rows, span, venue)
+        result["blocks"][b] = {"pose": res["pose"], "grid": res["grid"], "halts": res["halts"], "log": res["log"], "math_log_decisions": res["differ"]}
+        for (r, _, _), got in zip(rows, res["rows"]):
+            n, k = got["n_test"], got["k_test"]
+            mine = {"nTest": n, "kTest": k, "UTest": u_test(n, k), "months": got["months"], "drops": got["drops_label"],
+                    "vetoed": bool(r["calib"]["status"] == "region" and n >= 1 and E.binom_upper_tail_leq(n, k, r["alpha"], recalc_p2.DELTA))}
+            theirs = {**r[b], "drops": r["drops"][b]}
+            diffs += [f"{r['taskClass']} {r['key']} {b}.{x}: tool {report.canonical(mine[x])}, registry {report.canonical(theirs[x])}"
+                      for x in mine if report.canonical(mine[x]) != report.canonical(theirs[x])]
+    return result, diffs

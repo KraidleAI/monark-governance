@@ -4,7 +4,7 @@
 # identity block): for each counted row its key, alpha, horizon, n_test, k_test, drops_label and out_input, its u_test (quarter_oracle.
 # u_test, the one that the oracle act holds to the registry: binom_exact.miss_upper_bound under recalc_p2.DELTA, "1" when every point
 # misses, null with no point) and fires (binom_exact.binom_upper_tail_leq at the row's alpha under DELTA, the veto of
-# recalc_p2.calibrate_cell); the pins of the registry and of the two reads of each symbol (the sealed series and the record of the
+# recalc_p2.calibrate_cell); the pins of the registry (and of the core registry, CM5-c3) and of the two reads of each symbol (the sealed series and the record of the
 # quarter), the halts applied, the grid, the pose and the census of the log in counts (its largest distance in ulps, unbounded, stays on
 # the line of count); apart, the identity block (the commit and the digests of both trees). No price, no instant of a miss, no month of
 # the misses: integers, ASCII strings, booleans and null. Written by report.canonical of the frozen tool (sorted keys, no space, no line
@@ -53,7 +53,7 @@ def evidence(res, ident):
                   "complete": 1000 * s["present"] >= 999 * s["expected"]} for f, s in res["series"].items()}
     parts = {**res, "format": FORMAT, "series": series, "log": {x: res["log"][x] for x in LOG_KEYS},
              "rows": [{x: r[x] for x in ROW_KEYS} for r in rows], "identity": dict(zip(O.IDENT, ident))}
-    return {x: parts[x] for x in EVIDENCE_KEYS}
+    return {x: parts[x] for x in EVIDENCE_KEYS + ("core_registry_sha256",) * ("core_registry_sha256" in res)}
 
 
 def prudent(r):

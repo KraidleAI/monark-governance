@@ -5,9 +5,9 @@
 # check and count declare the role tool-tree and, before any input, hold both trees on disk to their blobs at the commit that git_tree
 # names (quarter_identity, exit 2 otherwise; no option skips it), then print that commit and the two digests on the line "identity".
 # check: two reads of one symbol through quarter_load and their merge, VERDICT: GREEN; count: the counts of the region rows of a wave 1
-# registry on Q_k (quarter_core), one JSON line under fdlibm_log, then each decision math.log changes, and the evidence of the quarter
-# (quarter_evidence) into <out dir>/quarter-<k>.json, named on the line "evidence", for the rows that the served history serves in Q_k;
-# check <act>: an oracle act; vectors: the L-T7 vectors into <out dir>/veto-vectors.json; month: exit 2. Arguments parsed under the catch.
+# registry, and of the core registry wave2.json when given (quarter_wave2: attempt 2, the child rule), on Q_k (quarter_core), one JSON
+# line under fdlibm_log, then each decision math.log changes, and the evidence (quarter_evidence) into <out dir>/quarter-<k>.json, named
+# on the line "evidence", for the rows the served history serves in Q_k; check <act>: an oracle act; vectors: the L-T7 vectors; month: exit 2.
 import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked both folders (IO-GUARD-POSED-FILES-1)
 if "io_guard" not in sys.modules:  # io_guard.py of the frozen tool, run by its path, never found by name: nothing posed or installed stands in for it
     sys.path.append(_d := os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "kata-recalc"))  # the frozen tool's folder, last in sys.path: -P is in FORM
@@ -21,12 +21,12 @@ import quarter_core as C
 import quarter_evidence as V
 import quarter_identity as I
 import quarter_load as Q
-import quarter_oracle as O
+import quarter_oracle as O, quarter_wave2 as W  # the reader of the core registry wave2.json (lot c3)
 import recalc_p2
 MODEL = "claude-opus-5-5"
 USAGE = ("usage: python -E -S -s -B -P quarter_counts.py check <sealed series dir> <live series dir> <symbol folder> <quarter k> "
          "<sealed sha256 | pinned, quarter 1 only> <live sha256> <lookback hours>\n"
-         "       python -E -S -s -B -P quarter_counts.py count <registry> <registry sha256> <served history> <served history sha256> "
+         "       python -E -S -s -B -P quarter_counts.py count <registry> <registry sha256> [<core registry> <core registry sha256>] <served history> <served history sha256> "
          "<sealed series dir> <live series dir> <quarter k> <out dir> <symbol folder>:<sealed sha256 | pinned, quarter 1 only>:<live sha256> ...\n"
          "       python -E -S -s -B -P quarter_counts.py vectors <out dir>\n" + O.USAGE)
 NOT_YET = "not in this lot: the month counts arrive with lot e"
@@ -82,13 +82,13 @@ def check(sealed_dir, live_dir, sym, k, pin1, pin2, lookback_hours):
     return 0
 
 
-def count(registry, pin, history, hpin, sealed_dir, live_dir, k, out, specs):
+def count(registry, pin, history, hpin, sealed_dir, live_dir, k, out, specs, core=None):
     io_guard.declare("series", "recorder", "registry", "served-history", "tool-tree")
     ident = I.tool_identity()
     io_guard.output(out)
     V.place(out, (sealed_dir, live_dir))
     folders = {f: (p1, p2) for f, p1, p2 in (s.split(":") for s in specs)}
-    (rows, venue), (s_k, e_k), held = C.registry_rows(registry, pin), Q.quarter(k), Q.served_history(history, hpin)
+    (rows, venue), (s_k, e_k), held = W.counted(*C.registry_rows(registry, pin), core, registry, pin, Q.quarter(k)[0]), Q.quarter(k), Q.served_history(history, hpin)
     service = {r["taskClass"]: Q.served_in(held.get(r["taskClass"], []), s_k, e_k) for r, _, _ in rows}
     rows = [x for x in rows if service[x[0]["taskClass"]]]
     if not rows:
@@ -103,7 +103,7 @@ def count(registry, pin, history, hpin, sealed_dir, live_dir, k, out, specs):
         first = Q.read_series(sealed_dir, f, Q.sealed_pin(f) if p1 == "pinned" else p1, *Q.sealed_range(k))
         second = V.closed(Q.read_series(live_dir, f, p2, s_k, e_k), e_k)
         reads[f] = (first, second, Q.merge(first, second, look))
-    res = {"quarter": {"k": k, "start": Q.iso(s_k), "end": Q.iso(e_k)}, "registry_sha256": pin, "served_history_sha256": hpin, **C.count(reads, rows, (s_k, e_k), venue),
+    res = {"quarter": {"k": k, "start": Q.iso(s_k), "end": Q.iso(e_k)}, "registry_sha256": pin, **({"core_registry_sha256": core[1]} if core else {}), "served_history_sha256": hpin, **C.count(reads, rows, (s_k, e_k), venue),
            "series": {f: {"sealed": r[0]["pin"], "live": r[1]["pin"], "gaps": sum(map(len, r[2]["gaps"].values())), "present": len(r[1]["candles"]),
                           "expected": (e_k - s_k) // Q.K.STEP_MS} for f, r in reads.items()}}
     for row in res["rows"]:
@@ -148,6 +148,9 @@ if __name__ == "__main__":
         if sub == "count" and len(args) >= 9 and hex64(args[1]) and hex64(args[3]) and number(args[6]) and all(map(spec, args[8:])):
             a = [os.path.abspath(x) for x in args[:8]]  # args 1, 3 and 6, the pins and k, taken as they are
             sys.exit(count(a[0], args[1], a[2], args[3], a[4], a[5], int(args[6]), a[7], args[8:]))
+        if sub == "count" and len(args) >= 11 and all(map(hex64, args[1:6:2])) and number(args[8]) and all(map(spec, args[10:])):
+            a = [os.path.abspath(x) for x in args[:10]]  # the core registry and its pin after the registry's: args 3, 5 and 8 as they are
+            sys.exit(count(a[0], args[1], a[4], args[5], a[6], a[7], int(args[8]), a[9], args[10:], (a[2], args[3])))
         if sub == "vectors" and len(args) == 1:
             sys.exit(vectors(os.path.abspath(args[0])))
         if sub != "check" or len(args) != 7 or not (number(args[3]) and number(args[6])) \
