@@ -1,4 +1,4 @@
-// scripts/bell-deploy.mjs -- deployment constants of MONARK Bell, collect side: the single source that the collection tick
+// scripts/bell-deploy.mjs -- deployment constants of MONARK Bell, collect side and probe side (scripts/probe-bell.mjs reads them too): the single source that the collection tick
 // (apps/bell/src/tick.ts) and its tests read. No I/O, no code. Pinned by test/bell-deploy-constants.test.ts; the run and method caps
 // copy the mode W3 line (one trading-day window) of the operator's launcher apps/bell/ops/launch-q6.sh, re-measured in rehearsal.
 /** The EnvironmentFile's closed key set: the RPC endpoints and keys, the cash-leg keys, the cycle anchors (an ISO instant with its
@@ -90,3 +90,13 @@ export const BELL_COLLECT_TREE_PATHS = Object.freeze(["apps/bell/package.json", 
   "packages/rpc-guard/src/tariff.ts", "packages/rpc-guard/src/transport.ts", "scripts/bell-deploy.mjs"]);
 /** How the tree resolves @monark/rpc-guard without npm: [link inside the tree, its relative target] (the Dojo's DOJO_COLLECT_TREE_LINK). */
 export const BELL_COLLECT_TREE_LINK = Object.freeze(["node_modules/@monark/rpc-guard", "../../packages/rpc-guard"]);
+// Part 4, lot 4a (G0 DC-9, DC-15; PLAN-P4 C4-3, C4-5): the probe's two origins, the collection's slots and the publisher's start bound.
+/** The origin Bell is served at (DC-15), read by the probe (lot 4a) and the CA (lot 5b): the former value, held until the three findings of
+ *  DC-15 (domain bought, DNS records posed and resolved, certificate read), then https://offhoursbell.com by a dated line. */
+export const BELL_PUBLIC_ORIGIN = "https://bell.monarkgate.tech";
+/** The former origin, served byte for byte with the public one for life (Q-15). Equal to it until the switch: the probe compares nothing then, and says so. */
+export const BELL_LEGACY_ORIGIN = "https://bell.monarkgate.tech";
+/** The four UTC slots of the collection timer, in the order of its OnCalendar lines (BELL_COLLECT_TIMER l.13-16); pinned by the probe's freshness test. */
+export const BELL_COLLECT_SLOTS_UTC = Object.freeze(["20:15", "21:15", "08:45", "09:45"]);
+/** The publisher unit's TimeoutStartSec (BELL_PUBLISH_UNIT l.34): a publication started at the end of a tick ends within it. */
+export const BELL_PUBLISH_TIMEOUT_START_SEC = 120;

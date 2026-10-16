@@ -31,3 +31,7 @@ export const BELL_COLLECT_ENV_FILE: string;
 export const BELL_COLLECT_TREE_ROOT: string;
 export const BELL_COLLECT_TREE_PATHS: readonly string[];
 export const BELL_COLLECT_TREE_LINK: readonly string[];
+export const BELL_PUBLIC_ORIGIN: string;
+export const BELL_LEGACY_ORIGIN: string;
+export const BELL_COLLECT_SLOTS_UTC: readonly string[];
+export const BELL_PUBLISH_TIMEOUT_START_SEC: number;
