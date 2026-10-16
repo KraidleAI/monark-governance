@@ -1002,7 +1002,7 @@ test("truncated_candle_rule8 - a truncation of 30 s or 60 s is an ordinary candl
   // as it reads (« E at 12:00 », a colon), a device name with an extension, a trailing dot, a trailing space, a control character. The
   // guard is test code, which no killer line may name (scripts/red-proof.mjs, KILLER CONVENTION): each of its clauses dropped, or its
   // throw, turns these cases red
-  for (const name of ["E at 12:00", "Nul.json", "a dot.", "a space ", "a\ttab"]) {
+  for (const name of ["E at 12:00", "Nul.json", "a dot.", "a space ", "a\ttab"]) { // winlint-ok: names the writer refuses before any write, none made
     const p = join(work, name, "q1", SYM, SERIES);
     assert.throws(() => truncated(join(work, name), 600_000, 0), { message: `a path segment that Windows refuses: ${JSON.stringify([name])} in ${p}` }, `${JSON.stringify(name)}: refused by name`);
     assert.ok(!existsSync(join(work, name)), `${JSON.stringify(name)}: nothing written`);
