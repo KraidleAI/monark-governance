@@ -28,7 +28,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
-import { assertFleetBody, renderedBody, decodeEntities, SITE_BUILD_RUN, FLEET_HEADER } from "../scripts/assert-fleet-html.mjs";
+import { assertFleetBody, renderedBody, decodeEntities, stripHiddenSurfaces, SITE_BUILD_RUN, FLEET_HEADER } from "../scripts/assert-fleet-html.mjs";
 import { derivePublicWorkflow, collectFiles, CI_WORKFLOW_PATH } from "../scripts/export-public.mjs";
 import ts from "typescript";
 import { renderedTexts } from "../apps/site/test/honesty-lint.ts";
@@ -1204,8 +1204,8 @@ test("owner_decisions_of_2026_09_24_retired_wording_stays_out — B_t caller-car
   assert.throws(() => registerNames(["Hikae", "Shogun"]), /not an agent of the fleet register/);
 });
 
-/** The visible text of a rendered page: comments taken out, tags made spaces, entities decoded, white space collapsed. */
-const visibleText = (html: string): string => decodeEntities(html.replace(/<!--[^]*?-->/g, "").replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ");
+/** The visible text of a rendered page: hidden surfaces and comments taken out (stripHiddenSurfaces), then ONE walk over its tags and texts that keeps the texts, tags made spaces (ADR-CODEQL-ALERTS-1 D3: no regex filter), entities decoded, white space collapsed. */
+const visibleText = (html: string): string => decodeEntities([...stripHiddenSurfaces(html).matchAll(/<[^>]*>|[^<]+/g)].map(([t]) => (t.startsWith("<") ? " " : t)).join("")).replace(/\s+/g, " ");
 
 // killer: apps/site/lib/fleet.ts:353 CONST "connects: \"\"," -> "connects: registerNames([\"Hikae\", \"Shōgen\"]),"
 test("bell_surfaces_name_no_connection_while_bell_depends_on_neither — /docs/bell and the Bell card of /applications, rendered on the server, say no connection to Hikae or Shōgen, and the board renders no Bell line, while the Bell package depends on no package of the gate, the engine or the attest sensor; when it does, the connection is revisited", async () => {
