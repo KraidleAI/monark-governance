@@ -1137,7 +1137,7 @@ test("registry_notes_say_non_llm_once_per_page — 'non-LLM' at most once on /, 
   assert.ok(perPage.some(([, n]) => n === 1), "the phrase still rides once where it belongs (false-green guard)");
 });
 
-// killer: apps/site/lib/fleet.ts:339 CONST "segment: \"tokenized equities, off-hours\"," -> "segment: \"<<bell_segment>>\","
+// killer: apps/site/lib/fleet.ts:340 CONST "segment: \"tokenized equities, off-hours\"," -> "segment: \"<<bell_segment>>\","
 test("owner_decisions_of_2026_09_24_retired_wording_stays_out — B_t caller-carried, no guarantee title, the engine reachable, no skill-hub handle, Bell segment and connections decided, engines complete, register tagline (decisions of the owner, 2026-09-24)", () => {
   const kept = collectFiles(ROOT).kept.filter((f) => f.rel.startsWith("apps/site/") && !BINARY_EXPORT.test(f.rel));
   assert.ok(kept.length >= 50, "the exported apps/site files are scanned (false-green guard)");
@@ -1207,7 +1207,7 @@ test("owner_decisions_of_2026_09_24_retired_wording_stays_out — B_t caller-car
 /** The visible text of a rendered page: comments taken out, tags made spaces, entities decoded, white space collapsed. */
 const visibleText = (html: string): string => decodeEntities(html.replace(/<!--[^]*?-->/g, "").replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ");
 
-// killer: apps/site/lib/fleet.ts:352 CONST "connects: \"\"," -> "connects: registerNames([\"Hikae\", \"Shōgen\"]),"
+// killer: apps/site/lib/fleet.ts:353 CONST "connects: \"\"," -> "connects: registerNames([\"Hikae\", \"Shōgen\"]),"
 test("bell_surfaces_name_no_connection_while_bell_depends_on_neither — /docs/bell and the Bell card of /applications, rendered on the server, say no connection to Hikae or Shōgen, and the board renders no Bell line, while the Bell package depends on no package of the gate, the engine or the attest sensor; when it does, the connection is revisited", async () => {
   const deps = Object.keys((JSON.parse(read("apps/bell/package.json")) as { dependencies?: Record<string, string> }).dependencies ?? {});
   assert.ok(deps.length > 0 && !deps.some((d) => ["@monark/hikae", "@monark/harness", "@monark/monark", "@monark/contracts"].includes(d)), "premise: MONARK Bell depends on no package of Hikae or Shōgen; when it does this reds and the connection is revisited");
