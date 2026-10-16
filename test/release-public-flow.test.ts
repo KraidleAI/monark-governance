@@ -24,7 +24,9 @@ const ROOT = join(import.meta.dirname, "..");
 const git = (cwd: string, ...args: string[]): string => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 interface RunOpts { mirror?: string | null; email?: string; vis?: string; gates?: string[][]; dirty?: boolean }
 
+// killer: scripts/release-public.mjs:147 SDL "if (code !== 0) console.error(\"\\nRELEASE ABORTED: RELEASE-PREFLIGHT-SEND-GUARD-1 could not read the exported tree" -> ""
 // killer: scripts/release-public.mjs:212 SDL "captureGate({ root: SRC, runCheck" -> ""
+// killer: scripts/release-public.mjs:215 SDL "if (!vis.ok || vis.out !== \"private\") abort(" -> ""
 // killer: scripts/release-public.mjs:252 SDL "    abort(\"export failed\");" -> ""
 test("release_public_flow — message gate, refusals before any gate, export:check before export, one local commit, no push, gh reads only", async () => {
   const tmp = mkdtempSync(join(tmpdir(), "monark-release-flow-"));
