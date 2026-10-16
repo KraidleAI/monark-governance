@@ -2,7 +2,7 @@
  * Root test of Bell's key directory, host by host (G0 BELL-COLLECT-TIMER-1 section 4 "P3", lot 3b; Q-7 decided: the Bell probe runs on
  * the former host, the recommended option). Bell's host carries Bell's publisher, the one unit that holds the key (its one credential, LoadCredential=), and Bell's
  * collection, which must never reach it. The former host of Bell keeps the Dojo (collector, publisher, probe) and the Narabi probe (the
- * Bell probe of lot 4a joins them there); Bell's old key stays on it until the act of part 5 (DC-8, M-15), and so do its masks. The
+ * Bell probe of lot 4b joins them there); Bell's old key stays on it until the act of part 5 (DC-8, M-15), and so do its masks. The
  * site's host runs neither. Each unit of a host that holds Bell's key directory, the holder apart, masks it with InaccessiblePaths=
  * (systemd.exec(5) of systemd 259, section SANDBOXING: such paths "will be made inaccessible for processes inside the namespace along with
  * everything below them"): one entry of the [Service] lists, read in order as systemd reads them (an empty assignment resets the list), with
@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 import * as B from "../scripts/bell-deploy.mjs";
 import * as D from "../scripts/dojo-deploy.mjs";
 import * as P from "../scripts/probe-dojo-live.mjs";
+import { BELL_PROBE_TREE_PATHS } from "../scripts/probe-bell.mjs";
 import { BELL_TREE_PATHS } from "../scripts/verify-bell.mjs";
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
@@ -27,7 +28,7 @@ const BELL_UNIT = "deploy/monark-bell-publish.service";
 const HOSTS = (): Readonly<Record<string, { holdsKey: boolean; holder: string | null; units: Readonly<Record<string, readonly string[]>> }>> => ({
   bell: { holdsKey: true, holder: BELL_UNIT, units: { [BELL_UNIT]: BELL_TREE_PATHS, [B.BELL_COLLECT_UNIT]: B.BELL_COLLECT_TREE_PATHS } },
   former: { holdsKey: true, holder: null, units: { [D.DOJO_COLLECT_UNIT]: D.DOJO_COLLECT_TREE_PATHS, [D.DOJO_PUBLISH_UNIT]: D.DOJO_PUBLISH_TREE_PATHS,
-    "deploy/monark-dojo-probe.service": P.DOJO_PROBE_TREE_PATHS, "deploy/monark-probe.service": ["scripts/probe-narabi.mjs"] } },
+    "deploy/monark-dojo-probe.service": P.DOJO_PROBE_TREE_PATHS, "deploy/monark-probe.service": ["scripts/probe-narabi.mjs"], "deploy/monark-bell-probe.service": BELL_PROBE_TREE_PATHS } },
   site: { holdsKey: false, holder: null, units: { "deploy/monark-harness.service": [], "deploy/monark-sentinel.service": [] } },
 });
 

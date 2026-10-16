@@ -1,0 +1,25 @@
+# systemd timer for the MONARK Bell probe (PLAN-P4 C4-5, lot 4b). FOUR daily UTC shots, each after one slot of monark-bell-collect.timer
+# (20:15, 21:15, 08:45, 09:45) by at least the tick's and the publisher's TimeoutStartSec (7 200 s and 120 s) plus the probe's 10-minute
+# margin (2 h 12), and by less than one hour more: 22:30, 23:30, 11:00, 12:00. Each start lasts at most its TimeoutStartSec (720 s), so no
+# start meets one of monark-probe (10:30, 12:30, 16:30), of monark-dojo-probe (07:30, 09:30, 13:30) nor of monark-dojo-publish (00:30 to
+# 06:30); monark-dojo-collect starts every 5 minutes and runs beside each start: the two CPUQuota of 25 % hold half of one vCPU. A re-measure
+# of TICK_TIMEOUT_START_SEC (BELL-TICK-TIMEOUT-MEASURE-1) reds bell_probe_timer_after_the_unit_due_relation, so these shots follow it.
+# Enabled by docs/RUNBOOK-bell.md section 22 (3), in part 5.
+[Unit]
+Description=MONARK Bell probe timer - four daily UTC shots after the collection slots (BELL-COLLECT-TIMER-1)
+Documentation=https://github.com/KraidleAI/monark
+
+[Timer]
+OnCalendar=*-*-* 22:30:00 UTC
+OnCalendar=*-*-* 23:30:00 UTC
+OnCalendar=*-*-* 11:00:00 UTC
+OnCalendar=*-*-* 12:00:00 UTC
+# Every value written (FM-2.2): AccuracySec defaults to 1 min, RandomizedDelaySec to 0 (systemd.timer(5), FAITS-SYSTEMD-TIMER-1).
+AccuracySec=1s
+RandomizedDelaySec=0
+# ONE catch-up start at boot when a shot was missed (monark-dojo-probe.timer's form).
+Persistent=true
+Unit=monark-bell-probe.service
+
+[Install]
+WantedBy=timers.target

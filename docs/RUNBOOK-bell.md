@@ -960,3 +960,116 @@ that persists on a `<D>` whose tombstone does not match its manifest (or one of 
 returns null, the tick collects nothing again and the publisher waits. Act: the act of abandon of `<D>` (section 19, (1) then (2)) run again with the
 same `--reason`: if it stopped on the way, it writes the same bytes and answers `bell/tick: abandoned unit-<D> reason=<code>`; if it answers
 `abandon_refused` (the act was done), **STOP**, escalation; never a write by hand of the tombstone, of its manifest or of a status file.
+
+## 22. The Bell probe on the former host (lot 4b, played in part 5)
+
+**What.** `scripts/probe-bell.mjs` runs as `monark-bell-probe.service`, started by `monark-bell-probe.timer` at 22:30, 23:30, 11:00 and
+12:00 UTC (G0 BELL-COLLECT-TIMER-1 DC-9; PLAN-P4 C4-5 to C4-11; pins `test/probe-bell.test.ts`, `test/probe-bell-ots.test.ts`,
+`apps/bell/test/bell-units-compose-probe.test.ts`). Each start reads `timeline.jsonl` whole at `BELL_PUBLIC_ORIGIN`, checks its new lines by
+the probe's own code under the keyring of its tree, mirrors them with their two immutables under `/var/lib/monark-probe/bell/`, checks the
+freshness, the two origins and the site status, timestamps each new line once (four aggregators, two answers at least) and upgrades each
+pending proof under `/var/lib/monark-probe/bell/ots/` (`timeline-seq<n>-manifest.txt`, its `.ots`, `registry.jsonl` in append only), writes
+`/var/lib/monark-probe/bell.json` (closed keys, no secret), and mails a transition with the mail file of the Narabi probe
+(`/etc/monark/probe.env`) but its `SMTP_PASS`, which the unit unsets: the probe reads the password from its own file
+`/etc/monark/bell-probe-smtp-pass` (owner `probe`, mode 0600). The user `probe`, its state directory and the mail file exist since the
+Narabi probe's deployment (`docs/RUNBOOK-sentinel.md`); the acts below write the tree `/opt/monark-bell-probe`, the password file and the
+two units, never `/opt/monark-probe` nor `/etc/monark/probe.env`, and only read `/var/lib/monark-probe`, which the unit alone writes.
+
+**When.** Part 5 only, by the orchestrator, after the G7 of part 4, read from `/f/tmp/bell-dn/probe-G7.txt`; the host is the former host
+(its name `bell.monarkgate.tech` until DC-15's switch; its key: section 1). Precondition, read-only and STOP otherwise: Bell publishes from its
+new host, so this host runs no `monark-bell-publish.service` and the origin of `BELL_PUBLIC_ORIGIN` is not served from this host (a probe
+on the host it watches would read itself). Rollback of the whole section: the rollbacks of (1) to (3), in reverse.
+
+(1) The tree at the G7: its list read from the module AT the G7 (never retyped; the working tree equal to the G7 on these paths), shipped,
+then compared on both sides (motif of `docs/RUNBOOK-dojo.md` section 25 (2)):
+
+```bash
+G7=$(cat /f/tmp/bell-dn/probe-G7.txt) && cd /f/Monark && git diff --quiet "$G7" -- scripts apps/bell/src apps/bell/keys &&
+node --input-type=module -e "const m = await import('./scripts/probe-bell.mjs');
+console.log(m.BELL_PROBE_TREE_PATHS.join(' '));" > /f/tmp/bell-dn/probe-tree.txt && wc -w < /f/tmp/bell-dn/probe-tree.txt
+```
+
+```bash
+G7=$(cat /f/tmp/bell-dn/probe-G7.txt) && git -C /f/Monark archive --format=tar.gz "$G7" $(cat /f/tmp/bell-dn/probe-tree.txt) |
+tee /f/tmp/bell-dn/probe-tree.tar.gz | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'install -d -m 0755 -o root -g root /opt/monark-bell-probe &&
+tar xzf - -C /opt/monark-bell-probe --no-same-owner --no-same-permissions && chown -R root:root /opt/monark-bell-probe &&
+find /opt/monark-bell-probe -type d -exec chmod 0755 {} + && find /opt/monark-bell-probe -type f -exec chmod 0644 {} + &&
+cd /opt/monark-bell-probe && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t' > /f/tmp/bell-dn/probe-tree.host.sha
+```
+
+```bash
+rm -rf /f/tmp/bell-dn/probe-tree && mkdir -p /f/tmp/bell-dn/probe-tree && tar xzf /f/tmp/bell-dn/probe-tree.tar.gz -C /f/tmp/bell-dn/probe-tree &&
+cd /f/tmp/bell-dn/probe-tree && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t > /f/tmp/bell-dn/probe-tree.local.sha &&
+wc -l < /f/tmp/bell-dn/probe-tree.local.sha && cmp -s /f/tmp/bell-dn/probe-tree.local.sha /f/tmp/bell-dn/probe-tree.host.sha && echo TREE-EQUAL || echo TREE-DIFFERENT
+```
+
+Expected: `6` (the words of the list: the probe, its OpenTimestamps client, probe-narabi, bell-deploy, `sessions.ts`, the committed
+keyring), then `6` and `TREE-EQUAL`. **STOP** on no output at the first command and on `TREE-DIFFERENT`. Rollback:
+`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -rf /opt/monark-bell-probe'`.
+
+(2) The password file, a copy of the Dojo probe's (the same mail file, the same user; `docs/RUNBOOK-dojo.md` section 25 (1b) wrote it from
+the mail file through systemd's own parser), never printed:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'test -s /etc/monark/dojo-probe-smtp-pass &&
+install -m 0600 -o probe -g probe /etc/monark/dojo-probe-smtp-pass /etc/monark/bell-probe-smtp-pass && stat -c "%U %a" /etc/monark/bell-probe-smtp-pass &&
+cmp -s /etc/monark/dojo-probe-smtp-pass /etc/monark/bell-probe-smtp-pass && echo copy-equal'
+```
+
+Expected: `probe 600`, then `copy-equal`. **STOP** on no output (the Dojo probe's file absent or empty: section 25 (1b) of
+`docs/RUNBOOK-dojo.md` first). A bit for the group or others makes every mail fail as `smtp_unconfigured`. After a change of `SMTP_PASS`,
+(2) is replayed after the Dojo's (9). Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -f /etc/monark/bell-probe-smtp-pass'`.
+
+(3) The two units from the G7 blobs, their calendar, then the timer enabled:
+
+```bash
+G7=$(cat /f/tmp/bell-dn/probe-G7.txt) && for u in monark-bell-probe.service monark-bell-probe.timer; do
+git -C /f/Monark cat-file blob "$G7:deploy/$u" |
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech "umask 022 && cat > /etc/systemd/system/$u" || echo "FAILED $u"; done;
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl daemon-reload &&
+systemctl show -p LoadState -p FragmentPath -p DropInPaths -p NeedDaemonReload monark-bell-probe.service monark-bell-probe.timer &&
+sha256sum /etc/systemd/system/monark-bell-probe.service /etc/systemd/system/monark-bell-probe.timer &&
+for t in 22:30 23:30 11:00 12:00; do systemd-analyze calendar "*-*-* $t:00 UTC" | grep -E "Normalized|Next"; done &&
+systemctl enable --now monark-bell-probe.timer && systemctl list-timers monark-bell-probe.timer --no-pager'
+```
+
+Expected: no `FAILED`; `LoadState=loaded` twice, both `FragmentPath` under `/etc/systemd/system`, `DropInPaths=` empty,
+`NeedDaemonReload=no`; each digest equal to `git -C /f/Monark cat-file blob "$G7:deploy/<unit>" | sha256sum`; the four expressions
+accepted; the timer listed with its next shot. Never `systemctl edit`. Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech
+'systemctl disable --now monark-bell-probe.timer; rm /etc/systemd/system/monark-bell-probe.* && systemctl daemon-reload'`.
+
+(4) The first start, read (the timer's or one by hand, `systemctl start monark-bell-probe.service`, which waits for its end):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl show -p Result -p ExecMainStatus monark-bell-probe.service &&
+cat /var/lib/monark-probe/bell.json && ls -l /var/lib/monark-probe/bell /var/lib/monark-probe/bell/ots'
+```
+
+Expected: `Result=success`, `ExecMainStatus=0`; `bell.json` with `"status": "healthy"`, `"alerts": []`, `kept_lines` equal to the lines of
+the served timeline, `ots.lines_stamped` equal to it and `ots.lines_unstamped` 0; one manifest and one `.ots` per line under `bell/ots/`.
+Then BELL-OTS-NODE-CROSSCHECK-1: the first proof, copied by (5), read on the operator machine by the reference client (the form of section
+13 bis point 4, `ots --no-cache info`), its `File sha256 hash` equal to the manifest's digest, in a dated FAITS. **STOP** on any alert:
+read its name in `bell.json` (closed list `BELL_PROBE_ALERTS`), never a write under `/var/lib/monark-probe`. Rollback: none (read-only).
+
+(5) Weekly, the proofs to the operator's durable mirror, then into the repository: the copy first, nothing removed on the host:
+
+```bash
+T=$(date -u +%Y%m%dT%H%MZ) && ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /var/lib/monark-probe/bell/ots && tar czf - .' > /f/PRODUITS/bell-mirror/ots/probe-ots-$T.tar.gz &&
+sha256sum /f/PRODUITS/bell-mirror/ots/probe-ots-$T.tar.gz && tar tzf /f/PRODUITS/bell-mirror/ots/probe-ots-$T.tar.gz | wc -l
+```
+
+Expected: the archive's digest (to the JOURNAL) and its count of entries. Then, for each row of `registry.jsonl` of that archive not yet in
+`docs/bell-publications/ANCHORS.md`: a `stamped` row, its manifest and proof copied into `docs/bell-publications/` under the name of section
+13 bis point 1 (`timeline-seq<n>-<k>-manifest.txt` and its `.ots` when the name is taken, as lines 1 and 2, stamped by hand, are: the
+manifest's bytes, not its name, are timestamped), then points 4 and 5 of section 13 bis (`date_u` = the row's `at` to the second); an
+`upgraded` row, the upgraded proof copied over its committed copy, the check of point 5, the commit (its git history is the record, ruling
+GO1-D), then the sync and the build of point 6. Rollback: none that deletes a proof.
+
+(6) At each key rotation (DC-8, point 4), the probe's keyring: the committed keyring that names the new key is redeployed with the tree,
+(1) replayed at the G7 of that commit, BEFORE the first line the new key signs is published; until then the probe alerts
+`key_not_in_keyring` (fail-closed: the probe never trusts a served key). Rollback: (1) replayed at the previous G7.
+
+**Dated line, 2026-10-16 17:4x UTC (lot 4b; PLAN-P4 C4-10; G0 BELL-COLLECT-TIMER-1 section 13 L-5):** once (1) to (4) of this section are
+played (part 5), points 1 to 3 of section 13 bis (the manifest, the stamp, the durable copy) pass to the probe for every new line, on the
+former host; the operator keeps (5) of this section and points 4 to 6 of section 13 bis. Until then, section 13 bis stays the act in force,
+line by line, and no automatic publication precedes it (G0 DC-10).

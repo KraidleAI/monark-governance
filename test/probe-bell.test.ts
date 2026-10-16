@@ -1,42 +1,30 @@
 // MONARK Bell -- the probe off Bell's host, scripts/probe-bell.mjs (G0 BELL-COLLECT-TIMER-1 DC-9, DC-15 and section 13 L-1 to L-3; PLAN-P4
-// section 4 "4a", its thirteen tests). Offline: the entry point runProbe runs in process with an injected clock and transport, the fake fetch
-// answering only from an in-memory tree keyed by the URLs of the two constant origins; signed lines come from keys generated here and, for the
-// differential, from the real publisher. The probe is imported by its URL (it has no type sidecar: ProbeBell below is its surface).
+// section 4 "4a", its thirteen tests; lot 4b: the served-state and atomic-write cases, the unit and its timer). Offline: the entry point
+// runProbe runs in process with an injected clock and transport, the fake fetch answering only from an in-memory tree keyed by the URLs of the
+// two constant origins, the immutables of the publications made here, and any POST of a digest with a pending attestation (a calendar, no
+// network); signed lines come from keys generated here and, for the differential, from the real publisher. Typed by scripts/probe-bell.d.mts.
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, type KeyObject } from "node:crypto";
 import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, posix, relative, sep } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { GENESIS, canonical, keyringOf, lineHash, signLine, trustOf as readerTrustOf, walkTimeline } from "../apps/bell/scripts/bell-chain.mjs";
+import { fileURLToPath } from "node:url";
+import { GENESIS, canonical, keyringOf, lineHash, sha256Hex, signLine, trustOf as readerTrustOf, walkTimeline } from "../apps/bell/scripts/bell-chain.mjs";
 import { publishToDir, revokeKey, rotateKey } from "../apps/bell/scripts/bell-publish.mjs";
 import { dropRun, servedState, T_PUBLISH } from "../apps/bell/test/helpers/bell-served.ts";
 import { dueInstant, unitOf } from "../apps/bell/src/plan.ts";
 import { CALENDAR_RANGE, isTradingDay, nextTradingDay } from "../apps/bell/src/sessions.ts";
 import { DEFAULT_MAX_BYTES } from "../scripts/probe-narabi.mjs";
 import * as D from "../scripts/bell-deploy.mjs";
+import * as P from "../scripts/probe-bell.mjs";
 
 type Obj = Record<string, unknown>;
-interface Report { status: string; alerts: string[]; served_lines: number | null; kept_lines: number | null; new_lines: number | null; head_seq: number | null;
-  head_line_hash: string | null; due_unit: string | null; legacy_origin: string | null; site_status: string | null; site_status_since: string | null;
-  alerted: boolean; alert_error: string | null; last_alert_day: string | null }
-interface Got { ok: boolean; reason?: string; status: number | null; body?: Buffer }
-type Get = (url: string, maxBytes?: number) => Promise<Got>;
-type Fetch = (url: string, init?: { redirect?: string; headers?: unknown }) => Promise<Response>;
-type Smtp = (a: Obj) => Promise<{ ok: boolean; error?: string }>;
+type Report = P.BellProbeReport;
+type Fetch = P.BellProbeFetch;
+type Smtp = P.BellProbeSmtp;
 type Trust = NonNullable<ReturnType<typeof readerTrustOf>>;
-interface ProbeBell {
-  DEFAULT_KEYRING: string; BELL_PROBE_TREE_PATHS: readonly string[]; BELL_PROBE_ALERTS: readonly string[]; BELL_PROBE_KEYS: readonly string[];
-  CALENDAR_FREE_BOUND_H: number; SITE_STATUS_LAG_MIN: number; MAX_LINE_BYTES: number; SMTP_PASS_MAX_BYTES: number;
-  trustOf: (k: unknown) => Trust | null; walkLines: (lines: readonly unknown[], trust: Trust, from?: number) => unknown;
-  unitEndOf: (d: string) => number; dueInstantOf: (d: string) => number; deadlineOf: (d: string) => number;
-  freshnessOf: (nowMs: number, lastEnd: number | null) => { due_unit: string | null; stale: boolean; bound: boolean };
-  httpTransport: (f: Fetch) => Get; compareOrigins: (p: string, l: string, t: Get) => Promise<{ verdict: string; alert: string | null }>;
-  runProbe: (argv: string[], deps: { clock: () => number; fetch: Fetch; smtp: Smtp }) => Promise<{ exitCode: number; report: Report | null }>;
-}
-const REPO = fileURLToPath(new URL("../", import.meta.url)), PROBE = join(REPO, "scripts", "probe-bell.mjs");
-const P = (await import(pathToFileURL(PROBE).href)) as ProbeBell;
+const REPO = fileURLToPath(new URL("../", import.meta.url));
 /** A repository file, asserted present first: a mutation reddens by an assertion, never by ENOENT. */
 function read(rel: string): string {
   assert.ok(existsSync(REPO + rel), `${rel} exists`);
@@ -65,10 +53,16 @@ function resign(l: Obj, key = K1): Obj {
   c.sig = signLine(c, BY_ID.get(String(c.key_id)) ?? key);
   return c;
 }
-/** Publication n after `prev`, its one run's window ending at `end` (a unit's end minus 1 s, apps/bell/src/tick.ts:350). */
-const pub = (seq: number, prev: Obj | null, end: number, key = K1): Obj => resign({ schema: "bell-timeline-v1", seq, kind: "publication",
-  published_at: iso(end + 43_200_000), prev_line_hash: prev === null ? GENESIS : lineHash(prev), key_id: idOf(key), state_sha256: "a".repeat(64),
-  provenance_sha256: "b".repeat(64), runs: [{ bell_sha: "c".repeat(64), window: { from_utc_ms: end - 86_399_000, to_utc_ms: end }, records: 1 }] }, key);
+/** The immutables of the publications made here, by their sha256: fakeFetch serves them under states/ and provenance/. */
+const IMM = new Map<string, Buffer>(), imm = (o: unknown): string => { const b = Buffer.from(JSON.stringify(o)), h = sha256Hex(b); IMM.set(h, b); return h; };
+/** Publication n after `prev`, its one run's window ending at `end` (a unit's end minus 1 s, apps/bell/src/tick.ts:350), and its two
+ *  immutables (the envelopes bell-verify.mjs checkPublication reads; `state` alters the state's). */
+function pub(seq: number, prev: Obj | null, end: number, key = K1, state: (s: Obj) => Obj = (s) => s): Obj {
+  const published_at = iso(end + 43_200_000), digest = { seq }, bell_sha = sha256Hex(canonical(digest)), window = { from_utc_ms: end - 86_399_000, to_utc_ms: end };
+  return resign({ schema: "bell-timeline-v1", seq, kind: "publication", published_at, prev_line_hash: prev === null ? GENESIS : lineHash(prev), key_id: idOf(key),
+    state_sha256: imm(state({ schema: "bell-public-state-v1", seq, published_at, runs: [{ bell_sha, window, digest }] })),
+    provenance_sha256: imm({ schema: "bell-public-provenance-v1", seq, published_at, runs: [{ bellSha: bell_sha }] }), runs: [{ bell_sha, window, records: 1 }] }, key);
+}
 /** One publication per unit of `days`, chained. */
 function chain(days: readonly string[], key = K1): Obj[] {
   const out: Obj[] = [];
@@ -79,13 +73,26 @@ const bytes = (lines: readonly Obj[]): Buffer => Buffer.from(lines.map((l) => `$
 const OCT = ["2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16"], NOON = "2026-10-19T12:00:00.000Z"; // U(Fri 10-16) due by Monday 10:57Z
 interface Reply { status: number; body?: Buffer; location?: string }
 type Answer = Buffer | Reply | ((n: number) => Buffer | Reply);
-/** A fetch over `tree`: 200 with the bytes, an answer as given, else 404; every URL and init recorded. */
+/** A calendar's answer to a POST of a digest: prepend 4 bytes, sha256, then a commitment pending at `uri` (notary.py; readOtsProof's format). */
+const pendingAt = (uri: string): Buffer => Buffer.concat([Buffer.from([0xf1, 4, 1, 2, 3, 4, 0x08, 0x00]), Buffer.from("83dfe30d2ef90c8e", "hex"), Buffer.from([uri.length + 1, uri.length]), Buffer.from(uri)]);
+/** What the tree does not name: an immutable made here, the current state.json and provenance.json of the served timeline's last publication,
+ *  a calendar's pending answer to a POST of a digest (its URI on the whitelist; an upgrade then reads 404, still pending). */
+function served(tree: ReadonlyMap<string, Answer>, url: string, method: string | undefined): Buffer | undefined {
+  const f = /^\/(?:states|provenance)\/([0-9a-f]{64})\.json$/.exec(url.slice(ORIGIN.length))?.[1], tl = tree.get(TL);
+  if (f !== undefined) return IMM.get(f);
+  if ((url === `${ORIGIN}/state.json` || url === `${ORIGIN}/provenance.json`) && Buffer.isBuffer(tl)) {
+    const last = tl.toString("utf8").split("\n").filter((l) => l.startsWith("{")).map((l) => JSON.parse(l) as Obj).filter((l) => l.kind === "publication").at(-1);
+    return IMM.get(String(url.endsWith("/state.json") ? last?.state_sha256 : last?.provenance_sha256));
+  }
+  return method === "POST" && url.endsWith("/digest") ? pendingAt(`https://${new URL(url).hostname.replaceAll(".", "-")}.calendar.opentimestamps.org`) : undefined;
+}
+/** A fetch over `tree`: 200 with the bytes, an answer as given, else what `served` gives, else 404; every URL recorded, the init of each at the origin. */
 function fakeFetch(tree: ReadonlyMap<string, Answer>, seen: string[], inits: unknown[] = []): Fetch {
   return (url, init) => {
     const n = seen.filter((u) => u === url).length;
     seen.push(url);
-    inits.push(init);
-    const t = tree.get(url), a = typeof t === "function" ? t(n) : t;
+    if (url.startsWith(`${ORIGIN}/`)) inits.push(init);
+    const t = tree.get(url) ?? served(tree, url, init?.method), a = typeof t === "function" ? t(n) : t;
     if (a === undefined) return Promise.resolve(new Response(null, { status: 404 }));
     if (Buffer.isBuffer(a)) return Promise.resolve(new Response(new Uint8Array(a), { status: 200 }));
     const b = a.body === undefined ? null : new Uint8Array(a.body);
@@ -105,7 +112,7 @@ const kept = (state: string): string => { const p = join(state, "bell", "timelin
 // reddened by: a fermeture that gains a file of apps/bell/scripts/, of apps/bell/src/ but sessions.ts, any other module, or a node: module off
 // its closed list (node:child_process first);
 // a tree list that is not the computed closure plus the committed keyring; a default keyring off the committed one
-// killer: scripts/probe-bell.mjs:38 CONST "\"apps/bell/src/sessions.ts\", " -> ""
+// killer: scripts/probe-bell.mjs:46 CONST "\"apps/bell/src/sessions.ts\", " -> ""
 test("bell_probe_closure_holds_no_bell_verification_code", () => {
   const IMPORT = /^[ ]*(?:import|export)[ ]+(?!type[ ])(?:[^'";]*?[ ]from[ ]*)?["']([^"']+)["']/gm, closure = new Set<string>(), builtins = new Set<string>();
   for (let todo = ["scripts/probe-bell.mjs"], f = todo.pop(); f !== undefined; f = todo.pop()) {
@@ -149,7 +156,7 @@ test("bell_probe_freshness_follows_the_trading_calendar", () => {
 
 // reddened by: a stale timeline, a broken chain, a bad signature, a rewritten line or a head a revocation voids passed as healthy, or a run
 // off its closed keys
-// killer: scripts/probe-bell.mjs:170 CONST "unitEndOf(due) - 1000" -> "unitEndOf(due)"
+// killer: scripts/probe-bell.mjs:185 CONST "unitEndOf(due) - 1000" -> "unitEndOf(due)"
 test("bell_probe_alerts_on_stale_broken_or_rewritten", async () => {
   const lines = chain(OCT), state = scratch(), ok = await run({ state, tree: new Map([[TL, bytes(lines)]]), now: NOON });
   assert.deepEqual([ok.exitCode, ok.report.status, ok.report.alerts, ok.report.due_unit, ok.report.head_seq, ok.report.new_lines], [0, "healthy", [], "2026-10-16", 4, 4]);
@@ -168,24 +175,43 @@ test("bell_probe_alerts_on_stale_broken_or_rewritten", async () => {
   assert.deepEqual([rewritten.exitCode, rewritten.report.alerts], [1, ["prefix_rewritten"]], "against the kept copy, a rewrite is named as such");
   for (const r of [ok, late, rewritten]) assert.ok(r.report.alerts.every((a) => P.BELL_PROBE_ALERTS.includes(a)), "closed alert names");
   // A head voided as bell-verify.mjs refuses it: by a later revocation of its key (the publisher's rotateKey, then revokeKey), or by the keyring.
-  // killer: scripts/probe-bell.mjs:249 CONST "w.voided.includes(w.head.seq)" -> "false"
+  // killer: scripts/probe-bell.mjs:308 CONST "w.voided.includes(w.head.seq)" -> "false"
   const { state: pubState, pub: pubDir } = servedState(K1, 3), served = (): Buffer => readFileSync(join(pubDir, "timeline.jsonl"));
   rotateKey({ stateDir: pubState, oldKey: K1, newKey: K2, clock: () => T_PUBLISH + 10 });
   const rotated = served();
   revokeKey({ stateDir: pubState, key: K2, revokedKeyId: idOf(K1), revokedFromSeq: 3, clock: () => T_PUBLISH + 12 });
+  const fromPub = (rel: string): [string, Answer] => [`${ORIGIN}/${rel}`, readFileSync(join(pubDir, ...rel.split("/")))];
+  const pubTree = (body: Buffer): Map<string, Answer> => new Map([[TL, body], ...["state.json", "provenance.json", ...["states", "provenance"].flatMap((d) => readdirSync(join(pubDir, d)).map((f) => `${d}/${f}`))].map(fromPub)]);
   const voids = async (body: Buffer): Promise<[number, boolean, number | null]> => {
-    const x = await run({ state: scratch(), tree: new Map([[TL, body]]), now: iso(T_PUBLISH + 60_000), keyring: KR12 });
+    const x = await run({ state: scratch(), tree: pubTree(body), now: iso(T_PUBLISH + 60_000), keyring: KR12 });
     return [x.exitCode, x.report.alerts.includes("head_signed_by_revoked_key"), x.report.head_seq];
   };
   assert.deepEqual([await voids(rotated), await voids(served())], [[1, false, 3], [1, true, 3]], "the head (seq 3) voided by the revocation of K1 from seq 3");
   const marked = file("kr-revoked.json", JSON.stringify({ schema: "bell-keyring-v1", keys: [{ ...keyringOf(K1, 1).keys[0], revoked_from_seq: 3 }] }));
   const byRing = await run({ state: scratch(), tree: new Map([[TL, bytes(lines)]]), now: NOON, keyring: marked });
   assert.deepEqual([byRing.exitCode, byRing.report.alerts, byRing.report.head_seq], [1, ["head_signed_by_revoked_key"], 4], "a revoked_from_seq of the keyring voids the head too");
+  // The served state as bell-verify.mjs:105-112 checks it (BELL-PROBE-SERVED-STATE-CHECK-1): an immutable off its name, an envelope off its line,
+  // a bell_sha off its digest, each named and its line not kept (nor mirrored); the current state.json off the head, after one reread.
+  // killer: scripts/probe-bell.mjs:263 CONST "sha256Hex(s.body) !== l.state_sha256 || " -> ""
+  // killer: scripts/probe-bell.mjs:242 CONST "e.seq === line.seq && " -> ""
+  // killer: scripts/probe-bell.mjs:247 CONST "sha256Hex(canonicalOf(r.digest)) !== r.bell_sha" -> "false"
+  // killer: scripts/probe-bell.mjs:275 CONST "sha256Hex(s.body) === h.state_sha256 && " -> ""
+  assert.ok(["immutable_mismatch", "envelope_mismatch", "bell_sha_mismatch", "state_not_bound_by_head"].every((a) => P.BELL_PROBE_ALERTS.includes(a)), "the served-state alerts, named");
+  const end4 = P.unitEndOf("2026-10-16") - 1000, run0 = (s: Obj): Obj => ({ ...s, runs: (s.runs as Obj[]).map((x) => ({ ...x, digest: { seq: 99 } })) });
+  for (const [what, tree, alert, keptN] of [["an immutable off its name", new Map<string, Answer>([[TL, bytes(lines)], [`${ORIGIN}/states/${String(lines[2]?.state_sha256)}.json`, Buffer.from("{}")]]), "immutable_mismatch", 2],
+    ["an envelope off its line", new Map<string, Answer>([[TL, bytes([...lines.slice(0, 3), pub(4, lines[2] ?? null, end4, K1, (s) => ({ ...s, seq: 9 }))])]]), "envelope_mismatch", 3],
+    ["a bell_sha off its digest", new Map<string, Answer>([[TL, bytes([...lines.slice(0, 3), pub(4, lines[2] ?? null, end4, K1, run0)])]]), "bell_sha_mismatch", 3]] as const) {
+    const s = scratch(), r = await run({ state: s, tree, now: NOON }), mirrored = existsSync(join(s, "bell", "states")) ? readdirSync(join(s, "bell", "states")).length : 0;
+    assert.deepEqual([r.exitCode, r.report.alerts.filter((a) => a !== "stale"), r.report.kept_lines, mirrored], [1, [alert], keptN, keptN], what);
+  }
+  const unbound = await run({ state: scratch(), tree: new Map<string, Answer>([[TL, bytes(lines)], [`${ORIGIN}/state.json`, Buffer.from("{}")]]), now: NOON });
+  assert.deepEqual([unbound.exitCode, unbound.report.alerts, unbound.report.kept_lines, unbound.seen.filter((u) => u === `${ORIGIN}/state.json`).length],
+    [1, ["state_not_bound_by_head"], 4, 2], "state.json off the head, read twice");
 });
 
 // reddened by: a line checked against a key the timeline or the site serves, a default trust root other than the committed keyring, or a
 // malformed keyring that does not stop the check
-// killer: scripts/probe-bell.mjs:32 CONST "../apps/bell/keys/bell-keyring.json" -> "../apps/dojo/keys/dojo-keyring.json"
+// killer: scripts/probe-bell.mjs:40 CONST "../apps/bell/keys/bell-keyring.json" -> "../apps/dojo/keys/dojo-keyring.json"
 test("bell_probe_verifies_against_the_committed_keyring_not_the_served_key", async () => {
   const committed = JSON.parse(read("apps/bell/keys/bell-keyring.json")) as unknown;
   assert.equal(P.trustOf(committed)?.size, readerTrustOf(committed)?.size, "the committed keyring parses, as the reader parses it");
@@ -202,7 +228,7 @@ test("bell_probe_verifies_against_the_committed_keyring_not_the_served_key", asy
 // reddened by: a GET by range or a body read past DEFAULT_MAX_BYTES, the kept prefix checked again line by line instead of byte for byte, a
 // new line after it taken unchecked (a bad signature, a broken chain), a line past MAX_LINE_BYTES named otherwise than too_large, a torn
 // tail kept, or a refused read that touches the kept copy
-// killer: scripts/probe-bell.mjs:245 CONST "trust, k.parsed.length)" -> "trust, 0)"
+// killer: scripts/probe-bell.mjs:304 CONST "trust, k.parsed.length)" -> "trust, 0)"
 test("bell_probe_reads_the_timeline_incrementally_and_checks_the_kept_prefix", async () => {
   const lines = chain(OCT.slice(1)), state = scratch();
   const first = await run({ state, tree: new Map([[TL, bytes(lines.slice(0, 2))]]), now: NOON });
@@ -215,14 +241,14 @@ test("bell_probe_reads_the_timeline_incrementally_and_checks_the_kept_prefix", a
   assert.deepEqual([next.exitCode, next.report.alerts, next.report.served_lines, next.report.new_lines, next.report.kept_lines], [0, [], 3, 1, 3], "the kept prefix is not checked again");
   const before = kept(state);
   // The steady state: a new line after the kept prefix (from = its length) is checked, a signature altered, then a prev_line_hash off the chain.
-  // killer: scripts/probe-bell.mjs:117 CONST "check = i >= from," -> "check = i >= from && (from === 0 || i > from),"
+  // killer: scripts/probe-bell.mjs:132 CONST "check = i >= from," -> "check = i >= from && (from === 0 || i > from),"
   const four = pub(4, three, P.unitEndOf("2026-10-19") - 1000), s4 = String(four.sig), forged = { ...four, sig: `${s4.slice(0, 4)}${s4[4] === "A" ? "B" : "A"}${s4.slice(5)}` };
   for (const [what, line, alert] of [["a signature altered", forged, "signature_invalid"], ["a prev_line_hash off the chain, signed", resign({ ...four, prev_line_hash: "f".repeat(64) }), "chain_broken"]] as const) {
     const r = await run({ state, tree: new Map([[TL, bytes([lines[0] ?? {}, odd, three, line])]]), now: NOON });
     assert.deepEqual([r.exitCode, r.report.alerts, r.report.new_lines, kept(state)], [1, [alert], 0, before], `a new line, ${what}: named, never kept`);
   }
   // A new line past MAX_LINE_BYTES (its LF included) is too_large, as bell-verify.mjs:90 names it; a line of MAX_LINE_BYTES is parsed, then judged.
-  // killer: scripts/probe-bell.mjs:248 CONST "? \"too_large\" :" -> "? w.reason :"
+  // killer: scripts/probe-bell.mjs:307 CONST "? \"too_large\" :" -> "? w.reason :"
   const big = (n: number): Buffer => Buffer.from(`${before}{"pad":"${"x".repeat(n - 11)}"}\n`);
   for (const [n, alert] of [[P.MAX_LINE_BYTES + 1, "too_large"], [P.MAX_LINE_BYTES, "timeline_malformed"]] as const) {
     const r = await run({ state, tree: new Map([[TL, big(n)]]), now: NOON });
@@ -237,7 +263,7 @@ test("bell_probe_reads_the_timeline_incrementally_and_checks_the_kept_prefix", a
 
 // reddened by: a kept prefix compared otherwise than byte for byte (a rewritten line re-signed and re-chained, a truncation, one byte of a
 // signature), or a kept copy overwritten by a rewritten timeline
-// killer: scripts/probe-bell.mjs:243 CONST "!got.body.subarray(0, kept.length).equals(kept)" -> "false"
+// killer: scripts/probe-bell.mjs:302 CONST "!got.body.subarray(0, kept.length).equals(kept)" -> "false"
 test("bell_probe_detects_rewrite_against_kept_copy", async () => {
   const lines = chain(OCT), state = scratch(), tree = (l: readonly Obj[]): Map<string, Answer> => new Map([[TL, bytes(l)]]);
   assert.equal((await run({ state, tree: tree(lines), now: NOON })).exitCode, 0);
@@ -256,7 +282,7 @@ test("bell_probe_detects_rewrite_against_kept_copy", async () => {
 // one a UTC day, one on recovery, at most one a run); a password taken from the environment or a password file off its rules; a usage error
 // that writes; a report written in place, a temporary file left, or a report the disk refuses that exits 0. The mode-bit and symbolic-link
 // cases run on POSIX only, the procfs case on Linux only (the CI): on win32 they do not run, and nothing in the report says so.
-// killer: scripts/probe-bell.mjs:375 CONST " || r.alert_error !== null" -> ""
+// killer: scripts/probe-bell.mjs:458 CONST " || r.alert_error !== null" -> ""
 test("bell_probe_exits_1_when_unhealthy_or_mail_fails", async () => {
   const MAIL = { SMTP_HOST: "127.0.0.1", SMTP_PORT: "2525", SMTP_TLS: "none", SMTP_USER: "probe", ALERT_FROM: "probe@monark.test", ALERT_TO: "ops@monark.test" };
   const saved = { ...process.env };
@@ -286,8 +312,8 @@ test("bell_probe_exits_1_when_unhealthy_or_mail_fails", async () => {
     const none = await run({ state: scratch(), tree: stale, now: NOON, argv: ["--state", scratch(), "--keyring", KR1, "--smtp-pass-file", join(scratch(), "absent")] });
     assert.deepEqual([none.exitCode, none.report.alert_error, none.mails.length], [1, "smtp_unconfigured", 0], "no password file: no mail, named");
     // The password file's rules (readSmtpPass, as probe-dojo-live.mjs reads its own): two forms accepted, six refused, a refusal sends nothing.
-    // killer: scripts/probe-bell.mjs:291 CONST "? text : null" -> "? text : text"
-    // killer: scripts/probe-bell.mjs:287 CONST "st.size > SMTP_PASS_MAX_BYTES || " -> ""
+    // killer: scripts/probe-bell.mjs:357 CONST "? text : null" -> "? text : text"
+    // killer: scripts/probe-bell.mjs:353 CONST "st.size > SMTP_PASS_MAX_BYTES || " -> ""
     const pw = async (f: string): Promise<[string | null, unknown[]]> => {
       const x = await run({ state: "", tree: stale, now: NOON, argv: ["--state", scratch(), "--keyring", KR1, "--smtp-pass-file", f] });
       return [x.report.alert_error, x.mails.map((m) => m.pass)];
@@ -298,8 +324,8 @@ test("bell_probe_exits_1_when_unhealthy_or_mail_fails", async () => {
       assert.deepEqual(await pw(file("pw", text)), ["smtp_unconfigured", []], `refused: ${JSON.stringify(String(text).slice(0, 16))}`);
     }
     // On POSIX only (win32 has no mode bits, no O_NOFOLLOW): a file its group may read, a symbolic link; on Linux only, a procfs file.
-    // killer: scripts/probe-bell.mjs:287 CONST " || (process.platform !== \"win32\" && (st.mode & 0o077) !== 0)" -> ""
-    // killer: scripts/probe-bell.mjs:289 SDL "if (n !== st.size) return null;" -> ""
+    // killer: scripts/probe-bell.mjs:353 CONST " || (process.platform !== \"win32\" && (st.mode & 0o077) !== 0)" -> ""
+    // killer: scripts/probe-bell.mjs:355 SDL "if (n !== st.size) return null;" -> ""
     if (process.platform !== "win32") {
       const link = join(scratch(), "pw-link");
       symlinkSync(file("pw", "linked-pass\n"), link);
@@ -314,7 +340,7 @@ test("bell_probe_exits_1_when_unhealthy_or_mail_fails", async () => {
   const blocked = file("not-a-dir", "x"), refused = await run({ state: blocked, tree: new Map([[TL, bytes(chain(OCT))]]), now: NOON });
   assert.deepEqual([refused.exitCode, refused.report.alerts], [1, ["write_refused"]], "a write the disk refuses: exit 1");
   // bell.json is renamed over, never written in place: a hard link to the prior report keeps its bytes; no temporary file is left.
-  // killer: scripts/probe-bell.mjs:339 CONST "const fd = openSync(tmp, \"wx\", 0o644);" -> "writeFileSync(path, data); return;"
+  // killer: scripts/probe-bell.mjs:415 CONST "const fd = D.open(tmp);" -> "writeFileSync(path, data); return;"
   const s7 = scratch(), tree7 = new Map<string, Answer>([[TL, bytes(chain(OCT))]]), out7 = join(s7, "bell.json"), prior7 = join(s7, "prior.json");
   const tmps = (): string[] => [s7, join(s7, "bell")].flatMap((d) => readdirSync(d).filter((e) => e.startsWith(".tmp-")));
   assert.deepEqual([(await run({ state: s7, tree: tree7, now: NOON })).exitCode, tmps()], [0, []], "a healthy run, no temporary file left");
@@ -323,17 +349,32 @@ test("bell_probe_exits_1_when_unhealthy_or_mail_fails", async () => {
   assert.equal((await run({ state: s7, tree: tree7, now: iso(Date.parse(NOON) + 60_000) })).exitCode, 0);
   assert.deepEqual([readFileSync(prior7, "utf8"), readFileSync(out7, "utf8") === old7, tmps()], [old7, false, []], "a new report, the prior file intact");
   // A report the disk refuses after a healthy check (its rename refused: bell.json taken by a directory): exit 1, the directory as found.
-  // killer: scripts/probe-bell.mjs:375 CONST " || !wrote" -> ""
+  // killer: scripts/probe-bell.mjs:458 CONST " || !wrote" -> ""
   rmSync(out7);
   mkdirSync(join(out7, "x"), { recursive: true });
   writeFileSync(join(out7, "x", "f"), "prior");
   const noReport = await run({ state: s7, tree: tree7, now: NOON });
   assert.deepEqual([noReport.exitCode, noReport.report.status, noReport.report.alerts, noReport.report.new_lines, readFileSync(join(out7, "x", "f"), "utf8"), tmps()],
     [1, "healthy", [], 0, "prior", []], "bell.json unwritten: exit 1 on a healthy report, the target and its content left, no temporary file");
+  // A run cut between the temporary report and its rename (BELL-PROBE-ATOMIC-FAULT-1, through PROBE_FS, the seam): the process dies there, so
+  // nothing removes the temporary file; the prior bell.json is whole, and the temporary file holds the new report, written and synced.
+  // killer: scripts/probe-bell.mjs:417 CONST "D.rename(tmp, path);" -> "writeFileSync(path, data); D.rename(tmp, path);"
+  assert.ok("PROBE_FS" in P, "PROBE_FS: the file gestures of the probe's atomic write, the seam");
+  const s8 = scratch(), out8 = join(s8, "bell.json"), { rename, remove } = P.PROBE_FS, synced: number[] = [];
+  assert.equal((await run({ state: s8, tree: tree7, now: NOON })).exitCode, 0);
+  const prior8 = readFileSync(out8);
+  Object.assign(P.PROBE_FS, { rename: (a: string, b: string): void => { if (b === out8) throw new Error("cut"); rename(a, b); }, remove: (): void => undefined });
+  const fsync = P.PROBE_FS.fsync;
+  P.PROBE_FS.fsync = (fd: number): void => { synced.push(fd); fsync(fd); };
+  try {
+    const cut = await run({ state: s8, tree: tree7, now: iso(Date.parse(NOON) + 60_000) }), left = readdirSync(s8).filter((e) => e.startsWith(".tmp-"));
+    assert.deepEqual([cut.exitCode, readFileSync(out8).equals(prior8), left.length, synced.length > 0], [1, true, 1, true], "cut before the rename: exit 1, the prior report whole");
+    assert.equal(JSON.parse(readFileSync(join(s8, left[0] ?? ""), "utf8")).checked_at, cut.report.checked_at, "the temporary file holds the new report");
+  } finally { Object.assign(P.PROBE_FS, { rename, remove, fsync }); }
 });
 
 // reddened by: an origin read from anything but the two constants (an option, a variable, a literal), or a constant moved before DC-15's dated line
-// killer: scripts/probe-bell.mjs:259 CONST "compareOrigins(BELL_PUBLIC_ORIGIN, BELL_LEGACY_ORIGIN, get)" -> "compareOrigins(BELL_PUBLIC_ORIGIN, \"https://bell.example.com\", get)"
+// killer: scripts/probe-bell.mjs:323 CONST "compareOrigins(BELL_PUBLIC_ORIGIN, BELL_LEGACY_ORIGIN, get)" -> "compareOrigins(BELL_PUBLIC_ORIGIN, \"https://bell.example.com\", get)"
 test("bell_probe_reads_the_origin_constant_only", async () => {
   assert.deepEqual([D.BELL_PUBLIC_ORIGIN, D.BELL_LEGACY_ORIGIN], ["https://bell.monarkgate.tech", "https://bell.monarkgate.tech"], "DC-15: the former value until its three findings");
   const lines = chain(OCT), tree = new Map<string, Answer>([[TL, bytes(lines)], [STATUS, Buffer.from(JSON.stringify({ source: { line_hash: lineHash(lines[3]) } }))]]);
@@ -341,7 +382,11 @@ test("bell_probe_reads_the_origin_constant_only", async () => {
   try {
     Object.assign(process.env, { BELL_PUBLIC_ORIGIN: "https://elsewhere.test", BELL_LEGACY_ORIGIN: "https://elsewhere.test", PROBE_URL: "https://elsewhere.test/timeline.jsonl" });
     const r = await run({ state: scratch(), tree, now: NOON });
-    assert.deepEqual([r.exitCode, r.report.site_status, r.seen], [0, "in_step", [TL, STATUS]], "the transport sees the constant's two URLs, nothing else");
+    // Lot 4b: the immutables of each new publication, the current state and provenance, all at the constant; and the four aggregators, once a line.
+    const files = lines.flatMap((l) => [`${ORIGIN}/states/${String(l.state_sha256)}.json`, `${ORIGIN}/provenance/${String(l.provenance_sha256)}.json`]);
+    assert.deepEqual([r.exitCode, r.report.site_status, r.seen.filter((u) => u.startsWith(`${ORIGIN}/`))], [0, "in_step", [TL, ...files, STATUS, `${ORIGIN}/state.json`, `${ORIGIN}/provenance.json`]],
+      "the transport sees the constant's URLs, nothing else but the calendars");
+    assert.deepEqual(r.seen.filter((u) => !u.startsWith(`${ORIGIN}/`)), lines.flatMap(() => P.OTS_AGGREGATORS.map((a) => `${a}/digest`)), "the four aggregators, once a line");
   } finally { for (const k of ["BELL_PUBLIC_ORIGIN", "BELL_LEGACY_ORIGIN", "PROBE_URL"]) if (!(k in saved)) delete process.env[k]; }
   assert.doesNotMatch(read("scripts/probe-bell.mjs"), /https?:\/\/|monarkgate|offhoursbell/, "no origin literal in the probe");
   for (const flag of ["--origin", "--url", "--now", "--host"]) assert.equal((await run({ state: scratch(), tree, now: NOON, argv: ["--state", scratch(), flag, "x"] })).exitCode, 2, flag);
@@ -349,7 +394,7 @@ test("bell_probe_reads_the_origin_constant_only", async () => {
 
 // reddened by: two origins compared otherwise than byte for byte, a redirect or a refusal of the legacy origin accepted, a publication race not
 // read again, or equal constants read twice instead of said
-// killer: scripts/probe-bell.mjs:206 CONST "p.body.equals(l.body)" -> "true"
+// killer: scripts/probe-bell.mjs:221 CONST "p.body.equals(l.body)" -> "true"
 test("bell_probe_old_origin_serves_the_same_bytes", async () => {
   const body = bytes(chain(OCT)), r = await run({ state: scratch(), tree: new Map([[TL, body]]), now: NOON });
   assert.deepEqual([r.report.legacy_origin, r.seen.filter((u) => u === TL).length], ["same as the public origin", 1], "equal constants: nothing compared, said");
@@ -371,7 +416,7 @@ test("bell_probe_old_origin_serves_the_same_bytes", async () => {
 
 // reddened by: a bound read in sessions.ts or tied to the calendar (it alerts after the committed calendar ends, where the calendar asks
 // nothing), or a bound other than 120 hours
-// killer: scripts/probe-bell.mjs:171 CONST "nowMs - lastEnd > CALENDAR_FREE_BOUND_H * HOUR_MS" -> "nowMs - lastEnd > CALENDAR_FREE_BOUND_H * HOUR_MS && isTradingDay(new Date(nowMs).toISOString().slice(0, 10))"
+// killer: scripts/probe-bell.mjs:186 CONST "nowMs - lastEnd > CALENDAR_FREE_BOUND_H * HOUR_MS" -> "nowMs - lastEnd > CALENDAR_FREE_BOUND_H * HOUR_MS && isTradingDay(new Date(nowMs).toISOString().slice(0, 10))"
 test("bell_probe_calendar_free_bound_alerts_whatever_the_calendar", async () => {
   assert.equal(P.CALENDAR_FREE_BOUND_H, 120, "PXB-20: 120 hours, proposed");
   assert.doesNotMatch(read("apps/bell/src/sessions.ts"), /CALENDAR_FREE|\b120\b/, "the bound is not in sessions.ts");
@@ -384,7 +429,7 @@ test("bell_probe_calendar_free_bound_alerts_whatever_the_calendar", async () => 
 
 // reddened by: a 404 that alerts, a served status not compared with the head (the last publication, not a key line after it), a difference
 // that alerts at 15 minutes or before, or not past them, a bound other than 15 minutes, or an unreadable answer accepted
-// killer: scripts/probe-bell.mjs:220 CONST "SITE_STATUS_LAG_MIN * 60_000" -> "SITE_STATUS_LAG_MIN * 120_000"
+// killer: scripts/probe-bell.mjs:235 CONST "SITE_STATUS_LAG_MIN * 60_000" -> "SITE_STATUS_LAG_MIN * 120_000"
 test("bell_probe_site_status_is_optional_and_compared_when_served", async () => {
   assert.equal(P.SITE_STATUS_LAG_MIN, 15, "the site's ARCHI: 15 minutes, proposed");
   const lines = chain(OCT), state = scratch(), at = (min: number): string => iso(Date.parse(NOON) + min * 60_000);
@@ -397,8 +442,8 @@ test("bell_probe_site_status_is_optional_and_compared_when_served", async () => 
   assert.deepEqual(await r(null, 0), ["not_served", null, false], "404: the site is not served, no alert");
   assert.deepEqual(await r(env(lineHash(lines[3])), 1), ["in_step", null, false]);
   const behind = env(lineHash(lines[2]));
-  // killer: scripts/probe-bell.mjs:46 CONST "SITE_STATUS_LAG_MIN = 15" -> "SITE_STATUS_LAG_MIN = 10"
-  // killer: scripts/probe-bell.mjs:220 ROR "> SITE_STATUS_LAG_MIN" -> ">= SITE_STATUS_LAG_MIN"
+  // killer: scripts/probe-bell.mjs:55 CONST "SITE_STATUS_LAG_MIN = 15" -> "SITE_STATUS_LAG_MIN = 10"
+  // killer: scripts/probe-bell.mjs:235 ROR "> SITE_STATUS_LAG_MIN" -> ">= SITE_STATUS_LAG_MIN"
   assert.deepEqual([await r(behind, 2), await r(behind, 17), await r(behind, 18)], [["differs", at(2), false], ["differs", at(2), false], ["differs", at(2), true]],
     "none at 15 minutes from the first run that saw it, an alert past them");
   assert.deepEqual(await r(env(lineHash(lines[3])), 19), ["in_step", null, false], "in step again");
@@ -407,7 +452,7 @@ test("bell_probe_site_status_is_optional_and_compared_when_served", async () => 
     assert.deepEqual([x.report.site_status, x.report.alerts], ["error", ["site_status_error"]], what);
   }
   // The head is the last publication, as the reader's: a key line after it, the site's source at that publication, in step at +0 and +16 min.
-  // killer: scripts/probe-bell.mjs:254 CONST "lines.filter((l) => l.kind === \"publication\").at(-1)" -> "lines[lines.length - 1]"
+  // killer: scripts/probe-bell.mjs:318 CONST "lines.filter((l) => l.kind === \"publication\").at(-1)" -> "lines[lines.length - 1]"
   const rot = resign({ schema: "bell-timeline-v1", seq: 5, kind: "key_rotation", published_at: at(0), prev_line_hash: lineHash(lines[3]), key_id: idOf(K1),
     new_key: keyringOf(K2, 1).keys[0]?.jwk, new_key_id: idOf(K2) });
   const keyed = st(env(lineHash(lines[3]))), s12 = scratch();
@@ -420,7 +465,7 @@ test("bell_probe_site_status_is_optional_and_compared_when_served", async () => 
 });
 
 // reddened by: a due instant or a unit end of the probe off the planner's on any unit of the committed calendar
-// killer: scripts/probe-bell.mjs:152 CONST "UNIT_DUE_MARGIN_MIN * 60_000" -> "UNIT_DUE_MARGIN_MIN * 6_000"
+// killer: scripts/probe-bell.mjs:167 CONST "UNIT_DUE_MARGIN_MIN * 60_000" -> "UNIT_DUE_MARGIN_MIN * 6_000"
 test("bell_probe_due_instant_is_the_planners_on_the_whole_calendar", () => {
   let units = 0, byEnd = 0;
   for (let t = Date.parse(`${CALENDAR_RANGE.fromISO}T12:00:00Z`); iso(t).slice(0, 10) <= CALENDAR_RANGE.toISO; t += 86_400_000) {
@@ -438,7 +483,7 @@ test("bell_probe_due_instant_is_the_planners_on_the_whole_calendar", () => {
 // on the publisher's real output, cross-signed and lost-key rotations and a revocation included, on altered lines and keyrings, or in the
 // probe's incremental form (each case walked from every index up to its first altered line, the lines before it carried unchecked; each
 // keyring case up to its first line in error, so a keyring's revoked_from_seq is judged on a kept copy too)
-// killer: scripts/probe-bell.mjs:119 CONST "check && l.prev_line_hash !== prev" -> "false"
+// killer: scripts/probe-bell.mjs:134 CONST "check && l.prev_line_hash !== prev" -> "false"
 test("bell_probe_chain_verdict_equals_the_readers_on_a_corpus", () => {
   const { state, pub: dir } = servedState(K1, 3);
   rotateKey({ stateDir: state, oldKey: K1, newKey: K2, clock: () => T_PUBLISH + 10 });
@@ -480,11 +525,72 @@ test("bell_probe_chain_verdict_equals_the_readers_on_a_corpus", () => {
     if (reader === null || own === null) continue;
     const want = walkTimeline(lines, reader);
     assert.deepEqual(P.walkLines(lines, own), want, name);
-    // killer: scripts/probe-bell.mjs:117 CONST "check = i >= from," -> "check = i >= from && (from === 0 || i > from),"
-    // killer: scripts/probe-bell.mjs:114 CONST "k.revoked_from_seq !== undefined)" -> "k.revoked_from_seq !== undefined && from === 0)"
+    // killer: scripts/probe-bell.mjs:132 CONST "check = i >= from," -> "check = i >= from && (from === 0 || i > from),"
+    // killer: scripts/probe-bell.mjs:129 CONST "k.revoked_from_seq !== undefined)" -> "k.revoked_from_seq !== undefined && from === 0)"
     for (let from = 1; from <= (want.ok ? upTo : Math.min(upTo, want.seq - 1)); from++) assert.deepEqual(P.walkLines(lines, own, from), want, `${name}, incremental from ${String(from)}`);
     reasons.add(want.ok ? (want.voided.length > 0 && want.breaks.length > 0 ? "ok, voided and broken" : "ok") : want.reason);
   }
   assert.deepEqual([...reasons].sort(), ["chain_broken", "key_not_active", "key_not_in_keyring", "ok", "ok, voided and broken", "revocation_malformed", "rotation_key_not_in_keyring",
     "rotation_malformed", "signature_invalid", "timeline_malformed"], "non-vacuity: every reason of the walk, and both forms of success, met");
+});
+
+// ---- lot 4b: the unit and its timer (PLAN-P4 C4-5, C4-11) -------------------------------------------------------------------------
+const PROBE_SVC = "deploy/monark-bell-probe.service", PROBE_TIMER = "deploy/monark-bell-probe.timer";
+/** A committed unit's directives in order, [section, key, value] (comments and blank lines dropped). */
+function unit(rel: string): Array<[string, string, string]> {
+  let section = "";
+  return read(rel).split("\n").flatMap((line): Array<[string, string, string]> => {
+    const l = line.trim(), i = l.indexOf("=");
+    if (l === "" || l.startsWith("#")) return [];
+    if (/^\[\w+\]$/.test(l)) { section = l.slice(1, -1); return []; }
+    return [[section, l.slice(0, i), l.slice(i + 1)]];
+  });
+}
+const values = (u: ReadonlyArray<[string, string, string]>, s: string, k: string): string[] => u.filter(([a, b]) => a === s && b === k).map(([, , v]) => v);
+const minutes = (hm: string): number => { const [h = 0, m = 0] = hm.split(":").map(Number); return h * 60 + m; };
+
+// reddened by: a shot of the probe before its collection slot plus the tick's and the publisher's TimeoutStartSec and the probe's margin, or an
+// hour or more past it; a start of the probe that meets one of monark-probe, monark-dojo-probe or monark-dojo-publish; a [Timer] value
+// unwritten; the probe and the collector beside it above one vCPU
+// killer: deploy/monark-bell-probe.timer:14 CONST "23:30:00" -> "23:20:00"
+test("bell_probe_timer_after_the_unit_due_relation", () => {
+  const t = unit(PROBE_TIMER), shots = values(t, "Timer", "OnCalendar").map((v) => /^\*-\*-\* (\d{2}:\d{2}):00 UTC$/.exec(v)?.[1] ?? "?");
+  const gap = (D.TICK_TIMEOUT_START_SEC + D.BELL_PUBLISH_TIMEOUT_START_SEC) / 60 + P.FRESHNESS_MARGIN_MIN; // 132 min: the relation, never a literal
+  assert.deepEqual(shots.map((x, i) => (minutes(x) - minutes(D.BELL_COLLECT_SLOTS_UTC[i] ?? "") + 1440) % 1440).map((d) => d >= gap && d < gap + 60), [true, true, true, true],
+    `each shot ${String(gap)} minutes to an hour more after its slot (${D.BELL_COLLECT_SLOTS_UTC.join(" ")}): ${shots.join(" ")}`);
+  assert.deepEqual(t.filter(([s, k]) => s === "Timer" && k !== "OnCalendar").map(([, k, v]) => `${k}=${v}`), ["AccuracySec=1s", "RandomizedDelaySec=0", "Persistent=true", `Unit=${posix.basename(PROBE_SVC)}`]);
+  // Each start, [shot, shot + TimeoutStartSec + AccuracySec] in seconds of the UTC day, against the timed units of the former host.
+  const windows = (timer: string, svc: string): Array<[number, number]> => {
+    const u = unit(timer), acc = Number(/^(\d+)s$/.exec(values(u, "Timer", "AccuracySec")[0] ?? "60s")?.[1]), start = Number(values(unit(svc), "Service", "TimeoutStartSec")[0]);
+    return values(u, "Timer", "OnCalendar").map((v) => minutes(/(\d{2}:\d{2}):00 UTC$/.exec(v)?.[1] ?? "") * 60).map((s) => [s, s + start + acc]);
+  };
+  const mine = windows(PROBE_TIMER, PROBE_SVC), meets = (a: [number, number], b: [number, number]): boolean => [-86_400, 0, 86_400].some((k) => a[0] < b[1] + k && b[0] + k < a[1]);
+  assert.equal(mine.length, 4, "four starts");
+  for (const [timer, svc] of [["deploy/monark-probe.timer", "deploy/monark-probe.service"], ["deploy/monark-dojo-probe.timer", "deploy/monark-dojo-probe.service"],
+    ["deploy/monark-dojo-publish.timer", "deploy/monark-dojo-publish.service"]] as const) {
+    for (const w of mine) for (const o of windows(timer, svc)) assert.ok(!meets(w, o), `${timer}: ${JSON.stringify(w)} vs ${JSON.stringify(o)}`);
+  }
+  const quota = (rel: string): number => Number(/^(\d+)%$/.exec(values(unit(rel), "Service", "CPUQuota")[0] ?? "")?.[1]);
+  assert.deepEqual([values(unit("deploy/monark-dojo-collect.timer"), "Timer", "OnCalendar"), quota(PROBE_SVC) + quota("deploy/monark-dojo-collect.service") <= 100],
+    [["*-*-* *:00/5:00 UTC"], true], "the Dojo collector runs beside each start: both within one vCPU");
+});
+
+// reddened by: a [Service] directive off its closed list or value (the user probe, its one writable path, Bell's former key directory masked
+// without "-", the caps, SMTP_PASS unset), a TimeoutStartSec other than the code's worst run plus 60 s or above 1 500 s, an ExecStart off the
+// probe of the tree, or a directive that names a path of Bell's host or a credential
+// killer: deploy/monark-bell-probe.service:36 CONST "InaccessiblePaths=/etc/monark/bell" -> "InaccessiblePaths=-/etc/monark/bell"
+test("bell_probe_unit_is_hardened_and_never_on_bell_host", () => {
+  const svc = unit(PROBE_SVC).filter(([s]) => s === "Service"), root = P.BELL_PROBE_TREE_ROOT, start = P.BELL_PROBE_WORST_RUN_MS / 1000 + 60;
+  assert.ok(start <= 1500, `the worst run plus its margin, at most 1 500 s: ${String(start)}`);
+  const env = ["NODE_OPTIONS", "NODE_TLS_REJECT_UNAUTHORIZED", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
+    "http_proxy", "https_proxy", "all_proxy", "no_proxy", "SMTP_PASS"];
+  assert.deepEqual(svc.map(([, k, v]) => `${k}=${v}`), ["Type=oneshot", `WorkingDirectory=${root}`, "EnvironmentFile=/etc/monark/probe.env",
+    `ExecStart=/usr/bin/env node ${root}/scripts/probe-bell.mjs --state /var/lib/monark-probe --keyring ${root}/apps/bell/keys/bell-keyring.json --smtp-pass-file ${P.DEFAULT_SMTP_PASS_FILE}`,
+    `TimeoutStartSec=${String(start)}`, `UnsetEnvironment=${env.join(" ")}`, "User=probe", "Group=probe", "NoNewPrivileges=true", "ProtectSystem=strict", "ProtectHome=true",
+    "PrivateTmp=true", "ReadWritePaths=/var/lib/monark-probe", "InaccessiblePaths=/etc/monark/bell", "CPUQuota=25%", "MemoryMax=256M", "TasksMax=64"], "the [Service] of the probe, closed");
+  assert.deepEqual([P.DEFAULT_SMTP_PASS_FILE, P.BELL_PROBE_TREE_PATHS.includes("scripts/probe-bell.mjs"), P.BELL_PROBE_TREE_PATHS.includes(relative(REPO, P.DEFAULT_KEYRING).split(sep).join("/"))],
+    ["/etc/monark/bell-probe-smtp-pass", true, true], "its own password file (RENDU-4a 7.4); the program and the keyring of its tree");
+  const bellHost = [...Object.values(D.BELL_LAYOUT).map((x) => x.path), "/opt/monark-bell", D.BELL_COLLECT_TREE_ROOT, D.BELL_COLLECT_SECRETS_DIR];
+  const named = svc.flatMap(([, , v]) => v.split(/[\s:=,"']+/)).filter((p) => bellHost.some((d) => p === d || p.startsWith(`${d}/`)));
+  assert.deepEqual([named, svc.filter(([, k]) => /Credential/.test(k))], [[], []], "no path of Bell's host, no credential");
 });
