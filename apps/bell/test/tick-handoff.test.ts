@@ -289,6 +289,13 @@ test("bell_tick_abandon_frees_a_unit_the_publisher_refused", async () => {
   assert.equal(existsSync(sp) ? readFileSync(sp, "utf8") : null, record, "the refusal records its unit for the act");
   const p0 = readFileSync(join(h.state, "state", "progress.json"), "utf8"), a0 = attemptsOf(h), at = due(D2) + 11 * HOUR;
   assert.equal(await act(h, D2, at), 1, "D2, neither the next unit stalled nor the unit refused");
+  // G2 of part 3, F-1 (BELL-TICK-ABANDON-PINS-1): the record binds its unit; D3, past the next unit and at its budget, is not freed by a record of D.
+  const D3 = nextTradingDay(D2), attempts = join(h.state, "state", "attempts.json");
+  writeFileSync(attempts, `${JSON.stringify({ ...a0, [D3]: ATTEMPT_BUDGET })}\n`);
+  // killer: apps/bell/src/tick.ts:407 CONST "rec === o.d;" -> "rec !== undefined;"
+  assert.equal(await act(h, D3, at), 1, "D3 at its budget while the record names D");
+  assert.equal(lastErr(h), `bell/tick: refused abandon_refused: unit-${D3} is not the stalled unit`);
+  writeFileSync(attempts, `${JSON.stringify(a0)}\n`);
   assert.equal(await act(h, D, at), 0, lastErr(h));
   assert.equal(lastOut(h), `bell/tick: abandoned unit-${D} reason=close_ref_missing`);
   const body = `${JSON.stringify({ unit: D, reason: "close_ref_missing" })}\n`;
@@ -326,4 +333,17 @@ test("bell_tick_recollects_a_refused_unit_above_the_backlog", async () => {
   assert.deepEqual([h.calls, attemptsOf(h)], [BELL_UNIVERSE.map(() => windowOf(last)), { [last]: 1 }]);
   assert.equal(await run(h, due(last) + 3 * HOUR), 1);
   assert.equal(lastErr(h), `bell/tick: refused handoff_backlog: 9 units from unit-${from} on await publication, above 8`, "its revision not refused: the backlog stops the next unit again");
+});
+
+// G2 of part 3, F-1 (BELL-TICK-ABANDON-PINS-1): on the way of the next unit (the progress advances), a record that names that unit is consumed
+// too, so no record outlives the unit it names.
+// killer: apps/bell/src/tick.ts:419 CONST "if (rec === o.d) rmSync" -> "if (byRefusal) rmSync"
+test("bell_tick_abandon_consumes_the_record_of_the_next_unit", async () => {
+  const [D] = days("2026-10-02", 1) as [string], h = await seeded(D), sp = join(h.state, "state", "stalled.json");
+  for (let i = 0; i < ATTEMPT_BUDGET; i++) assert.equal(await run(h, due(D) + i * HOUR, refusing), 1);
+  assert.deepEqual([attemptsOf(h), progressOf(h).last_unit], [{ [D]: ATTEMPT_BUDGET }, null], "D, the next unit, at its budget");
+  writeFileSync(sp, `${JSON.stringify({ unit: D, code: "bell_sha_mismatch" })}\n`);
+  // killer: apps/bell/src/tick.ts:419 SDL "if (rec === o.d) rmSync(sp, { force: true }); // the record of D, on either way: a stop before it, the act runs again to the same bytes" -> ""
+  assert.equal(await act(h, D, due(D) + 9 * HOUR), 0, lastErr(h));
+  assert.deepEqual([progressOf(h).last_unit, existsSync(sp)], [D, false], "the progress advanced once, the record of D consumed");
 });

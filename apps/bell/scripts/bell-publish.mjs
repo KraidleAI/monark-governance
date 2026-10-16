@@ -1,12 +1,12 @@
-// MONARK Bell -- T-1b publisher (ADR-T1b-backend v2 D4-D9). Turns ONE pending bundle of real runMain runs into a signed, chained,
-// durably written publication, and refuses by name everything else (BellPublishError / exit 1, state directory untouched). It
-// computes NO fact: its own fields are seq, published_at, hashes, key_id and signatures. Node built-ins + bell-chain.mjs and
-// bell-validate.mjs only (the validation of a run and of a bundle, whose bindings this module re-exports).
-// Layout of --state: timeline.jsonl (private, source of truth, commit point), keyring.json (private state keyring), staging/,
-// archive/<seq>-<bundle>/, public/ (served by Caddy: state.json, provenance.json, timeline.jsonl, bell/pubkey.json,
-// states/<sha>.json, provenance/<sha>.json). CLI (systemd oneshot, ADR D10): node bell-publish.mjs --inbox <dir> --state <dir>;
-// the private key is read ONLY from $CREDENTIALS_DIRECTORY/bell-signing-key (systemd LoadCredential, PKCS#8 PEM).
-// S-6 operator modes (ADR D9): --generate-key <new file> (prints the public part only); --rotate --state <dir> [--broken]
+// MONARK Bell -- T-1b publisher (ADR-T1b-backend v2 D4-D9; G0 BELL-COLLECT-TIMER-1 DC-3). Turns pending bundles of real runMain runs into
+// signed, chained, durably written publications, and refuses by name everything else (BellPublishError / exit 1, state directory untouched).
+// It computes NO fact: its own fields are seq, published_at, hashes, key_id and signatures. Node built-ins + bell-chain.mjs and bell-validate.mjs
+// only (the validation of a run and of a bundle, whose bindings this module re-exports). Layout of --state: timeline.jsonl (private, source of
+// truth, commit point), keyring.json (private state keyring), staging/, archive/<seq>-<bundle>/ (--inbox), public/ (served by Caddy: state.json,
+// provenance.json, timeline.jsonl, bell/pubkey.json, states/<sha>.json, provenance/<sha>.json). CLI, two publication modes: the systemd oneshot's
+// --handoff <dir> --status <dir> --state <dir> (deploy/monark-bell-publish.service: up to HANDOFF_N bundles the tick deposited, section --handoff
+// below; --handoff-start <D> --handoff <dir> --status <dir> poses its start mark), and --inbox <dir> --state <dir> (ADR D10, lot a: ONE bundle);
+// the private key is read ONLY from $CREDENTIALS_DIRECTORY/bell-signing-key (systemd LoadCredential, PKCS#8 PEM). S-6 operator modes (ADR D9): --generate-key <new file> (prints the public part only); --rotate --state <dir> [--broken]
 // (old key bell-signing-key, new key bell-signing-key-new, both from $CREDENTIALS_DIRECTORY; --broken = old key lost);
 // --revoke <key_id> --from-seq <n> --state <dir> (signed by the active key bell-signing-key).
 import { openSync, readSync, writeSync, fsyncSync, closeSync, renameSync, mkdirSync, existsSync, readFileSync, readdirSync, linkSync, unlinkSync } from "node:fs";
@@ -256,11 +256,11 @@ const revOf = (name) => (name.length > 15 ? Number(name.slice(17)) : 0);
 /** The refusals of a bundle (recorded in refused.jsonl); any other refusal is the call's (state, key, lock, clock, mark), never recorded. */
 const BUNDLE_REFUSALS = new Set(["inbox_not_exactly_one_bundle", "too_many_runs", "input_too_large", "schema_mismatch", "unknown_field", "bell_sha_mismatch",
   "close_like_field", "session_not_yet_publishable", "run_timeline_broken", "provenance_binding_mismatch", "url_or_key_shaped_string", "duplicate_run",
-  "public_state_too_large", "line_too_large", "window_overlaps_published"]);
+  "public_state_too_large", "line_too_large", "window_overlaps_published", "manifest_mismatch"]);
 const STATUS_FIELDS = { "published.jsonl": ["bundle", "manifest_sha256", "seq", "published_at"], "refused.jsonl": ["bundle", "manifest_sha256", "code", "refused_at"] };
 
-/** The bundles of one --handoff call, PURE (no file, no clock). `names`: the entries of the handoff directory; `manifests`: name ->
- *  sha256 of its concordant manifest (absent: no manifest, or one that does not match); `published`, `refused`: the entries of the two
+/** The bundles of one --handoff call, PURE (no file, no clock). `names`: the entries of the handoff directory; `manifests`: name -> sha256 of
+ *  its manifest (absent: no manifest; a tombstone's only when it matches; a bundle's that does not match the caller refuses, manifest_mismatch); `published`, `refused`: the entries of the two
  *  status files; `start`: the from_unit of the mark; `n`: the cap. Walks the D's at or after the mark in ascending order, skips a D
  *  published (any revision) or abandoned (a tombstone with its concordant manifest), and takes for each D the highest revision whose
  *  name and manifest sha256 are not refused; a D with no candidate stops the list: `awaiting` names it. */
@@ -281,22 +281,22 @@ export function chooseHandoff({ names, manifests, published, refused, start, n }
   return { bundles: chosen, awaiting: null };
 }
 
-/** name -> sha256 of the manifest, for each bundle or tombstone at or after the mark whose manifest matches: manifestOf of the bundle
- *  directory (the tick's own function), or `<sha256 of the body>  <name>` for a tombstone (the tick's abandon). */
+/** For each bundle or tombstone at or after the mark with its sibling manifest: `manifests`, name -> sha256 of the manifest, a tombstone's when it matches
+ *  (`<sha256 of the body>  <name>`, the tick's abandon), a bundle's in any case; `mismatched`, the bundles it no longer matches (manifestOf, the tick's own function; G0 DC-3 amended). */
 function manifestsOf(handoffDir, entries, start) {
-  const out = {};
+  const manifests = {}, mismatched = new Set();
   for (const e of entries) {
     const x = e.name, path = join(handoffDir, x), m = `${path}.manifest`;
-    if (dayOf(x) < start || !existsSync(m)) continue; // before the mark: never chosen, never hashed
-    const text = readFileSync(m, "utf8");
+    if (dayOf(x) < start) continue; // before the mark: never chosen, never hashed
+    let text; try { text = readFileSync(m, "utf8"); } catch (err) { if (err?.code === "ENOENT") continue; throw err; } const bundle = UNIT_NAME.test(x); // no manifest: not deposited (the tick writes it first) or purged since the listing, skipped; any other errno fails the call (fatal: <errno>), never a refusal
     let ok = false;
-    try {
-      if (UNIT_NAME.test(x) && e.isDirectory()) ok = manifestOf(path) === text;
-      else if (TOMBSTONE.test(x) && e.isFile()) ok = text === `${sha256Hex(readFileSync(path))}  ${x}\n`;
-    } catch { ok = false; } // a bundle manifestOf refuses has no concordant manifest
-    if (ok) out[x] = sha256Hex(text);
+    try { ok = bundle ? (e.isDirectory() && manifestOf(path) === text) : (TOMBSTONE.test(x) && e.isFile() && text === `${sha256Hex(readFileSync(path))}  ${x}\n`); } catch (err) {
+      if (err?.code === "ENOENT") continue; if (!(err instanceof BellPublishError)) throw err; // an entry or a file purged since the listing (tick.ts:332): skipped, as at the base; manifestOf refuses an entry neither a file nor a directory: no match; an unreadable file fails the call too
+    }
+    if (ok || bundle) manifests[x] = sha256Hex(text); // a bundle that no longer matches keeps its sha256, so its refusal, once recorded, is matched (chooseHandoff)
+    if (bundle && !ok) mismatched.add(x);
   }
-  return out;
+  return { manifests, mismatched };
 }
 /** The entries of a status file (absent: none); a line that is not an object with a string bundle and manifest_sha256 is refused. */
 function readStatus(statusDir, file) {
@@ -345,7 +345,7 @@ export function postStartMark({ from, handoffDir, statusDir, clock, clockSynced 
 
 /** --handoff: probe, lock, mark, ONE clock read, the choice (chooseHandoff), then for each chosen bundle the line path of --inbox (publishOne,
  *  no archive: the handoff directory is never written) under the overlap guard, and its status line; a bundle whose runs are all published
- *  already (a stop between commit and status line) is recorded at the line that holds them; a refusal of a bundle is recorded and stops the call.
+ *  already (a stop between commit and status line) is recorded at the line that holds them; a refusal of a bundle is recorded and stops the call, manifest_mismatch included (its files no longer match its manifest).
  *  The call is synchronous: a SIGTERM during it waits for the event loop, the listener set before the lock keeping the default exit off; the finally releases the lock and removes the listener, so its own release never runs mid-call (BELL-PUBLISH-SIGTERM-SYNC-1). */
 export function publishHandoff({ handoffDir, stateDir, statusDir, privateKey, clock, clockSynced = UNSYNCED, bounds = {}, fs: D = DURABLE_FS, n = HANDOFF_N,
   exit = (code) => process.exit(code) }) {
@@ -359,7 +359,7 @@ export function publishHandoff({ handoffDir, stateDir, statusDir, privateKey, cl
     try { closeSync(openSync(lock, "wx")); held = true; } catch (e) { if (e?.code === "EEXIST") refuse("lock_held", "publish.lock: another writer holds the state"); throw e; }
     const start = readStart(statusDir) ?? refuse("handoff_start_missing", "status/start: no start mark (the act --handoff-start poses it)");
     const t = clock(), B = { ...BOUNDS, ...bounds }, entries = readdirSync(handoffDir, { withFileTypes: true }); // the ONE clock read of the call
-    const choice = chooseHandoff({ names: entries.map((e) => e.name), manifests: manifestsOf(handoffDir, entries, start), published: readStatus(statusDir, "published.jsonl"),
+    const { manifests, mismatched } = manifestsOf(handoffDir, entries, start), choice = chooseHandoff({ names: entries.map((e) => e.name), manifests, published: readStatus(statusDir, "published.jsonl"),
       refused: readStatus(statusDir, "refused.jsonl"), start, n });
     const overlap = (fresh, lines) => { // closed intervals [a, b] and [c, d] meet when a <= d and c <= b
       fresh.forEach((r, i) => { for (const l of lines.filter((x) => x.kind === "publication")) for (const p of l.runs) {
@@ -369,7 +369,7 @@ export function publishHandoff({ handoffDir, stateDir, statusDir, privateKey, cl
     const out = [];
     for (const { bundle, manifest_sha256 } of choice.bundles) {
       let r;
-      try { r = publishOne({ stateDir, privateKey: key, t, B, D, locate: () => ({ bundle, bdir: join(handoffDir, bundle) }), guard: overlap }); } catch (e) {
+      try { if (mismatched.has(bundle)) refuse("manifest_mismatch", `${bundle}: its files no longer match ${bundle}.manifest`); r = publishOne({ stateDir, privateKey: key, t, B, D, locate: () => ({ bundle, bdir: join(handoffDir, bundle) }), guard: overlap }); } catch (e) {
         if (e instanceof BellPublishError && BUNDLE_REFUSALS.has(e.code)) appendStatus(statusDir, "refused.jsonl", { bundle, manifest_sha256, code: e.code, refused_at: new Date(t).toISOString() }, D);
         throw e;
       }
