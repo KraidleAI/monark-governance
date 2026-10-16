@@ -101,7 +101,7 @@ interface FleetProductCommon {
   /** One-sentence function — generic, no third-party platform. */
   fn: string;
   wiring: ProductWiring;
-  /** What it connects to (reachability lives here, not on the segment card). */
+  /** What it connects to (reachability lives here, not on the segment card); empty, and rendered nowhere, when it connects to no other piece. */
   connects: string;
 }
 
@@ -262,7 +262,8 @@ export const FLEET_AGENTS: FleetAgent[] = [
 ];
 
 /** Register agent names, fail-closed: each name must be an agent of FLEET_AGENTS (so a value that names agents is
- *  derived from the register, never a free string), returned as English list prose. */
+ *  derived from the register, never a free string), returned as English list prose. No served value calls it today: a
+ *  built product names an agent it connects to only once that composition is served and tested, and then through this. */
 export function registerNames(names: readonly string[]): string {
   const known = names.map((n) => {
     const a = FLEET_AGENTS.find((x) => x.name === n);
@@ -284,8 +285,8 @@ export const SHARED_GATE = GATE;
 // a client component's props nor the page payload; this module itself still ships in a client chunk, because client
 // components such as the home noyau import the register) and each upcoming one as its UpcomingPanel; applications are
 // NOT listed on /roadmap nor /fleet (the agent counts there are about AGENTS; /fleet only points to /applications with
-// counts derived from this array). MONARK Bell's segment and its connections are register values (the agents it
-// connects to are named through registerNames, so a renamed or removed agent fails the build); its wiring names the
+// counts derived from this array). MONARK Bell's segment is a register value; Bell connects to no other piece of the
+// register (its package depends on @monark/rpc-guard alone), so its connects is empty and no surface renders it; its wiring names the
 // real pieces (collector reads, publisher checks, signed publication + reader-side verifier).
 export const PRODUCTS: FleetProduct[] = [
   {
@@ -349,7 +350,7 @@ export const PRODUCTS: FleetProduct[] = [
       gate: "the publisher's closed checks: read quorum, earliest publication time, no closing price carried",
       act: "a signed, hash-chained publication on a MONARK host that also runs the Dōjō and a Narabi probe, checked by the reader-side verifier",
     },
-    connects: registerNames(["Hikae", "Shōgen"]),
+    connects: "",
     status: "built",
     // The served host, its deploy check (docs/deploy-CA-bell.json, produced by scripts/verify-bell.mjs, which runs the
     // real reader-side verifier) and the site data read from it.

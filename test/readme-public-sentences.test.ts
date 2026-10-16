@@ -4,12 +4,16 @@
  * bounded sentence, or one family of them, to the code that makes it true today (its "premise" assertion) and names, in
  * its title, the limit and the item that will make the old wording true again. When that item lands, the premise reds and
  * the sentence is revisited; until then the old wording reds. README.md, the skill and the sentinel README are exported to
- * the public mirror; this file is not. Node built-ins, the register and the export lists.
+ * the public mirror; this file is not. A sentence of a site page is read as the page renders it (the honesty-lint walker:
+ * JSX text, JSX child literals, visible attributes; a JSX comment is not rendered) or from its exported metadata, never
+ * from the source text. Node built-ins, typescript, the register and the export lists.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import ts from "typescript";
+import { renderedTexts } from "../apps/site/test/honesty-lint.ts";
 import { COUNT_WORDS, PRODUCTS, SHARED_GATE, upcomingProducts } from "../apps/site/lib/fleet.ts";
 import { APP_PACKAGE_DIRS, WHITELIST_DIRS, WHITELIST_FILES } from "../scripts/export-public.mjs";
 
@@ -22,6 +26,22 @@ const section = (title: string): string[] => {
   assert.ok(start >= 0, "README section ## " + title + " not found");
   const end = readme.findIndex((l, i) => i > start && l.startsWith("## "));
   return readme.slice(start + 1, end < 0 ? readme.length : end);
+};
+/** The rendered text of a site source, white space collapsed: its JSX text, JSX child literals and visible attributes. */
+const rendered = (rel: string): string =>
+  renderedTexts(ts.createSourceFile(rel, read(rel), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)).map((t) => t.text).join(" ").replace(/\s+/g, " ");
+/** The description of a page's exported metadata, a string or the static parts of a template, as the page serves it. */
+const metadataDescription = (rel: string): string => {
+  const sf = ts.createSourceFile(rel, read(rel), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  for (const stmt of sf.statements) {
+    if (!ts.isVariableStatement(stmt) || !(stmt.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false)) continue;
+    const init = stmt.declarationList.declarations.find((d) => ts.isIdentifier(d.name) && d.name.text === "metadata")?.initializer;
+    const prop = init !== undefined && ts.isObjectLiteralExpression(init) ? init.properties.find((p) => ts.isPropertyAssignment(p) && ts.isIdentifier(p.name) && p.name.text === "description") : undefined;
+    const value = prop !== undefined && ts.isPropertyAssignment(prop) ? prop.initializer : undefined;
+    if (value !== undefined && (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value))) return value.text;
+    if (value !== undefined && ts.isTemplateExpression(value)) return [value.head.text, ...value.templateSpans.map((span) => span.literal.text)].join(" ");
+  }
+  return "";
 };
 /** The .ts files under a directory of the repository, at any depth, as repository paths. */
 const tsUnder = (dir: string): string[] => (readdirSync(join(ROOT, ...dir.split("/")), { recursive: true }) as string[]).filter((f) => f.endsWith(".ts")).map((f) => dir + "/" + f.split("\\").join("/"));
@@ -101,13 +121,32 @@ test("readme_and_site_say_the_engine_is_meant_to_power_the_applications — the 
   const POWERS = /applications (?:it|the (?:MONARK )?engine) powers|(?<!meant to be )powered by the engine|The engine powers|application of the engine|MONARK Bell first|The first is MONARK Bell|Everything in MONARK plugs/;
   const SURFACES = ["README.md", "apps/site/app/layout.tsx", "apps/site/app/page.tsx", "apps/site/app/roadmap/page.tsx", "apps/site/app/docs/page.tsx", "apps/site/app/docs/bell/page.tsx", "apps/site/app/applications/page.tsx", "apps/site/components/site-header.tsx"];
   for (const rel of SURFACES) assert.doesNotMatch(read(rel).replace(/\s+/g, " "), POWERS, rel + " says the engine powers the applications");
-  for (const rel of SURFACES.filter((r) => r !== "apps/site/app/docs/bell/page.tsx")) assert.match(read(rel).replace(/\s+/g, " "), /meant to (?:be )?power/, rel + " says what the engine is meant to power");
+  // A refusal list cannot name every paraphrase ("the on-chain applications that run on it"): the whole sentence of each
+  // surface is pinned word for word, the README by its lines, a site page as it renders or as its metadata serves it. The
+  // site header renders its nav labels alone; its "meant to power" is a source comment, so it carries no positive pin.
+  const README_LINES = [
+    "The blades are the DeFi side: the **on-chain applications it is meant to power**, each one grown from an empirical",
+    "**Right:** what it gives the DeFi side — the on-chain applications it is meant to power (in parentheses: the applications",
+    "| DeFi | **Applications** — meant to be powered by the engine | one application per DeFi need, meant to be served with its own published artefacts | **1 built** (MONARK Bell, its own gate) · **5 research leads** |",
+    "                                        │  meant to power",
+  ];
+  for (const line of README_LINES) assert.ok(readme.includes(line), "the README keeps its line, word for word: " + line.trim());
+  const SAID: [string, string][] = [
+    [metadataDescription("apps/site/app/layout.tsx"), "MONARK — two sides, one engine. AI side: a coverage-controlled gate that emits commit, defer, or abstain over a depletable budget. DeFi side: the on-chain applications it is meant to power; the first, MONARK Bell, keeps its own gate."],
+    [rendered("apps/site/app/page.tsx"), "The DeFi side is the on-chain applications it is meant to power."],
+    [rendered("apps/site/app/page.tsx"), "The engine is meant to power the on-chain applications; there is one token and one ticker."],
+    [rendered("apps/site/app/roadmap/page.tsx"), "MONARK is one engine and the on-chain applications it is meant to power."],
+    [rendered("apps/site/app/docs/page.tsx"), "MONARK is a coverage-controlled decision gate, the pieces that read and act around it, and the on-chain applications it is meant to power."],
+    [rendered("apps/site/app/docs/page.tsx"), "The blades are the DeFi side: the on-chain applications the engine is meant to power, each grown from a study of on-chain data before it is served."],
+    [metadataDescription("apps/site/app/applications/page.tsx"), "The on-chain applications the MONARK engine is meant to power, by the profile that needs them, and the artefacts sold to a named buyer."],
+    [rendered("apps/site/app/applications/page.tsx"), "The on-chain applications the engine is meant to power, by the profile that needs them."],
+    [rendered("apps/site/app/applications/page.tsx"), "A client is meant to install one visible piece &mdash; the act that matches their need &mdash; while the sensors and the gate stay behind it."],
+    [rendered("apps/site/app/docs/bell/page.tsx"), "MONARK Bell is an application on the DeFi side, with its own gate:"],
+  ];
+  for (const [served, sentence] of SAID) assert.ok(served.includes(sentence), "the site serves its sentence, word for word: " + sentence);
   assert.match(text, /The first built is MONARK Bell, which keeps its own gate/, "the README lede says Bell keeps its own gate");
   assert.match(text, /\*\*1 built\*\* \(MONARK Bell, its own gate\)/, "the README table says Bell keeps its own gate");
   assert.ok(section("The interlocking (why the pieces work together)").some((l) => l.endsWith("│  meant to power")) && text.includes("MONARK Bell (built, served, its own gate)"), "the diagram draws the engine meant to power the applications, Bell with its own gate");
-  assert.match(read("apps/site/app/layout.tsx"), /the first, MONARK Bell, keeps its own gate/, "the site description says Bell keeps its own gate");
-  assert.match(read("apps/site/app/docs/bell/page.tsx"), /MONARK Bell is an application on the DeFi side, with its own gate:/, "the Bell docs page says Bell keeps its own gate");
-  assert.match(read("apps/site/app/applications/page.tsx"), /A client is meant to install one visible piece/, "the applications lede says what a client is meant to install");
 });
 
 // killer: README.md:205 CONST "sensors (attest · join building)" -> "sensors (attest)"
@@ -157,11 +196,22 @@ test("readme_cascade_and_deleveraging_say_what_runs — the cascade rows say the
 test("skill_and_sentinel_readme_claim_no_attested_flow_and_no_replay — the published skill and the exported sentinel README call the flow neither attested nor attested onchain, and the timeline hash-chained, never replayable, while the attestor key is a placeholder and the tracker step rests on the engine's pow (Narabi L15, L19, T2; NARABI-K1, NARABI-POW-PORTABLE-1)", () => {
   assert.ok(read("apps/sentinel/src/flow.ts").includes('key: "deadbeef"'), "premise: the attestor key is a placeholder; when NARABI-K1 replaces it this reds and the texts are revisited");
   assert.ok(read("packages/hikae/src/tracker.ts").includes("base ** (-1 / 2 - params.eps)") && read("apps/sentinel/src/run.ts").includes("interface Provenance { readonly endpoints: readonly string[]; readonly node_version: string; readonly sentinel_sha: string; }"), "premise: the step uses the engine's pow and a line records no platform; when NARABI-POW-PORTABLE-1 lands this reds and the texts are revisited");
+  const ATTESTED = /\battested\s+(?:24h|onchain|redemption|daily|flow)\b/i;
+  const REBUILT = /\breplayable\b|\breplaying the tracker\b|re-derive the tracker|anyone can (?:replay|rebuild)/i;
+  for (const claim of [
+    "Narabi reads the attested redemption flow of USDe, and anyone can rebuild its tracker state from the timeline.",
+    "Narabi reads the attested redemption flow and publishes a daily timeline anyone can rebuild the tracker from.",
+  ]) assert.ok(ATTESTED.test(claim) && REBUILT.test(claim), "positive control, both refusals read the false claim: " + claim);
   for (const rel of ["skills/monark/SKILL.md", "skills/monark/DEMO.md", "skills/monark/INTEGRATION.md", "apps/sentinel/README.md"]) {
-    assert.doesNotMatch(read(rel), /\battested\s+(?:24h|onchain)\b/i, rel + " calls the flow attested");
-    assert.doesNotMatch(read(rel), /\breplayable\b/i, rel + " calls the timeline replayable");
+    assert.doesNotMatch(read(rel), ATTESTED, rel + " calls the flow attested");
+    assert.doesNotMatch(read(rel), REBUILT, rel + " calls the timeline replayable or promises a rebuild of the tracker");
   }
   assert.ok(read("skills/monark/SKILL.md").includes("steps an adaptive quantile tracker on the 24h redemption flow and"), "the skill names the flow it reads");
   assert.ok(read("skills/monark/SKILL.md").includes("publishes a hash-chained timeline (`state.json`, `timeline.jsonl`) at"), "the skill says the timeline is hash-chained");
 });
 
+// killer: apps/site/app/bell/method/page.tsx:605 CONST "restates (that source is not in the public export yet)," -> "restates,"
+test("bell_method_says_the_collector_revision_is_outside_the_export — /bell/method, as it renders, says the collector revision it restates is not in the public export while no export root carries the collector; publishing the fingerprint of the collector tree makes the clause revisited", () => {
+  assert.ok(!collectorExported(), "premise: no export root (file, directory or package) carries the collector; when one does this reds and the page is revisited");
+  assert.ok(rendered("apps/site/app/bell/method/page.tsx").includes(", the date of the collector source revision it restates (that source is not in the public export yet),"), "the page says where the revision is not");
+});
