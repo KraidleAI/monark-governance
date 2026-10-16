@@ -90,6 +90,11 @@ only its test run under TAP, offline, the file restored and its sha256 checked: 
 of KQ-SERVED-FORMS-TEST-1, by the review's own applier: 4 of 4 killed. At the trunk, `truncated_candle_rule8` is red by assertion
 (fixture A refused, « open or close time », exit 2).
 
+**Fold of the first review**, the same recipe: each of the 23 killers new or moved in `test/kata-quarter.test.ts` applied alone at its
+file:line, only its test run, offline: 23 of 23 killed, each at the case written for it, all restored. The 17 mutants that the review
+found green (each a check or a branch that no test held) replayed by the review's own applier, each alone, the whole file run,
+offline: 17 of 17 killed, all restored.
+
 ## 6. Estimate (R-25: lot bound 547, the plan's rule of an estimate under 547 at +30 %, plan l.580)
 
 Code ~80 changed lines (the reader ~40, `halts` ~15, the manifest ~12, `read_series` and `merge` ~10, `venue_halts` 2, headers);
@@ -101,6 +106,10 @@ under the lot bound 547; content 0. The count records are unchanged (`test/kata-
 `test:main` was added): the write tool on a fresh offline run gives 314 files and 3233 tests, and the count check against `1479a670`
 is green, 0 drops.
 
+**Fold of the first review** (measured at its code commit `0ca3bb0a`, R-25 in CI form against the trunk `73380fff`): **342** changed
+lines (296 insertions, 46 deletions) for the whole change, under the lot bound 547; content 0. No test is added (cases only), so the
+count records are unchanged: the count check against `73380fff` is green, 314 files and 3233 tests, 0 drops.
+
 ## 6 bis. Runs
 
 - `test/kata-quarter.test.ts` under CPython 3.14.8 (the driver's interpreter, `KATA_QUARTER_PYTHON`), offline, no `node_modules`:
@@ -108,6 +117,12 @@ is green, 0 drops.
   case-folding git wrapper: 0 case-only collisions; the folders that the new test writes without git: 0.
 - `test:main` offline: 3233 tests, 3210 pass, 23 skipped (the trunk's), 0 failures. `lint:ratchet` 69/69; `tsc --noEmit` and eslint
   on the touched `.ts` files, `gate:vocab`, `lang:gate`, `export:check`: green; the killers of the touched test files: 126, each anchored on its line.
+- After the fold, on the trunk `73380fff` merged: the file 30 tests, 30 pass, offline, no `node_modules`, and the same under the
+  case-folding git wrapper (0 case-only collisions, nor in the folders the cases write without git). `test:main` offline: 3233 tests,
+  3208 pass, 23 skipped, 2 failures, both `dojo_history_provisional_*` refused by the collector's own free-space floor
+  (`apps/dojo/src/history-collect.ts` l.185, « disk_space ») on a disk with under 1 GB free, which this change does not touch.
+  `lint:ratchet` 69/69; `tsc --noEmit`, eslint on the touched files, `gate:vocab`, `lang:gate`, `export:check`: green; the killers of
+  the touched test files: 146, each anchored on its line.
 
 ## 7. Not in this lot
 

@@ -147,7 +147,7 @@ test("two_reads_merged_under_check - check reads the sealed and the LIVE series 
   const set = (k: number, v: string) => (x: string[]): string[] => x.map((y, j) => (j === k ? v : y));
   const slot = "open time, or a close time out of its slot", order = "off grid, out of range or not ascending";
   const reader: [string, string, string][] = [["CR LF", lf.replaceAll("\n", "\r\n"), "line endings"], ["no final LF", lf.slice(0, -1), "line endings"],
-    ["another header", [header.toUpperCase(), ...rows].join("\n"), "header differs from REC l.34-35"], ["13 fields", one((x) => [...x, "0"]), `line ${no}: 13 fields`],
+    ["another header", [(header ?? "").toUpperCase(), ...rows].join("\n"), "header differs from REC l.34-35"], ["13 fields", one((x) => [...x, "0"]), `line ${no}: 13 fields`],
     ["a signed integer", one(set(9, "+1")), `line ${no}: integer field`], ["a decimal with an exponent", one(set(6, "1e0")), `line ${no}: decimal field`],
     ["another open_time_utc", one(set(0, utc(ot + step))), `line ${no}: ${slot}`], ["a close 1 ms after its slot", one(set(7, String(ot + step))), `line ${no}: ${slot}`],
     ["a close before its open", one(set(7, String(ot - 1))), `line ${no}: ${slot}`],
