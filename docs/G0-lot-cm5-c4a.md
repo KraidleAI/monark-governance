@@ -128,14 +128,29 @@ entry of a list; lot c4b replaces its given factors by the profile.
 | `garch_and_ewma_on_deseasonalized_inputs` | the GARCH and EWMA values equal to the test's own computation, with a factor that changes with each bar (a factor of t in place of f(u) changes them) | the return deseasonalized by f(t) |
 | `frozen_fit_strings_refused_by_name` | a sign, an underscore, a non-ASCII digit, an infinite value (`1e400`), a number in place of a string, a key missing: each refused by name, exit 2, nothing printed before | the form's check dropped |
 
-The file takes about 200 s under the verifier job's bound of 300 s; these tests add a few launches (measured, section 9). A new test
+The verifier job's bound for this file is 300 s; the four tests make 17 light launches and take about 4 s (section 9). A new test
 file would enter `test:main`, which excludes `test/kata-quarter.test.ts` by name only (`package.json`, outside this lot's zone), and
 that job has no Python: the tests stay in the file.
 
-## 9. Measures before the push
+## 9. Measures before the push (offline, Node 24.21.0, CPython 3.14.8, Linux)
 
-The base tool and this lot's on the same inputs (every launch of `test/kata-quarter.test.ts` at the base): the same outputs, byte for
-byte, for `check`, `count`, `vectors`, `month` and the usage; each killer applied alone reddens its test and is restored by sha256.
+- **Red at the base**: the four tests with the trunk's `FILES` and `quarter_counts.py` and no `quarter_2b.py`: 4 of 4 red on their
+  first assertion (« tools/kata-quarter/quarter_2b.py absent »), the lot's files then restored by sha256.
+- **Killers**: each of the four, applied alone with only its test run, turns it red by its assertion (W 2 for 1 at p = 0.03; a HAR value
+  off in its last digits; a GARCH value that is no longer the test's; exit 0 for `+0.3`); each file restored by sha256. No survivor.
+  The new line of `FILES` moves two names that two earlier killers name (`FILES:3` and `FILES:6` at the trunk): they now name l.4 and
+  l.7, and each still turns its test red alone. Anchor check of the tree: every killer line holds its text once on its line.
+- **The other subcommands unchanged**: the 38 earlier tests run twice, every launch recorded, once with the trunk's tool files and once
+  with this lot's, each from its temporary repository: 217 launches compared in order (the one launch of
+  `kata_quarter_files_are_regular_100644` that the second run did not make, its index check failing before the commit, set aside; at
+  the commit the test passes), with the identity masked (the line `identity`, the lines `input tool-tree`, the sha256 of the lines
+  `evidence` and `report`) and the random part of the temporary folders' names: **211 equal byte for byte**; the 6 others are the
+  launches of `check original_values_byte_equal` that read or name the first invocation's report, which carries the identity block
+  and the `tool-tree` inputs, one more blob in this lot (`quarter_2b.py`, 103 bytes more): only its sha256 and its size differ. They
+  cover `check`, `count` (with and without the core registry), `vectors`, `month`, the oracle acts, the refusals and the usage.
+- **The file**: 42 of 42 in 191 s, the four new tests 4.1 s of it (the trunk's 38 took 258 s in an earlier run on the same
+  container: the figure moves with the machine's load more than with this lot). Under the case-folding git wrapper, 42 of 42, every `git add`
+  clean (20 checks); the 25 paths the new tests write, 0 names equal once case is folded, 0 that Windows refuses.
 
 ## 10. Left to lot c4b
 
@@ -162,5 +177,5 @@ the 2b rows in the count (their lookback: 673 candles for HAR, W + 1 bars for GA
 
 ## 12. Size
 
-R-25 in the CI form (docs and the two test lists excluded): the module ~165, the entry 4, the tests ~180, the driver and its test ~4:
-~355 estimated, ~460 at +30 %, under 547. Measured before the push.
+R-25 in the CI form (docs and the two test lists excluded): estimated before the code at ~355 (~460 at +30 %, under 547); measured
+at the head of the code by `scripts/oracle/r25.mjs`, 345 changed lines (340 insertions, 5 deletions), under the lot bound of 547.
