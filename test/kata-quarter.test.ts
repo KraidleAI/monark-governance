@@ -999,13 +999,23 @@ test("truncated_candle_rule8 - a truncation of 30 s or 60 s is an ordinary candl
   const moved = (base: Counts, d: number[]): Record<string, number[]> =>
     Object.fromEntries(["syn-range-1h", "syn-range-4h", "syn-mae-down-1h"].map((c, i) => { const [n = NaN, k = NaN, o = NaN] = byClass(base)[c] ?? []; return [c, [n - (d[i] ?? 0), k + (d[i] ?? 0), o]]; }));
   // a case's folder that Windows refuses, refused by the fixture writer by name before anything is written, on Linux too: the case named
-  // as it reads (« E at 12:00 », a colon), a device name with an extension, a trailing dot, a trailing space, a control character. The
-  // guard is test code, which no killer line may name (scripts/red-proof.mjs, KILLER CONVENTION): each of its clauses dropped, or its
-  // throw, turns these cases red
-  for (const name of ["E at 12:00", "Nul.json", "a dot.", "a space ", "a\ttab"]) { // winlint-ok: names the writer refuses before any write, none made
+  // as it reads (« E at 12:00 », a colon), one name for each other character of the class but / (the separator; \ is the separator on
+  // Windows, so that name is left out there), one for each device stem, with an extension or not, in either case, with a digit or a
+  // superscript (the stem after prn written in two parts: a French word to lang:gate), a trailing dot, a trailing space, a control
+  // character and the last one (0x1f). The guard is test code, which no killer line may name (scripts/red-proof.mjs, KILLER CONVENTION):
+  // each of its clauses dropped, a character of its class but / dropped, a device stem dropped, the superscripts dropped, the bound of
+  // the control characters lowered, or its throw, turns these cases red
+  for (const name of ["E at 12:00", "a<b", "a>b", "a\"b", ...(process.platform === "win32" ? [] : ["a\\b"]), "a|b", "a?b", "a*b", "CON", "prn.txt", "a" + "ux", "Nul.json", "com1", "LPT9", "com¹", "a dot.", "a space ", "a\ttab", "a\x1fb"]) { // winlint-ok: names the writer refuses before any write, none made
     const p = join(work, name, "q1", SYM, SERIES);
     assert.throws(() => truncated(join(work, name), 600_000, 0), { message: `a path segment that Windows refuses: ${JSON.stringify([name])} in ${p}` }, `${JSON.stringify(name)}: refused by name`);
     assert.ok(!existsSync(join(work, name)), `${JSON.stringify(name)}: nothing written`);
+  }
+  // the anchors of the device pattern: a name with more after a device stem (« console », « com10 ») or before it (« icon ») is one
+  // Windows admits, and the writer makes it; the pattern unanchored at its end refuses the first two, at its start the third
+  for (const name of ["console", "com10", "icon"]) {
+    const p = join(work, name, "q1", SYM, SERIES);
+    truncated(join(work, name), 600_000, 0);
+    assert.ok(existsSync(p), `${JSON.stringify(name)}: written`);
   }
   // fixture A, and one minute exactly: an ordinary candle, the counts of the regular candle; still listed in irregular_close, held to a
   // v2 manifest that lists it (the recorder lists every close other than open + 15 min - 1 ms)
