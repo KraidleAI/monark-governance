@@ -26,7 +26,8 @@
   names, so none moves; and the header's l.10 names it, in place. The usage and every output of `check`, `count`, `vectors` and
   `month` are unchanged (measured, section 9).
 - `test/kata-quarter.test.ts`: four tests at its end (section 8); `scripts/verifier-tool-ci.mjs`: their names in `QUARTER_TESTS`;
-  `test/verifier-tool-ci.test.ts`: the count of the file's tests, 38 to 42.
+  `test/verifier-tool-ci.test.ts`: the count of the file's tests, 38 to 42. The first review's fold adds cases and mutation lines inside
+  the same four tests, no test and no name (section 13).
 - **No optimizer**: no least squares, no likelihood, no refit, no search over a parameter. Nothing here fits anything.
 
 ## 2. The evaluation API
@@ -74,9 +75,12 @@ the last day's bars (24 at 1h, 6 at 4h) and x_week the mean of the window's bars
   products, capped at 720 bars at 1h and 180 at 4h (`CAP`). `window` returns W, whether the cap binds (the least such W is above the
   cap) and the residual seed weight p^W, the exact rational rounded once to binary64 (printed as JavaScript writes a double). The ADR's
   computed bounds hold: at 1h p = 0.99514 gives W = 720 unbound and p = 0.99515 binds; at 4h, 0.98070 and 0.98071 (test 1). p ≥ 1 has
-  no such W and no unconditional variance: refused by name (Q6).
+  no such W: refused by name (Q6). The seed is a frozen string, so the evaluation itself needs no unconditional variance; the refusal is a
+  guard, and the fit procedure fixed at P0-2 must keep a + b below 1 (section 10).
 - **The seed**: « seeded with the SELECT-1 unconditional variance » (l.131). That variance is part of the frozen fit, the string
-  `seed`; it is never computed here (it needs the SELECT-1 block and the profile) (Q5).
+  `seed`; it is never computed here (it needs the SELECT-1 block and the profile), and never replaced by omega / (1 − a − b) (Q5).
+- **The mean**: zero. The recursion reads r_u / f(u) with no mean subtracted; a frozen fit has exactly the keys `omega`, `a`, `b` and
+  `seed`, so a fit with a mean is refused by its keys (Q10).
 - **The recursion**: on the W one-bar log returns of the W + 1 bars that end at t (the window and the bar before it, whose close is the
   first return's base, as the 100 returns of the [K] D4 EWMA read 101 bars) (Q5), each deseasonalized e_u = r_u / f(u) (« GARCH on
   r_u / f(key of u) »): s² = seed, then for each u from the oldest s² = (omega + a × (e_u × e_u)) + b × s²; sigma_fit_t = √s², the
@@ -113,24 +117,26 @@ under `registry`, refused before parsing unless its sha256 is the pin, then the 
 range and its pin. The input is closed (`INPUT`): `format` `kata-2b-estimate-input-v1`, `horizon`, `range` [start, end) in
 `YYYY-MM-DDTHH:MM:SSZ`, `form`, `fits` (each of the three katas and its frozen fit), `factors` (bar start → the factor's decimal string)
 and `instants` (each instant of the grid → its weekend multiplier's string), each string of the form of section 6; any other input,
-or an instant off the grid, is refused by name. Every fit is checked before the series is read. It prints one JSON line (`horizon`,
+or an instant off the grid, is refused by name. Its keys, in their order, and the type of its horizon are checked before any other
+field is read, so an input without its range, or with a horizon that is not a string, is refused by the tool's name too, never by
+an exception's. Every fit is checked before the series is read. It prints one JSON line (`horizon`,
 `form`, `garch_window` {`W`, `capped`, `seed_weight`}, and `values`: for each instant and kata the value written as JavaScript writes a
 double, or `non_evaluable`), a line `value differs …` for each value that the `math.log` pass changes and their count, the line
 `identity`, the inputs noted and `VERDICT: GREEN`. It is a reading of the evaluation, never a count, never an
 entry of a list; lot c4b replaces its given factors by the profile.
 
-## 8. Tests (each red at the base on its first assertion, the existence of `quarter_2b.py`; one declared killer each)
+## 8. Tests (each red at the base on its first assertion, the existence of `quarter_2b.py`; its killers declared above it)
 
-| Test | What it holds | Killer |
+| Test | What it holds | Killers |
 |---|---|---|
-| `garch_window_exact_on_the_frozen_strings` | the ADR's bounds of the cap at 1h and 4h; p = 0.98 at 4h gives 174; p = 0.0003 + 0.0297 gives W = 1 (the binary64 sum, 0.030000000000000002, would give 2); the residual seed weight; p ≥ 1 refused by name | the comparison with 3/100 made strict |
-| `har_candle_and_rogers_satchell_forms` | on a made series, both forms equal to the test's own computation bit for bit; a candle absent in the window: `non_evaluable`; a form outside `FORMS` refused by name | the day's mean over one bar less |
-| `garch_and_ewma_on_deseasonalized_inputs` | the GARCH and EWMA values equal to the test's own computation, with a factor that changes with each bar (a factor of t in place of f(u) changes them) | the return deseasonalized by f(t) |
-| `frozen_fit_strings_refused_by_name` | a sign, an underscore, a non-ASCII digit, an infinite value (`1e400`), a number in place of a string, a key missing: each refused by name, exit 2, nothing printed before | the form's check dropped |
+| `garch_window_exact_on_the_frozen_strings` | the ADR's bounds of the cap at 1h and 4h; p = 0.98 at 4h gives 174; p = 0.0003 + 0.0297 gives W = 1 (the binary64 sum, 0.030000000000000002, would give 2); a = 0.1 and b = 0.07320508075688773 give W = 3 by exact products (binary64 products would give 2); the residual seed weight; p ≥ 1 refused by name | the comparison with 3/100 made strict; the powers taken on binary64 products |
+| `har_candle_and_rogers_satchell_forms` | on a made series, both forms, each at 1h and at 4h, equal to the test's own computation bit for bit; a candle absent in the window: `non_evaluable`; a form outside `FORMS` refused by name | the day's mean over one bar less; the form chosen by the horizon; 4 candles a bar at 4h |
+| `garch_and_ewma_on_deseasonalized_inputs` | the GARCH and EWMA values equal to the test's own computation at 1h and at 4h (an 18-day series, 101 bars of 4h), with a factor that changes with each bar and a seed (0.0001) apart from omega / (1 − a − b) (0.00002); a factor of 0 or an absent factor among the inputs: HAR and GARCH `non_evaluable`, the EWMA a value; under the port of the log moved (as `fdlibm_log_pass_decides` moves it), the values are the port's and each value `math.log` changes is listed and counted | the return deseasonalized by f(t); the seed replaced by omega / (1 − a − b); the window on 1h bars at any horizon; a factor of 0 admitted; the values of the `math.log` pass printed |
+| `frozen_fit_strings_refused_by_name` | a sign, an underscore, a non-ASCII digit, an infinite value (`1e400`), a leading zero (`00.3`), a number in place of a string, a key missing; an input under another pin, with a key more, its keys reversed, without its range, of another format, with a horizon in a list, a factor `-1`, an instant 15 minutes off its grid: each refused by name, exit 2, nothing printed before; the well-formed input admitted | the form's check dropped; a leading zero admitted; the pin not compared; the keys compared as sets; the horizon's type not checked; the format not compared; the factors' and instants' strings not checked; the grid not checked |
 
-The verifier job's bound for this file is 300 s; the four tests make 17 light launches and take about 4 s (section 9). A new test
-file would enter `test:main`, which excludes `test/kata-quarter.test.ts` by name only (`package.json`, outside this lot's zone), and
-that job has no Python: the tests stay in the file.
+The verifier job's bound for this file is 300 s; the four tests make 33 light launches (and one more temporary repository, for the
+moved port) and take about 10 s (section 13). A new test file would enter `test:main`, which excludes `test/kata-quarter.test.ts` by
+name only (`package.json`, outside this lot's zone), and that job has no Python: the tests stay in the file.
 
 ## 9. Measures before the push (offline, Node 24.21.0, CPython 3.14.8, Linux)
 
@@ -158,6 +164,10 @@ The seasonal profile (24 values by US Eastern hour at 1h, 12 by UTC 4h slot and 
 DST table (ADR l.129), the reader of the wave 2b registry (the frozen strings, their form and their pins, read from it), the place of
 the 2b rows in the count (their lookback: 673 candles for HAR, W + 1 bars for GARCH, 101 for the EWMA), and the oracle act L-O4.
 
+Carried to the freeze, which lot c4b reads with the fits (the procedures fixed at P0-2): the HAR fit must take RV_day and RV_week as
+the means per bar that this evaluation takes (Q2), or b2 and b3 move by the number of bars (24 and 168 at 1h, 6 and 42 at 4h); the
+GARCH fit must keep a + b below 1 (Q6) and fit a zero mean (Q10).
+
 ## 11. Questions (default in brackets; each default built here, reversible within this lot)
 
 - **Q1** — « 15-minute squared log returns over 672 candles »: 672 returns, each from the close of the candle before, so 673 candles
@@ -169,13 +179,33 @@ the 2b rows in the count (their lookback: 673 candles for HAR, W + 1 bars for GA
   `kata_lib.build_bars`.]
 - **Q5** — the GARCH seed and window: the seed a frozen string of the fit (SELECT-1's unconditional variance, computed at the freeze),
   the first variance of the window, and W returns read from W + 1 bars? [yes.]
-- **Q6** — a + b ≥ 1 (no W, no unconditional variance): refused by name? [refused.]
+- **Q6** — a + b ≥ 1 (no W with p^W ≤ 0.03): refused by name? [refused; the fit procedure keeps a + b below 1.]
 - **Q7** — the form of a frozen string: a non-negative JSON number (an exponent admitted, as JavaScript writes a small double)? [yes.]
 - **Q8** — the HAR form: named by the caller from the fit record, with no default? [yes; c4b reads it with the fit.]
 - **Q9** — `estimate`'s input format `kata-2b-estimate-input-v1` and its subcommand: kept as the reading by hand of the evaluation,
   or removed once c4b reaches it through the count? [kept; c4b decides.]
+- **Q10** — the GARCH mean: « plain GARCH(1,1) by QML on the deseasonalized returns » (l.131) does not name it. Zero, the returns
+  taken as they are, and a fit with a mean refused by its keys? [zero; c4b and the fit procedure read it.]
 
 ## 12. Size
 
 R-25 in the CI form (docs and the two test lists excluded): estimated before the code at ~355 (~460 at +30 %, under 547); measured
-at the head of the code by `scripts/oracle/r25.mjs`, 345 changed lines (340 insertions, 5 deletions), under the lot bound of 547.
+at the head of the code by `scripts/oracle/r25.mjs`, 345 changed lines (340 insertions, 5 deletions), under the lot bound of 547;
+after the fold of the first review, 400 (395 insertions, 5 deletions).
+
+## 13. The fold of the first review (offline, Node 24.21.0, CPython 3.14.8, Linux)
+
+- **What the tests did not hold**, though the code did: each HAR form at one horizon only, GARCH and EWMA at 1h only, a test seed equal
+  to omega / (1 − a − b), W exact only at W = 1, both passes of the log equal on the tests' series, the input guard never reached, a
+  factor of 0 or absent never given, the rule against a leading zero. Each is now a case of the four tests (section 8), with its
+  mutation line above the test.
+- **Code**: four lines of `quarter_2b.py` changed in place, none moved: the input's keys, in their order, and its horizon's type are
+  checked first (l.154, then l.157 reads `h`), so an input without its range gave `REFUSED: KeyError: 'range'` and now the tool's
+  refusal (section 7); the refusal of a + b ≥ 1 and its docstring (l.38, l.41) name the one reason, no W (section 4).
+- **Mutation lines**: 18 above the four tests (14 new), each applied alone with only its test run: 18 red by an assertion, each file
+  restored by sha256; the review's 28 candidate mutants of `quarter_2b.py` (13 of them green before): 28 red. The folded tests on the
+  code before the fold: red on exactly the two changed refusals. Anchor check of the two touched test files against the trunk and
+  against the head before the fold: 238 killer lines, each holding its text once on its line, the same line as at that head.
+- **The file**: 42 of 42 in 201 s (bound 300 s), the four tests about 10 s of it; `test/verifier-tool-ci.test.ts` 10 of 10.
+  Under the case-folding git wrapper, 42 of 42 in 554 s, every `git add` clean (21 checks); the 3263 names of the temporary folders
+  of these runs, 0 equal once case is folded, 0 that Windows refuses.
