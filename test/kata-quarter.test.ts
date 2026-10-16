@@ -1717,7 +1717,7 @@ test("garch_and_ewma_on_deseasonalized_inputs - garch11-sf-sp-v1 (each return de
     const cap = valuesOf(estimate(month, input(work, `cap-${horizon}`, { horizon, span: 31 * DAY, fits: { "garch11-sf-sp-v1": gf }, instants: Object.fromEntries(ts.map((t) => [utc(t), "1.00"])) })));
     assert.deepEqual([cap.garch_window.W, cap.garch_window.capped], [w, true], `${horizon}, p = 0.05 + ${b}: W = ${w}, the cap binds`);
     const want = ts.map((t) => expected(month.at, t, h, "candle", factorFn(h, 31 * DAY), 1, w, Math.log, gf)["garch11-sf-sp-v1"]);
-    assert.ok(want[1] !== NE && want[2] !== NE && want[1] !== want[2], `the test's own values from W and from W + 1 bars: ${want}`);
+    assert.ok(want[1] !== NE && want[2] !== NE && want[1] !== want[2], `the test's own values from W and from W + 1 bars: ${JSON.stringify(want)}`);
     assert.deepEqual(ts.map((t) => cap.values[utc(t)]?.["garch11-sf-sp-v1"]), [NE, want[1], want[2]], `${horizon}, the cap: exactly W bars read, W - 1 from T0 non_evaluable`);
   }
   const one = { omega: "0.000002", a: "0.0003", b: "0.0297", seed: "0.0001" }, t1 = [8 * DAY, 9 * DAY + 3 * HOUR, 9 * DAY + 4 * HOUR].map((d) => T0 + d); // the candle of 9d 02:30 absent
