@@ -269,11 +269,11 @@ const history = (deps: [string, string[]][] = [["2026-09-01", CLASSES]], text?: 
   return [p, sha256(p)];
 };
 /** count on a registry, a served history, the sealed and live folders and the symbol folders named, each pinned by its bytes, its
- *  evidence written under o.out (a new folder by default); its exit and its JSON line. */
-const count = (sealed: string, live: string, k: number, folders: string[], o: { reg?: string; extra?: string[]; repo?: ToolRepo; out?: string; served?: [string, string] } = {}): { r: Run; c: Counts } => {
+  *  evidence written under o.out (a new folder by default), o.core the core registry and its pin after the registry; its exit and its JSON line. */
+const count = (sealed: string, live: string, k: number, folders: string[], o: { reg?: string; extra?: string[]; repo?: ToolRepo; out?: string; served?: [string, string]; core?: [string, string] } = {}): { r: Run; c: Counts } => {
   const reg = o.reg ?? REG, pins = folders.map((f) => `${f}:${sha256(join(sealed, f, `${f}-15m.csv`))}:${sha256(join(live, f, `${f}-15m.csv`))}`);
   const out = o.out ?? join(mkdtempSync(join(tmpdir(), "kata-quarter-evidence-")), "e");
-  const args = ["count", reg, sha256(reg), ...(o.served ?? history()), sealed, live, String(k), out, ...pins, ...(o.extra ?? [])], r = (o.repo ?? tool()).run(args);
+  const args = ["count", reg, sha256(reg), ...(o.core ?? []), ...(o.served ?? history()), sealed, live, String(k), out, ...pins, ...(o.extra ?? [])], r = (o.repo ?? tool()).run(args);
   return { r, c: JSON.parse(linesOf(r.stdout).find((l) => l.startsWith("{")) ?? "null") as Counts };
 };
 const byClass = (c: Counts): Record<string, number[]> => Object.fromEntries(c.rows.map((r) => [r.task_class, [r.n_test, r.drops_label, r.out_input]]));
@@ -602,11 +602,11 @@ test("fdlibm_log_pass_decides - count runs under fdlibm_log and under math.log: 
   assert.deepEqual(Object.fromEntries(moved.c.rows.map((x) => [x.task_class, [x.n_test, x.k_test, x.drops_label, x.out_input]])), want, "the counts of math.log moved by each listed decision");
   const log = (moved.c as unknown as { log: Log }).log;
   assert.ok(log.inputs > 0 && log.inputs_differing === log.inputs && log.decisions_differing === listed.length, `the census: every input differs\n${JSON.stringify(log)}`);
-  // killer: tools/kata-quarter/quarter_oracle.py:140 CONST "\"math_log_decisions\": res[\"differ\"]" -> "\"math_log_decisions\": []"
+  // killer: tools/kata-quarter/quarter_oracle.py:144 CONST "\"math_log_decisions\": res[\"differ\"]" -> "\"math_log_decisions\": []"
   // killer: tools/kata-quarter/quarter_core.py:162 CONST "max((compare_p2.ulps(host[x], memo[x]) for x in apart), default=0)" -> "0"
   const out = join(mkdtempSync(join(tmpdir(), "kata-quarter-measure-")), "m"), ma = act("fdlibm_measure", out, testBlock("m.json").args(out), port("_ln(x) * 1.25 if x > 1 else _ln(x)")), m = ma.rep?.result;
   assert.ok(m?.log && m.log.decisions_differing > 0 && m.math_log_decisions?.length === m.log.decisions_differing && m.log.max_ulps > 0, `fdlibm_measure lists each changed decision and the largest distance\n${ma.r.stdout}${ma.r.stderr}`);
-  // killer: tools/kata-quarter/quarter_oracle.py:140 CONST "\"math_log_decisions\": res[\"differ\"]" -> "\"math_log_decisions\": res[\"differ\"][:1] * len(res[\"differ\"])"
+  // killer: tools/kata-quarter/quarter_oracle.py:144 CONST "\"math_log_decisions\": res[\"differ\"]" -> "\"math_log_decisions\": res[\"differ\"][:1] * len(res[\"differ\"])"
   const rank = (d: string): string => { const [c = "", , at = ""] = d.split(" "); return `${String(m?.rows?.findIndex(([x]) => x === c)).padStart(2, "0")} ${at}`; };
   assert.deepEqual(m?.math_log_decisions?.map(rank), [...new Set(m?.math_log_decisions?.map(rank))].sort(), "each changed decision once, by row and instant");
   assert.ok(m?.math_log_decisions?.every((d) => /^syn-[a-z0-9-]+ kata:\S+ \d{4}-\d{2}-\d{2}T\d{2}:00:00Z: fdlibm_log (miss|covered|drop|out), math\.log (miss|covered|drop|out)$/.test(d)), "each in the form of the lines decision differs of count");
@@ -681,16 +681,16 @@ const testBlock = (name: string, change: (rows: RegRow[]) => void = () => undefi
 // killer: tools/kata-quarter/quarter_oracle.py:104 CONST "\"1\" if k == n else " -> ""
 // killer: tools/kata-quarter/quarter_oracle.py:114 CONST "r[\"calib\"][\"status\"] == \"region\" and " -> ""
 // killer: tools/kata-quarter/quarter_core.py:38 CONST "or r[\"calib\"][\"qhat\"] is None:" -> "or r[\"calib\"][\"qhat\"] is None or r[\"horizon\"] == \"4h\":"
-// killer: tools/kata-quarter/quarter_oracle.py:144 CONST "[[d[\"role\"], d[\"name\"], d[\"sha256\"], d[\"bytes\"]] for d in io_guard.inputs()]" -> "[]"
-// killer: tools/kata-quarter/quarter_oracle.py:138 CONST "[] if name == ACTS[3]" -> "[] if False"
+// killer: tools/kata-quarter/quarter_oracle.py:148 CONST "[[d[\"role\"], d[\"name\"], d[\"sha256\"], d[\"bytes\"]] for d in io_guard.inputs()]" -> "[]"
+// killer: tools/kata-quarter/quarter_oracle.py:142 CONST "[] if name == ACTS[3]" -> "[] if False"
 test("equals_registry_on_test_block - on the TEST block of a made series the count gives the registry's nTest, kTest, test.months, drops.test, UTest and vetoed for its four rows with a qhat, a silence row whose every point misses among them, each named in the report with the inputs read; a month, a kTest and a UTest changed are named, exit 1; fdlibm_measure reports the same census of the log, exit 0", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_oracle.py")), `${QUARTER}/quarter_oracle.py absent`);
   const name = "equals_registry_on_test_block", work = mkdtempSync(join(tmpdir(), "kata-quarter-l-o1-")), b = testBlock("ok.json"), ok = act(name, join(work, "1"), b.args(join(work, "1")));
   assert.equal(ok.r.status, 0, `every field equal: exit 0\n${ok.r.stdout}${ok.r.stderr}`);
-  // killer: tools/kata-quarter/quarter_oracle.py:139 CONST "[[r[\"taskClass\"], r[\"key\"]] for r, _, _ in rows]" -> "[[r[\"taskClass\"], \"\"] for r, _, _ in rows]"
+  // killer: tools/kata-quarter/quarter_oracle.py:143 CONST "[[r[\"taskClass\"], r[\"key\"]] for r, _, _ in rows]" -> "[[r[\"taskClass\"], \"\"] for r, _, _ in rows]"
   const pairs = (JSON.parse(readFileSync(b.reg, "utf8")) as { rows: { taskClass: string; key: string }[] }).rows.slice(0, 4).map((x) => [x.taskClass, x.key]);
   assert.deepEqual([ok.rep?.equal, linesOf(ok.r.stdout).at(-2), ok.rep?.result.rows], [true, "VERDICT: GREEN", pairs], "each row compared named by its task class and its key");
-  // killer: tools/kata-quarter/quarter_oracle.py:139 CONST " \"population\": POPULATION," -> ""
+  // killer: tools/kata-quarter/quarter_oracle.py:143 CONST " \"population\": POPULATION," -> ""
   assert.equal(ok.rep?.result.population, "the inputs of the port on this tool's own path, the scale kata and the labels of the rows compared on the block counted; not the census of report.run_passes over the 280 cells (report.py l.14-15), which this one does not replace", "the population that the census counts, named");
   const noted = (role: string, p: string): unknown[] => [role, basename(p), sha256(p), readFileSync(p).length];
   assert.deepEqual(ok.rep?.inputs.filter((i) => Array.isArray(i) && i[0] !== "tool-tree"), [noted("recorder", join(b.sealed, SYM, MISSING)), noted("registry", b.reg), noted("series", join(b.sealed, SYM, SERIES))], "the inputs read, noted");
@@ -725,7 +725,7 @@ const ROW = ["alpha", "calib_attempt", "drops_label", "fires", "horizon", "k_tes
 type Prudent = { n_test: number; k_test: number; fires: boolean | string };
 type Evidence = { format: string; rows: (Row & { key: string; alpha: string; u_test: string | null; fires: boolean; prudent: Prudent })[]; identity: Record<string, string>; series: Record<string, object> } & Record<string, unknown>;
 /** count on Q_1, its evidence under a new folder: the run, the bytes of the evidence (empty when none is written) and the folder. */
-const evidenceOf = (sealed: string, live: string, o: { reg?: string; repo?: ToolRepo; served?: [string, string] } = {}): { r: Run; raw: Buffer; out: string } => {
+const evidenceOf = (sealed: string, live: string, o: { reg?: string; repo?: ToolRepo; served?: [string, string]; core?: [string, string] } = {}): { r: Run; raw: Buffer; out: string } => {
   const out = join(mkdtempSync(join(tmpdir(), "kata-quarter-evidence-")), "e"), { r } = count(sealed, live, 1, [SYM], { ...o, out }), file = join(out, "quarter-1.json");
   return { r, raw: existsSync(file) ? readFileSync(file) : Buffer.alloc(0), out };
 };
@@ -1101,4 +1101,186 @@ test("truncated_candle_rule8 - a truncation of 30 s or 60 s is an ordinary candl
   assert.deepEqual(run("seam E", 600_000, 0, [], zeroEnd, { t: S1, zeros: 0 }).c.halts, halt(S1 - 2 * M, S1 + M), "E in read 1: the 0-trade run that ends at the truncation at S_1");
   const declEnd = seam("seam declared", new Map([[S1 - 2 * M, candle(S1 - 2 * M, S1 - M - 1 - 600_000, 1)]]), [S1 - M]), r2 = count(declEnd, join(FIXTURE, "live"), 1, [SYM]);
   assert.deepEqual([r2.r.status, r2.c?.halts], [0, halt(S1 - 2 * M + 300_000, S1 + M)], `R in read 2: S_1 - 15 min declared in read 1, S_1 in read 2\n${r2.r.stdout}${r2.r.stderr}`);
+});
+
+// The core registry of wave 2 (docs/G0-lot-cm5-c3.md): quarter_wave2.py reads wave2.json (kata/registry/FORMAT-wave2.md of RECHERCHES,
+// frozen) under the role registry, pinned, in its byte form and closed; count takes it after the registry and counts its region rows at
+// attempt 2 under the child rule; the act equals_wave2_registry_on_its_blocks holds it to the counts of its rows on its three veto blocks.
+const CORE = join(FIXTURE, "registry", "wave2-syn.json");
+type Block2 = { nTest: number; kTest: number | null; UTest: string | null; vetoed: boolean; months: Record<string, { n: number; k: number }> };
+type CoreRow2 = Record<string, unknown> & { taskClass: string; key: string; hourOfWeekFactors: unknown[]; calib: Record<string, unknown>; drops: Record<string, number>; bridge: Block2; test: Block2; fwd: Block2 };
+type CoreDoc = Record<string, unknown> & { rows: CoreRow2[] };
+type Counted = Row & { key: string; calib_attempt: number; alpha: string };
+const pinned = (p: string): [string, string] => [p, sha256(p)];
+/** The core registry of the fixture with its document changed by f, then its text by g, written under work; its path and pin. */
+const coreWith = (work: string, name: string, f: (d: CoreDoc) => void, g = (t: string): string => t): [string, string] => {
+  const d = JSON.parse(readFileSync(CORE, "utf8")) as CoreDoc;
+  f(d);
+  write(join(work, name), g(`${JSON.stringify(d, null, 1)}\n`));
+  return pinned(join(work, name));
+};
+/** Hourly closes 100 and 101 in turn on [from, to), lows 99.8, highs 101.1, as in k_test_exact_on_a_made_series: the CSV lines. */
+const zig = (from: number, to: number): string[] => {
+  const rows: string[] = [];
+  for (let t = from; t < to; t += 900_000) rows.push(`${iso(t)},${t},${odd(t) === (t % H === 0) ? 100 : 101},101.1,99.8,${odd(t) ? 101 : 100},1,${t + 899_999},100,1,0.5,50`);
+  return rows;
+};
+const keyOf = (h: string, kata = "ewma-vol-hw-v1"): string => `kata:${kata}@binance/SYNUSDT/${h}/b0`;
+
+// reddened by: a wave2.json with a key outside its format admitted (in a row, at the top level, in a month of a block) or a key missing,
+// a row at another attempt than 2, a factor table other than its wave 1 row's (with its own digest, or the parent's), bytes off the byte
+// form (compact, CR LF), a key written twice, another pin, another alpha, a region row with no qhat, a status or a vetoedBy off the
+// order of its blocks, or a month outside its block admitted; or the core region rows not given to the count with the fields it reads
+// killer: tools/kata-quarter/quarter_wave2.py:104 CONST "== 2" -> ">= 1"
+// killer: tools/kata-quarter/quarter_wave2.py:52 CONST "list(v) != list(keys)" -> "False"
+// killer: tools/kata-quarter/quarter_wave2.py:69 CONST " and text == K.js_json_pretty(doc) + \"\\n\"" -> ""
+// killer: tools/kata-quarter/quarter_wave2.py:64 CONST "!= pin:" -> "!= pin and False:"
+// killer: tools/kata-quarter/quarter_wave2.py:111 CONST "r[\"factorTableSha256\"] == parent[\"factorTableSha256\"] == " -> ""
+// killer: tools/kata-quarter/quarter_wave2.py:111 CONST " == K.seq_sha256(r[\"hourOfWeekFactors\"])" -> ""
+// killer: tools/kata-quarter/quarter_wave2.py:109 CONST "r[\"status\"] == (\"vetoed\" if fired else c[\"status\"])" -> "True"
+// killer: tools/kata-quarter/quarter_wave2.py:109 CONST " and r[\"vetoedBy\"] == (fired[0] if fired else None)" -> ""
+// killer: tools/kata-quarter/quarter_wave2.py:90 CONST "s <= t < e" -> "True"
+test("wave2_registry_reader_closed - count reads the synthetic core registry of the fixture under the role registry and counts its two region rows at attempt 2 with the fields it reads; a key outside the format or missing, an attempt other than 2, a factor table other than the wave 1 row's, bytes off the byte form, a key twice, another pin, another alpha, no qhat on a region row, a status off its blocks or a month outside its block is refused by name, exit 2", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_wave2.py")), `${QUARTER}/quarter_wave2.py absent`);
+  assert.ok(existsSync(CORE), "fixtures/kata-quarter/registry/wave2-syn.json absent");
+  const [sealed, live] = [join(FIXTURE, "sealed"), join(FIXTURE, "live")], ok = count(sealed, live, 1, [SYM], { core: pinned(CORE) });
+  assert.equal(ok.r.status, 0, `count with the core registry: exit 0\n${ok.r.stdout}${ok.r.stderr}`);
+  assert.deepEqual((ok.c.rows as Counted[]).map((x) => [x.task_class, x.key, x.calib_attempt, x.alpha, x.horizon]), [["syn-range-1h", keyOf("1h"), 1, "0.01", "1h"],
+    ["syn-range-4h", keyOf("4h"), 1, "0.01", "4h"], ["syn-mae-down-1h", keyOf("1h"), 1, "0.01", "1h"], ["syn-range-1h", keyOf("1h"), 2, "0.01", "1h"], ["syn-range-4h", keyOf("4h"), 2, "0.01", "4h"]],
+  "the wave 1 region rows, then the two core region rows at attempt 2 (the silence, the vetoed and the under_calib rows left out)");
+  assert.ok(linesOf(ok.r.stdout).includes(`input registry wave2-syn.json sha256 ${sha256(CORE)} bytes ${readFileSync(CORE).length}`), `read under the role registry\n${ok.r.stdout}`);
+  const work = mkdtempSync(join(tmpdir(), "kata-quarter-core-")), row0 = `core row syn-range-1h ${keyOf("1h")}: not `, BYTES = "wave2.json: not its byte form, JSON.stringify(registry, null, 1) and one line feed";
+  const own = (d: CoreDoc, digest: (f: unknown[]) => string): void => { const r = d.rows[0], f = [1.5, ...(r?.hourOfWeekFactors ?? []).slice(1)]; if (r) { r.hourOfWeekFactors = f; r.factorTableSha256 = digest(f); } };
+  const first = (d: CoreDoc): CoreRow2 => d.rows[0] ?? ({} as CoreRow2);
+  const cases: [string, [string, string], string][] = [
+    ["a key outside the format in a row", coreWith(work, "row-key.json", (d) => { first(d).note = 1; }), "wave2.json: rows[0]: ['taskClass', 'key', "],
+    ["a key outside the format at the top level", coreWith(work, "top-key.json", (d) => { d.note = "x"; }), "wave2.json: the top level: ['plan', 'engine', 'trialRegistryHead', 'rows', 'note']"],
+    ["a key outside the format in a month", coreWith(work, "month-key.json", (d) => { Object.assign(first(d).bridge.months["2025-10"] ?? {}, { x: 1 }); }), "wave2.json: rows[0].bridge.months.2025-10: ['n', 'k', 'x']"],
+    ["a key missing", coreWith(work, "missing-key.json", (d) => { delete first(d).vetoedBy; }), "wave2.json: rows[0]: ['taskClass', 'key', "],
+    ["calibAttempt 1", coreWith(work, "attempt-1.json", (d) => { first(d).calibAttempt = 1; }), `${row0}calibAttempt 2`],
+    ["calibAttempt 3", coreWith(work, "attempt-3.json", (d) => { first(d).calibAttempt = 3; }), `${row0}calibAttempt 2`],
+    ["a factor table of its own, with its digest", coreWith(work, "table-own.json", (d) => own(d, (f) => hex(JSON.stringify(f)))), `${row0}the factor table of its wave 1 row, byte for byte`],
+    ["a factor table of its own, with the parent's digest", coreWith(work, "table-parent.json", (d) => own(d, () => String(first(d).factorTableSha256))), `${row0}the factor table of its wave 1 row, byte for byte`],
+    ["the compact writing", coreWith(work, "compact.json", () => undefined, (t) => `${JSON.stringify(JSON.parse(t))}\n`), BYTES],
+    ["CR LF line endings", coreWith(work, "crlf.json", () => undefined, (t) => t.split("\n").join("\r\n")), BYTES],
+    ["a key written twice", coreWith(work, "twice.json", () => undefined, (t) => t.replace("\n   \"W\": 101,", "\n   \"W\": 101,\n   \"W\": 101,")), "wave2.json: a key written twice in one object: "],
+    ["another pin", [CORE, "0".repeat(64)], `core registry refused before parsing: sha256 ${sha256(CORE)} differs from the pinned ${"0".repeat(64)}`],
+    ["alpha 0.05", coreWith(work, "alpha.json", (d) => { first(d).alpha = "0.05"; }), `${row0}alpha 0.01`],
+    ["a region row with no qhat", coreWith(work, "no-qhat.json", (d) => { first(d).calib.qhat = null; }), `${row0}a qhat, a finite number, iff calibrated`],
+    ["a bridge fired under the status region", coreWith(work, "status.json", (d) => { first(d).bridge.vetoed = true; first(d).vetoedBy = "bridge"; }), `${row0}its status and vetoedBy by the order of its blocks`],
+    ["a bridge fired under vetoedBy test", coreWith(work, "vetoed-by.json", (d) => { first(d).bridge.vetoed = true; first(d).status = "vetoed"; first(d).vetoedBy = "test"; }), `${row0}its status and vetoedBy by the order of its blocks`],
+    ["a month outside its block", coreWith(work, "month.json", (d) => { const { "2023-10": m, ...rest } = first(d).test.months; first(d).test.months = { "2023-09": m ?? { n: 0, k: 0 }, ...rest }; }), `${row0}blocks whose months are of the block`]];
+  for (const [name, core, re] of cases) {
+    const x = count(sealed, live, 1, [SYM], { core });
+    assert.equal(x.r.status, 2, `${name}: exit 2\n${x.r.stdout}${x.r.stderr}`);
+    assert.ok(x.r.stdout.startsWith("REFUSED: ") && x.r.stdout.includes(re), `${name}: refused by name\n${x.r.stdout}`);
+  }
+});
+
+// reddened by: a core row counted on a quarter whose start comes before the end of its calibration data, or not counted on the quarter
+// that starts at that end; or other instants than those of Q_k in its counts (its n_test, drops and instants out not the grid of Q_k,
+// not those of its wave 1 row, which reads the same series)
+// killer: tools/kata-quarter/quarter_wave2.py:129 ROR ">=" -> ">"
+// killer: tools/kata-quarter/quarter_wave2.py:129 CONST "s_k >= CALIB_END" -> "True"
+test("child_row_counted_from_first_quarter_after_its_data - a core row at attempt 2 is counted on Q_1 when its calibration data ends before S_1 (CALIB-2, 2023-10-01) or at S_1, over every instant of Q_1 and no other, as its wave 1 row is but with its own misses; when its data ends 15 min after S_1 it is not counted on Q_1", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_wave2.py")), `${QUARTER}/quarter_wave2.py absent`);
+  assert.ok(existsSync(CORE), "fixtures/kata-quarter/registry/wave2-syn.json absent");
+  const ends = (ms: number): ToolRepo => toolRepo(REPO, (dir) => writeFileSync(join(dir, QUARTER, "quarter_wave2.py"), `${read("quarter_wave2.py")}\nCALIB_END = ${ms}\n`));
+  for (const [name, repo, counted] of [["the end of CALIB-2", tool(), true], ["S_1", ends(S1), true], ["S_1 + 15 min", ends(S1 + 900_000), false]] as const) {
+    const { r, c } = count(join(FIXTURE, "sealed"), join(FIXTURE, "live"), 1, [SYM], { core: pinned(CORE), repo });
+    assert.equal(r.status, 0, `the calibration data ending at ${name}: exit 0\n${r.stdout}${r.stderr}`);
+    const rows = c.rows as Counted[], two = rows.filter((x) => x.calib_attempt === 2);
+    assert.deepEqual(two.map((x) => x.task_class), counted ? ["syn-range-1h", "syn-range-4h"] : [], `the calibration data ending at ${name}: the core rows counted on Q_1 or not`);
+    assert.deepEqual(Object.values(c.grid).map((g) => g.first), [iso(S1), iso(S1)], "the grid of Q_1 from S_1");
+    for (const x of two) {
+      const one = rows.find((p) => p.calib_attempt === 1 && p.task_class === x.task_class && p.key === x.key);
+      assert.deepEqual([x.n_test + x.drops_label + x.out_input, x.n_test, x.drops_label, x.out_input], [c.grid[x.horizon]?.instants, one?.n_test, one?.drops_label, one?.out_input], `${name}: ${x.task_class} on each instant of Q_1, as its wave 1 row`);
+      assert.ok(x.horizon === "4h" || x.k_test > (one?.k_test ?? Infinity), `${name}: ${x.task_class} counted with its own qhat, 0.75, below its wave 1 row's`);
+    }
+  }
+});
+
+// reddened by: the core rows not given to the count, or given at attempt 1, their rows of the evidence not counted with their own qhat,
+// the pin of the core registry not written in the evidence (or another one written), or anything else of the evidence changed by it
+// killer: tools/kata-quarter/quarter_wave2.py:138 CONST "rows + mine" -> "rows + [(dict(r, calibAttempt=1), c, f) for r, c, f in mine]"
+// killer: tools/kata-quarter/quarter_wave2.py:138 CONST "rows + mine" -> "rows"
+// killer: tools/kata-quarter/quarter_counts.py:106 CONST "\"core_registry_sha256\": core[1]" -> "\"core_registry_sha256\": pin"
+// killer: tools/kata-quarter/quarter_evidence.py:56 CONST " + (\"core_registry_sha256\",) * (\"core_registry_sha256\" in res)" -> ""
+// killer: tools/kata-quarter/quarter_counts.py:153 CONST "(a[2], args[3])" -> "None"
+test("core_registry_to_evidence_row_composition - on hourly closes 100 and 101 in turn, count with the core registry writes in the evidence of Q_1 a row at attempt 2 for each core region row, counted with its own qhat (0.75: a miss where the factor is 1 or 1.25), with its u_test and its fire, and the pin of the core registry; the rest of the evidence is that of the count without it", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_wave2.py")), `${QUARTER}/quarter_wave2.py absent`);
+  assert.ok(existsSync(CORE), "fixtures/kata-quarter/registry/wave2-syn.json absent");
+  const work = mkdtempSync(join(tmpdir(), "kata-quarter-compose-")), header = linesOf(fixtureOf("live").csv)[0], none = { count: 0, missing: [] };
+  const [sealed, live] = [put(join(work, "sealed"), SYM, { text: `${header}\n${zig(S1 - 404 * H, S1).join("\n")}\n`, missing: none }), put(join(work, "live"), SYM, { text: `${header}\n${zig(S1, E1).join("\n")}\n`, missing: none })];
+  const [a, b] = [evidenceOf(sealed, live), evidenceOf(sealed, live, { core: pinned(CORE) })];
+  assert.deepEqual([a.r.status, b.r.status], [0, 0], `count without and with the core registry: exit 0\n${a.r.stdout}${b.r.stdout}${b.r.stderr}`);
+  const without = JSON.parse(a.raw.toString("ascii")) as Evidence, withCore = JSON.parse(b.raw.toString("ascii")) as Evidence & { core_registry_sha256?: string };
+  const grid = Array.from({ length: 2208 }, (_, i) => S1 + i * H), f = (t: number): number => ((t / H + 72) % 168) % 3;
+  const two = (withCore.rows as (Counted & { u_test: string | null; fires: boolean })[]).filter((x) => x.calib_attempt === 2);
+  assert.deepEqual(two.map((x) => [x.task_class, x.key, x.n_test, x.k_test, x.drops_label, x.out_input, x.fires]), [["syn-range-1h", keyOf("1h"), 2208, grid.filter((t) => f(t) < 2).length, 0, 0, true],
+    ["syn-range-4h", keyOf("4h"), 0, 0, 0, 552, false]], "a row of the evidence at attempt 2 for each core region row, its own misses, its fire");
+  assert.ok(/^0\.[0-9]{7}$/.test(two[0]?.u_test ?? "") && two[1]?.u_test === null, "its u_test, null with no point");
+  assert.equal(withCore.core_registry_sha256, sha256(CORE), "the pin of the core registry");
+  const rest: Record<string, unknown> = { ...withCore, rows: withCore.rows.filter((x) => (x as Counted).calib_attempt === 1) };
+  delete rest.core_registry_sha256;
+  assert.deepEqual([Object.keys(without), rest], [EVIDENCE, without], "the rest of the evidence is that of the count without it, which has no key of the core registry");
+});
+
+/** The three veto blocks of wave 2 on a made series (hourly closes 100 and 101 in turn on each block and the 404 hours before it) and a
+ *  core registry of four rows of the fixture, their blocks worked out from it: range-1h at qhat 0.9, a miss where the factor is 1 (UTS:
+ *  binom_exact.miss_upper_bound at 0.05 run apart from the tool), firing on each block, vetoed by the bridge; range-4h at qhat 0.9, every
+ *  instant out; mae-up-1h a silence at qhat 0, every point a miss ("1", never vetoed); range-4h of realized-vol-hw-v1, under_calib, not
+ *  compared. change(rows) edits it. */
+const BLOCKS2: Record<string, [number, number]> = { bridge: [Date.UTC(2025, 9, 1), Date.UTC(2026, 9, 1)], test: [Date.UTC(2023, 9, 1), Date.UTC(2024, 3, 1)], fwd: [Date.UTC(2024, 3, 1), Date.UTC(2024, 9, 1)] };
+const UTS: Record<string, string> = { bridge: "0.3417152", test: "0.3452271", fwd: "0.3452271" };
+const coreBlocks = (work: string, name: string, change: (rows: CoreRow2[]) => void = () => undefined): (out: string) => string[] => {
+  const sealed = join(work, "sealed"), csv = join(sealed, SYM, SERIES);
+  if (!existsSync(csv)) { // TEST-2 and FWD-2 follow each other; the bridge after a span the series does not hold (no merge in the act)
+    const [t0 = 0] = BLOCKS2.test ?? [], [, f1 = 0] = BLOCKS2.fwd ?? [], [b0 = 0, b1 = 0] = BLOCKS2.bridge ?? [];
+    put(sealed, SYM, { text: `${[linesOf(fixtureOf("live").csv)[0], ...zig(t0 - 404 * H, f1), ...zig(b0 - 404 * H, b1)].join("\n")}\n`, missing: { count: 0, missing: [] } });
+  }
+  const block = (b: string, h: number, miss: ((t: number) => boolean) | null, region: boolean): Block2 => {
+    const [s = 0, e = 0] = BLOCKS2[b] ?? [], months: Record<string, { n: number; k: number }> = {};
+    for (let t = s; miss && t < e; t += h) { const m = (months[iso(t).slice(0, 7)] ??= { n: 0, k: 0 }); m.n += 1; m.k += Number(miss(t)); }
+    const n = Object.values(months).reduce((x, m) => x + m.n, 0), k = Object.values(months).reduce((x, m) => x + m.k, 0);
+    return { nTest: n, kTest: k, UTest: n === 0 ? null : k === n ? "1" : (UTS[b] ?? ""), vetoed: region && n > 0, months };
+  };
+  const [file] = coreWith(work, name, (d) => {
+    const [range1, range4, , up, under] = d.rows;
+    const set = (r: CoreRow2 | undefined, qhat: number, status: string, miss: ((t: number) => boolean) | null, h: number): CoreRow2[] => {
+      if (!r) return [];
+      Object.assign(r.calib, { qhat, status });
+      for (const b of ["bridge", "test", "fwd"] as const) r[b] = block(b, h, miss, status === "region");
+      const fired = ["bridge", "test", "fwd"].filter((b) => (r[b] as Block2).vetoed);
+      Object.assign(r, { status: fired.length > 0 ? "vetoed" : status, vetoedBy: fired[0] ?? null });
+      return [r];
+    };
+    d.rows = [...set(range1, 0.9, "region", (t) => fac(t) === 0, H), ...set(range4, 0.9, "region", null, 4 * H), ...set(up, 0, "silence", () => true, H), ...(under ? [under] : [])];
+    change(d.rows);
+  });
+  return (out) => [REG, sha256(REG), file, sha256(file), sealed, out, `${SYM}:${sha256(csv)}`];
+};
+
+// reddened by: a block of the core registry other than the format's (a bound moved), a field of a block (months, label drops, kTest,
+// UTest) changed in the registry and not named, the label drops taken from the instants out, an under_calib row compared, a silence
+// row vetoed by the tool, or the report not naming the rows compared and the grid of each block
+// killer: tools/kata-quarter/quarter_wave2.py:21 CONST "K.utc_ms(2024, 10, 1))}" -> "K.utc_ms(2024, 9, 1))}"
+// killer: tools/kata-quarter/quarter_oracle.py:175 CONST "\"months\": got[\"months\"], " -> ""
+// killer: tools/kata-quarter/quarter_oracle.py:175 CONST "\"drops\": got[\"drops_label\"]" -> "\"drops\": got[\"out_input\"]"
+// killer: tools/kata-quarter/quarter_oracle.py:164 CONST " if x[0][\"calib\"][\"qhat\"] is not None]" -> "]"
+// killer: tools/kata-quarter/quarter_oracle.py:176 CONST "r[\"calib\"][\"status\"] == \"region\" and " -> ""
+test("equals_wave2_registry_on_its_blocks - on a made series of the three veto blocks of wave 2, the act counts each core row with a qhat on the bridge, TEST-2 and FWD-2 and gives the registry's nTest, kTest, UTest, vetoed, months and label drops of each block, exit 0, its report naming the rows and the grid of each block; a kTest with its month, a UTest and a label drop changed in the registry are named, exit 1", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_wave2.py")), `${QUARTER}/quarter_wave2.py absent`);
+  assert.ok(existsSync(CORE), "fixtures/kata-quarter/registry/wave2-syn.json absent");
+  const name = "equals_wave2_registry_on_its_blocks", work = mkdtempSync(join(tmpdir(), "kata-quarter-l-o3-")), ok = act(name, join(work, "1"), coreBlocks(work, "ok.json")(join(work, "1")));
+  assert.equal(ok.r.status, 0, `every field equal: exit 0\n${ok.r.stdout}${ok.r.stderr}`);
+  const res = ok.rep?.result as { rows?: string[][]; blocks?: Record<string, { grid: Record<string, { instants: number; first: string; last: string }> }> } | undefined;
+  assert.deepEqual([ok.rep?.equal, linesOf(ok.r.stdout).at(-2), res?.rows], [true, "VERDICT: GREEN", [["syn-range-1h", keyOf("1h")], ["syn-range-4h", keyOf("4h")], ["syn-mae-up-1h", keyOf("1h")]]], "the rows with a qhat compared, named");
+  assert.deepEqual(Object.fromEntries(Object.entries(res?.blocks ?? {}).map(([b, x]) => [b, x.grid["1h"]])), Object.fromEntries(Object.entries(BLOCKS2).map(([b, [s, e]]) => [b, { instants: (e - s) / H, first: iso(s), last: iso(e - H) }])), "the grid of each block");
+  const bad = act(name, join(work, "2"), coreBlocks(work, "bad.json", ([range1, range4]) => {
+    const m = range1?.bridge.months["2025-11"];
+    if (m && range1 && range4) { m.k += 1; range1.bridge.kTest = (range1.bridge.kTest ?? 0) + 1; range1.fwd.UTest = UTS.bridge ?? ""; range4.drops.test = 1; }
+  })(join(work, "2")));
+  assert.equal(bad.r.status, 1, `a kTest with its month, a UTest and a label drop changed: exit 1\n${bad.r.stdout}${bad.r.stderr}`);
+  assert.deepEqual(bad.rep?.differences.map((d) => /^(\S+) \S+ (\S+):/.exec(d)?.slice(1).join(" ")), ["syn-range-1h bridge.kTest", "syn-range-1h bridge.months", "syn-range-4h test.drops", "syn-range-1h fwd.UTest"], "each difference named, by block, row and field");
 });
