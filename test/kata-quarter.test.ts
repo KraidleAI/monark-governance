@@ -1571,15 +1571,17 @@ const made = (work: string, n: number, skip: number[] = []): { dir: string; pin:
   write(join(dir, SYM, MISSING), `${JSON.stringify({ count: skip.length, missing: skip.map((t) => ({ open_time_ms: t, open_time_utc: utc(t) })) })}\n`);
   return { dir, pin: sha256(join(dir, SYM, SERIES)), at };
 };
-const FITS = { "har-rv15-sp-v1": { b0: "1e-7", b1: "0.3", b2: "0.4", b3: "0.25" }, "garch11-sf-sp-v1": { omega: "0.000002", a: "0.05", b: "0.85", seed: "0.00002" }, "ewma-vol-sp-v1": {} };
+const FITS = { "har-rv15-sp-v1": { b0: "1e-7", b1: "0.3", b2: "0.4", b3: "0.25" }, "garch11-sf-sp-v1": { omega: "0.000002", a: "0.05", b: "0.85", seed: "0.0001" }, "ewma-vol-sp-v1": {} }; // seed not omega / (1 - a - b)
 /** The given factor of each bar that starts in [T0, T0 + span) at horizon h, a decimal string that changes from bar to bar. */
 const factorsOf = (h: number, span: number): Record<string, string> =>
   Object.fromEntries(Array.from({ length: span / h }, (_, i) => [utc(T0 + i * h), (0.7 + ((i * 7) % 11) / 20).toFixed(2)]));
-/** The input of estimate written under work (the three fits, those given replacing the defaults), its path and its pin. */
-const input = (work: string, name: string, x: { horizon: string; span: number; form?: string; fits?: Record<string, unknown>; instants?: Record<string, string> }): [string, string] => {
-  const p = join(work, `${name}.json`);
-  write(p, JSON.stringify({ format: "kata-2b-estimate-input-v1", horizon: x.horizon, range: [utc(T0), utc(T0 + x.span)], form: x.form ?? "candle",
-    fits: { ...FITS, ...x.fits }, factors: factorsOf(x.horizon === "1h" ? HOUR : 4 * HOUR, x.span), instants: x.instants ?? {} }));
+type Input = Record<string, unknown>;
+/** The input of estimate written under work (the three fits, those given replacing the defaults; edit, if given, changes the object
+ *  before it is written), its path and its pin. */
+const input = (work: string, name: string, x: { horizon: string; span: number; form?: string; fits?: Record<string, unknown>; instants?: Record<string, string>; edit?: (o: Input) => Input }): [string, string] => {
+  const p = join(work, `${name}.json`), o: Input = { format: "kata-2b-estimate-input-v1", horizon: x.horizon, range: [utc(T0), utc(T0 + x.span)], form: x.form ?? "candle",
+    fits: { ...FITS, ...x.fits }, factors: factorsOf(x.horizon === "1h" ? HOUR : 4 * HOUR, x.span), instants: x.instants ?? {} };
+  write(p, JSON.stringify(x.edit ? x.edit(o) : o));
   return [p, sha256(p)];
 };
 const estimate = (s: { dir: string; pin: string }, [p, pin]: [string, string]): Run => tool().run(["estimate", s.dir, `${SYM}:${s.pin}`, p, pin]);
@@ -1590,9 +1592,10 @@ const valuesOf = (r: Run): Estimates => {
   return JSON.parse(linesOf(r.stdout)[2] ?? "") as Estimates;
 };
 /** The test's own computation of the three at t, from the written definitions (ADR 0006 D4; the note, sections 3 to 5), JavaScript's log
- *  (V8's, the one that decides), every sum from the oldest; f the factor of a bar's start, wk the weekend multiplier, w the GARCH window. */
-const expected = (at: Map<number, Ohlc>, t: number, h: number, form: string, f: (s: number) => number, wk: number, w: number): Record<string, string> => {
-  const ln = Math.log, sum = (xs: number[]): number => xs.reduce((a, x) => a + x, 0), mean = (xs: number[]): number => sum(xs) / xs.length;
+ *  (V8's, the one that decides; ln, if given, in its place), every sum from the oldest; f the factor of a bar's start, wk the weekend
+ *  multiplier, w the GARCH window. */
+const expected = (at: Map<number, Ohlc>, t: number, h: number, form: string, f: (s: number) => number, wk: number, w: number, ln: (x: number) => number = Math.log): Record<string, string> => {
+  const sum = (xs: number[]): number => xs.reduce((a, x) => a + x, 0), mean = (xs: number[]): number => sum(xs) / xs.length;
   const bar = (s: number): Ohlc | null => {
     const cs = Array.from({ length: h / STEP }, (_, j) => at.get(s + j * STEP));
     return cs.some((c) => c === undefined) ? null : [cs[0]![0], Math.max(...cs.map((c) => c![1])), Math.min(...cs.map((c) => c![2])), cs.at(-1)![3]];
@@ -1618,9 +1621,10 @@ const factorFn = (h: number, span: number): ((s: number) => number) => { const m
 
 // reddened by: the window rule computed on binary64 sums or powers, or not up to its cap: W not the least integer from 1 with p^W <= 3/100,
 // the cap of 720 bars at 1h or 180 at 4h not applied or applied at the other horizon, its binding not told, the residual seed weight not
-// p^W, or a + b >= 1 admitted
+// p^W, or a + b >= 1 admitted; a = 0.1 and b = 0.07320508075688773 give W = 3 by exact products, 2 by binary64 ones
 // killer: tools/kata-quarter/quarter_2b.py:43 CONST "pw <= target and" -> "pw < target and"
-test("garch_window_exact_on_the_frozen_strings - the GARCH window is the least W from 1 with (a + b)^W <= 0.03 on the frozen strings as rationals, capped at 720 bars at 1h and 180 at 4h: the bounds of the cap that ADR 0006 computes hold, a = 0.0003 and b = 0.0297 give W = 1 where a binary64 sum would not, and a + b >= 1 is refused by name", () => {
+// killer: tools/kata-quarter/quarter_2b.py:44 CONST "pw * p" -> "fractions.Fraction(float(pw) * float(p))"
+test("garch_window_exact_on_the_frozen_strings - the GARCH window is the least W from 1 with (a + b)^W <= 0.03 on the frozen strings as rationals, capped at 720 bars at 1h and 180 at 4h: the bounds of the cap that ADR 0006 computes hold, a = 0.0003 and b = 0.0297 give W = 1 where a binary64 sum would not, a = 0.1 and b = 0.07320508075688773 give W = 3 where binary64 products would give 2, and a + b >= 1 is refused by name", () => {
   assert.ok(existsSync(join(REPO, QUARTER, B2)), `${QUARTER}/${B2} absent`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-2b-window-")), series = made(work, 16);
   const exact = (a: string, b: string, cap: number): [number, boolean] => { // the test's own products, in integers
@@ -1632,7 +1636,8 @@ test("garch_window_exact_on_the_frozen_strings - the GARCH window is the least W
   };
   const fit = (a: string, b: string) => ({ "garch11-sf-sp-v1": { omega: "0.000002", a, b, seed: "0.00002" } });
   for (const [horizon, a, b, w, capped] of [["1h", "0.5", "0.49514", 720, false], ["1h", "0.5", "0.49515", 720, true], ["4h", "0.5", "0.48070", 180, false],
-    ["4h", "0.5", "0.48071", 180, true], ["4h", "0.1", "0.88", 174, false], ["1h", "0.0003", "0.0297", 1, false]] as const) {
+    ["4h", "0.5", "0.48071", 180, true], ["4h", "0.1", "0.88", 174, false], ["1h", "0.0003", "0.0297", 1, false],
+    ["1h", "0.1", "0.07320508075688773", 3, false]] as const) {
     const got = valuesOf(estimate(series, input(work, `${horizon}-${a}-${b}`, { horizon, span: 4 * HOUR, fits: fit(a, b) }))).garch_window;
     assert.deepEqual([got.W, got.capped], [w, capped], `${horizon}, a ${a}, b ${b}: W ${w}, the cap ${capped ? "binds" : "does not bind"}`);
     assert.deepEqual(exact(a, b, horizon === "1h" ? 720 : 180), [w, capped], "the same by the test's own exact products");
@@ -1640,19 +1645,23 @@ test("garch_window_exact_on_the_frozen_strings - the GARCH window is the least W
   }
   const over = estimate(series, input(work, "over", { horizon: "1h", span: 4 * HOUR, fits: fit("0.5", "0.5") }));
   assert.equal(over.status, 2, `a + b = 1: exit 2\n${over.stdout}${over.stderr}`);
-  assert.equal(over.stdout, "REFUSED: garch11-sf-sp-v1: a + b = 1.0 is not below 1: no window with p^W <= 0.03 and no unconditional variance\n");
+  assert.equal(over.stdout, "REFUSED: garch11-sf-sp-v1: a + b = 1.0 is not below 1: no window with p^W <= 0.03\n");
 });
 
 // reddened by: the HAR on other inputs than its week of bars before t (the candle before the week left out, a bar's own returns mixed
 // with the next one's), the day's or the week's mean over other bars, a bar deseasonalized by another bar's factor or not at all, the
-// Rogers-Satchell value of a bar written otherwise, a form chosen otherwise than by its name, or a value where an input is absent
+// Rogers-Satchell value of a bar written otherwise, a form chosen otherwise than by its name (by the horizon), the candle form on other
+// than the candles of each bar at 4h, or a value where an input is absent
 // killer: tools/kata-quarter/quarter_2b.py:101 CONST "xs[-(DAY // h):]" -> "xs[-(DAY // h) + 1:]"
-test("har_candle_and_rogers_satchell_forms - har-rv15-sp-v1 on a made series equals the test's own computation bit for bit, in the candle form at 1h and in the per-bar Rogers-Satchell form at 4h, each bar deseasonalized by its own factor; non_evaluable when a candle of its week is absent; a form other than the two refused by name", () => {
+// killer: tools/kata-quarter/quarter_2b.py:80 CONST "if form == \"candle\":" -> "if horizon == \"1h\":"
+// killer: tools/kata-quarter/quarter_2b.py:79 CONST "h // K.STEP_MS" -> "4"
+test("har_candle_and_rogers_satchell_forms - har-rv15-sp-v1 on a made series equals the test's own computation bit for bit, in the candle form and in the per-bar Rogers-Satchell form, each at 1h and at 4h, each bar deseasonalized by its own factor; non_evaluable when a candle of its week is absent; a form other than the two refused by name", () => {
   assert.ok(existsSync(join(REPO, QUARTER, B2)), `${QUARTER}/${B2} absent`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-2b-har-")), series = made(work, 10 * 96, [T0 + 9 * DAY + 150 * 60_000]);
-  for (const [horizon, form, h, ts] of [["1h", "candle", HOUR, [8 * DAY, 8 * DAY + 5 * HOUR, 9 * DAY + 6 * HOUR]], ["4h", "rogers-satchell", 4 * HOUR, [8 * DAY, 8 * DAY + 8 * HOUR, 9 * DAY + 4 * HOUR]]] as const) {
+  const at1h = [8 * DAY, 8 * DAY + 5 * HOUR, 9 * DAY + 6 * HOUR], at4h = [8 * DAY, 8 * DAY + 8 * HOUR, 9 * DAY + 4 * HOUR];
+  for (const [horizon, form, h, ts] of [["1h", "candle", HOUR, at1h], ["4h", "candle", 4 * HOUR, at4h], ["1h", "rogers-satchell", HOUR, at1h], ["4h", "rogers-satchell", 4 * HOUR, at4h]] as const) {
     const wk = ["1.10", "0.95", "1.00"], instants = Object.fromEntries(ts.map((d, i) => [utc(T0 + d), wk[i]!]));
-    const got = valuesOf(estimate(series, input(work, form, { horizon, span: 10 * DAY, form, instants }))).values;
+    const got = valuesOf(estimate(series, input(work, `${form}-${horizon}`, { horizon, span: 10 * DAY, form, instants }))).values;
     for (const [i, d] of ts.entries()) {
       const want = expected(series.at, T0 + d, h, form, factorFn(h, 10 * DAY), Number(wk[i]), 34)["har-rv15-sp-v1"];
       assert.equal(got[utc(T0 + d)]?.["har-rv15-sp-v1"], want, `${form} at ${horizon}, ${utc(T0 + d)}`);
@@ -1667,9 +1676,14 @@ test("har_candle_and_rogers_satchell_forms - har-rv15-sp-v1 on a made series equ
 
 // reddened by: a GARCH return deseasonalized by the factor of t or of another bar, a recursion not seeded with the frozen seed, other
 // returns than the W of the W + 1 bars before t, the EWMA other than wave 1's or with a factor inside, the factor of t or the weekend
-// multiplier left out of either, or a value where a bar of the window is absent
+// multiplier left out of either, a GARCH window of bars of another horizon, a value where a bar of the window is absent, a factor of 0
+// admitted, or values printed from the math.log pass, the changed ones not listed or not counted
 // killer: tools/kata-quarter/quarter_2b.py:115 CONST "factor(f, win[u][K.B_START])" -> "factor(f, t)"
-test("garch_and_ewma_on_deseasonalized_inputs - garch11-sf-sp-v1 (each return deseasonalized by the factor of its own bar, the recursion seeded with the frozen seed) and ewma-vol-sp-v1 (the EWMA of wave 1, then the factor of t and the weekend multiplier) equal the test's own computation bit for bit at 1h; non_evaluable when a bar of their window is absent", () => {
+// killer: tools/kata-quarter/quarter_2b.py:113 CONST "(fit[k] for k in FITS[KATAS[1]])" -> "(fit[k] for k in FITS[KATAS[1]]); s2 = omega / ((1 - a) - b)"
+// killer: tools/kata-quarter/quarter_2b.py:109 CONST "K.H_MS[horizon]" -> "K.H_MS[\"1h\"]"
+// killer: tools/kata-quarter/quarter_2b.py:64 CONST "g > 0" -> "g >= 0"
+// killer: tools/kata-quarter/quarter_2b.py:176 CONST "passes[\"ln\"].items()" -> "passes[\"base\"].items()"
+test("garch_and_ewma_on_deseasonalized_inputs - garch11-sf-sp-v1 (each return deseasonalized by the factor of its own bar, the recursion seeded with the frozen seed, which is not omega / (1 - a - b)) and ewma-vol-sp-v1 (the EWMA of wave 1, then the factor of t and the weekend multiplier) equal the test's own computation bit for bit at 1h and at 4h; non_evaluable when a bar of their window is absent or a factor of their inputs is 0 or absent; with the port of the log moved, the values are the port's and each value math.log changes is listed and counted", () => {
   assert.ok(existsSync(join(REPO, QUARTER, B2)), `${QUARTER}/${B2} absent`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-2b-garch-")), series = made(work, 10 * 96, [T0 + 9 * DAY + 150 * 60_000]);
   const ts = [8 * DAY, 8 * DAY + 5 * HOUR, 9 * DAY + 6 * HOUR], wk = ["1.10", "0.95", "1.00"], instants = Object.fromEntries(ts.map((d, i) => [utc(T0 + d), wk[i]!]));
@@ -1680,21 +1694,62 @@ test("garch_and_ewma_on_deseasonalized_inputs - garch11-sf-sp-v1 (each return de
     for (const k of ["garch11-sf-sp-v1", "ewma-vol-sp-v1"]) assert.ok(got.values[utc(T0 + d)]?.[k] === want[k] && (i === 2 || /^0\.0[0-9]+$/.test(want[k] ?? "")), `${k} at ${utc(T0 + d)}: ${want[k]}`);
   }
   assert.deepEqual([got.values[utc(T0 + ts[2]!)]?.["garch11-sf-sp-v1"], got.values[utc(T0 + ts[2]!)]?.["ewma-vol-sp-v1"]], [NE, NE], "a bar of their window absent: non_evaluable");
+  const long = made(join(work, "long"), 18 * 96), ts4 = [17 * DAY, 17 * DAY + 8 * HOUR], wk4 = ["1.10", "0.95"]; // 101 bars of 4h before each
+  const at4 = valuesOf(estimate(long, input(work, "g4h", { horizon: "4h", span: 18 * DAY, instants: Object.fromEntries(ts4.map((d, i) => [utc(T0 + d), wk4[i]!])) })));
+  assert.deepEqual([at4.garch_window.W, at4.garch_window.capped], [34, false], "at 4h: W = 34, the cap of 180 does not bind");
+  for (const [i, d] of ts4.entries()) {
+    const want = expected(long.at, T0 + d, 4 * HOUR, "candle", factorFn(4 * HOUR, 18 * DAY), Number(wk4[i]), 34);
+    for (const k of ["garch11-sf-sp-v1", "ewma-vol-sp-v1"]) assert.ok(at4.values[utc(T0 + d)]?.[k] === want[k] && /^0\.0[0-9]+$/.test(want[k] ?? ""), `${k} at 4h, ${utc(T0 + d)}: ${want[k]}`);
+  }
+  const [tz, ta] = [T0 + 10 * DAY, T0 + 12 * DAY]; // the factor of [tz - 1h, tz) is 0, that of [ta - 1h, ta) absent; ta's GARCH window holds no tz - 1h
+  const zero = valuesOf(estimate(long, input(work, "g0", { horizon: "1h", span: 18 * DAY, instants: { [utc(tz)]: "1.00", [utc(ta)]: "1.00" },
+    edit: (o) => ({ ...o, factors: { ...(o.factors as Input), [utc(tz - HOUR)]: "0", [utc(ta - HOUR)]: undefined } }) })));
+  for (const t of [tz, ta]) {
+    const ewma = expected(long.at, t, HOUR, "candle", factorFn(HOUR, 18 * DAY), 1, 34)["ewma-vol-sp-v1"];
+    assert.deepEqual(zero.values[utc(t)], { "har-rv15-sp-v1": NE, "garch11-sf-sp-v1": NE, "ewma-vol-sp-v1": ewma }, `${utc(t)}: a factor of 0 or absent among their inputs, HAR and GARCH non_evaluable; the EWMA reads none`);
+  }
+  const moved = (x: number): number => (x > 1 ? Math.log(x) * 1.25 : Math.log(x)), t8 = T0 + 8 * DAY, [p, pin] = input(work, "moved", { horizon: "1h", span: 10 * DAY, instants: { [utc(t8)]: "1.10" } });
+  const r = standIn(`import fdlibm_log\n_ln = fdlibm_log.log\nfdlibm_log.log = lambda x: _ln(x) * 1.25 if x > 1 else _ln(x)`).run(["estimate", series.dir, `${SYM}:${series.pin}`, p, pin]), port = valuesOf(r).values[utc(t8)];
+  assert.deepEqual(port, expected(series.at, t8, HOUR, "candle", factorFn(HOUR, 10 * DAY), 1.1, 34, moved), "the port of the log moved: the values are the port's, the pass that decides");
+  const differ = linesOf(r.stdout).flatMap((l) => { const m = /^value differs (\S+) (\S+): fdlibm_log (\S+), math\.log (\S+)$/.exec(l); return m ? [m.slice(1)] : []; });
+  assert.deepEqual(differ.map(([t, k, a, b]) => [t, k, a === port?.[k ?? ""] && a !== b]), Object.keys(FITS).map((k) => [utc(t8), k, true]), "each value math.log changes listed, the port's value first");
+  assert.ok(linesOf(r.stdout).includes("math.log values that differ from the fdlibm_log pass, which decides: 3"), "and counted");
 });
 
-// reddened by: a frozen string admitted with a sign, an underscore, a digit that is not ASCII, an infinite value, or as a number, or a
-// fit admitted without one of its keys: float and Fraction take each of these strings
+// reddened by: a frozen string admitted with a sign, an underscore, a digit that is not ASCII, an infinite value, a leading zero, or as a
+// number, or a fit admitted without one of its keys: float and Fraction take each of these strings; or an input admitted under another
+// pin, with a key more, its keys in another order, without its range, another format, a horizon that is not a string, a factor that is
+// not a decimal string or an instant off its grid, or refused there by an exception's name
 // killer: tools/kata-quarter/quarter_2b.py:55 CONST "or not DECIMAL.fullmatch(v) " -> ""
-test("frozen_fit_strings_refused_by_name - a frozen fit string with a sign, an underscore, a digit that is not ASCII or an infinite value, a number in place of a string, or a fit without one of its keys is refused by name before anything is evaluated, exit 2", () => {
+// killer: tools/kata-quarter/quarter_2b.py:28 CONST "(0|[1-9][0-9]*)" -> "([0-9]+)"
+// killer: tools/kata-quarter/quarter_2b.py:148 CONST "!= args[3]" -> "== None"
+// killer: tools/kata-quarter/quarter_2b.py:154 CONST "list(x) == list(INPUT)" -> "sorted(x) == sorted(INPUT)"
+// killer: tools/kata-quarter/quarter_2b.py:154 CONST " and type(x[\"horizon\"]) is str" -> ""
+// killer: tools/kata-quarter/quarter_2b.py:157 CONST "x[\"format\"] == FORMAT" -> "True"
+// killer: tools/kata-quarter/quarter_2b.py:159 CONST "and DECIMAL.fullmatch(v) " -> ""
+// killer: tools/kata-quarter/quarter_2b.py:163 CONST "any(t % h for t in instants)" -> "False"
+test("frozen_fit_strings_refused_by_name - a frozen fit string with a sign, an underscore, a digit that is not ASCII, an infinite value or a leading zero, a number in place of a string, or a fit without one of its keys is refused by name before anything is evaluated, exit 2; so is an input under another pin, with a key more, its keys reversed, without its range, of another format, with a horizon that is not a string, a factor that is not a decimal string, or an instant off its grid", () => {
   assert.ok(existsSync(join(REPO, QUARTER, B2)), `${QUARTER}/${B2} absent`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-2b-fits-")), series = made(work, 16);
   const har = (b1: unknown) => ({ "har-rv15-sp-v1": { b0: "1e-7", b1, b2: "0.4", b3: "0.25" } });
   const strings = "har-rv15-sp-v1: ['b1']: not frozen decimal strings, the form of a finite non-negative JSON number in ASCII digits";
   for (const [name, fits, why] of [["a sign", har("+0.3"), strings], ["an underscore", har("0_3"), strings], ["a digit that is not ASCII", har("٣"), strings],
-    ["an infinite value", har("1e400"), strings], ["a number", har(0.3), strings],
+    ["an infinite value", har("1e400"), strings], ["a leading zero", har("00.3"), strings], ["a number", har(0.3), strings],
     ["a key missing", { "garch11-sf-sp-v1": { omega: "0.000002", a: "0.05", b: "0.85" } }, "garch11-sf-sp-v1: a frozen fit holds exactly the strings ['omega', 'a', 'b', 'seed'], not ['a', 'b', 'omega']"]] as const) {
     const r = estimate(series, input(work, name.replaceAll(" ", "-"), { horizon: "1h", span: 4 * HOUR, fits, instants: { [utc(T0)]: "1.00" } }));
     assert.equal(r.status, 2, `${name}: exit 2\n${r.stdout}${r.stderr}`);
     assert.equal(r.stdout, `REFUSED: ${why}\n`, `${name}: refused by name, nothing printed before`);
+  }
+  const at = { [utc(T0)]: "1.00" }, [p, pin] = input(work, "well-formed", { horizon: "1h", span: 4 * HOUR, instants: at }), other = "0".repeat(64);
+  assert.equal(valuesOf(estimate(series, [p, pin])).values[utc(T0)]?.["ewma-vol-sp-v1"], NE, "the well-formed input admitted");
+  const unpinned = estimate(series, [p, other]);
+  assert.deepEqual([unpinned.status, unpinned.stdout], [2, `REFUSED: estimate input refused before parsing: sha256 ${pin} differs from the pinned ${other}\n`], "another pin: refused before parsing");
+  const closed = "estimate input: not a kata-2b-estimate-input-v1 object, its keys ['format', 'horizon', 'range', 'form', 'fits', 'factors', 'instants'] in order, a horizon, a range [start, end) on its grid, the three fits, and factors and instants keyed by UTC seconds with decimal strings";
+  for (const [name, edit, why] of [["a key more", (o: Input) => ({ ...o, note: "x" }), closed], ["its keys reversed", (o: Input) => Object.fromEntries(Object.entries(o).reverse()), closed],
+    ["no range", (o: Input) => Object.fromEntries(Object.entries(o).filter(([k]) => k !== "range")), closed], ["another format", (o: Input) => ({ ...o, format: "kata-2b-estimate-input-v2" }), closed],
+    ["a horizon in a list", (o: Input) => ({ ...o, horizon: ["1h"] }), closed], ["a factor -1", (o: Input) => ({ ...o, factors: { ...(o.factors as Input), [utc(T0)]: "-1" } }), closed],
+    ["an instant off its grid", (o: Input) => ({ ...o, instants: { [utc(T0 + STEP)]: "1.00" } }), "estimate input: an instant off the grid of 1h"]] as const) {
+    const r = estimate(series, input(work, name.replaceAll(" ", "-"), { horizon: "1h", span: 4 * HOUR, instants: at, edit }));
+    assert.deepEqual([r.status, r.stdout], [2, `REFUSED: ${why}\n`], `${name}: refused by name, nothing printed before\n${r.stderr}`);
   }
 });

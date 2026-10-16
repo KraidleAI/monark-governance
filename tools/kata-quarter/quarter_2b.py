@@ -35,10 +35,10 @@ USAGE = "usage: python -E -S -s -B -P quarter_counts.py estimate <series dir> <s
 def window(exact, horizon):
     """The GARCH window rule, exact on the frozen strings (ADR l.132-133): p = a + b as rationals; W the smallest integer from 1 with
     p^W <= 3/100, capped at CAP[horizon]. Returns W, whether the cap binds (the least such W is above it) and p^W rounded once to binary64,
-    the residual seed weight. a + b >= 1 has no such W and no unconditional variance: a named refusal."""
+    the residual seed weight. a + b >= 1 has no such W: a named refusal (the fit procedure keeps a + b below 1)."""
     p, target = exact["a"] + exact["b"], fractions.Fraction(3, 100)
     if p >= 1:
-        raise Q.Refused(f"{KATAS[1]}: a + b = {float(p)!r} is not below 1: no window with p^W <= 0.03 and no unconditional variance")
+        raise Q.Refused(f"{KATAS[1]}: a + b = {float(p)!r} is not below 1: no window with p^W <= 0.03")
     w, pw = 1, p
     while not pw <= target and w < CAP[horizon]:
         w, pw = w + 1, pw * p
@@ -151,10 +151,10 @@ def estimate(args, identity_line):
         x = json.loads(data.decode("utf-8"), object_pairs_hook=lambda p: Q.unique(p, "estimate input"))
     except ValueError:
         raise Q.Refused("estimate input: not a JSON text") from None
-    h = K.H_MS.get(x.get("horizon")) if type(x) is dict else None
+    h = K.H_MS.get(x["horizon"]) if type(x) is dict and list(x) == list(INPUT) and type(x["horizon"]) is str else None  # keys first
     span = [Q.second(s) for s in x["range"]] if h and type(x["range"]) is list and len(x["range"]) == 2 else [None]
     given = ("factors", "instants")
-    if not (list(x) == list(INPUT) and x["format"] == FORMAT and None not in span and span[0] < span[1] and span[0] % h == span[1] % h == 0
+    if not (h and x["format"] == FORMAT and None not in span and span[0] < span[1] and span[0] % h == span[1] % h == 0
             and type(x["fits"]) is dict and sorted(x["fits"]) == sorted(KATAS) and all(type(x[g]) is dict for g in given)
             and all(Q.second(s) is not None and type(v) is str and DECIMAL.fullmatch(v) for g in given for s, v in x[g].items())):
         raise Q.Refused(f"estimate input: not a {FORMAT} object, its keys {list(INPUT)} in order, a horizon, a range [start, end) on its grid, "
