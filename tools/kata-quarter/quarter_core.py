@@ -5,8 +5,8 @@
 # restored in a finally; recalc_p2.sigma_hat and recalc_p2.cells_of. The out/drop/in classification and the score are written again for
 # the block Q, since recalc_p2.decisions_for codes its three blocks and point is a closure of calibrate_cell (recalc_p2.py l.158-176,
 # l.272-288): out when sigma_hat is not computable (an input window incomplete), drop when the label is not formed or its window
-# [t, t + h) meets a halt [E, R) (rule 8 (a)), else in, a miss strictly above qhat. The halts come from the reads (the loader of rule 8
-# gives them; that of c1a gives none) and are joined first into venue instances: a halt seen on every symbol of the venue (the symbol
+# [t, t + h) meets a halt [E, R) (rule 8 (a)), else in, a miss strictly above qhat. The halts come from the merged read of each folder
+# (quarter_load: rules 8 and 8 bis on both reads) and are joined first into venue instances: a halt seen on every symbol of the venue (the symbol
 # folders of every row of the registry), with the same missing candles and the same resumption, is one interval, E the earliest and R
 # the latest, applied to each symbol. After the count, kata_lib's globals must be those before it (L-T0a), or the run is refused.
 import contextlib
@@ -72,8 +72,8 @@ def venue_halts(reads, venue):
     symbol's. Returns {folder: [(E, R)]} and the intervals printed, each with the folders it applies to."""
     groups = {}
     for sym, rs in reads.items():
-        for r in rs[:2]:
-            for e, end in r.get("halts", ()):
+        for r in rs[2:]:  # the merged read: the halts of both reads, taken across the seam
+            for e, end in r["halts"]:
                 key = (tuple(sorted(t for t in r["declared"] if e <= t < end)), -(-end // K.STEP_MS) * K.STEP_MS)
                 groups.setdefault(key, []).append((sym, e, end))
     on, shown = {sym: [] for sym in reads}, []
