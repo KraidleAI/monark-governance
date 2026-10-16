@@ -836,7 +836,7 @@ Normal (exit 0, no act): the tick's `bell/tick: nothing_due unit-<D> due_at=<ISO
 `bell/tick: already_deposited unit-<D>` (a slot replayed); the publisher's `{"status":"published",…}`,
 `{"status":"nothing_to_publish","published":[]}` (nothing after the mark left to publish: each end of a tick starts it) and
 `{"status":"awaiting_unit",…,"awaiting_unit":"unit-<D>"}` (every revision of `<D>` deposited is refused by a line of `refused.jsonl`, `manifest_mismatch` for one whose files no longer match its manifest:
-the tick collects `<D>` again, and the publisher waits). Normal, exit 1, no act: `bell/tick: refused handoff_backlog: <n> units from
+the tick collects `<D>` again, and the publisher waits; not so for a `<D>` whose tombstone does not match its manifest: section 21, dated lines, 2026-10-16 02:5x UTC, r2-3). Normal, exit 1, no act: `bell/tick: refused handoff_backlog: <n> units from
 unit-<D> on await publication, above 8` (`BACKLOG_MAX`: the tick collects nothing new and the publisher, started at each end of a tick,
 drains the backlog by calls of 8); the backlog is disarmed until the first publication (`published.jsonl` empty): before it the units
 after the mark accumulate, then are published in order (G0 DC-4). Until CLOCK-PROBE-FORM-1, `clock_unsynced` on every run is expected.
@@ -942,3 +942,20 @@ A bundle or a manifest the publisher cannot read is not a refusal (the bundle ma
 | Line (journal of the unit) | Act |
 |---|---|
 | `bell/publish: fatal: <errno>` (a bundle or a manifest of `/var/lib/monark-bell-handoff` the publisher cannot read) | **STOP**, escalation: the read rights of the group `bell-handoff` on the handoff directory to check (`BELL_LAYOUT`); never a write by hand |
+
+**Dated line, 2026-10-16 02:5x UTC (fold of the second round of the G2 of part 3, r2-1):** the two units do not exclude each other by
+configuration: no ordering directive binds them (`monark-bell-collect.service` names `After=network-online.target` only and starts the publisher
+by `OnSuccess=` and `OnFailure=`; `monark-bell-publish.service` names none), a tick may run `TimeoutStartSec=7200` s while two slots of
+`monark-bell-collect.timer` are 60 min apart, and the publisher has `TimeoutStartSec=120` s. So the purge of a tick (`apps/bell/src/tick.ts:332`,
+the bundle, then its manifest) may remove, between the publisher's listing and its read, an entry published, settled or before the mark. The
+publisher skips an entry, a file of it or a manifest absent at its read (`ENOENT`, `apps/bell/scripts/bell-publish.mjs:291` and `:294`) as if it
+were not listed, as it did before the fold of m-1: such a removal is never a `bell/publish: fatal:` line, and it touches neither `refused.jsonl`
+nor the budget of `<D>`. The row `bell/publish: fatal: <errno>` → **STOP** above stays true for every other errno (`EACCES`, `EBUSY`, `EISDIR`, …).
+
+**Dated line, 2026-10-16 02:5x UTC (same fold, r2-3; review of lot 3b-i, n-2):** the publisher and the tick do not read a tombstone the same
+way: the publisher holds `<D>` abandoned only when `unit-<D>.abandoned` matches its manifest (`apps/bell/scripts/bell-publish.mjs:270`, `:293`),
+the tick by its name alone (`apps/bell/src/tick.ts:319`, `apps/bell/src/handoff-status.ts:80`). So an `{"status":"awaiting_unit",…,"awaiting_unit":"unit-<D>"}`
+that persists on a `<D>` whose tombstone does not match its manifest (or one of the two stands alone) is not the normal state of section 21 (where the tick collects `<D>` again): `recollectOf`
+returns null, the tick collects nothing again and the publisher waits. Act: the act of abandon of `<D>` (section 19, (1) then (2)) run again with the
+same `--reason`: if it stopped on the way, it writes the same bytes and answers `bell/tick: abandoned unit-<D> reason=<code>`; if it answers
+`abandon_refused` (the act was done), **STOP**, escalation; never a write by hand of the tombstone, of its manifest or of a status file.

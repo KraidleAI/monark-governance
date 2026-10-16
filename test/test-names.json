@@ -60,6 +60,7 @@
   "bell_publish_handoff_refuses_without_start_mark",
   "bell_publish_handoff_rejects_names_outside_the_grammar",
   "bell_publish_handoff_skips_an_abandoned_unit_by_tombstone",
+  "bell_publish_handoff_skips_an_entry_purged_after_the_listing",
   "bell_publish_handoff_start_refuses_a_second_mark_and_a_mark_before_bundles",
   "bell_publish_handoff_status_heals_after_a_crash_between_commit_and_status",
   "bell_publish_handoff_takes_at_most_n_bundles_per_call",

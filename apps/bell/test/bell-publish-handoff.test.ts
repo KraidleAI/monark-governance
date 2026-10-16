@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import { appendFileSync, chmodSync, closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { createRequire, syncBuiltinESMExports } from "node:module";
 import { createHash, createPrivateKey } from "node:crypto";
 import * as P from "../scripts/bell-publish.mjs";
 import { manifestOf } from "../scripts/bell-validate.mjs";
@@ -160,7 +161,7 @@ test("bell_publish_handoff_refuses_window_overlapping_a_published_window", () =>
   assert.deepEqual([timeline(b).length, readJsonl(join(b.status, "refused.jsonl"))], [1, [{ bundle: unit(1), manifest_sha256: sha, code: "window_overlaps_published", refused_at: new Date(T_PUBLISH + 2).toISOString() }]]);
 });
 
-// killer: apps/bell/scripts/bell-publish.mjs:290 CONST "dayOf(x) < start || !existsSync(m)" -> "dayOf(x) < start"
+// killer: apps/bell/scripts/bell-publish.mjs:291 SDL "if (err?.code === \"ENOENT\") continue; " -> ""
 test("bell_publish_handoff_ignores_tmp_and_unmanifested_dirs", () => {
   api();
   const b = box(0);
@@ -169,7 +170,7 @@ test("bell_publish_handoff_ignores_tmp_and_unmanifested_dirs", () => {
   writeRun(join(b.handoff, unit(1, 1)), 1, 402n); // a revision without its manifest (one that no longer matches is refused: manifest_mismatch)
   deposit(b.handoff, unit(2), 2);
   let r: P.HandoffResult | undefined;
-  assert.doesNotThrow(() => { r = call(b); }, "an entry without its manifest is skipped, its manifest never read");
+  assert.doesNotThrow(() => { r = call(b); }, "an entry without its manifest is skipped: its manifest absent at the read (ENOENT), never a failure");
   assert.deepEqual(r, { status: "awaiting_unit", published: [{ bundle: unit(0), seq: 1 }], awaiting_unit: unit(1) }, "unit 1 has no candidate: the list stops there");
   assert.equal(timeline(b).length, 1);
 });
@@ -392,4 +393,38 @@ test("bell_publish_handoff_fails_by_name_on_an_unreadable_bundle", (t) => {
   mkdirSync(join(b.handoff, `${unit(1)}.manifest`)); // a manifest the publisher cannot read (a directory: EISDIR, on every system)
   const again = cli(b);
   assert.deepEqual([again.code, again.err, existsSync(join(b.status, "refused.jsonl"))], [1, "bell/publish: fatal: EISDIR\n", false], "an unreadable manifest: the same named failure");
+});
+
+// G2 of part 3, r2-1: the two units do not exclude each other by configuration (RUNBOOK section 21, dated lines), so the purge of a tick
+// (apps/bell/src/tick.ts:332, the bundle directory, then its manifest) may remove, between the publisher's listing and its read, a bundle
+// published, settled or before the mark. The entry is skipped as if it were not listed, as at the base: no fatal, no refusal, the next unit
+// published. The purge runs inside the listing: readdirSync of node:fs replaced, then syncBuiltinESMExports, restored in a finally (the
+// reviewer's probe, probe-race.snippet.ts).
+test("bell_publish_handoff_skips_an_entry_purged_after_the_listing", () => {
+  api();
+  const fsc = createRequire(import.meta.url)("node:fs") as { readdirSync: unknown }, real = fsc.readdirSync as (...a: unknown[]) => unknown;
+  /** Unit 0 published, unit 1 deposited, then one call during which `purge` runs right after the listing of the handoff directory. */
+  const raced = (purge: (b: Box) => void): { b: Box; r: P.HandoffResult | undefined } => {
+    const b = box(0);
+    deposit(b.handoff, unit(0), 0);
+    assert.deepEqual(call(b).published, [{ bundle: unit(0), seq: 1 }], "unit 0 published first");
+    deposit(b.handoff, unit(1), 1);
+    let armed = true, r: P.HandoffResult | undefined;
+    fsc.readdirSync = (p: unknown, o?: { withFileTypes?: boolean }): unknown => {
+      const listed = real(p, o);
+      if (armed && p === b.handoff && o?.withFileTypes === true) { armed = false; purge(b); }
+      return listed;
+    };
+    syncBuiltinESMExports();
+    try { assert.doesNotThrow(() => { r = call(b); }, "an entry purged after the listing is skipped: never a failure of the call"); } finally { fsc.readdirSync = real; syncBuiltinESMExports(); }
+    assert.equal(armed, false, "non-vacuity: the purge ran inside the call");
+    return { b, r };
+  };
+  const unit1 = { status: "published", published: [{ bundle: unit(1), seq: 2 }] };
+  // killer: apps/bell/scripts/bell-publish.mjs:294 SDL "if (err?.code === \"ENOENT\") continue; " -> ""
+  const dir = raced((b) => { rmSync(join(b.handoff, unit(0)), { recursive: true, force: true }); }); // the directory of unit 0 gone, its manifest left
+  assert.deepEqual([dir.r, existsSync(join(dir.b.status, "refused.jsonl")), timeline(dir.b).length], [unit1, false, 2], "unit 1 published, no refusal recorded");
+  // killer: apps/bell/scripts/bell-publish.mjs:291 CONST "err?.code === \"ENOENT\"" -> "false"
+  const man = raced((b) => { rmSync(join(b.handoff, `${unit(0)}.manifest`)); }); // the only manifest of unit 0 gone, its directory left
+  assert.deepEqual([man.r, existsSync(join(man.b.status, "refused.jsonl")), timeline(man.b).length], [unit1, false, 2], "the same fate");
 });

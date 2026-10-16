@@ -287,11 +287,11 @@ function manifestsOf(handoffDir, entries, start) {
   const manifests = {}, mismatched = new Set();
   for (const e of entries) {
     const x = e.name, path = join(handoffDir, x), m = `${path}.manifest`;
-    if (dayOf(x) < start || !existsSync(m)) continue; // before the mark: never chosen, never hashed; no manifest: not deposited (the tick writes it first)
-    const text = readFileSync(m, "utf8"), bundle = UNIT_NAME.test(x); // an unreadable manifest fails the call (fatal: <errno>), never a refusal
+    if (dayOf(x) < start) continue; // before the mark: never chosen, never hashed
+    let text; try { text = readFileSync(m, "utf8"); } catch (err) { if (err?.code === "ENOENT") continue; throw err; } const bundle = UNIT_NAME.test(x); // no manifest: not deposited (the tick writes it first) or purged since the listing, skipped; any other errno fails the call (fatal: <errno>), never a refusal
     let ok = false;
     try { ok = bundle ? (e.isDirectory() && manifestOf(path) === text) : (TOMBSTONE.test(x) && e.isFile() && text === `${sha256Hex(readFileSync(path))}  ${x}\n`); } catch (err) {
-      if (!(err instanceof BellPublishError)) throw err; // manifestOf refuses an entry neither a file nor a directory: no match; an unreadable file fails the call too
+      if (err?.code === "ENOENT") continue; if (!(err instanceof BellPublishError)) throw err; // an entry or a file purged since the listing (tick.ts:332): skipped, as at the base; manifestOf refuses an entry neither a file nor a directory: no match; an unreadable file fails the call too
     }
     if (ok || bundle) manifests[x] = sha256Hex(text); // a bundle that no longer matches keeps its sha256, so its refusal, once recorded, is matched (chooseHandoff)
     if (bundle && !ok) mismatched.add(x);

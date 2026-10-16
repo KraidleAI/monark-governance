@@ -132,18 +132,26 @@ test("bell_units_compose_tick_to_publish_to_verify", async () => {
   assert.ok(writes.length >= 4, "non-vacuity: this file writes the acts");
   assert.deepEqual(writes.filter((l) => /handoff|status/i.test(l)), [], "no line of this file writes the handoff or the status directory");
   // ...and through no other module nor alias (G2 of part 3, F-2 BELL-COMPOSE-STATIC-KILLER-1): the module specifiers of this file, in every form
-  // (static, dynamic, require), are a closed list, with no promise or bare form of node:fs; the publisher is imported once, its command line only.
+  // (static, dynamic, require; double quotes, single quotes or a template literal without substitution, G2 of part 3, r2-2), are a closed list,
+  // with no promise or bare form of node:fs; the publisher is imported once, its command line only.
   const CLOSED = ["node:test", "node:assert/strict", "node:fs", "node:os", "node:path", "node:url", "node:crypto", "../../../scripts/bell-deploy.mjs", "../scripts/bell-chain.mjs",
     "../scripts/bell-publish.mjs", "../scripts/bell-verify.mjs", "../src/plan.ts", "../src/pools.ts", "../src/rebase-trajectory.ts", "../src/volume.ts", "../src/tick.ts", "./helpers/bell-served.ts"];
-  const specs = [...src.matchAll(/\bfrom\s*"([^"]+)"|\bimport\s*\(\s*"([^"]+)"\s*\)|\brequire\s*\(\s*"([^"]+)"\s*\)/g)].map((m) => m[1] ?? m[2] ?? m[3] ?? "");
+  const specsOf = (s: string): string[] => [...s.matchAll(/\bfrom\s*(["'`])([^"'`]+)\1|\bimport\s*\(\s*(["'`])([^"'`]+)\3\s*\)|\brequire\s*\(\s*(["'`])([^"'`]+)\5\s*\)/g)]
+    .map((m) => m[2] ?? m[4] ?? m[6] ?? ""), specs = specsOf(src);
+  // The synthetic forms are built at run time (the quote put in place of @): written as such, this file's own scan would find them.
+  assert.deepEqual(["\"", "'", "`"].flatMap((q) => specsOf("from @node:fs/promises@; import(@node:fs/promises@); import( @node:fs/promises@ ); require(@node:fs/promises@)".replaceAll("@", q))),
+    Array<string>(12).fill("node:fs/promises"), "the scan sees each form in each of the three quotes");
   assert.deepEqual([[...new Set(specs)].sort(), specs.filter((s) => ["node:fs/promises", "fs", "fs/promises"].includes(s))], [[...CLOSED].sort(), []], "the module specifiers, closed");
   assert.deepEqual([specs.filter((s) => s.endsWith("/bell-publish.mjs")).length, [...src.matchAll(/^import\s+(.+?)\s+from\s*"\.\.\/scripts\/bell-publish\.mjs";$/gm)].map((m) => m[1])],
     [1, ["{ runCli }"]], "the publisher, imported once (named, namespace, default or dynamic), by its command line only");
   // No alias of either directory: no binding but their declaration below takes a path made of one (the name itself, a join or resolve from it, a
-  // template literal of it); a binding of a value read under them (the mark's output, a manifest, a status file) is not an alias. It reddens on each form.
+  // template literal of it; the join or resolve of a module, path.join or path.posix.resolve, included: r2-2); a binding of a value read under them
+  // (the mark's output, a manifest, a status file) is not an alias. It reddens on each form. Out of the check, by choice: an array or an object that
+  // carries a directory (`[statusDir][0]`, `{ d: statusDir }`) does not write it, and a writer of node:fs on a line that names either is refused above.
   const aliases = (ls: readonly string[]): string[] => ls.filter((l) => /\b(?:const|let|var)\s/.test(l)
-    && /=\s*(?:(?:handoffDir|statusDir)\b(?!\s*[.([])|(?:join|resolve|posix\.join)\(\s*(?:handoffDir|statusDir)\b|`[^`]*\$\{\s*(?:handoffDir|statusDir)\s*\})/.test(l));
-  assert.equal(aliases(["const a = X;", "let b = join(X, \"x\");", "var c = resolve(X);", "const d = 1, e = `${X}/x`;"].map((l) => l.replace("X", "statusDir"))).length, 4, "the check reddens on each form");
+    && /=\s*(?:(?:handoffDir|statusDir)\b(?!\s*[.([])|(?:[\w$]+\.)*(?:join|resolve)\(\s*(?:handoffDir|statusDir)\b|`[^`]*\$\{\s*(?:handoffDir|statusDir)\s*\})/.test(l));
+  assert.equal(aliases(["const a = X;", "let b = join(X, \"x\");", "var c = resolve(X);", "const d = 1, e = `${X}/x`;", "const f = path.join(X, \"x\");", "const g = path.posix.resolve(X);"]
+    .map((l) => l.replace("X", "statusDir"))).length, 6, "the check reddens on each form");
   assert.deepEqual(aliases(lines), [], "no alias of the handoff or the status directory");
 
   const root = mkdtempSync(join(tmpdir(), "bell-units-")), creds = join(root, "credentials");
