@@ -19,8 +19,8 @@ OnFailure=monark-bell-publish.service
 
 [Service]
 Type=oneshot
-# The dedicated tree: exactly BELL_COLLECT_TREE_PATHS (the import closure of the tick, never bell-publish.mjs), shipped by git archive at
-# the G7 SHA, root-owned, with the link BELL_COLLECT_TREE_LINK (node_modules/@monark/rpc-guard -> ../../packages/rpc-guard).
+# The dedicated tree: exactly BELL_COLLECT_TREE_PATHS, the import closure of its two programs, apps/bell/src/tick.ts (ExecStart) and packages/rpc-guard/bin/rpc-guard.mjs (the unlock
+# act of RUNBOOK-bell section 17), never bell-publish.mjs; shipped by git archive at the G7 SHA, root-owned, with the link BELL_COLLECT_TREE_LINK (node_modules/@monark/rpc-guard -> ../../packages/rpc-guard).
 WorkingDirectory=/opt/monark-bell-collect
 # The keys of BELL_COLLECT_ENV_KEYS, in the collection's secrets directory (masked from the publisher by that one name): root:bell-collect
 # 0640, NEVER committed, NEVER printed. No leading `-`: a missing file fails the start, never a mute run.

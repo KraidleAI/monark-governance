@@ -10,13 +10,14 @@
 // Injected, and nothing else (C3-11): the clocks (the tick's now, the publisher's clock; the publisher's is early while it must refuse D1:
 // session_not_yet_publishable is the one refusal of a bundle the real tick can be handed, the tick pre-validating with the same rule at its
 // own later instant), the two clock probes (CLOCK-PROBE-FORM-1: the host form is part 5's), the network (globalThis.fetch answers the two
-// Solana operators, Databento and Massive on their hosts, offline; calque tick-compose.test.ts) and the reference's sha256 (the pinned one
-// belongs to a file outside the repository; bell_tick_refuses_trajectory_mismatch_with_reference_prefix proves the default is the pin). No
-// real process (C3-11: the command lines refuse clock_unsynced until CLOCK-PROBE-FORM-1; the process run is part 5's replay). The acts this
-// test plays, as lot 5b will: the four directories, the seed by the tick's --seed form, the trajectory and its reference in the
-// collection's private state, the key under the credentials directory. Killers of C-5: (1) the manifest the publisher records is the one
-// the tick bound into state/progress.json; (2) a static check of this file: no write into the handoff or the status directory, every one is
-// the two entry points'. Synthetic values only; the key is generated in memory.
+// Solana operators, Databento and Massive on their hosts, offline; calque tick-compose.test.ts), the reference's sha256 (the pinned one
+// belongs to a file outside the repository; bell_tick_refuses_trajectory_mismatch_with_reference_prefix proves the default is the pin) and the
+// production record state/trajectory/produced.json, written an hour old before each tick, so the trajectory is reused and never produced here
+// (its production stage is T-i3's own test). No real process (C3-11: the command lines refuse clock_unsynced until CLOCK-PROBE-FORM-1; the
+// process run is part 5's replay). The acts this test plays, as lot 5b will: the four directories, the seed by the tick's --seed form, the
+// trajectory and its reference in the collection's private state, the key under the credentials directory. Killers of C-5: (1) the manifest the publisher records is the one the tick bound into
+// state/progress.json; (2) a static check of this file: no write into the handoff or the status directory, every one is the two entry points' (its
+// module specifiers closed, the publisher by its command line only, no alias of either directory). Synthetic values only; the key is in memory.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -127,10 +128,23 @@ test("bell_units_compose_tick_to_publish_to_verify", async () => {
   // Killer (2): every write into the handoff or the status directory is the two entry points'. The writers of node:fs on a line of this file
   // never name either directory (the four directories of the layout are made empty by one act line that names neither).
   const writer = new RegExp(`\\b(${["writeFileSync", "appendFileSync", "cpSync", "copyFileSync", "renameSync", "rmSync", "unlinkSync", "mkdirSync", "symlinkSync", "linkSync", "openSync", "writeSync"].join("|")})\\(`);
-  const writes = readFileSync(SELF, "utf8").split("\n").filter((l) => writer.test(l) && !l.includes("new RegExp("));
+  const src = readFileSync(SELF, "utf8"), lines = src.split("\n"), writes = lines.filter((l) => writer.test(l) && !l.includes("new RegExp("));
   assert.ok(writes.length >= 4, "non-vacuity: this file writes the acts");
   assert.deepEqual(writes.filter((l) => /handoff|status/i.test(l)), [], "no line of this file writes the handoff or the status directory");
-  assert.deepEqual([...readFileSync(SELF, "utf8").matchAll(/import \{([^}]*)\} from "\.\.\/scripts\/bell-publish\.mjs"/g)].map((m) => m[1]?.trim()), ["runCli"], "the publisher, by its command line only");
+  // ...and through no other module nor alias (G2 of part 3, F-2 BELL-COMPOSE-STATIC-KILLER-1): the module specifiers of this file, in every form
+  // (static, dynamic, require), are a closed list, with no promise or bare form of node:fs; the publisher is imported once, its command line only.
+  const CLOSED = ["node:test", "node:assert/strict", "node:fs", "node:os", "node:path", "node:url", "node:crypto", "../../../scripts/bell-deploy.mjs", "../scripts/bell-chain.mjs",
+    "../scripts/bell-publish.mjs", "../scripts/bell-verify.mjs", "../src/plan.ts", "../src/pools.ts", "../src/rebase-trajectory.ts", "../src/volume.ts", "../src/tick.ts", "./helpers/bell-served.ts"];
+  const specs = [...src.matchAll(/\bfrom\s*"([^"]+)"|\bimport\s*\(\s*"([^"]+)"\s*\)|\brequire\s*\(\s*"([^"]+)"\s*\)/g)].map((m) => m[1] ?? m[2] ?? m[3] ?? "");
+  assert.deepEqual([[...new Set(specs)].sort(), specs.filter((s) => ["node:fs/promises", "fs", "fs/promises"].includes(s))], [[...CLOSED].sort(), []], "the module specifiers, closed");
+  assert.deepEqual([specs.filter((s) => s.endsWith("/bell-publish.mjs")).length, [...src.matchAll(/^import\s+(.+?)\s+from\s*"\.\.\/scripts\/bell-publish\.mjs";$/gm)].map((m) => m[1])],
+    [1, ["{ runCli }"]], "the publisher, imported once (named, namespace, default or dynamic), by its command line only");
+  // No alias of either directory: no binding but their declaration below takes a path made of one (the name itself, a join or resolve from it, a
+  // template literal of it); a binding of a value read under them (the mark's output, a manifest, a status file) is not an alias. It reddens on each form.
+  const aliases = (ls: readonly string[]): string[] => ls.filter((l) => /\b(?:const|let|var)\s/.test(l)
+    && /=\s*(?:(?:handoffDir|statusDir)\b(?!\s*[.([])|(?:join|resolve|posix\.join)\(\s*(?:handoffDir|statusDir)\b|`[^`]*\$\{\s*(?:handoffDir|statusDir)\s*\})/.test(l));
+  assert.equal(aliases(["const a = X;", "let b = join(X, \"x\");", "var c = resolve(X);", "const d = 1, e = `${X}/x`;"].map((l) => l.replace("X", "statusDir"))).length, 4, "the check reddens on each form");
+  assert.deepEqual(aliases(lines), [], "no alias of the handoff or the status directory");
 
   const root = mkdtempSync(join(tmpdir(), "bell-units-")), creds = join(root, "credentials");
   for (const x of Object.values(BELL_LAYOUT)) mkdirSync(join(root, ...x.path.split("/").filter((s) => s !== "")), { recursive: true }); // act: the four directories, empty

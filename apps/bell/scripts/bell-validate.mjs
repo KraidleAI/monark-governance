@@ -10,7 +10,7 @@ import { canonical, closeLikePath, sha256Hex, rechainRunTimeline } from "./bell-
 export const REFUSAL_CODES = Object.freeze(["inbox_not_exactly_one_bundle", "too_many_runs", "input_too_large", "schema_mismatch", "unknown_field",
   "bell_sha_mismatch", "close_like_field", "session_not_yet_publishable", "run_timeline_broken", "provenance_binding_mismatch", "url_or_key_shaped_string",
   "duplicate_run", "public_state_too_large", "line_too_large", "existing_timeline_corrupt", "signing_key_missing", "signing_key_not_in_keyring",
-  "no_timeline", "key_already_in_keyring", "revocation_invalid", "key_file_exists", "handoff_start_missing", "start_mark_exists", "start_mark_not_after_bundles", "window_overlaps_published", "lock_held", "clock_unsynced"]);
+  "no_timeline", "key_already_in_keyring", "revocation_invalid", "key_file_exists", "handoff_start_missing", "start_mark_exists", "start_mark_not_after_bundles", "window_overlaps_published", "lock_held", "clock_unsynced", "manifest_mismatch"]);
 export class BellPublishError extends Error {
   constructor(code, detail) { super(`bell/publish: ${code}: ${detail}`); this.name = "BellPublishError"; this.code = code; this.detail = detail; }
 }

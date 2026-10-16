@@ -48,12 +48,14 @@
   "bell_publish_torn_private_tail_truncated_only_if_unserved"
  ],
  "apps/bell/test/bell-publish-handoff.test.ts": [
+  "bell_publish_handoff_fails_by_name_on_an_unreadable_bundle",
   "bell_publish_handoff_ignores_tmp_and_unmanifested_dirs",
   "bell_publish_handoff_never_publishes_a_bundle_before_the_start_mark",
   "bell_publish_handoff_never_retries_a_recorded_refusal",
   "bell_publish_handoff_never_writes_the_handoff_dir",
   "bell_publish_handoff_publishes_due_bundles_in_order_once",
   "bell_publish_handoff_records_refusal_in_status_and_stops",
+  "bell_publish_handoff_refuses_a_bundle_that_no_longer_matches_its_manifest",
   "bell_publish_handoff_refuses_window_overlapping_a_published_window",
   "bell_publish_handoff_refuses_without_start_mark",
   "bell_publish_handoff_rejects_names_outside_the_grammar",
@@ -376,6 +378,7 @@
   "bell_tick_quarantines_a_run_its_checks_refuse"
  ],
  "apps/bell/test/tick-handoff.test.ts": [
+  "bell_tick_abandon_consumes_the_record_of_the_next_unit",
   "bell_tick_abandon_frees_a_unit_the_publisher_refused",
   "bell_tick_abandon_records_its_instant_once",
   "bell_tick_backlog_counts_units_after_the_mark",

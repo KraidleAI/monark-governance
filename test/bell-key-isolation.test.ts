@@ -81,7 +81,7 @@ test("bell_key_directory_is_inaccessible_to_every_unit_by_host", () => {
       // killer: scripts/probe-dojo-live.mjs:43 CONST "/etc/monark/dojo-probe-smtp-pass" -> "/etc/monark/bell/smtp-pass"
       const code = tree.filter((p) => /[.](ts|mjs)$/.test(p));
       assert.ok(code.length > 0 || name === "site", `${rel}: the code of its tree (non-vacuity)`);
-      const names = new RegExp(`${dir.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}(?![\\w.-])`); // segment-aware: /etc/monark/bell-collect is another directory
+      const names = new RegExp(`${dir.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}(?![\\w-])(?!\\.[\\w-])`); // segment-aware: /etc/monark/bell-collect is another directory, /etc/monark/bell. ends a sentence
       assert.deepEqual(code.filter((p) => names.test(read(p))), [], `${rel}: no code file of its tree names ${dir}`);
     }
   }

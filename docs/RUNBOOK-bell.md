@@ -835,7 +835,7 @@ Normal (exit 0, no act): the tick's `bell/tick: nothing_due unit-<D> due_at=<ISO
 `bell/tick: deposited unit-<D> manifest_sha256=<hex>` (or `unit-<D>-r<n>`, a revision after a refusal of the publisher) and
 `bell/tick: already_deposited unit-<D>` (a slot replayed); the publisher's `{"status":"published",…}`,
 `{"status":"nothing_to_publish","published":[]}` (nothing after the mark left to publish: each end of a tick starts it) and
-`{"status":"awaiting_unit",…,"awaiting_unit":"unit-<D>"}` (every revision of `<D>` deposited is refused or has no matching manifest:
+`{"status":"awaiting_unit",…,"awaiting_unit":"unit-<D>"}` (every revision of `<D>` deposited is refused by a line of `refused.jsonl`, `manifest_mismatch` for one whose files no longer match its manifest:
 the tick collects `<D>` again, and the publisher waits). Normal, exit 1, no act: `bell/tick: refused handoff_backlog: <n> units from
 unit-<D> on await publication, above 8` (`BACKLOG_MAX`: the tick collects nothing new and the publisher, started at each end of a tick,
 drains the backlog by calls of 8); the backlog is disarmed until the first publication (`published.jsonl` empty): before it the units
@@ -929,3 +929,16 @@ environment of a running tick read; `systemctl enable` or `start` of `monark-bel
 removed by `rm` (only the served `unlock`); editing, moving or copying by hand a quarantined run, a deposited bundle,
 `state/progress.json` or a status file; removing or replacing the start mark; restoring `/var/lib/monark-bell` without
 `/var/lib/monark-bell-status` from the same copy, or the reverse.
+
+## Section 21, dated lines (after the G2 of part 3)
+
+**Dated line, 2026-10-16 01:2x UTC (fold of the G2 of part 3, m-1; G0 BELL-COLLECT-TIMER-1 DC-3, amended the same day):** an
+`{"status":"awaiting_unit",…}` that persists on a `<D>` while `refused.jsonl` holds no line for its last revision no longer comes from a deposit
+whose files no longer match its manifest: the publisher refuses such a bundle (`bell/publish: manifest_mismatch: …`, exit 1), records it in
+`refused.jsonl` as every refusal of a bundle, and the tick collects `<D>` again (`unit-<D>-r<n+1>` within its budget; past it, section 19, way (b)).
+A bundle or a manifest the publisher cannot read is not a refusal (the bundle may be good): the call fails `bell/publish: fatal: <errno>` (exit 1;
+`EACCES` on the host), records nothing, and the tick collects nothing again. Its row of the table of section 21:
+
+| Line (journal of the unit) | Act |
+|---|---|
+| `bell/publish: fatal: <errno>` (a bundle or a manifest of `/var/lib/monark-bell-handoff` the publisher cannot read) | **STOP**, escalation: the read rights of the group `bell-handoff` on the handoff directory to check (`BELL_LAYOUT`); never a write by hand |

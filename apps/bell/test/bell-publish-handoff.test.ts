@@ -8,7 +8,7 @@
 // part-3 integration test of lot 3b-ii. The publication key is fixed (built from a hashed label, test only); no network.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createHash, createPrivateKey } from "node:crypto";
@@ -18,6 +18,7 @@ import { keyringOf, sha256Hex } from "../scripts/bell-chain.mjs";
 import { dirSource, verifyServed } from "../scripts/bell-verify.mjs";
 import { collect } from "../src/collect.ts";
 import { tickMain } from "../src/tick.ts";
+import { readStatus, recollectOf } from "../src/handoff-status.ts";
 import { ATTEMPT_BUDGET } from "../../../scripts/bell-deploy.mjs";
 import { REPO, T_PUBLISH, tmp } from "./helpers/bell-served.ts";
 
@@ -84,6 +85,31 @@ function io(body: () => number): { code: number; out: string; err: string } {
   process.stderr.write = (s: string): boolean => { got.err += s; return true; };
   try { return { code: body(), ...got }; } finally { process.stdout.write = w.out; process.stderr.write = w.err; }
 }
+/** The real command line of the unit's --handoff form (runCli), the key under a credentials directory as PID 1 hands it, the box's clock. */
+function cli(b: Box): ReturnType<typeof io> {
+  const creds = tmp("bell-handoff-creds-"), real = process.env.CREDENTIALS_DIRECTORY;
+  writeFileSync(join(creds, "bell-signing-key"), KEY.export({ type: "pkcs8", format: "pem" }));
+  try {
+    process.env.CREDENTIALS_DIRECTORY = creds;
+    return io(() => P.runCli(["--handoff", b.handoff, "--state", b.state, "--status", b.status], { clockSynced: () => true, clock: b.clock }));
+  } finally { if (real === undefined) delete process.env.CREDENTIALS_DIRECTORY; else process.env.CREDENTIALS_DIRECTORY = real; rmSync(creds, { recursive: true, force: true }); }
+}
+/** What the collection tick decides on the handoff as it is (apps/bell/src/tick.ts passageOf feeds the same readers): the unit to collect again. */
+function tickRecollects(b: Box): ReturnType<typeof recollectOf> {
+  const text = (f: string): string | null => (existsSync(join(b.status, f)) ? readFileSync(join(b.status, f), "utf8") : null), names = readdirSync(b.handoff);
+  const r = readStatus({ start: text("start"), published: text("published.jsonl"), refused: text("refused.jsonl"), abandoned: null });
+  if (!r.ok) return assert.fail(`the tick's reader refuses status/${r.file}`);
+  const deposits = names.filter((e) => /^unit-\d{4}-\d{2}-\d{2}(-r\d+)?\.manifest$/.test(e)).map((e) => e.slice(0, -".manifest".length))
+    .map((name) => ({ name, manifest_sha256: sha256Hex(readFileSync(join(b.handoff, `${name}.manifest`), "utf8")), dir: names.includes(name) }));
+  return recollectOf({ start: r.start, published: r.published, refused: r.refused, abandoned: r.abandoned, deposits, tombstones: [], quarantined: [] });
+}
+/** `file` unreadable to this process until the returned release: on win32 an open with share mode none (UV_FS_O_EXLOCK, 0x10000000, which
+ *  node:fs does not export; measured 2026-10-16, Node v24.21.0: a read meanwhile fails EBUSY); elsewhere mode 000 (a reader not root: EACCES). */
+function unreadable(file: string): () => void {
+  if (process.platform === "win32") { const fd = openSync(file, 0x10000000); return () => { closeSync(fd); }; }
+  chmodSync(file, 0);
+  return () => { chmodSync(file, 0o644); };
+}
 
 // killer: apps/bell/scripts/bell-publish.mjs:378 SDL "appendStatus(statusDir, \"published.jsonl\", { bundle, manifest_sha256, seq: l.seq, published_at: l.published_at }, D);" -> ""
 test("bell_publish_handoff_publishes_due_bundles_in_order_once", async () => {
@@ -134,17 +160,17 @@ test("bell_publish_handoff_refuses_window_overlapping_a_published_window", () =>
   assert.deepEqual([timeline(b).length, readJsonl(join(b.status, "refused.jsonl"))], [1, [{ bundle: unit(1), manifest_sha256: sha, code: "window_overlaps_published", refused_at: new Date(T_PUBLISH + 2).toISOString() }]]);
 });
 
-// killer: apps/bell/scripts/bell-publish.mjs:294 CONST "ok = manifestOf(path) === text" -> "ok = true"
+// killer: apps/bell/scripts/bell-publish.mjs:290 CONST "dayOf(x) < start || !existsSync(m)" -> "dayOf(x) < start"
 test("bell_publish_handoff_ignores_tmp_and_unmanifested_dirs", () => {
   api();
   const b = box(0);
   deposit(b.handoff, unit(0), 0);
   deposit(b.handoff, `.tmp-${unit(1)}`, 1); // a deposit in course, even with a concordant manifest
-  deposit(b.handoff, unit(1), 1, 401n, (d) => { writeFileSync(join(d, "TSLAx", "journal.json"), "{}"); });
-  appendFileSync(join(b.handoff, unit(1), "TSLAx", "journal.json"), " "); // the bundle no longer matches its manifest
-  writeRun(join(b.handoff, unit(1, 1)), 1, 402n); // a revision without its manifest
+  writeRun(join(b.handoff, unit(1, 1)), 1, 402n); // a revision without its manifest (one that no longer matches is refused: manifest_mismatch)
   deposit(b.handoff, unit(2), 2);
-  assert.deepEqual(call(b), { status: "awaiting_unit", published: [{ bundle: unit(0), seq: 1 }], awaiting_unit: unit(1) }, "unit 1 has no candidate: the list stops there");
+  let r: P.HandoffResult | undefined;
+  assert.doesNotThrow(() => { r = call(b); }, "an entry without its manifest is skipped, its manifest never read");
+  assert.deepEqual(r, { status: "awaiting_unit", published: [{ bundle: unit(0), seq: 1 }], awaiting_unit: unit(1) }, "unit 1 has no candidate: the list stops there");
   assert.equal(timeline(b).length, 1);
 });
 
@@ -323,4 +349,47 @@ test("bell_publish_handoff_takes_at_most_n_bundles_per_call", () => {
   for (let k = 0; k < 9; k++) deposit(b.handoff, unit(k), k);
   assert.deepEqual(call(b).published.map((x) => x.bundle), DAYS.slice(0, 8).map((_, k) => unit(k)), "N = 8 by default");
   assert.deepEqual([call(b).published, timeline(b).length], [[{ bundle: unit(8), seq: 9 }], 9], "the next call takes the rest");
+});
+
+// G2 of part 3, m-1 (G0 DC-3 amended 2026-10-16): a bundle whose files no longer match its manifest is refused by name, recorded, and the tick
+// collects its unit again; before, the publisher skipped it unrecorded and awaited it with no exit (the reviewer's proof, proof-mismatch.mts).
+// killer: apps/bell/scripts/bell-publish.mjs:372 CONST "if (mismatched.has(bundle)) refuse(" -> "if (false) refuse("
+test("bell_publish_handoff_refuses_a_bundle_that_no_longer_matches_its_manifest", () => {
+  api();
+  assert.ok((P.REFUSAL_CODES as readonly string[]).includes("manifest_mismatch"), "manifest_mismatch is in the closed list REFUSAL_CODES");
+  const b = box(0);
+  deposit(b.handoff, unit(0), 0);
+  deposit(b.handoff, unit(1), 1, 401n, (d) => { writeFileSync(join(d, "TSLAx", "journal.json"), "{}"); });
+  appendFileSync(join(b.handoff, unit(1), "TSLAx", "journal.json"), " "); // a file the validation tolerates: only the manifest tells the change
+  deposit(b.handoff, unit(2), 2);
+  const sha = sha256Hex(readFileSync(join(b.handoff, `${unit(1)}.manifest`), "utf8"));
+  // killer: apps/bell/scripts/bell-publish.mjs:293 CONST "manifestOf(path) === text" -> "true"
+  const got = cli(b);
+  assert.deepEqual([got.code, got.out, got.err], [1, "", `bell/publish: manifest_mismatch: ${unit(1)}: its files no longer match ${unit(1)}.manifest\n`], "exit 1, the refusal named");
+  assert.deepEqual(readJsonl(join(b.status, "refused.jsonl")), [{ bundle: unit(1), manifest_sha256: sha, code: "manifest_mismatch", refused_at: new Date(T_PUBLISH + 1).toISOString() }],
+    "recorded as every refusal of a bundle: the bundle, the sha256 of its manifest, the code");
+  assert.deepEqual([timeline(b).length, readJsonl(join(b.status, "published.jsonl")).map((e) => e.bundle)], [1, [unit(0)]], "unit 0 published before it; the call stops there");
+  assert.deepEqual([call(b), readJsonl(join(b.status, "refused.jsonl")).length], [{ status: "awaiting_unit", published: [], awaiting_unit: unit(1) }, 1], "recorded once, never refused again");
+  assert.deepEqual(tickRecollects(b), { d: DAYS[1], next: `${unit(1)}-r1`, code: "manifest_mismatch" }, "the tick's own recollectOf reads the line and collects unit 1 again, r1");
+});
+
+// G2 of part 3, m-1: a bundle or a manifest the publisher cannot read is not a refusal (the bundle may be good): the call fails by name (the errno of
+// the read, exit 1), records nothing, and the tick has nothing to collect again, so the budget of the unit is untouched (RUNBOOK section 21: STOP).
+// killer: apps/bell/scripts/bell-publish.mjs:294 CONST "if (!(err instanceof BellPublishError)) throw err; " -> ""
+test("bell_publish_handoff_fails_by_name_on_an_unreadable_bundle", (t) => {
+  api();
+  if (process.platform !== "win32" && process.getuid?.() === 0) { t.skip("root reads a file of mode 000: run as a user that is not root"); return; }
+  const b = box(0);
+  deposit(b.handoff, unit(0), 0);
+  const release = unreadable(join(b.handoff, unit(0), "TSLAx", "state.json"));
+  let got: ReturnType<typeof io>;
+  try { got = cli(b); } finally { release(); }
+  assert.deepEqual([got.code, got.out, /^bell\/publish: fatal: E[A-Z]+\n$/.test(got.err)], [1, "", true], `a named failure of the call, never a refusal: ${got.err}`);
+  assert.deepEqual([existsSync(join(b.status, "refused.jsonl")), timeline(b).length, existsSync(join(b.state, "publish.lock"))], [false, 0, false], "nothing recorded, nothing published, the lock released");
+  assert.equal(tickRecollects(b), null, "no refusal: the tick does not collect unit 0 again, its budget is untouched");
+  assert.deepEqual(call(b).published, [{ bundle: unit(0), seq: 1 }], "readable again, the same bundle is published");
+  writeRun(join(b.handoff, unit(1)), 1, 402n);
+  mkdirSync(join(b.handoff, `${unit(1)}.manifest`)); // a manifest the publisher cannot read (a directory: EISDIR, on every system)
+  const again = cli(b);
+  assert.deepEqual([again.code, again.err, existsSync(join(b.status, "refused.jsonl"))], [1, "bell/publish: fatal: EISDIR\n", false], "an unreadable manifest: the same named failure");
 });

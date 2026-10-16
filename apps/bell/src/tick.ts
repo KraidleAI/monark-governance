@@ -400,11 +400,11 @@ function seed(o: Extract<Opts, { mode: "seed" }>): string {
 /** The abandon act: the stalled unit (the next one, its budget spent), or the unit the publisher refused past its budget (state/stalled.json,
  *  written by the tick's publisher_refused, C3-7). The tick's clock probe (deps.clockSynced, unsynced by default) before any write (G0 M-11).
  *  The reason line (with abandoned_at, the act's instant by the injected clock, C3-8; one line per unit), the tombstone's manifest, the
- *  tombstone unit-<D>.abandoned, then the progress, once, for the next unit only; a refused unit is behind the progress, which never moves
- *  back: its act removes state/stalled.json last instead (a stop before it: the act runs again, a second act after it is refused). */
+ *  tombstone unit-<D>.abandoned, then the progress, once, for the next unit only (a refused unit is behind the progress, which never moves
+ *  back), then state/stalled.json when it names D, on either way (a stop before its removal: the act runs again, a second act after it is refused). */
 function abandon(o: Extract<Opts, { mode: "abandon" }>, deps: TickDeps): string {
   const progress = readProgress(o.state), next = progress.last_unit === null ? progress.seed : nextTradingDay(progress.last_unit);
-  const sp = join(o.state, "state", "stalled.json"), byRefusal = o.d !== next && existsSync(sp) && (parse(readFileSync(sp, "utf8")) as { unit?: unknown } | null)?.unit === o.d;
+  const sp = join(o.state, "state", "stalled.json"), rec = existsSync(sp) ? (parse(readFileSync(sp, "utf8")) as { unit?: unknown } | null)?.unit : undefined, byRefusal = o.d !== next && rec === o.d;
   if ((o.d !== next && !byRefusal) || (readAttempts(o.state)[o.d] ?? 0) < ATTEMPT_BUDGET) refuse("abandon_refused", `unit-${o.d} is not the stalled unit`);
   if (!existsSync(o.handoff)) refuse("state_missing", "the handoff directory is missing");
   if (!(deps.clockSynced ?? UNSYNCED)()) refuse("clock_unsynced", "the host clock is not synchronized");
@@ -415,8 +415,8 @@ function abandon(o: Extract<Opts, { mode: "abandon" }>, deps: TickDeps): string 
   }
   writeAtomic(join(o.handoff, `${name}.manifest`), manifest);
   writeAtomic(join(o.handoff, name), body);
-  if (byRefusal) rmSync(sp, { force: true });
-  else advance(o.state, progress, o.d, name, manifest);
+  if (!byRefusal) advance(o.state, progress, o.d, name, manifest);
+  if (rec === o.d) rmSync(sp, { force: true }); // the record of D, on either way: a stop before it, the act runs again to the same bytes
   return `abandoned unit-${o.d} reason=${o.reason}`;
 }
 
@@ -436,7 +436,7 @@ export async function tickMain(argv: readonly string[], deps: TickDeps): Promise
   }
 }
 
-/** The command line: the real runMain under the guard (runMainUnit). The clock probe stays the default, unsynced (item CLOCK-PROBE-HOST-1). */
+/** The command line: the real runMain under the guard (runMainUnit). The clock probe stays the default, unsynced (item CLOCK-PROBE-FORM-1). */
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   process.exitCode = await tickMain(process.argv.slice(2), { env: process.env, now: () => Date.now() });
 }

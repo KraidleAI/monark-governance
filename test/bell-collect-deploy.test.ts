@@ -91,7 +91,7 @@ test("bell_collect_unit_never_loads_the_signing_key", () => {
   assert.ok(!C().tree.includes("apps/bell/scripts/bell-publish.mjs"), "the publisher (which reads the key) is not in the collection's tree");
   for (const p of treeCode()) {
     const src = read(p);
-    assert.deepEqual([src.includes("CREDENTIALS_DIRECTORY"), src.includes("bell-signing-key"), tokens(src).some((x) => under(x, C().key))], [false, false, false], `${p} never reaches the key`);
+    assert.deepEqual([src.includes("CREDENTIALS_DIRECTORY"), src.includes("bell-signing-key"), tokens(src).some((x) => under(x.replace(/\.+$/, ""), C().key))], [false, false, false], `${p} never reaches the key`); // a mention that ends a sentence too
   }
 });
 
@@ -167,6 +167,9 @@ test("bell_collect_tree_is_the_import_closure", () => {
   // The RUNBOOK (section 14) ships exactly this tree, with this link, and runs the CLI from it (section 17).
   const runbook = read("docs/RUNBOOK-bell.md"), archive = /git -C \S+ archive --format=tar\.gz "\$G7" ([^|]+)\| tee \/f\/tmp\/bell-dn\/collect-tree\.tar\.gz /.exec(runbook);
   assert.deepEqual(archive?.[1]?.trim().split(/\s+/), [...C().tree], "the RUNBOOK ships exactly this tree");
+  // G2 of part 3, nit-2: the count of section 14's comparison is the tree's length (one sha256sum line per file), never a number copied here.
+  const counts = /Expected: (\d+) remote lines, equal line for line to the (\d+) local lines/.exec(runbook);
+  assert.deepEqual([Number(counts?.[1]), Number(counts?.[2])], [C().tree.length, C().tree.length], "the RUNBOOK's remote and local line counts are the tree's length");
   assert.ok(runbook.includes(`ln -s ${target} ${C().root}/${link}`), "...with this resolution link");
   assert.ok(runbook.includes(`/usr/bin/env node ${C().root}/${UNLOCK_TOOL} --ledger-dir `), "the RUNBOOK runs the guard's CLI from the tree");
 });
@@ -190,7 +193,7 @@ test("bell_collect_unit_runs_the_real_tick", async () => {
   const D = "2026-10-02", due = dueInstant(unitOf(D), UNIT_DUE_MARGIN_MIN), err: string[] = [], out: string[] = [];
   const env: Record<string, string> = { BELL_SOLANA_RPC: "https://rpc.example.invalid", HELIUS_API_KEY: "h".repeat(36), CHAINSTACK_SOLANA_URL: `https://cs.example.invalid/${"c".repeat(32)}`,
     DATABENTO_API_KEY: `db-${"b".repeat(29)}`, POLYGON_API_KEY: "p".repeat(32), HELIUS_CYCLE_ANCHOR_UTC: "2026-09-19T00:00:00Z", CHAINSTACK_CYCLE_ANCHOR_UTC: "2026-09-19T00:00:00Z",
-    HELIUS_CYCLE_SHARE: "100000", CHAINSTACK_CYCLE_SHARE: "50000", BELL_HALTS_CSV: host(`${C().root}/halts.csv`) };
+    HELIUS_CYCLE_SHARE: "100000", CHAINSTACK_CYCLE_SHARE: "50000", BELL_HALTS_CSV: join(R, "halts.csv") }; // synthetic, outside the tree's root
   assert.deepEqual(Object.keys(env).sort(), [...BELL_COLLECT_ENV_KEYS].sort(), "the EnvironmentFile's keys, synthetic values");
   const deps = (now: number): TickDeps => ({ env, now: () => now, clockSynced: () => true, out: (s) => { out.push(s); }, err: (s) => { err.push(s); } });
   assert.equal(await tick.tickMain(["--seed", D, "--state", argv[argv.indexOf("--state") + 1] ?? "?"], deps(due)), 0, "the seed act, by the tree's own form");
@@ -242,7 +245,7 @@ test("bell_collect_timeout_covers_the_worst_tick", () => {
   // outlive its operator's cycle); 1.25 times the worst tick measured in rehearsal replaces it by a dated line (BELL-TICK-TIMEOUT-MEASURE-1).
   assert.equal(Number(one(service(C().unit), "TimeoutStartSec")), TICK_TIMEOUT_START_SEC, "TimeoutStartSec == TICK_TIMEOUT_START_SEC");
   assert.ok(read("apps/bell/src/tick.ts").includes("if (nowMs + TICK_TIMEOUT_START_SEC * 1000 >= next) refuse(\"cycle_boundary_straddle\""), "the tick bounds its run by the same constant");
-  assert.ok(TICK_TIMEOUT_START_SEC >= 303, "above the longest trajectory production measured (G0 M-22: 5 min 03 s)");
+  assert.ok(TICK_TIMEOUT_START_SEC >= 1.25 * 303, "at least 1.25 times the longest trajectory production measured (G0 M-22: 5 min 03 s; DC-4, C3-3), until BELL-TICK-TIMEOUT-MEASURE-1");
 });
 
 // killer: deploy/monark-bell-collect.service:18 SDL "OnFailure=monark-bell-publish.service" -> ""
