@@ -247,10 +247,10 @@ export const PENDING_COMMENT =
 export const COMMENT =
   "Committed, hashed facts about the SERVED liquidation-eligible-coverage class of the MONARK gate, rendered by /ukemi/course through apps/site/lib/ukemi-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by the source repository's served-state sync tool (not in the public export) from ONE GET of the harness OpenAPI document and ONE POST of the harness /gate endpoint (the deploy check's liquidation-eligible-coverage body) at read_at: registry_state is empty when the served /gate description carries the empty-registry clause and committed when it carries the upper-bound clause (exactly one must match, composed from the gate module's own sentences); liq_clause is that served clause verbatim; cascade_uncalibrated_sentence_served records whether the served /cascade description carries the cascade class's uncalibrated sentence; body_sha256 is the sha256 of the OpenAPI body as read; liq_verdict holds the served verdict of that /gate call (the probe's stratum, the verdict reason, the served alpha, the calibration points, the bound margin as an exact base-currency integer string or null, the scores digest, the smallest calibration count for which the conformal rank at that alpha is interior, and the sha256 of the /gate body as read, which is the sha256 the deploy check recorded for that call), checked against the registry state, the source repository's committed calibration and the deploy check record before writing.";
 
-async function readBody(url, init) {
+async function readBody(get, url, init) {
   let res;
   try {
-    res = await fetch(url, { ...init, redirect: "manual", signal: AbortSignal.timeout(30_000) });
+    res = await get(url, { ...init, redirect: "manual", signal: AbortSignal.timeout(30_000) });
   } catch (e) {
     fail(`${init?.method ?? "GET"} ${url} failed (${e instanceof Error ? e.message : String(e)})`);
   }
@@ -260,20 +260,13 @@ async function readBody(url, init) {
   return buf;
 }
 
-async function main() {
-  const blocked = promotionBlocked(ROOT);
-  if (blocked !== null) fail(blocked); // fail-closed on EVERY default sync, not the promotion alone (G2 m-3, RECHERCHES): no ukemi resync while harness-pending.json exists
-  const openapi = await readBody(`${API_HOST}${OPENAPI_PATH}`, { method: "GET" });
-  const readAt = new Date().toISOString();
-  const gate = await readBody(`${API_HOST}${GATE_PATH}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(GATE_LIQ_BODY) });
-  let facts, verdict;
-  try {
-    facts = servedFacts(openapi.toString("utf8"));
-    verdict = servedVerdictFacts(gate.toString("utf8"), facts.registry_state, readFileSync(join(ROOT, CA_REL), "utf8"));
-  } catch (e) {
-    fail(e instanceof Error ? e.message : String(e));
-  }
-  const out = {
+/** The served snapshot the sync writes (pure but for its checks): the facts of the OpenAPI body, the verdict of the /gate body
+ *  bound to the deploy check record `ca` (the JSON text of docs/deploy-CA-harness.json), the read instant. Throws on any
+ *  check. Shared by the write (main) and by --check (buildUkemiServed). */
+export function ukemiServedOf({ openapi, gate, readAt, ca }) {
+  const facts = servedFacts(openapi.toString("utf8"));
+  const verdict = servedVerdictFacts(gate.toString("utf8"), facts.registry_state, ca);
+  return {
     $comment: COMMENT,
     schema: SCHEMA,
     host: API_HOST,
@@ -286,7 +279,24 @@ async function main() {
     body_sha256: sha256(openapi),
     liq_verdict: verdict,
   };
-  const text = JSON.stringify(out, null, 2) + "\n";
+}
+
+/** The text the sync writes for a served snapshot: two-space JSON, LF. */
+export const servedText = (out) => JSON.stringify(out, null, 2) + "\n";
+
+async function main() {
+  const blocked = promotionBlocked(ROOT);
+  if (blocked !== null) fail(blocked); // fail-closed on EVERY default sync, not the promotion alone (G2 m-3, RECHERCHES): no ukemi resync while harness-pending.json exists
+  const openapi = await readBody(fetch, `${API_HOST}${OPENAPI_PATH}`, { method: "GET" });
+  const readAt = new Date().toISOString();
+  const gate = await readBody(fetch, `${API_HOST}${GATE_PATH}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(GATE_LIQ_BODY) });
+  let out;
+  try {
+    out = ukemiServedOf({ openapi, gate, readAt, ca: readFileSync(join(ROOT, CA_REL), "utf8") });
+  } catch (e) {
+    fail(e instanceof Error ? e.message : String(e));
+  }
+  const text = servedText(out);
   const fileSha = sha256(Buffer.from(lf(text), "utf8"));
   const promote = existsSync(join(ROOT, PENDING_REL));
   let manifest;
@@ -301,7 +311,58 @@ async function main() {
   } catch (e) {
     fail(e instanceof Error ? e.message : String(e));
   }
-  console.log(`sync-ukemi-served OK — ${OUT_REL} written (registry_state ${facts.registry_state}, verdict ${verdict.verdict_reason}, read ${readAt}); manifest entry set to ${fileSha}${promote ? `; the pending snapshot is promoted, ${PENDING_REL} and its manifest entry removed` : ""}`);
+  console.log(`sync-ukemi-served OK — ${OUT_REL} written (registry_state ${out.registry_state}, verdict ${out.liq_verdict.verdict_reason}, read ${readAt}); manifest entry set to ${fileSha}${promote ? `; the pending snapshot is promoted, ${PENDING_REL} and its manifest entry removed` : ""}`);
+}
+
+/** The served snapshot under `root` as the default sync builds it (read_at included), for --check: the same refusal while the
+ *  harness pending snapshot exists, the same two reads, here through `get` (fetch by default: the seam of
+ *  scripts/sync-dojo-served.mjs), and ukemiServedOf with the deploy check record `ca` (an input: the CLI reads it under ROOT,
+ *  a test passes its own). main keeps its own reads (test/site-ukemi.test.ts reads their order in main). Fail-closed: exits 1. */
+export async function buildUkemiServed({ root, get = fetch, ca }) {
+  const blocked = promotionBlocked(root);
+  if (blocked !== null) fail(blocked);
+  const openapi = await readBody(get, `${API_HOST}${OPENAPI_PATH}`, { method: "GET" });
+  const readAt = new Date().toISOString();
+  const gate = await readBody(get, `${API_HOST}${GATE_PATH}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(GATE_LIQ_BODY) });
+  try {
+    return ukemiServedOf({ openapi, gate, readAt, ca });
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : String(e));
+  }
+}
+
+/** --check of a served snapshot (SYNC-CHECK-MODE-1; pure): the top-level keys on which the committed text differs from the
+ *  snapshot `built` that the sources give now, read_at and pending_since set aside ("layout" when only the bytes differ, the
+ *  snapshot rendered by `textOf` as its sync writes it, with the committed read_at), and the committed pending_since day or
+ *  null: a pending snapshot's mark, set aside here and named by the caller (export-public --out refuses it). Shared with
+ *  scripts/sync-harness-served.mjs. */
+export function snapshotDrift(committedText, built, textOf) {
+  const committed = JSON.parse(committedText), aside = ["read_at", "pending_since"];
+  const keys = [...new Set([...Object.keys(committed), ...Object.keys(built)])].filter((k) => !aside.includes(k));
+  const drift = keys.filter((k) => JSON.stringify(committed[k]) !== JSON.stringify(built[k]));
+  if (typeof committed.read_at !== "string") drift.push("read_at");
+  const unmarked = lf(committedText).replace(/^ {2}"pending_since": "[^"\n]*",\n/m, "");
+  if (drift.length === 0 && textOf({ ...built, read_at: committed.read_at }) !== unmarked) drift.push("layout");
+  return { drift, pendingSince: typeof committed.pending_since === "string" ? committed.pending_since : null };
+}
+
+/** --check (SYNC-CHECK-MODE-1): build the snapshot the sources serve now, exactly as the write does, and compare it with the
+ *  committed file under `root` (snapshotDrift), then its manifest entry (manifestEntryHolds). Writes nothing. A difference: one
+ *  line on stderr, exit 1; a committed pending_since is named on stderr and does not fail the check. Same: one line on stdout. */
+export async function checkUkemiServed({ root, get = fetch, ca }) {
+  const out = await buildUkemiServed({ root, get, ca });
+  let res;
+  try { res = snapshotDrift(readFileSync(join(root, OUT_REL), "utf8"), out, servedText); } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+  if (res.pendingSince !== null) console.error(`sync-ukemi-served --check: note: ${OUT_REL} carries pending_since ${res.pendingSince} (a pending snapshot; export-public --out refuses it until the promotion).`);
+  if (res.drift.length > 0) {
+    console.error(`sync-ukemi-served --check: ${OUT_REL} no longer says what the harness serves now, on {${res.drift.join(", ")}}; re-run without --check.`);
+    process.exit(1);
+  }
+  if (!manifestEntryHolds(root, OUT_REL)) {
+    console.error(`sync-ukemi-served --check: the manifest entry of ${OUT_REL} is not its sha256; re-run without --check.`);
+    process.exit(1);
+  }
+  console.log(`sync-ukemi-served --check OK — ${OUT_REL} says what the harness serves now (read_at and pending_since aside).`);
 }
 
 /** --pending under `root`: the pending snapshot, pending_since on the served file and both manifest entries, all computed
@@ -351,4 +412,11 @@ export function promotedManifest(root, manifestText, servedRel, sha, pendingRel)
   return !/"pending_since"/.test(disk) && files[servedRel] === sha256(Buffer.from(lf(disk), "utf8")) ? next : removeManifestEntry(next, pendingRel);
 }
 
-if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await (process.argv.includes("--pending") ? pendingMain() : main());
+/** Does the site manifest under `root` hold, for `rel`, the CRLF->LF sha256 of the committed file (reads only)? The --check of a
+ *  served snapshot requires it, as scripts/sync-narabi-served.mjs does (narabiEntryFix): the site loaders refuse a wrong entry. */
+export function manifestEntryHolds(root, rel) {
+  const entry = JSON.parse(readFileSync(join(root, MANIFEST_REL), "utf8"))?.files?.[rel];
+  return entry === sha256(Buffer.from(lf(readFileSync(join(root, rel), "utf8")), "utf8"));
+}
+
+if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await (process.argv.includes("--pending") ? pendingMain() : process.argv.includes("--check") ? checkUkemiServed({ root: ROOT, get: fetch, ca: readFileSync(join(ROOT, CA_REL), "utf8") }) : main());

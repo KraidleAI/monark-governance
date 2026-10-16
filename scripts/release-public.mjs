@@ -64,6 +64,41 @@ export const LOCAL_GATES = Object.freeze([
   ["export check, global scope (npm run export:check)", "npm run export:check"],
 ].map((g) => Object.freeze(g)));
 
+// ============================================================ CAPTURE PREFLIGHT (SYNC-CHECK-MODE-1) ===
+// Placed here, after the guards above, so their lines keep their numbers. ESM hoists the import.
+import { CAPTURE_CHECK_TOOLS, captureCheckProblems } from "./export-public.mjs";
+import { spawnSync } from "node:child_process";
+
+/** The site capture tools whose --check the preflight runs (the closed list of export-public.mjs, which judges the results). */
+export const CAPTURE_CHECKS = CAPTURE_CHECK_TOOLS;
+
+/** The default runner of one capture check: `node scripts/<tool> --check` as a child under `root`, stdout and stderr captured.
+ *  Returns { tool, exit, stderr, args }: exit null when the child did not run to an exit (not started, killed). */
+export function defaultRunCheck({ root, tool }) {
+  const args = [`scripts/${tool}`, "--check"];
+  const r = spawnSync(process.execPath, args, { cwd: root, encoding: "utf8", timeout: 120_000 });
+  return { tool, exit: r.error === undefined && Number.isInteger(r.status) ? r.status : null, stderr: `${r.stderr ?? ""}${r.error === undefined ? "" : String(r.error)}`, args };
+}
+
+/** The capture part of the preflight: each tool of CAPTURE_CHECKS run once through `runCheck` (a throw is a result that did
+ *  not run to an exit), the results judged by captureCheckProblems. Returns the problems; never aborts (the caller does). */
+export function capturePreflight({ root, runCheck = defaultRunCheck }) {
+  const results = CAPTURE_CHECKS.map((tool) => {
+    try {
+      return runCheck({ root, tool });
+    } catch (e) {
+      return { tool, exit: null, stderr: e instanceof Error ? e.message : String(e) };
+    }
+  });
+  return captureCheckProblems(results);
+}
+
+/** The capture gate of the preflight: RELEASE ABORTED, exit 1, on the first problem of capturePreflight, naming every one. */
+export function captureGate({ root, runCheck = defaultRunCheck }) {
+  const problems = capturePreflight({ root, runCheck });
+  if (problems.length > 0) abort(`a site capture does not say what its source serves now: ${problems.join("; ").replace(/\.$/, "")}. Re-run the sync that writes it, commit, then release.`);
+}
+
 // ============================================================ CLI helpers (run-guarded; not exported) ===
 
 function run(cmd, cwd = SRC) {
@@ -145,9 +180,9 @@ function parseArgs(argv) {
 
 /** Every fail-closed refusal that must precede ANY preparation (ADR-M010 section 4/5; ADR-PUBLIC-CADENCE-1 D1), so a
  *  bad invocation — INCLUDING a --dry-run — refuses before any gate runs and before the mirror clone is touched: the
- *  message gate (CA-1.1), the mirror path and the noreply identity (CA-1.4), the branch guard, gh, the visibility of
- *  the governance repository (CA-1.7), and the pending snapshot (RELEASE-PREFLIGHT-SEND-GUARD-1). Returns what main()
- *  consumes. */
+ *  message gate (CA-1.1), the mirror path and the noreply identity (CA-1.4), the branch guard, the pending snapshot
+ *  (RELEASE-PREFLIGHT-SEND-GUARD-1), then the five site capture checks (captureGate: each capture tool's --check, before
+ *  any gh read), gh, and the visibility of the governance repository (CA-1.7). Returns what main() consumes. */
 function preflight(opts) {
   if (!opts.message) abort("--message <file> is required: the English commit message (ADR-PUBLIC-CADENCE-1 D1).");
   if (!existsSync(opts.message)) abort(`--message file not found: ${opts.message}`);
@@ -170,6 +205,11 @@ function preflight(opts) {
   // a release (or a --dry-run) between C2 and T0 refuses here, before the long gates and the network, not at its export.
   const sg = sendGuard(readSendBlockers());
   if (!sg.ok) abort(`RELEASE-PREFLIGHT-SEND-GUARD-1 (SITE-SEND-GUARD-MECH-1): ${sg.reason}; no mirror release before T0. Release from the trunk once promoted at T0 (node scripts/sync-harness-served.mjs, then node scripts/sync-ukemi-served.mjs).`);
+  // Capture checks (SYNC-CHECK-MODE-1), after the pending refusal and before any gh read: each site capture says what its
+  // source serves now. The flow test injects the results of the network checks (opts.checks, set by main from its `inject`,
+  // never by the command line); any tool it does not name runs for real through defaultRunCheck.
+  const injected = opts.checks ?? [];
+  captureGate({ root: SRC, runCheck: ({ root, tool }) => injected.find((c) => c.tool === tool) ?? defaultRunCheck({ root, tool }) });
   requireGh();
   const vis = tryCapture(`gh api repos/${GOVERNANCE_SLUG} --jq .visibility`);
   if (!vis.ok || vis.out !== "private") abort(`${GOVERNANCE_SLUG} visibility reads '${vis.out}', not 'private' (CA-1.7).`);
@@ -177,13 +217,14 @@ function preflight(opts) {
 }
 
 // ============================================================================================ main CLI ==
-/** `inject` serves test/release-public-flow.test.ts only ({gates, remote}: substitute gates that journal their passage,
- *  a disposable bare repository). The run-guard below calls main() with no argument, so the production command line never
+/** `inject` serves test/release-public-flow.test.ts only ({gates, remote, checks}: substitute gates that journal their passage,
+ *  a disposable bare repository, the results of the capture checks it does not run). The run-guard below calls main() with no argument, so the production command line never
  *  reaches it (ADR-PUBLIC-CADENCE-1 C-V-4, mutant M1-p). */
 export function main(argv = process.argv.slice(2), inject = {}) {
   const opts = parseArgs(argv);
 
   // 0. Fail-closed preflight BEFORE any preparation: on a refusal no gate runs and the mirror clone is not touched.
+  opts.checks = inject.checks; // the flow test only; parseArgs never sets it
   const plan = preflight(opts);
   const MIRROR = plan.mirror;
   const REMOTE = inject.remote ?? PUBLIC_REMOTE;

@@ -29,3 +29,11 @@ export function writeHarnessPending(root: string, writtenAt: string): Promise<st
 export const CA_REL: string;
 /** The pending snapshot the default run promotes. */
 export const PENDING_REL: string;
+/** SYNC-CHECK-MODE-1: a fetch-like reader, the seam of the sync's reads (fetch by default). */
+export type Get = (url: string, init?: RequestInit) => Promise<Response>;
+/** The served snapshot (read_at included) and its leak exemption, every body read through `get` and bound to the deploy check
+ *  record `ca` (its JSON text); exits 1 on any check (fail-closed). */
+export function buildHarnessServed(opts: { get?: Get; ca: string }): Promise<{ out: Record<string, unknown>; exempt: string }>;
+/** --check: the committed snapshot under `root` against what the sources serve now, read_at and pending_since aside; exits 1
+ *  on a difference, returns on a match. Writes nothing. */
+export function checkHarnessServed(opts: { root: string; get?: Get; ca: string }): Promise<void>;
