@@ -142,11 +142,11 @@ function ShogenGap({ name }: { name: string }) {
         <CorrelatedSourcesSchema />
       </Figure>
       <p>
-        {name}, fully developed, is an attested perception layer: it captures what each source said over an attested transport,
-        types it into facts, aggregates facts into a quorum verdict, and attaches to that verdict a diversity certificate: the
-        measured independence of the sources behind it, with shared upstreams, shared hosts and shared failures written down. The
-        whole is verifiable offline by a third party with no trust in {name}. An attestation proves what a source said, never that
-        the source is right.
+        {name}, fully developed, is meant to be an attested perception layer: it is meant to capture what each source said over an
+        attested transport, type it into facts, aggregate facts into a quorum verdict, and attach to that verdict a diversity
+        certificate: the measured independence of the sources behind it, with shared upstreams, shared hosts and shared failures
+        written down. The whole is meant to be verifiable offline by a third party with no trust in {name}. An attestation proves
+        what a source said, never that the source is right.
       </p>
     </DocSection>
   );

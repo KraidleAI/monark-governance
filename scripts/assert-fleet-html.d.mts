@@ -112,3 +112,8 @@ export function assertDojoBody(args: { html: string; expected: Exclude<DojoExpec
 export function assertDojoAbsent(args: { dojoHtml: string | null; dojoMeta: string | null; tokenHtml: string }): { page: string };
 /** The expectations of /dojo from the committed record under `dataRoot` (default the repo root); throws fail-closed. */
 export function dojoExpected(dataRoot?: string): Promise<DojoExpected>;
+/** The values of the content and custom property declarations of a CSS text that spell `word`, its CSS escapes decoded (in the
+ *  property name too), letters only, any case of the name and of the value, over the whole value and over its strings alone; an escape
+ *  past U+10FFFF throws, naming `file` (fail-closed).
+ *  O-2 reads the built CSS bundle with it. */
+export function cssContentSpelling(css: string, word: string, file?: string): string[];

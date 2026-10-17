@@ -66,6 +66,7 @@ import { ATTESTATION_BINDING } from "../apps/harness/src/attestation-binding.ts"
 import { hasCommittedCalibrationForClass, lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE } from "../apps/harness/src/calibration.ts";
 import { scoresSha256 } from "../packages/contracts/src/index.ts";
 import { STRATA_CUTS_SERVED, strateOf } from "../apps/harness/src/ukemi-strata.ts";
+import { assertLiqBandExact, marginalClassEntries } from "../apps/harness/src/policy-marginal.ts";
 import { assertUkemiBody, scanNumericTokens, ukemiExpected, renderedBody, extractMain, mainCorpus, type UkemiExpected } from "../scripts/assert-fleet-html.mjs";
 import { scanText, scanSource, renderedTexts, loadExemptFile, exemptValues } from "../apps/site/test/honesty-lint.ts";
 import { FLEET_AGENTS } from "../apps/site/lib/fleet.ts";
@@ -1567,6 +1568,20 @@ test("site_ukemi_count_wording_says_what_the_wire_serves — an uncommitted stra
     assert.ok(text.includes("counts no calibration point") && text.includes("course page"), `${name} says the wire counts no calibration point and where the measured counts are`);
     assert.ok(!/the count is published|with the count\b/.test(text), `${name} carries a former count wording`);
   }
+});
+
+// killer: apps/site/lib/ukemi-copy.ts:161 CONST "at most one base unit" -> "any margin"
+test("ukemi_coverage_note_says_the_top_stratum_holds_a_margin_of_at_most_one_base_unit — the coverage note says why the largest-amount stratum answers under_calib (no committed row; at this version a row for it could hold a margin of at most one base unit) instead of forecasting how long it stays so (Ukemi L13; PX-Ukemi-7 makes it revisited)", () => {
+  const top = `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(STRATA_CUTS_SERVED.length)}`;
+  assert.equal(lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, top), undefined, "premise: the largest-amount stratum has no committed calibration; when it is committed this reds and the note is revisited");
+  const liq = marginalClassEntries(() => "").find((c) => c.task_class === TASK_LIQ_ELIGIBLE);
+  assert.ok(liq !== undefined, "premise: the liquidation class entry is found (false-green guard)");
+  const row = (qhat: number) => ({ cell_key: top, qhat }) as unknown as Parameters<typeof assertLiqBandExact>[0];
+  assert.equal(2 ** 53 - Number.MAX_SAFE_INTEGER, 1, "premise: two to the fifty-third minus the largest safe integer is one base unit");
+  assert.doesNotThrow(() => assertLiqBandExact(row(1), liq), "premise: a margin of one base unit passes the exact-band guard on the largest-amount stratum");
+  assert.throws(() => assertLiqBandExact(row(2), liq), /LIQ-BAND-EXACT-GUARD-1/, "premise: a margin of two does not; when PX-Ukemi-7 changes the guard this reds and the note is revisited");
+  assert.ok(COVERAGE_NOTE.includes("The largest-amount stratum has no committed row, so it answers under_calib; at this version a row for it could hold a margin of at most one base unit, as a wider band would leave the exact range of the arithmetic;"), "the note forecasts instead of saying why");
+  assert.doesNotMatch(COVERAGE_NOTE, /expected to stay|for a long time/, "no forecast is left in the note");
 });
 
 /* ─────────── /ukemi, committed state: the note and the figures of the committed stratum, under a closed list ───────────
