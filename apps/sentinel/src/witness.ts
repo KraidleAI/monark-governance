@@ -7,15 +7,20 @@
 // to the file named, then with ".ts", then "/index.ts"; a workspace specifier `@monark/<name>[/<sub>]` resolves through
 // the `exports` field of the package.json of the workspace package of that name (apps/* and packages/*), and that
 // package.json joins the list; a `node:` builtin is not a file. Fail-closed: an import() call, a call named require, a
-// specifier that resolves to no file, a package outside the workspace and a path outside the root each throw, so the
-// witness is never partial in silence and run.ts publishes nothing.
+// specifier that resolves to no file, a package outside the workspace and a path outside the root each throw, and run.ts
+// publishes nothing. An import() call is told by the word import before "(", not after a dot, so a method named import
+// and a `typeof import("...")` in a type are refused too: an excess, closed.
 // closureWitness is the sha256 of a version line followed, for each path of the sorted list, by
 // "<path>\0<sha256 of its bytes>\n": each content is bound to its path. Node built-ins only; every read goes through
 // the reader (fsReader is the on-disk one, the local witness tool brings a reader of git trees); no network, no
 // environment read.
-// Scanner limit: a regular expression right after the "}" that closes a block is read as a division; a misread fails
-// closed (an unterminated string or an unreadable declaration throws), and the closure test compares this walk with one
-// made on the TypeScript syntax tree.
+// How the scanner reads a "/" that opens no comment. Right after a "}" it is refused: there a regular expression (after a
+// block) and a division (after an object literal) look alike, and a regular expression read as a division can open a
+// comment that hides an import. Else it opens a regular expression at the start of the text, after a punctuation other
+// than ")" and "]", after the ")" of an if, while, for or with head, or after a word of REGEX_AFTER_WORD that no ".", "?."
+// or "#" precedes; anywhere else (another word, a number, a string, a template, a regular expression) it is a division.
+// The scanner alone does not prove the walk complete: a walk of the TypeScript syntax tree checks it, on the real tree at
+// each run of the closure test, and on each tree that scripts/sentinel-witness.mjs prints (a difference is refused).
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, posix } from "node:path";
@@ -38,7 +43,7 @@ export function fsReader(root: string): TreeReader {
 }
 
 type Tok = { readonly k: "id" | "str" | "punc" | "other"; readonly v: string };
-const REGEX_AFTER_WORD = new Set(["return", "typeof", "case", "do", "else", "in", "of", "new", "delete", "void", "throw", "instanceof", "yield", "await"]);
+const REGEX_AFTER_WORD = new Set(["return", "typeof", "case", "do", "else", "in", "of", "new", "delete", "void", "throw", "instanceof", "yield", "await", "default", "extends"]);
 const HEAD_WORDS = new Set(["if", "while", "for", "with"]);
 
 /** The tokens of a source text, comments dropped; a string token carries its value, templates and regular expressions none. */
@@ -53,10 +58,10 @@ function scan(text: string, file: string): Tok[] {
   const regexAllowed = (): boolean => {
     const p = out[out.length - 1];
     if (p === undefined) return true;
-    if (p.k === "id") return REGEX_AFTER_WORD.has(p.v);
+    if (p.k === "id") { const q = out[out.length - 2]; return REGEX_AFTER_WORD.has(p.v) && !(q?.k === "punc" && (q.v === "." || q.v === "?." || q.v === "#")); }
     if (p.k !== "punc") return false;
     if (p.v === ")") return afterHead;
-    return p.v !== "]" && p.v !== "}";
+    return p.v !== "]"; // a "}" never gets here: the slash after it is refused first
   };
   const template = (): void => {
     while (i < n) {
@@ -87,6 +92,8 @@ function scan(text: string, file: string): Tok[] {
     }
     if (c === "`") { i++; template(); continue; }
     if (c === "}" && braces[braces.length - 1] === "${") { braces.pop(); i++; template(); continue; }
+    // A "/" here opens no comment (both comments are read above): after a "}" it is refused, never guessed.
+    if (c === "/" && out[out.length - 1]?.k === "punc" && out[out.length - 1]?.v === "}") fail("a slash right after a closing brace: a regular expression or a division the closure cannot tell apart");
     if (c === "/" && regexAllowed()) {
       let j = i + 1, cls = false;
       while (j < n) {

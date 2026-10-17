@@ -3512,6 +3512,7 @@
   "sentinel_witness_cli_composes_overlay_tree",
   "sentinel_witness_cli_ignores_deploy_day_line",
   "sentinel_witness_cli_prints_closure_digest",
+  "sentinel_witness_cli_reads_the_served_timeline_strictly",
   "sentinel_witness_cli_waits_without_a_post_deploy_line"
  ],
  "test/served-history.test.ts": [

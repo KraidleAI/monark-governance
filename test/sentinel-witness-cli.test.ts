@@ -47,7 +47,7 @@ const gitIn = (repo: string) => {
   };
 };
 
-// killer: scripts/sentinel-witness.mjs:21 CONST "apps/sentinel/src/run.ts" -> "apps/sentinel/src/windows.ts"
+// killer: scripts/sentinel-witness.mjs:32 CONST "apps/sentinel/src/run.ts" -> "apps/sentinel/src/windows.ts"
 test("sentinel_witness_cli_prints_closure_digest", async () => {
   const tool = await loadTool(), w = await loadWitness();
   assert.equal(typeof tool.runPrint, "function", "scripts/sentinel-witness.mjs exports runPrint");
@@ -74,7 +74,7 @@ test("sentinel_witness_cli_prints_closure_digest", async () => {
   assert.equal(printed.overlay, null, "no overlay asked, none applied");
 });
 
-// killer: scripts/sentinel-witness.mjs:53 CONST "parseOverlay(overlay)" -> "null"
+// killer: scripts/sentinel-witness.mjs:65 CONST "parseOverlay(overlay)" -> "null"
 test("sentinel_witness_cli_composes_overlay_tree", async () => {
   const tool = await loadTool(), w = await loadWitness();
   assert.equal(typeof tool.runPrint, "function", "scripts/sentinel-witness.mjs exports runPrint");
@@ -85,9 +85,11 @@ test("sentinel_witness_cli_composes_overlay_tree", async () => {
   const put = (dir: string, files: Record<string, string>): void => {
     for (const [rel, text] of Object.entries(files)) { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), text); }
   };
-  const Y = "apps/sentinel/src/y.ts", P = "packages/p/src/index.ts";
+  const Y = "apps/sentinel/src/y.ts", P = "packages/p/src/index.ts", WITNESS = "apps/sentinel/src/witness.ts";
+  // The sentinel of these trees writes the closure witness: its run.ts imports the real witness module, as on this tree.
   const files0 = {
-    [ENTRY]: 'import { y } from "./y.ts";\nimport { p } from "@monark/p";\nexport const r = [y, p];\n',
+    [ENTRY]: 'import { y } from "./y.ts";\nimport { p } from "@monark/p";\nimport { closureWitness } from "./witness.ts";\nexport const r = [y, p, closureWitness];\n',
+    [WITNESS]: readFileSync(join(ROOT, ...WITNESS.split("/")), "utf8"),
     [Y]: 'export const y = "v0";\n',
     "packages/p/package.json": '{ "name": "@monark/p", "exports": { ".": "./src/index.ts" } }\n',
     [P]: 'export const p = "v0";\n',
@@ -117,9 +119,49 @@ test("sentinel_witness_cli_composes_overlay_tree", async () => {
   assert.deepEqual([printed.tree, printed.overlay], [B, { prefix: "apps/sentinel", sha: A }], "print names the two commits it read");
   assert.notEqual(expected, runPrint({ repo, tree: A }).witness, "the composition differs from A alone");
   assert.notEqual(expected, runPrint({ repo, tree: B }).witness, "the composition differs from B alone");
+  /** "threw: <message>" when print refuses, else the witness it printed. */
+  const printOutcome = (o: Parameters<typeof runPrint>[0]): string => { const r = attempt(() => runPrint(o)); return typeof r === "string" ? r : `printed ${r.witness}`; };
+  // killer: scripts/sentinel-witness.mjs:72 CONST "laidFiles.length === 0" -> "false"
+  assert.match(printOutcome({ repo, tree: B, overlay: `apps/nosuch=${A}` }), /^threw: .*has no file under apps\/nosuch/, "an overlay whose commit has no file under its prefix is refused, never laid as nothing");
+  // A commit whose sentinel does not write this witness: its run.ts no longer imports witness.ts, which is gone from apps/sentinel/src.
+  rmSync(join(repo, ...WITNESS.split("/")));
+  put(repo, { [ENTRY]: 'import { y } from "./y.ts";\nimport { p } from "@monark/p";\nexport const r = [y, p];\n' });
+  git("commit", "-q", "-a", "-m", "a sentinel without the closure witness");
+  const C = git("rev-parse", "HEAD");
+  const NOT_THIS = /^threw: .*the sentinel of this tree does not write this witness/;
+  // killer: scripts/sentinel-witness.mjs:91 CONST "theirs === undefined || !ours.equals(Buffer.from(theirs))" -> "false"
+  assert.match(printOutcome({ repo, tree: C }), NOT_THIS, "print refuses a tree whose sentinel does not write the closure witness");
+  assert.match(printOutcome({ repo, tree: B, overlay: `apps/sentinel=${C}` }), NOT_THIS, "print refuses a composition whose sentinel directory does not write it");
+  // A witness module whose bytes differ from the one this tool runs: another witness, refused as well.
+  put(repo, { [ENTRY]: files0[ENTRY], [WITNESS]: `${files0[WITNESS]}// another witness\n` });
+  git("add", "--", ".");
+  git("commit", "-q", "-m", "another witness module");
+  assert.match(printOutcome({ repo, tree: git("rev-parse", "HEAD") }), NOT_THIS, "print refuses a tree whose witness module is not the tool's, byte for byte");
+  // A tree that the closure test would refuse, print refuses as well. First, a regular expression after an automatic
+  // semicolon (a type annotation ends the line before it), read by the witness as a division whose "/*" opens a comment
+  // that hides an import the syntax tree reads; then a division after a non-null assertion, read by the witness as a
+  // regular expression that ends inside a string, so that the text of a string reads as an import; then an import() call
+  // hidden as the first import is; last, a module loaded at run time by name, which no specifier shows.
+  const hidden = (load: string): string => `${files0[ENTRY]}let t: number | undefined\n/[/*]/.test("x");\n${load}\n/** the end */\nexport const s = t;\n`;
+  put(repo, { [WITNESS]: files0[WITNESS], "apps/sentinel/src/x.ts": "export const x = 1;\n", [ENTRY]: hidden('import { x } from "./x.ts";\nexport const u = x;') });
+  git("add", "--", ".");
+  git("commit", "-q", "-m", "a sentinel whose closure the witness misreads");
+  // killer: scripts/sentinel-witness.mjs:192 CONST "extra.length > 0 || missing.length > 0" -> "false"
+  assert.match(printOutcome({ repo, tree: git("rev-parse", "HEAD") }), /^threw: .*\(witness only: none; syntax tree only: apps\/sentinel\/src\/x\.ts\)/, "print refuses a tree on which the witness reads less than the syntax tree");
+  put(repo, { [ENTRY]: `${files0[ENTRY]}const m: number | undefined = 4;\nexport const z = m! / 2 + ("/" + ' " import "./x.ts" '); // '\n` });
+  git("commit", "-q", "-a", "-m", "a sentinel whose closure the witness reads too wide");
+  assert.match(printOutcome({ repo, tree: git("rev-parse", "HEAD") }), /^threw: .*\(witness only: apps\/sentinel\/src\/x\.ts; syntax tree only: none\)/, "print refuses a tree on which the witness reads more than the syntax tree");
+  put(repo, { [ENTRY]: hidden('export const f = (): Promise<unknown> => import("./x.ts");') });
+  git("commit", "-q", "-a", "-m", "a sentinel whose import() call the witness misreads");
+  // killer: scripts/sentinel-witness.mjs:172 CONST "n.expression.kind === ts.SyntaxKind.ImportKeyword" -> "false"
+  assert.match(printOutcome({ repo, tree: git("rev-parse", "HEAD") }), /^threw: apps\/sentinel\/src\/run\.ts: an import\(\) call: a load made at run time/, "print refuses a tree whose import() call the witness does not see and the syntax tree does");
+  put(repo, { [ENTRY]: `${files0[ENTRY]}export const g = (): unknown => process.getBuiltinModule("node:fs");\n` });
+  git("commit", "-q", "-a", "-m", "a sentinel that loads a module by name at run time");
+  // killer: scripts/sentinel-witness.mjs:194 CONST "loads.length > 0" -> "false"
+  assert.match(printOutcome({ repo, tree: git("rev-parse", "HEAD") }), /^threw: .*a load that no specifier shows \(apps\/sentinel\/src\/run\.ts l\.5: getBuiltinModule\)/, "print refuses a tree whose closure loads a module by a form no specifier shows");
 });
 
-// killer: scripts/sentinel-witness.mjs:112 CONST "next.sentinel_sha === expected" -> "true"
+// killer: scripts/sentinel-witness.mjs:132 CONST "next.sentinel_sha === expected" -> "true"
 test("sentinel_witness_cli_compares_served_line", async () => {
   const tool = await loadTool();
   assert.ok(typeof tool.runCompare === "function" && typeof tool.SERVED_TIMELINE === "string", "scripts/sentinel-witness.mjs exports runCompare and the served timeline URL");
@@ -134,7 +176,7 @@ test("sentinel_witness_cli_compares_served_line", async () => {
   assert.deepEqual(asked, [SERVED_TIMELINE, SERVED_TIMELINE], "one GET of the served timeline per comparison");
 });
 
-// killer: scripts/sentinel-witness.mjs:110 CONST "lines.find((l) => l.day > afterDay)" -> "lines.findLast((l) => l.day <= afterDay)"
+// killer: scripts/sentinel-witness.mjs:130 CONST "lines.find((l) => l.day > afterDay)" -> "lines.findLast((l) => l.day <= afterDay)"
 test("sentinel_witness_cli_ignores_deploy_day_line", async () => {
   const tool = await loadTool();
   assert.equal(typeof tool.runCompare, "function", "scripts/sentinel-witness.mjs exports runCompare");
@@ -149,7 +191,7 @@ test("sentinel_witness_cli_ignores_deploy_day_line", async () => {
   assert.deepEqual([r.status, r.exit, r.day], ["confirmed", 0, next.day], "the lines written up to the deploy day are not compared");
 });
 
-// killer: scripts/sentinel-witness.mjs:111 CONST "status: \"waiting\", exit: 2" -> "status: \"confirmed\", exit: 0"
+// killer: scripts/sentinel-witness.mjs:131 CONST "status: \"waiting\", exit: 2" -> "status: \"confirmed\", exit: 0"
 test("sentinel_witness_cli_waits_without_a_post_deploy_line", async () => {
   const tool = await loadTool();
   assert.equal(typeof tool.runCompare, "function", "scripts/sentinel-witness.mjs exports runCompare");
@@ -158,6 +200,42 @@ test("sentinel_witness_cli_waits_without_a_post_deploy_line", async () => {
   assert.ok(last !== undefined, "the fixture has lines");
   const r = await runCompare({ expected: last.sentinel_sha, afterDay: last.day, get: servedGet(fixtureText(), []) });
   assert.deepEqual([r.status, r.exit, r.day], ["waiting", 2, null], "no line after the deploy day yet: waiting, exit 2, never confirmed");
+  // The deploy day was served before the deploy: a timeline that no longer serves it (cut before it, or empty) is refused, not awaited.
+  // killer: scripts/sentinel-witness.mjs:129 CONST "!lines.some((l) => l.day === afterDay)" -> "false"
+  const cut = fixtureText().split("\n").filter((l) => l.trim() !== "").slice(0, -1).join("\n") + "\n";
+  await assert.rejects(runCompare({ expected: last.sentinel_sha, afterDay: last.day, get: servedGet(cut, []) }), /--after-day .* is not served/, "a timeline cut before the deploy day is refused, never read as waiting");
+  await assert.rejects(runCompare({ expected: last.sentinel_sha, afterDay: last.day, get: servedGet("", []) }), /--after-day .* is not served/, "an empty timeline is refused, never read as waiting");
+});
+
+// killer: scripts/sentinel-witness.mjs:114 CONST "res.status !== 200" -> "res.status >= 400"
+test("sentinel_witness_cli_reads_the_served_timeline_strictly", async () => {
+  const tool = await loadTool();
+  assert.ok(typeof tool.httpsGet === "function" && typeof tool.servedLines === "function", "scripts/sentinel-witness.mjs exports httpsGet and servedLines");
+  const { httpsGet, servedLines } = tool as typeof import("../scripts/sentinel-witness.mjs");
+  // The GET, its fetch injected: each call is recorded, the answer is a status and a body given as chunks.
+  const MAX = 8 * 1024 * 1024; // the body bound of the tool's GET (MAX_BYTES)
+  const calls: (RequestInit | undefined)[] = [];
+  const answer = (status: number, chunks: Uint8Array[] = []): typeof fetch => (_url: unknown, init?: RequestInit) => {
+    calls.push(init);
+    return Promise.resolve({ status, body: chunks } as unknown as Response);
+  };
+  const URL_OK = "https://example.invalid/timeline.jsonl";
+  await assert.rejects(httpsGet("http://example.invalid/timeline.jsonl", answer(200)), /https only/, "an http URL is refused");
+  assert.equal(calls.length, 0, "an http URL is refused before any request");
+  // killer: scripts/sentinel-witness.mjs:113 SDL "redirect: \"manual\", " -> ""
+  await assert.rejects(httpsGet(URL_OK, answer(301)), /answered 301/, "a redirect is refused, never followed");
+  assert.equal(calls[0]?.redirect, "manual", "the GET asks fetch not to follow a redirect");
+  await assert.rejects(httpsGet(URL_OK, answer(204)), /answered 204/, "a success other than 200 is refused");
+  await assert.rejects(httpsGet(URL_OK, answer(200, [new Uint8Array(MAX - 1), new Uint8Array(2)])), /exceeds 8388608 bytes/, "a body one byte over the bound is refused");
+  assert.equal((await httpsGet(URL_OK, answer(200, [new Uint8Array(MAX - 1), new Uint8Array(1)]))).length, MAX, "a body at the bound is read whole");
+  // The served lines: LF-ended JSON lines, a day and a 64-hex sentinel_sha each, days strictly increasing.
+  const line = (day: string, sha = "a".repeat(64)): string => JSON.stringify({ day, sentinel_sha: sha });
+  assert.deepEqual(servedLines(`${line("2026-09-18")}\n${line("2026-09-19")}\n`).map((l) => l.day), ["2026-09-18", "2026-09-19"], "well-formed lines are read");
+  // killer: scripts/sentinel-witness.mjs:106 CONST "!(lines[i].day > lines[i - 1].day)" -> "false"
+  assert.throws(() => servedLines(`${line("2026-09-18")}\n${line("2026-09-18")}\n`), /line 2: the days do not increase/, "two lines of one day are refused");
+  assert.throws(() => servedLines(`${line("2026-09-19")}\n${line("2026-09-18")}\n`), /line 2: the days do not increase/, "decreasing days are refused");
+  assert.throws(() => servedLines(`${line("2026-09-18")}\n${line("2026-09-19")}`), /does not end with a line feed/, "a timeline without its final line feed is refused");
+  assert.throws(() => servedLines(`${line("2026-09-18")}\n${JSON.stringify({ day: "2026-09-19" })}\n`), /line 2 has no day or no sentinel_sha/, "a line without a witness is refused");
 });
 
 // killer: docs/RUNBOOK-harness.md:259 SDL "Sentinel witness (deployment and next day)" -> ""

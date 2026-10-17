@@ -495,8 +495,9 @@ an update that changes a file of that closure changes it for every line written 
    `docs/JOURNAL-PROVENANCE.md` when a public sentence needs it, else in its local register).
 5. The next day, after 10:05 UTC: `node scripts/sentinel-witness.mjs compare --expected <64-hex> --after-day <YYYY-MM-DD>`, with
    the witness of step 2 and the day of step 3. Exit 0 "confirmed"; 1 "mismatch" (the first line after that day carries another
-   witness: a waiting line and a correction before any other line); 2 "waiting" (no line after that day yet, a late catch-up: run
-   it again later); 3 a failure. The orchestrator records "witness confirmed", "mismatch" or "waiting".
+   witness: the orchestrator records a pending line, then a correction, before any other line); 2 "waiting" (no line after that
+   day yet, a late catch-up: run it again later); 3 a failure. The orchestrator records "witness confirmed", "mismatch" or
+   "waiting".
 
 ## Kata path and version checks (deployment CA, section 6)
 

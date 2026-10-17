@@ -1,24 +1,36 @@
 // scripts/sentinel-witness.mjs — the local witness tool of the Narabi sentinel. SOURCE-REPO tool (not exported); Node 24,
-// built-ins and the sentinel's own witness module (apps/sentinel/src/witness.ts). Two commands:
+// built-ins, the sentinel's own witness module (apps/sentinel/src/witness.ts), the repo's typescript and the loads check
+// of the closure test (forbiddenLoads, apps/harness/test/helpers/import-specifiers.ts). Two commands:
 //   node scripts/sentinel-witness.mjs print --tree <sha> [--overlay <prefix>=<sha>] [--repo <dir>]
-//       The expected sentinel_sha of a tree: closureWitness of apps/sentinel/src/run.ts on the tree <sha> read by git
-//       (ls-tree, cat-file), every file under <prefix> read at the overlay sha instead (a deploy that ships the sentinel
-//       directory, apps/sentinel, from one sha over the rest of the tree from another). Prints one JSON object
-//       { witness, files, tree, overlay }. Git runs as `git -C <repo>` with every inherited GIT_* variable removed from its
-//       environment (`git -C` yields neither to GIT_DIR nor to GIT_INDEX_FILE); never a write.
+//       The expected sentinel_sha of a tree whose sentinel writes this tool's witness: closureWitness of
+//       apps/sentinel/src/run.ts on the tree <sha> read by git (ls-tree, cat-file), every file under <prefix> read at the
+//       overlay sha instead (a deploy that ships the sentinel directory, apps/sentinel, from one sha over the rest of the
+//       tree from another); an overlay commit with no file under <prefix> is refused. Refused as well: a composed tree whose
+//       closure does not hold apps/sentinel/src/witness.ts, or holds one whose bytes differ from the witness.ts next to
+//       this tool (its sentinel does not write this witness: run the tool of that tree); and one that fails the checks the
+//       closure test makes on the real tree: a walk of the TypeScript syntax tree (syntaxTreeClosure) finds another
+//       closure, or a file of the closure makes a load that no specifier shows. Prints one JSON object { witness, files,
+//       tree, overlay }. Git runs as `git -C <repo>` with every inherited GIT_* variable removed from its environment
+//       (`git -C` yields neither to GIT_DIR nor to GIT_INDEX_FILE); never a write.
 //   node scripts/sentinel-witness.mjs compare --expected <64-hex> --after-day <YYYY-MM-DD> [--url <served timeline>]
 //       One GET of the served timeline (https only, no redirect followed, 200 only, body bounded); strict JSON lines, days
-//       increasing. The first line whose day follows --after-day (the last day served before the deploy) is judged: none
-//       -> exit 2 "waiting"; its sentinel_sha equal to --expected -> exit 0 "confirmed"; different -> exit 1 "mismatch".
+//       increasing. --after-day is the last day served before the deploy: a timeline that no longer serves it (cut, or
+//       empty) is refused. The first line whose day follows it is judged: none -> exit 2 "waiting"; its sentinel_sha
+//       equal to --expected -> exit 0 "confirmed"; different -> exit 1 "mismatch".
 //       The lines up to --after-day were written before the deploy and carry the witness of before: never compared.
-// Any other failure (usage, git, network, a malformed line) exits 3, so it is never read as one of the three outcomes.
+// Any other failure (usage, git, network, a malformed line, a refusal above) exits 3, so it is never read as one of the
+// three outcomes.
 import { spawnSync } from "node:child_process";
-import { dirname, join } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, join, posix } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import ts from "typescript";
 import { closureWitness, executionClosure } from "../apps/sentinel/src/witness.ts";
+import { forbiddenLoads } from "../apps/harness/test/helpers/import-specifiers.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const ENTRY = "apps/sentinel/src/run.ts";
+const WITNESS_MODULE = "apps/sentinel/src/witness.ts";
 export const SERVED_TIMELINE = "https://monarkgate.tech/narabi/timeline.jsonl";
 const MAX_BYTES = 8 * 1024 * 1024;
 const SHA_RE = /^[0-9a-f]{64}$/;
@@ -56,8 +68,10 @@ export function gitTreeReader(repo, tree, overlay) {
   if (ov === null) for (const f of filesOf(base)) at.set(f, base);
   else {
     const top = commit(ov.rev), under = (f) => f.startsWith(`${ov.prefix}/`);
+    const laidFiles = filesOf(top).filter(under);
+    if (laidFiles.length === 0) throw new Error(`--overlay ${ov.prefix}=${ov.rev}: the commit ${top} has no file under ${ov.prefix}`);
     for (const f of filesOf(base)) if (!under(f)) at.set(f, base);
-    for (const f of filesOf(top)) if (under(f)) at.set(f, top);
+    for (const f of laidFiles) at.set(f, top);
     laid = { prefix: ov.prefix, sha: top };
   }
   const reader = {
@@ -71,7 +85,12 @@ export function gitTreeReader(repo, tree, overlay) {
 export function runPrint({ repo = ROOT, tree, overlay }) {
   if (typeof tree !== "string" || tree === "") throw new Error("print takes --tree <sha>");
   const { reader, tree: sha, overlay: ov } = gitTreeReader(repo, tree, overlay);
-  return { witness: closureWitness(reader, ENTRY), files: executionClosure(reader, ENTRY), tree: sha, overlay: ov };
+  const files = executionClosure(reader, ENTRY);
+  const theirs = files.includes(WITNESS_MODULE) ? reader.read(WITNESS_MODULE) : undefined;
+  const ours = readFileSync(new URL("../apps/sentinel/src/witness.ts", import.meta.url));
+  if (theirs === undefined || !ours.equals(Buffer.from(theirs))) throw new Error(`the sentinel of this tree does not write this witness (${WITNESS_MODULE} ${theirs === undefined ? "is not in its closure" : "differs from the one of this tool"}): run the tool of that tree`);
+  assertClosureTest(reader, files);
+  return { witness: closureWitness(reader, ENTRY), files, tree: sha, overlay: ov };
 }
 
 /** The served lines, strictly: one JSON object per LF-ended line, a day and a 64-hex sentinel_sha each, days increasing. */
@@ -107,10 +126,72 @@ export async function runCompare({ expected, afterDay, get = httpsGet, url = SER
   if (!SHA_RE.test(String(expected))) throw new Error("compare takes --expected <64 lowercase hex>");
   if (!DAY_RE.test(String(afterDay))) throw new Error("compare takes --after-day <YYYY-MM-DD>");
   const lines = servedLines(await get(url));
+  if (!lines.some((l) => l.day === afterDay)) throw new Error(`--after-day ${afterDay} is not served: that day was served before the deploy and must still be`);
   const next = lines.find((l) => l.day > afterDay);
   if (next === undefined) return { status: "waiting", exit: 2, day: null, served: null, expected };
   const same = next.sentinel_sha === expected;
   return { status: same ? "confirmed" : "mismatch", exit: same ? 0 : 1, day: next.day, served: next.sentinel_sha, expected };
+}
+
+/** The second walk, on the TypeScript syntax tree, independent of the witness module's scanner: from `entry`, the modules
+ *  Node loads (an import or export declaration naming a module, a type-only one erased; a relative specifier as the file,
+ *  ".ts" or "/index.ts"; a workspace one through the exports of its package.json) and the package directories a workspace
+ *  specifier traversed. An import() call throws, as in the witness: a load made at run time is not in a closure. */
+export function syntaxTreeClosure(reader, entry) {
+  const pkgs = new Map();
+  for (const group of ["apps", "packages"]) {
+    for (const name of reader.list(group)) {
+      const bytes = reader.read(`${group}/${name}/package.json`);
+      if (bytes === undefined) continue;
+      const j = JSON.parse(new TextDecoder().decode(bytes));
+      pkgs.set(j.name, { dir: `${group}/${name}`, exports: j.exports });
+    }
+  }
+  const dirs = new Set(), seen = new Set(), queue = [entry];
+  const resolve = (from, spec) => {
+    if (spec.startsWith("node:")) return null;
+    if (spec.startsWith(".")) {
+      const base = posix.normalize(posix.join(posix.dirname(from), spec));
+      const hit = [base, `${base}.ts`, `${base}/index.ts`].find((c) => reader.read(c) !== undefined);
+      if (hit === undefined) throw new Error(`${from}: ${spec} resolves to no file`);
+      return hit;
+    }
+    const m = /^(@[^/]+\/[^/]+)(\/.*)?$/.exec(spec), pk = pkgs.get(m?.[1] ?? ""), sub = m?.[2] === undefined ? "." : `.${m[2]}`;
+    const target = typeof pk?.exports === "string" ? (sub === "." ? pk.exports : undefined) : pk?.exports?.[sub];
+    if (pk === undefined || typeof target !== "string") throw new Error(`${from}: ${spec} is no export of a workspace package`);
+    dirs.add(pk.dir);
+    return posix.normalize(posix.join(pk.dir, target));
+  };
+  while (queue.length > 0) {
+    const f = queue.shift();
+    if (seen.has(f)) continue;
+    const bytes = reader.read(f);
+    if (bytes === undefined) throw new Error(`${f}: absent from the tree`);
+    seen.add(f);
+    const visit = (n) => {
+      if (ts.isCallExpression(n) && n.expression.kind === ts.SyntaxKind.ImportKeyword) throw new Error(`${f}: an import() call: a load made at run time`);
+      let spec;
+      if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier) && n.importClause?.isTypeOnly !== true) spec = n.moduleSpecifier.text;
+      else if (ts.isExportDeclaration(n) && n.moduleSpecifier !== undefined && ts.isStringLiteral(n.moduleSpecifier) && !n.isTypeOnly) spec = n.moduleSpecifier.text;
+      const r = spec === undefined ? null : resolve(f, spec);
+      if (r !== null) queue.push(r);
+      ts.forEachChild(n, visit);
+    };
+    visit(ts.createSourceFile(f, new TextDecoder().decode(bytes), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS));
+  }
+  return { modules: [...seen].sort(), packageDirs: [...dirs].sort() };
+}
+
+/** The checks the closure test makes on the real tree, made on this one: the closure `files` read by the witness is the
+ *  closure the syntax tree reads, and no module of it (a .ts, .mts, .cts, .js, .mjs or .cjs file) makes a load that no
+ *  specifier shows (forbiddenLoads); else it throws. */
+function assertClosureTest(reader, files) {
+  const second = syntaxTreeClosure(reader, ENTRY);
+  const walked = [...second.modules, ...second.packageDirs.map((d) => `${d}/package.json`)];
+  const extra = files.filter((p) => !walked.includes(p)), missing = walked.filter((p) => !files.includes(p));
+  if (extra.length > 0 || missing.length > 0) throw new Error(`the closure read by the witness is not the one the TypeScript syntax tree reads (witness only: ${extra.join(", ") || "none"}; syntax tree only: ${missing.join(", ") || "none"}): its sentinel would not hash what Node loads`);
+  const loads = files.filter((p) => /\.[cm]?[jt]s$/.test(p)).flatMap((p) => forbiddenLoads(new TextDecoder().decode(reader.read(p))).map((h) => `${p} ${h}`));
+  if (loads.length > 0) throw new Error(`a load that no specifier shows (${loads.join("; ")}): the closure cannot follow it`);
 }
 
 /** argv -> { command, flags }: a known command, each of its flags once with a value, the required ones present. */
