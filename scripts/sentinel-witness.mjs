@@ -133,10 +133,10 @@ export async function runCompare({ expected, afterDay, get = httpsGet, url = SER
   return { status: same ? "confirmed" : "mismatch", exit: same ? 0 : 1, day: next.day, served: next.sentinel_sha, expected };
 }
 
-/** The second walk, on the TypeScript syntax tree, independent of the witness module's scanner: from `entry`, the modules
- *  Node loads (an import or export declaration naming a module, a type-only one erased; a relative specifier as the file,
- *  ".ts" or "/index.ts"; a workspace one through the exports of its package.json) and the package directories a workspace
- *  specifier traversed. An import() call throws, as in the witness: a load made at run time is not in a closure. */
+/** The second walk, on the TypeScript syntax tree, independent of the witness's scanner (the closure test keeps its own copy,
+ *  read from disk: it ships in the public export, this tool does not): from `entry`, the modules Node loads (an import or
+ *  export declaration naming a module, a type-only one erased; a relative specifier as the file, ".ts" or "/index.ts"; a
+ *  workspace one through its package.json exports), the package directories traversed; an import() call throws. */
 export function syntaxTreeClosure(reader, entry) {
   const pkgs = new Map();
   for (const group of ["apps", "packages"]) {

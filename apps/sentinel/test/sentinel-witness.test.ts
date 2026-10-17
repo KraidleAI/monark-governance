@@ -1,20 +1,19 @@
 // SENTINEL — the build witness each daily line carries (sentinel_sha): the execution closure of run.ts and its digest
 // (apps/sentinel/src/witness.ts), and the sentinelSha that run.ts exports and writes into each line's provenance.
-// The closure read by the witness is compared, on the real tree, with the second walk that the local witness tool makes
-// on the TypeScript syntax tree (syntaxTreeClosure of scripts/sentinel-witness.mjs: the loads Node makes, import and
-// export declarations naming a module, type-only ones erased); the digest is judged on a copy of the closure and on small
-// trees given through an injected reader. Each test loads what it judges inside its body: a missing export reds by
-// assertion, not by import.
+// The closure read by the witness is compared with a second walk made here on the TypeScript syntax tree (the loads Node
+// makes: import and export declarations naming a module, type-only ones erased), on the real tree; the digest is judged
+// on a copy of the closure and on small trees given through an injected reader. Each test loads what it judges inside
+// its body: a missing export reds by assertion, not by import.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, posix } from "node:path";
+import ts from "typescript";
 import { forbiddenLoads } from "../../harness/test/helpers/import-specifiers.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..", "..");
 const ENTRY = "apps/sentinel/src/run.ts";
-type Tool = Partial<typeof import("../../../scripts/sentinel-witness.mjs")>;
 type Witness = Partial<typeof import("../src/witness.ts")>;
 type Reader = { read(rel: string): Uint8Array | undefined; list(rel: string): string[] };
 const loadWitness = async (): Promise<Witness> => await import("../src/witness.ts").catch(() => ({}));
@@ -28,22 +27,69 @@ const memReader = (files: Record<string, string>): Reader => ({
   list: (rel) => [...new Set(Object.keys(files).filter((f) => f.startsWith(`${rel}/`)).map((f) => f.slice(rel.length + 1).split("/")[0] ?? ""))].sort(),
 });
 
+/** The second walk: the modules Node loads from `entry`, read on the TypeScript syntax tree (importClause.isTypeOnly and the
+ *  isTypeOnly of an export declaration skipped), relative specifiers as the file, ".ts" or "/index.ts", workspace packages
+ *  through their exports; and the package directories a workspace specifier traversed. An import() call fails it, as it
+ *  fails the witness. The same walk, through a tree reader, is syntaxTreeClosure of scripts/sentinel-witness.mjs, which
+ *  print runs on every tree it composes; this test keeps its own copy, since it ships in the public export and the tool
+ *  does not. */
+function syntaxTreeClosure(root: string, entry: string): { modules: string[]; packageDirs: string[] } {
+  const pkgs = new Map<string, { dir: string; exports: Record<string, string> }>();
+  for (const group of ["apps", "packages"]) {
+    for (const name of readdirSync(join(root, group))) {
+      const pj = join(root, group, name, "package.json");
+      if (!existsSync(pj)) continue;
+      const j = JSON.parse(readFileSync(pj, "utf8")) as { name: string; exports?: Record<string, string> };
+      pkgs.set(j.name, { dir: `${group}/${name}`, exports: j.exports ?? {} });
+    }
+  }
+  const isFile = (rel: string): boolean => existsSync(join(root, rel)) && statSync(join(root, rel)).isFile();
+  const dirs = new Set<string>(), seen = new Set<string>(), queue = [entry];
+  const resolve = (from: string, spec: string): string | null => {
+    if (spec.startsWith("node:")) return null;
+    if (spec.startsWith(".")) {
+      const base = posix.normalize(posix.join(posix.dirname(from), spec));
+      const hit = [base, `${base}.ts`, `${base}/index.ts`].find(isFile);
+      assert.ok(hit !== undefined, `${from}: ${spec} resolves`);
+      return hit;
+    }
+    const m = /^(@[^/]+\/[^/]+)(\/.*)?$/.exec(spec);
+    const pk = pkgs.get(m?.[1] ?? "");
+    const target = pk?.exports[m?.[2] === undefined ? "." : `.${m[2]}`];
+    assert.ok(pk !== undefined && target !== undefined, `${from}: ${spec} is a workspace export`);
+    dirs.add(pk.dir);
+    return posix.normalize(posix.join(pk.dir, target));
+  };
+  while (queue.length > 0) {
+    const f = queue.shift() ?? "";
+    if (seen.has(f)) continue;
+    seen.add(f);
+    const visit = (n: ts.Node): void => {
+      assert.ok(!(ts.isCallExpression(n) && n.expression.kind === ts.SyntaxKind.ImportKeyword), `${f}: an import() call, a load made at run time`);
+      let spec: string | undefined;
+      if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier) && n.importClause?.isTypeOnly !== true) spec = n.moduleSpecifier.text;
+      else if (ts.isExportDeclaration(n) && n.moduleSpecifier !== undefined && ts.isStringLiteral(n.moduleSpecifier) && !n.isTypeOnly) spec = n.moduleSpecifier.text;
+      const r = spec === undefined ? null : resolve(f, spec);
+      if (r !== null) queue.push(r);
+      ts.forEachChild(n, visit);
+    };
+    visit(ts.createSourceFile(f, readFileSync(join(root, f), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS));
+  }
+  return { modules: [...seen].sort(), packageDirs: [...dirs].sort() };
+}
+
 // killer: apps/sentinel/src/witness.ts:223 SDL "found.add(" -> ""
 test("sentinel_build_witness_covers_execution_closure", async () => {
   const w = await loadWitness();
   const run = (await import("../src/run.ts").catch(() => ({}))) as { sentinelSha?: unknown };
-  const tool = (await import("../../../scripts/sentinel-witness.mjs").catch(() => ({}))) as Tool;
   assert.equal(typeof w.executionClosure, "function", "apps/sentinel/src/witness.ts exports executionClosure");
   assert.equal(typeof w.closureWitness, "function", "apps/sentinel/src/witness.ts exports closureWitness");
   assert.equal(typeof w.fsReader, "function", "apps/sentinel/src/witness.ts exports fsReader");
   assert.equal(typeof run.sentinelSha, "function", "run.ts exports the sentinelSha it writes into each line");
-  assert.equal(typeof tool.syntaxTreeClosure, "function", "scripts/sentinel-witness.mjs exports its second walk, syntaxTreeClosure");
   const { executionClosure, closureWitness, fsReader } = w as typeof import("../src/witness.ts");
-  const { syntaxTreeClosure } = tool as typeof import("../../../scripts/sentinel-witness.mjs");
   const hashed = attempt(() => executionClosure(fsReader(ROOT), ENTRY));
   assert.ok(Array.isArray(hashed), `the closure of run.ts is read on the real tree: ${String(hashed)}`);
-  const second = attempt(() => syntaxTreeClosure(fsReader(ROOT), ENTRY));
-  assert.ok(typeof second === "object", `the second walk reads the real tree: ${typeof second === "string" ? second : ""}`);
+  const second = syntaxTreeClosure(ROOT, ENTRY);
   assert.ok(second.modules.includes("apps/harness/src/calibration.ts") && second.modules.includes("apps/sentinel/src/witness.ts"), "the second walk reaches a workspace package and the witness module");
   assert.deepEqual(hashed.filter((p) => !p.endsWith("/package.json")), second.modules, "the hashed modules are the modules Node loads, as the syntax tree reads them");
   assert.ok(second.packageDirs.includes("packages/rpc-guard") && second.packageDirs.includes("apps/harness"), "the second walk traverses workspace packages");

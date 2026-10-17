@@ -1,7 +1,7 @@
 // scripts/sentinel-witness.d.mts -- type surface of scripts/sentinel-witness.mjs (TS7016 sidecar, precedent sync-dojo-served.d.mts),
-// so the type-checked root test test/sentinel-witness-cli.test.ts runs both commands in process, its GET injected, and the
-// closure test of apps/sentinel takes its second walk. Runtime = sentinel-witness.mjs; Node ignores this file.
-// Governance-only: neither file is whitelisted for the public export.
+// so the type-checked root test test/sentinel-witness-cli.test.ts runs both commands in process, its GET injected. Runtime =
+// sentinel-witness.mjs; Node ignores this file. Governance-only: neither file is whitelisted for the public export, so no
+// exported file imports them (the closure test of apps/sentinel keeps its own walk of the syntax tree).
 import type { TreeReader } from "../apps/sentinel/src/witness.ts";
 export const ENTRY: string;
 export const SERVED_TIMELINE: string;
