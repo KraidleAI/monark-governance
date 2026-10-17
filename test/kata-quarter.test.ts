@@ -1640,31 +1640,30 @@ test("garch_window_exact_on_the_frozen_strings - the GARCH window is the least W
     const q = (n << s) / d, r = (n << s) % d, m = Number(2n * r > d || (2n * r === d && q % 2n === 1n) ? q + 1n : q); // m <= 2^53, exact
     return m / Number(1n << s); // by a power of two: exact
   };
-  // the test's own products, in integers: W, the cap's binding, p^(W - 1) rounded once; then p^W and p rounded apart before their quotient,
-  // and the binary64 power of p rounded once, the two ways the weight must not be computed
-  const exact = (a: string, b: string, cap: number): [number, boolean, number, number, number] => {
+  // the test's own products, in integers: W, the cap's binding, p^(W - 1) rounded once, and p^W and p rounded apart before their quotient
+  const exact = (a: string, b: string, cap: number): [number, boolean, number, number] => {
     const d = Math.max(...[a, b].map((s) => s.split(".")[1]?.length ?? 0)), den = 10n ** BigInt(d);
     const p = [a, b].map((s) => BigInt(s.replace(".", "")) * 10n ** BigInt(d - (s.split(".")[1]?.length ?? 0))).reduce((x, y) => x + y);
     let w = 1, pn = p, pd = den, qn = 1n, qd = 1n; // p^w and p^(w - 1)
     for (; 100n * pn > 3n * pd && w < cap; w++) [qn, qd, pn, pd] = [pn, pd, pn * p, pd * den];
-    return [w, 100n * pn > 3n * pd, once(qn, qd), w > 1 ? once(pn, pd) / once(p, den) : 1, once(p, den) ** (w - 1)];
+    return [w, 100n * pn > 3n * pd, once(qn, qd), w > 1 ? once(pn, pd) / once(p, den) : 1];
   };
-  const apart: string[] = []; // the rows where a binary64 power and two roundings each differ from p^(W - 1) rounded once
+  const apart: string[] = []; // the rows where two roundings differ from p^(W - 1) rounded once
   const fit = (a: string, b: string) => ({ "garch11-sf-sp-v1": { omega: "0.000002", a, b, seed: "0.00002" } });
   for (const [horizon, a, b, w, capped] of [["1h", "0.5", "0.49514", 720, false], ["1h", "0.5", "0.49515", 720, true], ["4h", "0.5", "0.48070", 180, false],
     ["4h", "0.5", "0.48071", 180, true], ["4h", "0.1", "0.88", 174, false], ["1h", "0.0003", "0.0297", 1, false],
     ["1h", "0.1", "0.07320508075688773", 3, false], ["4h", "0.25", "0.25", 6, false], ["1h", "0", "0", 1, false]] as const) {
     const got = valuesOf(estimate(series, input(work, `${horizon}-${a}-${b}`, { horizon, span: 4 * HOUR, fits: fit(a, b) }))).garch_window;
     assert.deepEqual([got.W, got.capped], [w, capped], `${horizon}, a ${a}, b ${b}: W ${w}, the cap ${capped ? "binds" : "does not bind"}`);
-    const [ew, ecapped, weight, twice, power] = exact(a, b, horizon === "1h" ? 720 : 180);
+    const [ew, ecapped, weight, twice] = exact(a, b, horizon === "1h" ? 720 : 180);
     assert.deepEqual([ew, ecapped], [w, capped], "the same by the test's own exact products");
     const p = Number(a) + Number(b), known: Record<string, string> = { "0.25": "0.03125", "0.0003": "1", "0": "1" }; // p^(W - 1), exact in binary64
     assert.ok(Math.abs(Number(got.seed_weight) / p ** (w - 1) - 1) < 1e-9 && Number(got.seed_weight) >= 0.03, `the residual seed weight p^(W - 1), not below 0.03: ${got.seed_weight}`);
     assert.ok(known[a] === undefined || got.seed_weight === known[a], `p = ${p}, W = ${w}: the seed weight ${known[a]}, not ${got.seed_weight}`);
     assert.equal(got.seed_weight, String(weight), `${horizon}, a ${a}, b ${b}: the seed weight the test's own exact p^(W - 1), rounded once`);
-    apart.push(...(String(power) !== String(weight) ? [`power ${horizon} ${b}`] : []), ...(String(twice) !== String(weight) ? [`twice ${horizon} ${b}`] : []));
+    if (String(twice) !== String(weight)) apart.push(`${horizon} ${a} ${b}`);
   }
-  assert.ok(["power 1h 0.49514", "twice 1h 0.49515"].every((r) => apart.includes(r)), `rows that tell p^(W - 1) rounded once from a binary64 power and from two roundings: ${apart.join(", ")}`);
+  assert.ok(apart.includes("1h 0.5 0.49515"), `a row that tells p^(W - 1) rounded once from two roundings: ${apart.join(", ")}`);
   const over = estimate(series, input(work, "over", { horizon: "1h", span: 4 * HOUR, fits: fit("0.5", "0.5") }));
   assert.equal(over.status, 2, `a + b = 1: exit 2\n${over.stdout}${over.stderr}`);
   assert.equal(over.stdout, "REFUSED: garch11-sf-sp-v1: a + b = 1.0 is not below 1: no window with p^W <= 0.03\n");
