@@ -1,0 +1,41 @@
+# systemd unit for the MONARK Bell probe, off Bell's host (G0 BELL-COLLECT-TIMER-1 DC-9 and section 13 L-1 to L-5; PLAN-P4 C4-5 to C4-11,
+# lot 4b). Orchestrator-deployed on the FORMER host (Q-7), beside the Dojo and the Narabi probes, by docs/RUNBOOK-bell.md section 22, in
+# part 5 only. A Type=oneshot job driven by monark-bell-probe.timer: each start runs scripts/probe-bell.mjs once (the served timeline read
+# whole, its new lines checked by the probe's own code under the keyring of its tree, their immutables, the kept copy, freshness, the two
+# origins, the site status, the OpenTimestamps step), writes /var/lib/monark-probe/bell.json and bell/, mails a transition, and exits 1 iff
+# unhealthy, a mail failed or a write was refused. Node built-ins only: 0 new runtime dependency (R-8).
+[Unit]
+Description=MONARK Bell probe - the served timeline checked off Bell's host, each new line timestamped (BELL-COLLECT-TIMER-1)
+Documentation=https://github.com/KraidleAI/monark
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# The tree: BELL_PROBE_TREE_PATHS of the probe at the G7, root-owned 0644, its keyring redeployed at each rotation (RUNBOOK section 22 (6)).
+WorkingDirectory=/opt/monark-bell-probe
+# The mail file of monark-probe.service, required (a missing file fails the start loudly). Its SMTP_PASS is unset below: the probe reads its
+# password from its own file, mode 0600, when it sends, and alerts secret_in_environment when SMTP_PASS reaches it (DOJO-PROBE-UID-BOUNDARY-1).
+EnvironmentFile=/etc/monark/probe.env
+ExecStart=/usr/bin/env node /opt/monark-bell-probe/scripts/probe-bell.mjs --state /var/lib/monark-probe --keyring /opt/monark-bell-probe/apps/bell/keys/bell-keyring.json --smtp-pass-file /etc/monark/bell-probe-smtp-pass
+# Worst case of one start, every term bounded in code (BELL_PROBE_WORST_RUN_MS): 19 GETs x 30 s, 4 stamps and 8 upgrade calls x 5 s, the
+# mail 30 s = 660 s; plus a 60 s margin. At most 1 500 s, so the 12:00 start ends before monark-probe's 12:30 (PLAN-P4 C4-5).
+TimeoutStartSec=720
+# The guard of monark-dojo-probe.service (no name that loads code into the probe or touches the TLS of its GETs), then SMTP_PASS:
+# systemd.exec(5) applies UnsetEnvironment as the final step, after EnvironmentFile.
+UnsetEnvironment=NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED NODE_EXTRA_CA_CERTS SSL_CERT_FILE SSL_CERT_DIR HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy SMTP_PASS
+# Least privilege: the user probe of the former host, whose ONLY writable path is its state directory (PLAN-P4 C4-7).
+User=probe
+Group=probe
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/monark-probe
+# Bell's former key directory stays on this host until the act of part 5 (DC-8, M-15), inaccessible; no leading `-` (BELL-OLD-HOST-MASKS-1).
+InaccessiblePaths=/etc/monark/bell
+# Caps (PLAN-P4 C4-11): a quarter of one CPU; MemoryMax proposed, two copies of a timeline of at most 8 MiB (the body and the kept copy)
+# with the immutables and the proofs, twice the Narabi probe's 128M; re-measured at the first real start (part 5).
+CPUQuota=25%
+MemoryMax=256M
+TasksMax=64
