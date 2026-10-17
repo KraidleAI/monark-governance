@@ -84,6 +84,7 @@
  "apps/harness/test/policy-row-schema-corpus.test.ts": 1,
  "apps/harness/test/policy-table-file.test.ts": 8,
  "apps/harness/test/policy-wave2.test.ts": 19,
+ "apps/harness/test/policy-wave2b.test.ts": 6,
  "apps/harness/test/registry.test.ts": 3,
  "apps/harness/test/schema.test.ts": 2,
  "apps/harness/test/served-replay-cm3.test.ts": 3,

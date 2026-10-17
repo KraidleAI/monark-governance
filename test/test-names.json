@@ -996,6 +996,14 @@
   "w2e_tail_edges_of_the_counts_entry",
   "w2e_tail_vectors"
  ],
+ "apps/harness/test/policy-wave2b.test.ts": [
+  "w2b_chain_one_current_attempt_per_cell",
+  "w2b_guard_admits_a_wave2b_row",
+  "w2b_guard_refuses_a_kata_id_or_w_off_its_estimator",
+  "w2b_guard_refuses_a_profile_off_26_or_14_values",
+  "w2b_guard_refuses_columns_off_the_mark",
+  "w2b_guard_refuses_off_attempt_1_or_the_base_delta"
+ ],
  "apps/harness/test/registry.test.ts": [
   "harness_served_honesty_carriers_pass_vocab",
   "harness_tool_descriptions_pass_vocab",
