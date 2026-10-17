@@ -6,8 +6,7 @@
 // stops the run fail-closed (the window is not written) and is reported as lag. `--dry-run` writes nothing;
 // `--day D` runs a single day diagnostically; the state dir is env `MONARK_SENTINEL_DIR` / `--state <dir>`
 // (default /var/lib/monark-sentinel), with public copies under `public/` for Caddy to serve at /narabi/.
-import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, readdirSync, copyFileSync } from "node:fs";
-import { createHash } from "node:crypto";
+import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, copyFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { makeRpcPool, PUBLIC_ENDPOINTS, QuorumDisagreementError } from "./rpc.ts";
@@ -20,6 +19,7 @@ import { attest } from "./flow.ts";
 import type { WindowFacts } from "./flow.ts";
 import { initState, step, stateSummary } from "./timeline.ts";
 import type { SentinelState, TimelineLine } from "./timeline.ts";
+import { closureWitness, fsReader } from "./witness.ts";
 
 const DEPLOY_BLOCK = 18_571_358;                 // USDe deploy — a safe lower bound for the block search
 const DEFAULT_DIR = "/var/lib/monark-sentinel";
@@ -152,12 +152,10 @@ export async function runDue(state0: SentinelState, rpc: RpcPool, dueList: strin
   return { processedDays, lag: dueList.length - processedDays.length, stopped, lines, state, elapsedMs, maxDayMs };
 }
 
-/** sha256 over the sorted bytes of the sentinel sources (no .git on the VPS; a stable build witness). */
-function sentinelSha(srcDir: string): string {
-  const files = readdirSync(srcDir).filter((f) => f.endsWith(".ts")).sort();
-  const h = createHash("sha256");
-  for (const f of files) h.update(readFileSync(join(srcDir, f)));
-  return h.digest("hex");
+/** The build witness of each line: the digest of the execution closure of run.ts (witness.ts), read on disk from the
+ *  repository root three levels above src/ (no .git on the VPS). */
+export function sentinelSha(srcDir: string): string {
+  return closureWitness(fsReader(join(srcDir, "..", "..", "..")), "apps/sentinel/src/run.ts");
 }
 
 function loadState(dir: string, prov: Provenance): { state: SentinelState; lineCount: number } {

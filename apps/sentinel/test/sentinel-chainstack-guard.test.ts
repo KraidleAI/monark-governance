@@ -250,7 +250,7 @@ function lastLine(dir: string): TimelineLine {
   return JSON.parse(ls[ls.length - 1]!) as TimelineLine;
 }
 
-// killer: apps/sentinel/src/run.ts:349 CONST "leg.origin!" -> "\"https://hardcoded.chainstack.com\""
+// killer: apps/sentinel/src/run.ts:347 CONST "leg.origin!" -> "\"https://hardcoded.chainstack.com\""
 test("sentinel_chainstack_guard_ok_ledgers_publishes_origin_and_releases_lock — the REAL run.ts opens the leg, drives the degraded-pool quorum through the guard (attempted lines stamped network:ethereum-mainnet), publishes the chainstack.com ORIGIN as the 8th endpoint (C-6), reproduces the published line_hash (M-11), releases the cycle lock at exit (unlocked line, no .lock), and never leaks the key (CA-11 branchement)", () => {
   const l3 = fixtureLines()[2]!;
   const dir = seedState(2);
@@ -282,7 +282,7 @@ test("sentinel_chainstack_guard_ok_ledgers_publishes_origin_and_releases_lock �
   assert.equal(existsSync(join(ledgerDir, CYCLE, "chainstack.lock")), false, "no .lock remains after a clean exit (D-lock i)");
 });
 
-// killer: apps/sentinel/src/run.ts:349 CONST ": [...PUBLIC_ENDPOINTS];" -> ": [...PUBLIC_ENDPOINTS].reverse();"
+// killer: apps/sentinel/src/run.ts:347 CONST ": [...PUBLIC_ENDPOINTS];" -> ": [...PUBLIC_ENDPOINTS].reverse();"
 test("sentinel_guard_open_failure_degrades_to_keyless_and_publishes — with the cycle config present but the ledger PARENT absent (C-8), openChainstackLeg fails to open: run.ts degrades to the 7 keyless endpoints, publishes NO origin (C-6), chainstack=false, chainstack_guard=ledger_error, exit 0 — a mutant removing the try/catch would FATAL the whole run (D-degrade)", () => {
   const l3 = fixtureLines()[2]!;
   const dir = seedState(2); // NOTE: no mkdir of dir/ledger => ensureCycleDir throws "does not pre-exist" => ledger_error
@@ -295,7 +295,7 @@ test("sentinel_guard_open_failure_degrades_to_keyless_and_publishes — with the
   assert.ok(!written.endpoints.some((e) => providerOf(e) === "chainstack.com"), "no chainstack.com origin is published when the leg failed to open (C-6 mutant reds here)");
 });
 
-// killer: apps/sentinel/src/run.ts:349 CONST ": [...PUBLIC_ENDPOINTS];" -> ": [...PUBLIC_ENDPOINTS.slice(1), ...PUBLIC_ENDPOINTS.slice(0, 1)];"
+// killer: apps/sentinel/src/run.ts:347 CONST ": [...PUBLIC_ENDPOINTS];" -> ": [...PUBLIC_ENDPOINTS.slice(1), ...PUBLIC_ENDPOINTS.slice(0, 1)];"
 test("sentinel_chainstack_floor_malformed_is_config_error — with the cycle + origin present but CHAINSTACK_CYCLE_FLOOR malformed (for each of 'abc' NaN, '-3' negative, '12.5' float), chainstackFloorFromEnv throws INSIDE openChainstackLeg's try BEFORE openGuardedClient, so the real run.ts degrades: chainstack_guard=config_error, chainstack=false, exit 0, the 7 keyless endpoints only, and NO .lock / NO ledger line is written (the throw precedes any metering). A mutant dropping the non-negative-integer floor regex lets a NEGATIVE '-3' and a float '12.5' pass assertLimits (finite, <= cap) so the leg opens 'ok' — reddening every value except 'abc' (NaN is still caught by assertLimits). C-V-3 / C-G2-2", () => {
   const l3 = fixtureLines()[2]!;
   for (const f of ["abc", "-3", "12.5"]) {
@@ -316,7 +316,7 @@ test("sentinel_chainstack_floor_malformed_is_config_error — with the cycle + o
   }
 });
 
-// killer: apps/sentinel/src/run.ts:349 CONST ": [...PUBLIC_ENDPOINTS];" -> ": [...PUBLIC_ENDPOINTS.slice(0, 1), ...PUBLIC_ENDPOINTS.slice(0, -1)];"
+// killer: apps/sentinel/src/run.ts:347 CONST ": [...PUBLIC_ENDPOINTS];" -> ": [...PUBLIC_ENDPOINTS.slice(0, 1), ...PUBLIC_ENDPOINTS.slice(0, -1)];"
 test("sentinel_chainstack_origin_absent_is_unconfigured — with CHAINSTACK_CYCLE_ID present but CHAINSTACK_ETH_ORIGIN absent (guardEnv origin:false), openChainstackLeg returns unconfigured BEFORE opening (the origin is the Bell probe's provenance, required to SERVE the leg): the real run.ts degrades to the 7 keyless endpoints, chainstack=false, chainstack_guard=unconfigured, exit 0, and every published endpoint is a non-empty string (NO null/undefined). A mutant dropping the 'origin === undefined' half of the guard opens the leg 'ok' and publishes undefined as the 8th endpoint (a null in the served line) — reddening here (A-10 output binding). C-V-2 / C-G2-2", () => {
   const l3 = fixtureLines()[2]!;
   const dir = seedState(2);
@@ -349,12 +349,12 @@ function emptyKeyIsUnconfigured(key: "CHAINSTACK_ETH_ORIGIN" | "CHAINSTACK_CYCLE
   assert.deepEqual(readdirSync(ledgerDir), [], `${key}="": no cycle folder, ledger line or lock is written`);
 }
 
-// killer: apps/sentinel/src/run.ts:285 CONST "origin.length === 0" -> "false"
+// killer: apps/sentinel/src/run.ts:283 CONST "origin.length === 0" -> "false"
 test("sentinel_chainstack_origin_empty_is_unconfigured — CHAINSTACK_ETH_ORIGIN=\"\" with the cycle id present: unconfigured, the 7 public endpoints verbatim, no ledger. A mutant dropping the empty-origin half opens the leg and publishes \"\" as the 8th endpoint (C-G2D-2, G2D-4)", () => {
   emptyKeyIsUnconfigured("CHAINSTACK_ETH_ORIGIN");
 });
 
-// killer: apps/sentinel/src/run.ts:285 CONST "cycleId.length === 0" -> "false"
+// killer: apps/sentinel/src/run.ts:283 CONST "cycleId.length === 0" -> "false"
 test("sentinel_chainstack_cycle_empty_is_unconfigured — CHAINSTACK_CYCLE_ID=\"\" with the origin present: unconfigured, the 7 public endpoints verbatim, no ledger. A mutant dropping the empty-cycle half opens the leg on the ledger root, outside any cycle (C-G2D-2, G2D-5)", () => {
   emptyKeyIsUnconfigured("CHAINSTACK_CYCLE_ID");
 });
@@ -374,7 +374,7 @@ test("sentinel_run_re_acquires_lock_after_clean_exit — because run 1 released 
   assert.equal(existsSync(join(dir, "ledger", CYCLE, "chainstack.lock")), false, "no .lock remains after the second clean exit");
 });
 
-// killer: apps/sentinel/src/run.ts:342 SDL "process.on(" -> ""
+// killer: apps/sentinel/src/run.ts:340 SDL "process.on(" -> ""
 test("sentinel_run_releases_chainstack_lock_on_sigterm — a SIGTERM (a TimeoutStartSec kill) fires run.ts's handler, which runs the served unlock synchronously and exits, so the cycle lock is released even on a kill. WIN32 SKIP is declared + NON-vacuous: on non-win32 (CI ubuntu-latest) the body RUNS; on win32 process.kill is a hard kill with no handler and the RUNBOOK unlock covers a SIGKILL (C-7)", { skip: process.platform === "win32" ? "win32: process.kill is a hard kill (no SIGTERM handler); RUNBOOK unlock covers a SIGKILL (C-7)" : false }, async () => {
   const l3 = fixtureLines()[2]!;
   const dir = seedState(2);
@@ -448,17 +448,17 @@ async function sigtermInWindow(at: "acquired" | "acquiring"): Promise<void> {
   } finally { if (run.child.exitCode === null) run.child.kill("SIGKILL"); }
 }
 
-// killer: apps/sentinel/src/run.ts:341 CONST "leg?.release(); " -> ""
+// killer: apps/sentinel/src/run.ts:339 CONST "leg?.release(); " -> ""
 test("sentinel_sigterm_after_lock_acquired_before_handler_releases_lock — a SIGTERM delivered right after the cycle lock is written and closed (the start-up window of the base: lock held, before the old process.on) is handled: exit 1, no .lock, a chained unlocked line (SENTINEL-SIGTERM-STARTUP-WINDOW-1). WIN32 SKIP declared: process.kill is a hard kill there", SIGTERM_SKIP, async () => {
   await sigtermInWindow("acquired");
 });
 
-// killer: apps/sentinel/src/run.ts:342 SDL "process.on(" -> ""
+// killer: apps/sentinel/src/run.ts:340 SDL "process.on(" -> ""
 test("sentinel_sigterm_while_lock_acquiring_releases_lock — a SIGTERM delivered just before the lock's exclusive open (acquisition in progress) is queued; the handler runs once the synchronous acquisition is done and releases the lock: exit 1, no .lock, a chained unlocked line (SENTINEL-SIGTERM-STARTUP-WINDOW-1). WIN32 SKIP declared", SIGTERM_SKIP, async () => {
   await sigtermInWindow("acquiring");
 });
 
-// killer: apps/sentinel/src/run.ts:341 CONST "process.exit(1)" -> "process.exit(0)"
+// killer: apps/sentinel/src/run.ts:339 CONST "process.exit(1)" -> "process.exit(0)"
 test("sentinel_sigterm_without_leg_exits_1_and_creates_no_ledger — with no paid leg (CHAINSTACK_CYCLE_ID absent => unconfigured, no lock ever taken) a SIGTERM at the first fetch runs the same handler, which releases nothing and exits 1: no .lock, no cycle ledger created (SENTINEL-SIGTERM-STARTUP-WINDOW-1). WIN32 SKIP declared", SIGTERM_SKIP, async () => {
   const l3 = fixtureLines()[2]!;
   const dir = seedState(2);

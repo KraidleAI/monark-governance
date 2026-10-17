@@ -623,6 +623,19 @@ file, its sha recorded, no new draw). **Not recommended:** running (3) on the VP
   `instrument-replay.ts` (C-V-1): the engine that writes the gap lines is the same code (`run.ts` `a02a9542…` at both), and those lines
   carry the gel-2 `sentinel_sha`. Step (3) runs from the G7 SHA.
 
+**Amendement 2026-10-16 (SENTINEL-DEPLOY-GUARD-1)** (dated lines, additive; the 2026-09-27 lines above stay as written):
+- **Amendement 2026-10-16 (SENTINEL-DEPLOY-GUARD-1) — what `sentinel_sha` hashes.** From the commit that carries
+  `apps/sentinel/src/witness.ts` on, `sentinelSha` (`apps/sentinel/src/run.ts`) hashes the execution closure of `run.ts`: each
+  module it loads, `apps/harness/src/calibration.ts` and the workspace packages included, plus the `package.json` of each package
+  it traverses, each file bound to its path (`closureWitness`, `witness.ts`). The phrase "`sentinelSha` hashes every `src/*.ts`"
+  above holds for the lines written by a tree older than that commit. The change redeploys nothing: a sentinel already deployed
+  keeps its code, hence its `sentinel_sha`, until a redeploy of a tree that carries the commit, a host act outside the change. That
+  redeploy changes `sentinel_sha` on every line written after it, and the rule above holds: declare the old and the new value, and
+  the first day carrying the new one, in its entry of `docs/JOURNAL-PROVENANCE.md`. The expected value is printed by
+  `node scripts/sentinel-witness.mjs print --tree <sha> [--overlay apps/sentinel=<sha>]` and the next-day check is
+  `node scripts/sentinel-witness.mjs compare --expected <64-hex> --after-day <last-day-served>`; the steps are
+  in `docs/RUNBOOK-harness.md`, section *Sentinel witness (deployment and next day)*.
+
 ## Déploiement de la sonde (Bell) — sub-lot NARABI-OPS-1b-ii
 
 The external probe + mail alert ship as a single built-ins-only `scripts/probe-narabi.mjs` under
