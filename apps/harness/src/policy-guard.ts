@@ -4,7 +4,7 @@
  * throws on the first difference. Every value the row's counts determine is recomputed by the exact comparator; what
  * depends on the unpublished scores (qhat on a band, misses, the check outcomes) is bound by the projection of the pinned
  * registry (block B1) and by `recompute`. Wave 2 band rows (lot CM-4a-ii-b, docs/G0-lot-cm-4a-ii-b.md): tails from
- * counts through the one seam policy-wave2.ts, bridge and FWD-2 vetoes, A-1 spend; other waves are refused. Retired rows (R-a of
+ * counts through the one seam policy-wave2.ts, bridge and FWD-2 vetoes, A-1 spend; wave 2b rows by their mark (wave2Mark); other waves are refused. Retired rows (R-a of
  * ENGINE-ROW-RETIRE-PATH-1): the pinned retire list of policy-retire.ts overlays the projection; live counts within LIVE_N_MAX. */
 import { assertClosedPolicyRow, type ClassEntry, type PolicyRow, type PolicyTable } from "@monark/contracts";
 import { bandEdge, binomCdfLeq, ceilDecimal4, missUpperBound, parseAlpha, parseTestDelta, riskControlMaxExceedances, spendDelta, splitRankExact, zeroErrorFloor } from "@monark/hikae";
@@ -12,7 +12,7 @@ import { KATA_BASE_DELTA, KATA_H_MS, kataKeyProblem, kataKeyReserved } from "./p
 import { readRegistry, type ProjectionInputs } from "./policy-projection.ts";
 import { readRetireList, retireQuarter, type RetireList, type RetirePin } from "./policy-retire.ts";
 import { assertRegistryPinned, assertTableMatchesRegistry } from "./policy-table-file.ts";
-import { guardCalibChain, LIVE_N_MAX, W2_BLOCK_N_MAX, W2_CALIB_N_MAX, W2_TAIL_FRAC, wave2Admission } from "./policy-wave2.ts";
+import { guardCalibChain, LIVE_N_MAX, W2_BLOCK_N_MAX, W2_CALIB_N_MAX, W2_TAIL_FRAC, w2bDelta, wave2Admission, wave2Mark } from "./policy-wave2.ts";
 /** The pins of the guard: the projection inputs, the closed list of verifier identities (A-2 section 2.2 point 7) and, from R-a, the chain of dated retire lists, oldest to newest (absent or empty: no row retired). */
 export type GuardPins = ProjectionInputs & { readonly verifiers: readonly string[]; readonly retireLists?: readonly RetirePin[] };
 
@@ -39,8 +39,8 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   assertClosedPolicyRow(r, key);
   const dir = r.region_rule === "sign-set";
   const t = r.test ?? { k_test: null, n_test: 0, u_test: null };
-  const w2 = r.source.wave === 2;
-  is(r.source.wave === 1 || (w2 && !dir && r.fit_sha256 === null), `has source.wave ${String(r.source.wave)}: the wave 2 guard admits wave 2 core band rows only (ADR 0006 D1; wave 2b waits for P0-2), a null wave is a marginal row`);
+  const w2 = r.source.wave === 2, w2b = w2 && wave2Mark(r, is); // the mark and refusals 1 to 4 of wave 2b, first of the wave 2 checks
+  is(r.source.wave === 1 || (w2 && !dir), `has source.wave ${String(r.source.wave)}: the wave 2 guard admits wave 2 core band rows only and the wave 2b band rows of the pinned wave3.json (ADR 0006 D1), a null wave is a marginal row`);
   const tails = [r.tail_m, r.tail_a, r.tail_tail_num, r.tail_tail_den, r.miss_adj_a, r.miss_adj_tail_num, r.miss_adj_tail_den];
   is(w2 || [r.bridge, r.fwd, r.vetoes?.bridge ?? null, r.vetoes?.fwd ?? null, r.tail_frac, ...tails, r.fit_sha256].every((v) => v === null), "carries a wave 2 column on a wave 1 row");
   is(!w2 || r.n <= (W2_CALIB_N_MAX[r.horizon ?? ""] ?? 0), "has n above the CALIB-2 block (8760 at 1h, 2190 at 4h), refused before any tail arithmetic");
@@ -53,10 +53,10 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   is(r.source.trial_id === [r.task_class, r.kata_id, r.venue, r.symbol, r.horizon, w2 ? "W2-CALIB" : "CALIB"].join("|"), "has a trial_id not recomposed from its columns");
   is(r.order === "time" && (w2 || r.current) && r.runs_level === KATA_BASE_DELTA, "breaks the pinned constants of a wave 1 row (order time, current, runs_level) or of a wave 2 row (order time, runs_level)");
   const at = r.calib_attempt;
-  const delta = spendDelta(KATA_BASE_DELTA, at);
-  is(at === (w2 ? 2 : 1) && r.test_delta === delta && (at === 1 ? r.calib_cause === "initial" && r.calib_parent === "none" : r.calib_cause === "outcome" && /^[0-9a-f]{64}$/.test(r.calib_parent ?? "")), "breaks the pinned constants of the A-1 spend (attempt 1 on wave 1, 2 on wave 2 (ADR 0006 D1); test_delta = base / 2^(attempt - 1); initial and none at attempt 1 only, outcome and a parent digest after)");
+  const delta = w2b ? (w2bDelta(r.horizon) ?? "") : spendDelta(KATA_BASE_DELTA, at); // a wave 2b row: the base of its horizon (refusal 2)
+  is(w2b || (at === (w2 ? 2 : 1) && r.test_delta === delta && (at === 1 ? r.calib_cause === "initial" && r.calib_parent === "none" : r.calib_cause === "outcome" && /^[0-9a-f]{64}$/.test(r.calib_parent ?? ""))), "breaks the pinned constants of the A-1 spend (attempt 1 on wave 1, 2 on wave 2 (ADR 0006 D1); test_delta = base / 2^(attempt - 1); initial and none at attempt 1 only, outcome and a parent digest after)");
   is(r.epoch === 1, "has an epoch other than 1 while no epoch log is pinned");
-  is(dir ? r.scale_table === null : r.scale_table?.kind === "hour-of-week" && r.scale_table.values.length === (r.horizon === "1h" ? 168 : 42), "has a scale_table off hour-of-week, 168 values at 1h or 42 at 4h");
+  is(dir ? r.scale_table === null : w2b || (r.scale_table?.kind === "hour-of-week" && r.scale_table.values.length === (r.horizon === "1h" ? 168 : 42)), "has a scale_table off hour-of-week, 168 values at 1h or 42 at 4h");
   is(!Object.is(r.qhat, -0) && (r.calib_support === null || r.calib_support.min <= r.calib_support.max), "has a qhat -0 or a calib_support with min above max");
   const n0 = zeroErrorFloor(r.alpha, delta);
   const ks = riskControlMaxExceedances(r.n, r.alpha, delta);
