@@ -1768,8 +1768,8 @@ test("garch_and_ewma_on_deseasonalized_inputs - garch11-sf-sp-v1 (each return de
 // number, or a fit admitted without one of its keys: float and Fraction take each of these strings; or an input admitted under another
 // pin, with a key more, its keys in another order, without its range, another format, a horizon that is not a string, an instant off its
 // grid, or refused there by an exception's name; or (lot c4b) a profile value that is not a frozen decimal string above 0, written as
-// JavaScript writes it, instants in an object or one twice, or an input that is not an object or a range of three bounds refused by an
-// exception's name (KQ-2B-INPUT-SHAPE-1: `5`, an array of its key names)
+// JavaScript writes it, or with its two keys in another order, instants in an object or one twice, or an input that is not an object or a
+// range of three bounds refused by an exception's name (KQ-2B-INPUT-SHAPE-1: `5`, an array of its key names)
 // killer: tools/kata-quarter/quarter_2b.py:55 CONST "or not DECIMAL.fullmatch(v) " -> ""
 // killer: tools/kata-quarter/quarter_2b.py:28 CONST "(0|[1-9][0-9]*)" -> "([0-9]+)"
 // killer: tools/kata-quarter/quarter_2b.py:148 CONST "!= args[3]" -> "== None"
@@ -1781,9 +1781,10 @@ test("garch_and_ewma_on_deseasonalized_inputs - garch11-sf-sp-v1 (each return de
 // killer: tools/kata-quarter/quarter_2b.py:156 CONST "type(x[\"instants\"]) is list" -> "True"
 // killer: tools/kata-quarter/quarter_2b.py:159 CONST " and len(set(ts)) == len(ts)" -> ""
 // killer: tools/kata-quarter/quarter_2b.py:224 CONST " and float(v) > 0" -> ""
+// killer: tools/kata-quarter/quarter_2b.py:223 CONST "list(p) == [\"values\", \"weekend\"]" -> "True"
 // killer: tools/kata-quarter/quarter_2b.py:215 CONST " and K.js_number(x) == v" -> ""
 // killer: tools/kata-quarter/quarter_2b.py:163 CONST "any(t % h for t in instants)" -> "False"
-test("frozen_fit_strings_refused_by_name - a frozen fit string with a sign, an underscore, a digit that is not ASCII, an infinite value or a leading zero, a number in place of a string, or a fit without one of its keys is refused by name before anything is evaluated, exit 2; so is an input under another pin, with a key more, its keys reversed, without its range, of another format, with a horizon that is not a string, a profile value that is not a frozen decimal string above 0, instants in an object or one twice, an instant off its grid, an input that is not an object or a range of three bounds", () => {
+test("frozen_fit_strings_refused_by_name - a frozen fit string with a sign, an underscore, a digit that is not ASCII, an infinite value or a leading zero, a number in place of a string, or a fit without one of its keys is refused by name before anything is evaluated, exit 2; so is an input under another pin, with a key more, its keys reversed, without its range, of another format, with a horizon that is not a string, a profile value that is not a frozen decimal string above 0 or its profile's keys reversed, instants in an object or one twice, an instant off its grid, an input that is not an object or a range of three bounds", () => {
   assert.ok(existsSync(join(REPO, QUARTER, B2)), `${QUARTER}/${B2} absent`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-2b-fits-")), series = made(work, 16);
   const har = (b1: unknown) => ({ "har-rv15-sp-v1": { b0: "1e-7", b1, b2: "0.4", b3: "0.25" } });
@@ -1806,6 +1807,7 @@ test("frozen_fit_strings_refused_by_name - a frozen fit string with a sign, an u
     ["no range", (o: Input) => Object.fromEntries(Object.entries(o).filter(([k]) => k !== "range")), closed], ["another format", (o: Input) => ({ ...o, format: "kata-2b-estimate-input-v1" }), closed],
     ["a horizon in a list", (o: Input) => ({ ...o, horizon: ["1h"] }), closed], ["a profile value -1", value("-1"), prof],
     ["a profile value 0", value("0"), prof], ["a profile value 0.70, not as JavaScript writes it", value("0.70"), prof],
+    ["its profile keys reversed", (o: Input) => ({ ...o, profile: Object.fromEntries(Object.entries(o.profile as Input).reverse()) }), prof],
     ["instants in an object", (o: Input) => ({ ...o, instants: { [utc(T0)]: "1.00" } }), closed], ["an instant twice", (o: Input) => ({ ...o, instants: [utc(T0), utc(T0)] }), closed],
     ["not an object", () => 5 as unknown as Input, closed], ["an array of its key names", (o: Input) => Object.keys(o) as unknown as Input, closed],
     ["a range of three bounds", (o: Input) => ({ ...o, range: [utc(T0), utc(T0 + HOUR), utc(T0 + 4 * HOUR)] }), closed],
@@ -1882,28 +1884,32 @@ const row2b = (cls: string, kata: string, h: string): Row2b => {
 /** The one candle absent from the act's series, declared: a Wednesday of FWD-2, the last of the 4h bar [04:00, 08:00). */
 const ABSENT = Date.UTC(2024, 5, 12, 7, 45), H4 = 4 * HOUR;
 /** The decision of a 4h row of the act at t: out when a window of its estimator holds the absent candle (its 673 candles for the HAR, else
- *  its W bars), a drop when its label needs it, else a miss on a weekday at the keys 1 and 8 of PROFILE2B, covered otherwise. */
-const decided = (kata: string, path: boolean, t: number): string => {
+ *  its W bars), a drop when its label needs it, else a miss on a weekday at the keys 1 and 8 of PROFILE2B, covered otherwise; for down,
+ *  the mae-down row at a qhat of 300, a miss there only on a bar of level 100 after 101 (the key 8), whose down label is the large one
+ *  (about 11 times the small one, which the up label is there): its score about 1100 there, about 100 on a bar of 101 after 100. */
+const decided = (kata: string, path: boolean, t: number, down = false): string => {
   const look = kata === HAR ? 673 * STEP : (kata === GARCH ? 180 : 101) * H4;
   if ((kata === HAR ? ABSENT : ABSENT - (ABSENT % H4)) >= t - look && ABSENT < t) return "out";
   if (path ? ABSENT >= t && ABSENT < t + H4 : ABSENT === t + H4 - STEP) return "drop";
-  return !weekendOf(t) && [1, 8].includes(keyAt(t, H4) ?? -1) ? "miss" : "covered";
+  return !weekendOf(t) && [1, 8].includes(keyAt(t, H4) ?? -1) && (!down || Math.floor(t / H4) % 2 === 0) ? "miss" : "covered";
 };
 /** UTest of each (n, k) of the act's blocks: binom_exact.miss_upper_bound under 0.05 of the frozen tool, run apart from the tool. */
-const UT2B: Record<string, string> = { "2190 261": "0.1311739", "1098 130": "0.1356545", "1054 125": "0.1362473", "917 109": "0.1379066", "996 118": "0.1366630" };
-/** The act's registry: six rows of SYNUSDT, four with a qhat and their blocks worked out by decided (range-4h of the three estimators,
- *  regions vetoed by the bridge; mae-up-4h of the EWMA, a silence), two under_calib (range-1h of the HAR, mae-down-4h of the GARCH, the
- *  key of range-4h); change edits the rows, g the text; its path and pin. */
+const UT2B: Record<string, string> = { "2190 261": "0.1311739", "1098 130": "0.1356545", "1054 125": "0.1362473", "917 109": "0.1379066", "996 118": "0.1366630",
+  "2190 171": "0.0881663", "1098 40": "0.0471601" };
+/** The act's registry: seven rows of SYNUSDT, five with a qhat and their blocks worked out by decided (range-4h of the three estimators,
+ *  regions vetoed by the bridge; mae-up-4h and mae-down-4h of the EWMA, silences, the mae-down at a qhat of 300), two under_calib
+ *  (range-1h of the HAR, mae-down-4h of the GARCH, the key of range-4h); change edits the rows, g the text; its path and pin. */
 const wave2bReg = (work: string, name: string, change: (rows: Row2b[]) => void = () => undefined, g = (t: string): string => t, edit = (d: Doc2b): unknown => d): [string, string] => {
-  const rows = [row2b("range", HAR, "1h"), row2b("range", HAR, "4h"), row2b("range", GARCH, "4h"), row2b("range", EWMA, "4h"), row2b("mae-down", GARCH, "4h"), row2b("mae-up", EWMA, "4h")];
-  for (const [i, status] of [[1, "region"], [2, "region"], [3, "region"], [5, "silence"]] as const) {
+  const rows = [row2b("range", HAR, "1h"), row2b("range", HAR, "4h"), row2b("range", GARCH, "4h"), row2b("range", EWMA, "4h"), row2b("mae-down", GARCH, "4h"), row2b("mae-up", EWMA, "4h"),
+    row2b("mae-down", EWMA, "4h")];
+  for (const [i, status] of [[1, "region"], [2, "region"], [3, "region"], [5, "silence"], [6, "silence"]] as const) {
     const r = rows[i];
     if (!r) continue;
-    Object.assign(r.calib, { n: 1, status, reason: status === "region" ? "" : "dependence check rejects", qhat: 1 });
+    Object.assign(r.calib, { n: 1, status, reason: status === "region" ? "" : "dependence check rejects", qhat: i === 6 ? 300 : 1 });
     for (const b of ["bridge", "test", "fwd"] as const) {
       const [s = 0, e = 0] = BLOCKS2[b] ?? [], months: Record<string, { n: number; k: number }> = {};
       for (let t = s; t + H4 <= e; t += H4) {
-        const d = decided(r.kataId, i === 5, t);
+        const d = decided(r.kataId, i >= 5, t, i === 6);
         if (d === "out" || d === "drop") { const c = r[d === "out" ? "nonEvaluable" : "drops"]; c[b] = (c[b] ?? 0) + 1; continue; }
         const m = (months[iso(t).slice(0, 7)] ??= { n: 0, k: 0 });
         m.n += 1; m.k += Number(d === "miss");
@@ -1937,9 +1943,11 @@ const series2b = (dir: string): string => {
 
 // reddened by: a wave3.json admitted under another pin, off its byte form, with a key twice, a key more, its keys in another order, a
 // top level without usDst, an array for a value, or another usDst; or a row admitted at another horizon, of another family, venue, key
-// or trial id, off wavePart 2b, calibAttempt 1 or its testDelta, with a W other than its estimator's (the GARCH's from its strings, not
-// the cap), a form on a GARCH or another HAR form, a frozen string not as JavaScript writes it, a seed of 0, a + b = 1, a key more in a
-// fit, a fitSha256 or a profileSha256 of another object, a profile of 11 values, a qhat on an under_calib row or in a string, a status off its blocks
+// or trial id, of a symbol without USDT, with a side, a bucket b1 or thresholds, off wavePart 2b, calibAttempt 1 (true is not 1), alpha
+// 0.01 or its testDelta, with a W other than its estimator's (the GARCH's from its strings, not the cap), a form on a GARCH or another HAR
+// form, a frozen string not as JavaScript writes it or its strings out of the format's order, a seed of 0, a + b = 1, a key more in a
+// fit, a fitSha256 or a profileSha256 of another object, a profile of 11 values or 3 weekend multipliers, a qhat on an under_calib row or
+// in a string, a calib status that is not one of the three, a status off its blocks
 // or a month outside its block; or a cell twice, another fit on a row of the same key, another profile on one of the same symbol and
 // horizon, or two HAR forms
 // killer: tools/kata-quarter/quarter_2b.py:261 CONST "!= pin:" -> "!= pin and False:"
@@ -1953,6 +1961,12 @@ const series2b = (dir: string): string => {
 // killer: tools/kata-quarter/quarter_2b.py:292 CONST "r[\"venue\"] == recalc_p2.VENUE" -> "True"
 // killer: tools/kata-quarter/quarter_2b.py:292 CONST "r[\"key\"] == f\"kata:{kid}@{r['venue']}/{r['symbol']}/{h}/b0\"" -> "True"
 // killer: tools/kata-quarter/quarter_2b.py:293 CONST "r[\"trialId\"] == f\"{tc}|{kid}|{r['venue']}|{r['symbol']}|{h}|W2-CALIB\"" -> "True"
+// killer: tools/kata-quarter/quarter_2b.py:291 CONST " and str(r[\"symbol\"]).endswith(\"USDT\")" -> ""
+// killer: tools/kata-quarter/quarter_2b.py:292 CONST "(None, \"b0\", None)" -> "(r[\"side\"], \"b0\", None)"
+// killer: tools/kata-quarter/quarter_2b.py:292 CONST "(None, \"b0\", None)" -> "(None, r[\"bucket\"], None)"
+// killer: tools/kata-quarter/quarter_2b.py:292 CONST "(None, \"b0\", None)" -> "(None, \"b0\", r[\"thresholds\"])"
+// killer: tools/kata-quarter/quarter_2b.py:294 CONST "type(r[\"calibAttempt\"]) is int" -> "True"
+// killer: tools/kata-quarter/quarter_2b.py:295 CONST " and r[\"alpha\"] == \"0.01\"" -> ""
 // killer: tools/kata-quarter/quarter_2b.py:294 CONST "r[\"wavePart\"] == \"2b\" and " -> ""
 // killer: tools/kata-quarter/quarter_2b.py:295 CONST "r[\"calibAttempt\"] == 1 and " -> ""
 // killer: tools/kata-quarter/quarter_2b.py:295 CONST " and r[\"testDelta\"] == DELTA[h]" -> ""
@@ -1962,18 +1976,21 @@ const series2b = (dir: string): string => {
 // killer: tools/kata-quarter/quarter_2b.py:297 CONST "fit[\"form\"] in FORMS if" -> "True if"
 // killer: tools/kata-quarter/quarter_2b.py:298 CONST "all(fdec(v) for v in fit[\"strings\"].values()) and " -> ""
 // killer: tools/kata-quarter/quarter_2b.py:298 CONST " and fz[0].get(\"seed\", 1) > 0" -> ""
+// killer: tools/kata-quarter/quarter_2b.py:298 CONST " and list(fit[\"strings\"]) == list(FITS[kid])" -> ""
 // killer: tools/kata-quarter/quarter_2b.py:299 CONST "r[\"fitSha256\"] == hashlib.sha256(report.canonical(fit).encode(\"ascii\")).hexdigest()" -> "True"
 // killer: tools/kata-quarter/quarter_2b.py:300 CONST "K.seq_sha256([float(v) for v in r[\"profile\"][\"values\"] + r[\"profile\"][\"weekend\"]])" -> "r[\"profileSha256\"]"
 // killer: tools/kata-quarter/quarter_2b.py:223 CONST "len(p[\"values\"]) == n" -> "True"
+// killer: tools/kata-quarter/quarter_2b.py:224 CONST "and len(p[\"weekend\"]) == 2 " -> ""
 // killer: tools/kata-quarter/quarter_2b.py:301 CONST "(c[\"qhat\"] is None) == (c[\"status\"] == \"under_calib\")" -> "True"
 // killer: tools/kata-quarter/quarter_2b.py:302 CONST "type(c[\"qhat\"]) in (int, float) and " -> ""
+// killer: tools/kata-quarter/quarter_2b.py:301 CONST "c[\"status\"] in (\"under_calib\", \"silence\", \"region\") and " -> ""
 // killer: tools/kata-quarter/quarter_2b.py:304 CONST "r[\"status\"] == (\"vetoed\" if fired else c[\"status\"])" -> "True"
 // killer: tools/kata-quarter/quarter_2b.py:305 CONST "all(W.months_ok(r[b], b, c[\"qhat\"]) for b in W.BLOCKS)" -> "True"
 // killer: tools/kata-quarter/quarter_2b.py:324 CONST "len({(r[\"taskClass\"], r[\"key\"]) for r, _, _ in out}) == len(out)" -> "True"
 // killer: tools/kata-quarter/quarter_2b.py:325 CONST "one(lambda r: r[\"key\"], lambda r: [r[\"W\"], r[\"fit\"], r[\"fitSha256\"]])" -> "True"
 // killer: tools/kata-quarter/quarter_2b.py:326 CONST "one(lambda r: (r[\"symbol\"], r[\"horizon\"]), lambda r: [r[\"profile\"], r[\"profileSha256\"]])" -> "True"
 // killer: tools/kata-quarter/quarter_2b.py:327 CONST "one(lambda r: r[\"kataId\"] == KATAS[0], lambda r: r[\"fit\"][\"form\"])" -> "True"
-test("wave2b_registry_reader_closed - the act equals_wave2b_registry_on_its_blocks reads wave3.json under the role registry, pinned, in its byte form and closed, its usDst the format's table, and refuses by name, exit 2 and no report, each row that fails a reader check of the format that the count reads (its cell, key and trial id, wavePart, calibAttempt, testDelta, its W, its form, its frozen strings, its digests, its profile, its qhat, its status, its months) and each registry that fails one across rows (a cell twice, one fit by key, one profile by symbol and horizon, one HAR form)", () => {
+test("wave2b_registry_reader_closed - the act equals_wave2b_registry_on_its_blocks reads wave3.json under the role registry, pinned, in its byte form and closed, its usDst the format's table, and refuses by name, exit 2 and no report, each row that fails a reader check of the format that the count reads (its cell, key and trial id, its symbol, side, bucket and thresholds, wavePart, calibAttempt, alpha, testDelta, its W, its form, its frozen strings and their order, its digests, its profile, its qhat, its calib status, its status, its months) and each registry that fails one across rows (a cell twice, one fit by key, one profile by symbol and horizon, one HAR form)", () => {
   assert.ok(existsSync(join(REPO, QUARTER, B2)), `${QUARTER}/${B2} absent`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-2b-reader-")), name = "equals_wave2b_registry_on_its_blocks", other = "0".repeat(64);
   const py = (xs: string[]): string => `[${xs.map((x) => `'${x}'`).join(", ")}]`, keys = Object.keys(row2b("range", HAR, "4h"));
@@ -1982,7 +1999,7 @@ test("wave2b_registry_reader_closed - the act equals_wave2b_registry_on_its_bloc
   const garch = (x: Record<string, string>): Record<string, string> => ({ ...FIT2B[GARCH]?.strings, ...x });
   const reprofile = (r: Row2b | undefined, p: Profile2b): void => { if (r) Object.assign(r, { profile: p, profileSha256: profileSha(p) }); };
   const cell = who("range", HAR) + "not a cell of its estimator, its key and trial id recomposed", design = who("range", HAR) + "not wavePart 2b, calibAttempt 1, alpha 0.01 and the testDelta of its horizon";
-  const window = "not W the window of its estimator", form = "not fit.form a HAR form on har-rv15-sp-v1, null on the others", strings = who("range", GARCH) + "not frozen strings written as JavaScript writes them, a seed above 0";
+  const window = "not W the window of its estimator", form = "not fit.form a HAR form on har-rv15-sp-v1, null on the others", strings = who("range", GARCH) + "not frozen strings in the format's order, written as JavaScript writes them, a seed above 0";
   const digests = "not fitSha256 and profileSha256 the digests of fit and profile";
   const cases: [string, [string, string], string][] = [
     ["another pin", [wave2bReg(work, "pin.json")[0], other], `wave 2b registry refused before parsing: sha256 ${wave2bReg(work, "pin.json")[1]} differs from the pinned ${other}`],
@@ -1999,8 +2016,15 @@ test("wave2b_registry_reader_closed - the act equals_wave2b_registry_on_its_bloc
       `${who("range", HAR, `kata:${HAR}@other/SYNUSDT/4h/b0`)}not a cell of its estimator, its key and trial id recomposed`],
     ["another key", wave2bReg(work, "key.json", (rows) => { if (rows[1]) rows[1].key = `kata:${HAR}@binance/SYNUSDT/4h/b1`; }), `${who("range", HAR, `kata:${HAR}@binance/SYNUSDT/4h/b1`)}not a cell of its estimator, its key and trial id recomposed`],
     ["another trial id", wave2bReg(work, "trial.json", (rows) => { if (rows[1]) rows[1].trialId = `syn-range-4h|${HAR}|binance|SYNUSDT|4h|W2-TEST`; }), cell],
+    ["a symbol without USDT", wave2bReg(work, "usdt.json", (rows) => { if (rows[1]) Object.assign(rows[1], { symbol: "SYN", key: `kata:${HAR}@binance/SYN/4h/b0`, trialId: `syn-range-4h|${HAR}|binance|SYN|4h|W2-CALIB` }); }),
+      `${who("range", HAR, `kata:${HAR}@binance/SYN/4h/b0`)}not a cell of its estimator, its key and trial id recomposed`],
+    ["a side up", wave2bReg(work, "side.json", (rows) => { if (rows[1]) rows[1].side = "up"; }), cell],
+    ["a bucket b1", wave2bReg(work, "bucket.json", (rows) => { if (rows[1]) rows[1].bucket = "b1"; }), cell],
+    ["thresholds 1", wave2bReg(work, "thresholds.json", (rows) => { if (rows[1]) rows[1].thresholds = 1; }), cell],
     ["wavePart 2a", wave2bReg(work, "part.json", (rows) => { if (rows[1]) rows[1].wavePart = "2a"; }), design],
     ["calibAttempt 2", wave2bReg(work, "attempt.json", (rows) => { if (rows[1]) rows[1].calibAttempt = 2; }), design],
+    ["calibAttempt true", wave2bReg(work, "attempt-true.json", (rows) => { if (rows[1]) rows[1].calibAttempt = true; }), design],
+    ["alpha 0.02", wave2bReg(work, "alpha.json", (rows) => { if (rows[1]) rows[1].alpha = "0.02"; }), design],
     ["testDelta 0.025 at 4h", wave2bReg(work, "delta.json", (rows) => { if (rows[1]) rows[1].testDelta = "0.025"; }), design],
     ["the EWMA's W 100", wave2bReg(work, "w100.json", (rows) => { if (rows[3]) rows[3].W = 100; }), who("range", EWMA) + window],
     ["the GARCH's W at the cap where its strings give 34", wave2bReg(work, "w34.json", (rows) => { refit(rows[2], null, garch({ b: "0.85" })); refit(rows[4], null, garch({ b: "0.85" })); }), who("range", GARCH) + window],
@@ -2008,15 +2032,21 @@ test("wave2b_registry_reader_closed - the act equals_wave2b_registry_on_its_bloc
     ["the HAR form parkinson", wave2bReg(work, "parkinson.json", (rows) => refit(rows[1], "parkinson", FITS[HAR])), who("range", HAR) + form],
     ["a string 0.050", wave2bReg(work, "js.json", (rows) => refit(rows[2], null, garch({ a: "0.050" }))), strings],
     ["a seed of 0", wave2bReg(work, "seed.json", (rows) => refit(rows[2], null, garch({ seed: "0" }))), strings],
+    ["the strings seed, b, a, omega", wave2bReg(work, "order.json", (rows) => { const s = FIT2B[GARCH]?.strings ?? {}, x = { seed: s.seed ?? "", b: s.b ?? "", a: s.a ?? "", omega: s.omega ?? "" };
+      refit(rows[2], null, x); refit(rows[4], null, x); }), strings],
     ["a + b = 1", wave2bReg(work, "one.json", (rows) => refit(rows[2], null, garch({ b: "0.95" }))), `${who("range", GARCH)}garch11-sf-sp-v1: a + b = 1.0 is not below 1: no window with p^W <= 0.03`],
     ["a key more in a fit", wave2bReg(work, "mu.json", (rows) => refit(rows[2], null, garch({ mu: "0" }))), `${who("range", GARCH)}garch11-sf-sp-v1: a frozen fit holds exactly the strings ['omega', 'a', 'b', 'seed'], not ['a', 'b', 'mu', 'omega', 'seed']`],
     ["the fitSha256 of another fit", wave2bReg(work, "fit-sha.json", (rows) => { if (rows[2]) rows[2].fitSha256 = fitSha({ form: null, strings: {} }); }), who("range", GARCH) + digests],
     ["the profileSha256 of another profile", wave2bReg(work, "profile-sha.json", (rows) => { if (rows[1]) rows[1].profileSha256 = profileSha(PROFILE2B["1h"] ?? { values: [], weekend: [] }); }), who("range", HAR) + digests],
     ["a profile of 11 values", wave2bReg(work, "eleven.json", (rows) => reprofile(rows[1], { values: Array.from({ length: 11 }, () => "1000"), weekend: ["1", "1"] })),
       `${who("range", HAR)}its profile: not {values, weekend} with 12 values at 4h and 2 weekend multipliers, each a frozen decimal string of a value above 0 written as JavaScript writes it`],
+    ["3 weekend multipliers", wave2bReg(work, "weekend.json", (rows) => reprofile(rows[1], { values: PROFILE2B["4h"]?.values ?? [], weekend: ["1000000000000", "1", "1"] })),
+      `${who("range", HAR)}its profile: not {values, weekend} with 12 values at 4h and 2 weekend multipliers, each a frozen decimal string of a value above 0 written as JavaScript writes it`],
     ["a qhat on an under_calib row", wave2bReg(work, "qhat.json", (rows) => { if (rows[4]) rows[4].calib.qhat = 1; }),
       who("mae-down", GARCH) + "not a qhat, a finite number, iff calibrated; not blocks whose months are of the block and sum to nTest and kTest"],
     ["a qhat in a string", wave2bReg(work, "qhat-string.json", (rows) => { if (rows[1]) rows[1].calib.qhat = "1"; }), who("range", HAR) + "not a qhat, a finite number, iff calibrated"],
+    ["a calib status vetoed", wave2bReg(work, "calib-status.json", (rows) => { if (rows[5]) { rows[5].calib.status = "vetoed"; rows[5].status = "vetoed"; } }),
+      who("mae-up", EWMA) + "not a qhat, a finite number, iff calibrated"],
     ["a status off its blocks", wave2bReg(work, "status.json", (rows) => { if (rows[1]) rows[1].status = "region"; }), who("range", HAR) + "not its status and vetoedBy by the order of its blocks"],
     ["a month outside its block", wave2bReg(work, "month.json", (rows) => { if (rows[1]) rows[1].bridge.months = { "2024-01": { n: 0, k: 0 }, ...rows[1].bridge.months }; }), who("range", HAR) + "not blocks whose months are of the block and sum to nTest and kTest"],
     ["a cell twice", wave2bReg(work, "cell.json", (rows) => { rows.push(structuredClone(rows[1] as Row2b)); }), "wave3.json: not each cell (taskClass, key) once"],
@@ -2032,28 +2062,36 @@ test("wave2b_registry_reader_closed - the act equals_wave2b_registry_on_its_bloc
 
 // reddened by: the decisions not evaluable of a block not compared or taken from its label drops, a block's candles read from after
 // READS[block].start (the GARCH at the cap then loses the first decisions of TEST-2), an under_calib row compared, a silence row vetoed
-// by the tool, or a 2b row's lookback other than its window (its first decisions then out)
+// by the tool, a 2b row's lookback other than its window (its first decisions then out), a path row counted on its up label whatever its
+// side, or a symbol folder named that is not of the venue's
 // killer: tools/kata-quarter/quarter_oracle.py:207 CONST "\"nonEvaluable\": got[\"out_input\"]," -> "\"nonEvaluable\": got[\"drops_label\"],"
 // killer: tools/kata-quarter/quarter_2b.py:191 CONST "\"test\": K.utc_ms(2023, 9, 1)" -> "\"test\": K.utc_ms(2023, 9, 2)"
 // killer: tools/kata-quarter/quarter_oracle.py:193 CONST " if x[0][\"calib\"][\"qhat\"] is not None]" -> "]"
 // killer: tools/kata-quarter/quarter_oracle.py:208 CONST "r[\"calib\"][\"status\"] == \"region\" and " -> ""
 // killer: tools/kata-quarter/quarter_2b.py:308 CONST "else w * K.H_MS[h]" -> "else 101 * K.H_MS[h]"
 // killer: tools/kata-quarter/quarter_core.py:65 CONST "cell.get(\"look\") or " -> ""
-test("equals_wave2b_registry_on_its_blocks - on a made series of the three veto blocks and their months of inputs, the act counts each wave 2b row with a qhat (the HAR in its candle form, the GARCH at its cap of 180 bars, the EWMA, at 4h; a silence row among them) on its sigma_hat under its profile and usDst, and gives the registry's nTest, kTest, UTest, vetoed, months, label drops and decisions not evaluable of each block, exit 0: the misses fall on a weekday at the keys the profile marks, no decision is out but those whose window holds the one absent candle; a field of each kind changed in the registry is named, exit 1", () => {
+// killer: tools/kata-quarter/quarter_2b.py:310 CONST "else fam[4:]" -> "else \"up\""
+// killer: tools/kata-quarter/quarter_oracle.py:195 CONST "if sorted(pins) != venue:" -> "if False:"
+test("equals_wave2b_registry_on_its_blocks - on a made series of the three veto blocks and their months of inputs, the act counts each wave 2b row with a qhat (the HAR in its candle form, the GARCH at its cap of 180 bars, the EWMA, at 4h; two silence rows among them, one on its down label) on its sigma_hat under its profile and usDst, and gives the registry's nTest, kTest, UTest, vetoed, months, label drops and decisions not evaluable of each block, exit 0: the misses fall on a weekday at the keys the profile marks, those of the mae-down row on its down label only, no decision is out but those whose window holds the one absent candle; a field of each kind changed in the registry is named, exit 1; a symbol folder more than the venue's is refused by name, exit 2", () => {
   assert.ok(existsSync(join(REPO, QUARTER, B2)), `${QUARTER}/${B2} absent`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-l-o4-")), sealed = join(work, "sealed"), pin = series2b(sealed), name = "equals_wave2b_registry_on_its_blocks";
   const run = (reg: [string, string], out: string): ReturnType<typeof act> => act(name, out, [...reg, sealed, out, `${SYM}:${pin}`]);
   const [file] = wave2bReg(work, "ok.json"), d = JSON.parse(readFileSync(file, "utf8")) as Doc2b, ok = run(pinned(file), join(work, "1"));
   assert.equal(ok.r.status, 0, `every field equal: exit 0\n${ok.r.stdout}${ok.r.stderr}`);
   const res = ok.rep?.result as { rows?: string[][]; blocks?: Record<string, { read_from: string; grid: Record<string, { instants: number; first: string; last: string }> }> } | undefined;
-  assert.deepEqual([ok.rep?.equal, linesOf(ok.r.stdout).at(-2), res?.rows], [true, "VERDICT: GREEN", [1, 2, 3, 5].map((i) => [d.rows[i]?.taskClass, d.rows[i]?.key])], "the rows with a qhat compared, named");
+  assert.deepEqual([ok.rep?.equal, linesOf(ok.r.stdout).at(-2), res?.rows], [true, "VERDICT: GREEN", [1, 2, 3, 5, 6].map((i) => [d.rows[i]?.taskClass, d.rows[i]?.key])], "the rows with a qhat compared, named");
   assert.deepEqual(Object.fromEntries(Object.entries(res?.blocks ?? {}).map(([b, x]) => [b, [x.read_from, x.grid["4h"]]])),
     Object.fromEntries(Object.entries(BLOCKS2).map(([b, [s, e]]) => [b, [iso(Date.UTC(new Date(s).getUTCFullYear(), new Date(s).getUTCMonth() - 1, 1)), { instants: (e - s) / H4, first: iso(s), last: iso(e - H4) }]])),
     "each block read from the first instant of its month of inputs, READS[block].start, and its grid");
-  assert.deepEqual([1, 2, 3, 5].map((i) => [d.rows[i]?.nonEvaluable, d.rows[i]?.drops.fwd, d.rows[i]?.status]), [[{ calib: 0, bridge: 0, test: 0, fwd: 43 }, 1, "vetoed"], [{ calib: 0, bridge: 0, test: 0, fwd: 180 }, 1, "vetoed"],
-    [{ calib: 0, bridge: 0, test: 0, fwd: 101 }, 1, "vetoed"], [{ calib: 0, bridge: 0, test: 0, fwd: 101 }, 1, "silence"]],
+  assert.deepEqual([1, 2, 3, 5, 6].map((i) => [d.rows[i]?.nonEvaluable, d.rows[i]?.drops.fwd, d.rows[i]?.status]), [[{ calib: 0, bridge: 0, test: 0, fwd: 43 }, 1, "vetoed"], [{ calib: 0, bridge: 0, test: 0, fwd: 180 }, 1, "vetoed"],
+    [{ calib: 0, bridge: 0, test: 0, fwd: 101 }, 1, "vetoed"], [{ calib: 0, bridge: 0, test: 0, fwd: 101 }, 1, "silence"], [{ calib: 0, bridge: 0, test: 0, fwd: 101 }, 1, "silence"]],
   "the registry the act equals: at the cap no decision out but those whose window holds the absent candle, 673 candles, 180 and 101 bars");
   assert.ok([d.rows[1]?.bridge, d.rows[2]?.test, d.rows[3]?.fwd].every((b) => b !== undefined && (b.kTest ?? 0) > 0 && (b.kTest ?? 0) < b.nTest / 6), "misses on some decisions, fewer than one in six");
+  assert.deepEqual((["bridge", "test", "fwd"] as const).map((b) => [d.rows[6]?.[b].nTest === d.rows[5]?.[b].nTest, (d.rows[6]?.[b].kTest ?? 0) > 0, (d.rows[6]?.[b].kTest ?? 0) < (d.rows[5]?.[b].kTest ?? 0)]),
+    [[true, true, true], [true, true, true], [true, true, false]], "the mae-down row misses only at the key 8, where its down label is large: fewer misses than the mae-up row but in FWD-2, all under summer time");
+  const two = act(name, join(work, "3"), [...pinned(file), sealed, join(work, "3"), `${SYM}:${pin}`, `abc:${pin}`]);
+  assert.deepEqual([two.r.status, two.r.stdout, two.rep], [2, "REFUSED: the symbol folders named ['abc', 'syn'] are not the venue's ['syn'], those of the wave 2b rows with a qhat\n", null],
+    `a symbol folder more than the venue's: refused by name, exit 2, no report\n${two.r.stderr}`);
   const bad = run(wave2bReg(work, "bad.json", ([, har, garch, ewma]) => {
     const m = har?.bridge.months["2025-11"];
     if (!m || !har || !garch || !ewma) return;

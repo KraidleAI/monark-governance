@@ -73,21 +73,22 @@ Modelled on the core reader `quarter_wave2.py` of c3 (`docs/G0-lot-cm5-c3.md` se
 
 - **`wave3(path, pin)`**: read under the role `registry`, refused before parsing unless its sha256 is the pin; decoded as UTF-8 and parsed
   with a key written twice refused (`quarter_load.unique`); held to its byte form (F2b l.16, F2 l.12-15: `kata_lib.js_json_pretty` of the
-  document and one line feed, no U+2028 or U+2029); then **closed**: every object holds exactly the keys of its table, in the format's
-  order (the top level its five keys, F2b l.30; a row the keys of F2b l.55-81; `profile`, `fit`, `usDst` and a switch theirs;
-  `nonEvaluable` the four blocks; the objects of `calib` and of the veto blocks those of F2, read from `quarter_wave2.SHAPES`), `months`
-  `YYYY-MM` ascending, `fit.strings` an object of scalars (its keys are held by `frozen`); the arrays are `rows`, `switches`,
+  document and one line feed, no U+2028 or U+2029); then **closed**: every object holds exactly the keys of its table, in the format's order
+  (the top level its five keys, F2b l.30; a row the keys of F2b l.55-81; `profile`, `fit`, `usDst` and a switch theirs; `nonEvaluable` the
+  four blocks; the objects of `calib` and of the veto blocks those of F2, read from `quarter_wave2.SHAPES`), `months` `YYYY-MM` ascending,
+  `fit.strings` an object of scalars (its keys are held by `frozen`, their order by `row`); the arrays are `rows`, `switches`,
   `profile.values` and `profile.weekend` only. Then `usDst` equal to `USDST` in its canonical writing (keys and order included).
-- **`row(r)`**, the checks of one row, each refusal naming the row (`wave 2b row <taskClass> <key>: not …`): its horizon and its
-  estimator are the format's; its cell (the task class `<s>-range-<h>`, `<s>-mae-down-<h>` or `<s>-mae-up-<h>` of its symbol, the venue
-  of `recalc_p2.VENUE`, `side` null, `bucket` `"b0"`, `thresholds` null) with its `key` and its `trialId` recomposed; `wavePart` `"2b"`,
-  `calibAttempt` 1, `alpha` `"0.01"`, `testDelta` the base of its horizon; `W` the window of its estimator (168 at 1h or 42 at 4h, the GARCH
-  window recomputed from its frozen strings by c4a's `window`, 101); `fit.form` one of `FORMS` on `har-rv15-sp-v1` and null on the others;
-  `fit.strings` the keys of its estimator, each an `fdec` (c4a's `frozen`, then `fdec`), a + b below 1 (c4a's `window`) and `seed` above 0;
-  `profile` as section 3; `fitSha256` the sha256 of the canonical writing of `fit` (`report.canonical`, the writing of the contract 1.1.0,
-  F2b l.67) and `profileSha256` that of the numbers of `profile.values` then `profile.weekend` (`kata_lib.seq_sha256`, as
-  `factorTableSha256`, F2b l.65); and, as c3 holds them for a core row, a `qhat` iff calibrated, `status` and `vetoedBy` by the order of the
-  three veto blocks, and the months of each block within it and summed to `nTest` and `kTest` (`quarter_wave2.months_ok`).
+- **`row(r)`**, the checks of one row, each refusal naming the row (`wave 2b row <taskClass> <key>: not …`): its horizon and its estimator
+  are the format's; its cell (the task class `<s>-range-<h>`, `<s>-mae-down-<h>` or `<s>-mae-up-<h>` of its symbol, which ends in `USDT`,
+  the venue of `recalc_p2.VENUE`, `side` null, `bucket` `"b0"`, `thresholds` null) with its `key` and its `trialId` recomposed; `wavePart`
+  `"2b"`, `calibAttempt` the integer 1 (not `true`), `alpha` `"0.01"`, `testDelta` the base of its horizon; `W` the window of its estimator
+  (168 at 1h or 42 at 4h, the GARCH window recomputed from its frozen strings by c4a's `window`, 101); `fit.form` one of `FORMS` on
+  `har-rv15-sp-v1` and null on the others; `fit.strings` the keys of its estimator in the format's order (F2b l.105), each an `fdec` (c4a's
+  `frozen`, then `fdec`), a + b below 1 (c4a's `window`) and `seed` above 0; `profile` as section 3; `fitSha256` the sha256 of the canonical
+  writing of `fit` (`report.canonical`, the writing of the contract 1.1.0, F2b l.67) and `profileSha256` that of the numbers of
+  `profile.values` then `profile.weekend` (`kata_lib.seq_sha256`, as `factorTableSha256`, F2b l.65); and, as c3 holds them for a core row, a
+  `qhat` iff calibrated, `status` and `vetoedBy` by the order of the three veto blocks, and the months of each block within it and summed to
+  `nTest` and `kTest` (`quarter_wave2.months_ok`).
 - **`wave3_rows(path, pin)`**, across rows: each cell (`taskClass`, `key`) once; the rows of one key with one `W`, `fit` and `fitSha256`;
   the rows of one symbol and horizon with one `profile` and `profileSha256`; one form on every `har-rv15-sp-v1` row (F2b l.180, l.182).
 
@@ -140,16 +141,16 @@ python -E -S -s -B -P tools/kata-quarter/quarter_counts.py check equals_wave2b_r
 ```
 
 **Reads**: `wave3.json` under its pin (the whole reader of section 4); for each symbol folder its sealed series under the pin given, read
-alone under `quarter_wave2.READS`, each block on its candles from `READS[block].start` (section 5; no merge, rule 8 and 8 bis on that
-read, as L-O3). **Counts**: each row
-with a `qhat`, whatever its status, on the bridge, TEST-2 and FWD-2 (`quarter_wave2.BLOCKS`, in that order), by `quarter_core.count`
-(fdlibm_log decides, math.log listed). **Compares**, under the rule of `report.py` l.9-13 (strict equality of canonical writings), the
-fields of L-O3 and one more: `nTest`, `kTest`, `UTest` (`quarter_oracle.u_test`, the veto level 0.05 at both horizons, F2b l.121),
-`months`, the label drops (`drops.<block>`), the decisions not evaluable (`nonEvaluable.<block>`, F2b l.77) and `vetoed` (region,
-n ≥ 1 and the exact tail at the row's alpha under 0.05). **Outputs**: `<out dir>/equals_wave2b_registry_on_its_blocks.json`
-(`kata-quarter-oracle-v1`, canonical, named by its sha256 on the line `report`), the pin of the registry, the rows compared and each
-block's pose, grid, halts, census of the log and math.log decisions; each difference `<taskClass> <key> <block>.<field>`; exit 0 when
-every field is equal, 1 otherwise. The run on the host series and its report are MONARK's.
+alone under `quarter_wave2.READS`, each block on its candles from `READS[block].start` (section 5; no merge, rule 8 and 8 bis on that read,
+as L-O3); the folders named are those of the rows with a `qhat`, no more and no fewer, or the act is refused by name before any series is
+read (`quarter_oracle.py` l.195). **Counts**: each row with a `qhat`, whatever its status, on the bridge, TEST-2 and FWD-2
+(`quarter_wave2.BLOCKS`, in that order), by `quarter_core.count` (fdlibm_log decides, math.log listed). **Compares**, under the rule of
+`report.py` l.9-13 (strict equality of canonical writings), the fields of L-O3 and one more: `nTest`, `kTest`, `UTest`
+(`quarter_oracle.u_test`, the veto level 0.05 at both horizons, F2b l.121), `months`, the label drops (`drops.<block>`), the decisions not
+evaluable (`nonEvaluable.<block>`, F2b l.77) and `vetoed` (region, n ≥ 1 and the exact tail at the row's alpha under 0.05). **Outputs**:
+`<out dir>/equals_wave2b_registry_on_its_blocks.json` (`kata-quarter-oracle-v1`, canonical, named by its sha256 on the line `report`), the
+pin of the registry, the rows compared and each block's pose, grid, halts, census of the log and math.log decisions; each difference
+`<taskClass> <key> <block>.<field>`; exit 0 when every field is equal, 1 otherwise. The run on the host series and its report are MONARK's.
 
 Limits, for MONARK's run: (a) as L-O3, the historical exclusion instances are not an input (KQ-LO3-EXCLUSIONS-1 holds for this act too:
 the item's input, once pinned, enters both acts); (b) an `under_calib` row (no `qhat`) is not compared; (c) the series form is the tool's,
@@ -165,30 +166,31 @@ an array of the key names) or whose range has another number of bounds than two 
 `quarter_2b.py` l.154-155 that no test reached at c4a's merge (`type(x) is dict`, `len(x["range"]) == 2`) are reached by three cases
 with their mutation lines: **KQ-2B-INPUT-SHAPE-1 is closed** by this lot.
 
-`test/kata-quarter.test.ts` l.1638 (`once()`) is not touched; KQ-2B-ONCE-DOMAIN-1 stays open.
+`test/kata-quarter.test.ts` l.1651 at the head (l.1638 at the trunk; `once()`) is not touched; KQ-2B-ONCE-DOMAIN-1 stays open.
 
 ## 8. Tests (each red at the base: the new names of `quarter_2b.py`, the act and the input v2 are absent there)
 
 The registry of the tests is made by the test (`wave2bReg`, a builder of rows in the format's key order, `row2b`, written by
-`JSON.stringify(registry, null, 1)` and a line feed, the format's byte form), six rows of the made-up symbol `SYNUSDT` (folder `syn`);
-no fixture file (a registry of the format's 72 rows would exceed the PR's content bound; nothing is read from a real registry). Its
-blocks are worked out by the test (`decided`: out when a window holds the one absent candle, a drop when a label needs it, a miss on a
-weekday at the profile's marked keys, from the test's own DST table); each `UTest` is `binom_exact.miss_upper_bound` under 0.05 of the
-frozen tool run apart from the tool (as L-O3's test does), and each block fires at alpha 0.01, checked apart the same way.
+`JSON.stringify(registry, null, 1)` and a line feed, the format's byte form), seven rows of the made-up symbol `SYNUSDT` (folder `syn`); no
+fixture file (a registry of the format's 72 rows would exceed the PR's content bound; nothing is read from a real registry). Its blocks are
+worked out by the test (`decided`: out when a window holds the one absent candle, a drop when a label needs it, a miss on a weekday at the
+profile's marked keys, from the test's own DST table; for the `mae-down` row at a `qhat` of 300, a miss there only where its down label is
+the large one, so that its side decides); each `UTest` is `binom_exact.miss_upper_bound` under 0.05 of the frozen tool run apart from the
+tool (as L-O3's test does), and each block fires at alpha 0.01, checked apart the same way.
 
 | Test | What it holds |
 |---|---|
 | `us_dst_profile_keys_and_weekend` | `estimate` v2 around the summer switch of 2026-03-08 07:00Z, the end of the domain (2027-03-14 07:00Z) and its start (2022-03-13 07:00Z): the three values equal to the test's own computation (each bar deseasonalized by the profile value of its key, the weekend multiplier of t's UTC day, a Saturday among them), at 1h and at 4h; off the domain every value is `non_evaluable`, and at its start the HAR and the GARCH, whose windows hold bars before it |
-| `wave2b_registry_reader_closed` | the act refuses by name, exit 2 and no report, 35 registries: under another pin, off its byte form, a key twice, a key more, its keys reversed, a top level without `usDst`, an array for a value, a switch moved; a row at another horizon, family, venue, key or trial id, off `wavePart`, `calibAttempt` or `testDelta`, with another W (the GARCH's from its strings where the cap would not bind), a form on the GARCH or another HAR form, a string not as JavaScript writes it, a seed of 0, a + b = 1, a key more in a fit, a digest of another object, a profile of 11 values, a qhat on an `under_calib` row or in a string, a status off its blocks, a month outside its block; a cell twice, another fit on a row of a key, another profile on a row of a symbol and horizon, two HAR forms |
-| `equals_wave2b_registry_on_its_blocks` | on a made series of the three veto blocks and their months of inputs, the act counts each row with a `qhat` (HAR in the candle form, GARCH at the cap of 180 bars, EWMA, at 4h; a silence row; an `under_calib` row not compared) and gives the registry's counts of each block, exit 0: the misses fall where the profile's key and the weekend say (the test's own key, from the table); at the cap no decision is out but those whose window holds the one absent candle; a field of each kind changed in the registry is named, exit 1 |
+| `wave2b_registry_reader_closed` | the act refuses by name, exit 2 and no report, 44 registries: under another pin, off its byte form, a key twice, a key more, its keys reversed, a top level without `usDst`, an array for a value, a switch moved; a row at another horizon, family, venue, key or trial id, of a symbol without `USDT`, with a side, a bucket `b1` or thresholds, off `wavePart`, `calibAttempt` (2, or `true`), `alpha` (`"0.02"`) or `testDelta`, with another W (the GARCH's from its strings where the cap would not bind), a form on the GARCH or another HAR form, a string not as JavaScript writes it, the GARCH strings in the order seed, b, a, omega, a seed of 0, a + b = 1, a key more in a fit, a digest of another object, a profile of 11 values or of 3 weekend multipliers, a qhat on an `under_calib` row or in a string, a calib status `vetoed`, a status off its blocks, a month outside its block; a cell twice, another fit on a row of a key, another profile on a row of a symbol and horizon, two HAR forms |
+| `equals_wave2b_registry_on_its_blocks` | on a made series of the three veto blocks and their months of inputs, the act counts each row with a `qhat` (HAR in the candle form, GARCH at the cap of 180 bars, EWMA, at 4h; two silence rows, `mae-up` and `mae-down` of the EWMA, the second at a `qhat` of 300, whose misses fall on its down label only; an `under_calib` row not compared) and gives the registry's counts of each block, exit 0: the misses fall where the profile's key and the weekend say (the test's own key, from the table); at the cap no decision is out but those whose window holds the one absent candle; a field of each kind changed in the registry is named, exit 1; a symbol folder named more than the venue's is refused by name, exit 2, no report |
 
 The four tests of c4a keep their names; their input is v2 (the profile in place of the factors, the weekend multiplier from the
 instant's day), their computation reads the factor of each bar's key from the test's own table, and it writes `non_evaluable` for a
 value that is not finite (f off the domain), as the tool does. The case « a factor of 0 or absent among the inputs » of
-`garch_and_ewma_on_deseasonalized_inputs` becomes « a bar off the table's domain » in `us_dst_profile_keys_and_weekend`, and its
-mutation line on `factor()` (`g > 0`) is withdrawn: a profile value of 0 is refused by name (Q7), so no factor of 0 reaches the
-evaluation, and that check of `factor()` stays as the evaluation's own guard. `frozen_fit_strings_refused_by_name` gains the cases of
-the input v2: a profile value of -1, of 0, or written `0.70`; instants in an object or one twice; the input `5`, an array of its key
+`garch_and_ewma_on_deseasonalized_inputs` becomes « a bar off the table's domain » in `us_dst_profile_keys_and_weekend`, and its mutation
+line on `factor()` (`g > 0`) is withdrawn: a profile value of 0 is refused by name (Q7), so no factor of 0 reaches the evaluation, and that
+check of `factor()` stays as the evaluation's own guard. `frozen_fit_strings_refused_by_name` gains the cases of the input v2: a profile
+value of -1, of 0, or written `0.70`, or its two keys reversed; instants in an object or one twice; the input `5`, an array of its key
 names, a range of three bounds (KQ-2B-INPUT-SHAPE-1).
 
 ## 9. Measures before the push (offline, Node 24.21.0, CPython 3.14.8, Linux)
@@ -220,7 +222,7 @@ R-25 in the CI form: estimated before the code at ~480 (~620 at +30 %), above th
 bound of 547 at the high estimate, under the PR bound of 1 205: the reader holds more checks than the plan priced (the format fixed them
 after the plan), and the input v2 adapts c4a's tests. Measured at the head of the code by `scripts/oracle/r25.mjs`: 609 changed lines
 (528 insertions, 81 deletions; content 0), under the PR bound of 1 205 and above the plan's lot bound of 547 by 62. The excess is the
-reader's checks and their 35 test cases; no split is proposed, as the PR bound holds and the parts cannot be merged apart (the act
+reader's checks and their 44 test cases; no split is proposed, as the PR bound holds and the parts cannot be merged apart (the act
 needs the reader, the reader the profile).
 
 ## 11. Questions (default in brackets; each default built here, reversible within this lot)

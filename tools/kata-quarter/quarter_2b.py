@@ -235,8 +235,8 @@ def profile(p, horizon, what):
 
 def closed(v, name, where):
     """wave3.json closed, as quarter_wave2.closed: every object the keys of its table in the format's order (months YYYY-MM ascending,
-    fit.strings the keys that frozen() holds); every array the rows, the switches or a profile's strings; else a scalar, or null where
-    the format admits it."""
+    fit.strings the keys that frozen() holds, in the order row() holds); every array the rows, the switches or a profile's strings; else a
+    scalar, or null where the format admits it."""
     if name in LISTS:
         if type(v) is not list:
             raise Q.Refused(f"wave3.json: {where}: a {type(v).__name__}, not an array")
@@ -295,7 +295,7 @@ def row(r):
          and r["calibAttempt"] == 1 and r["alpha"] == "0.01" and r["testDelta"] == DELTA[h]),
         ("W the window of its estimator", W.safe(r["W"]) and r["W"] == w),
         ("fit.form a HAR form on har-rv15-sp-v1, null on the others", fit["form"] in FORMS if kid == KATAS[0] else fit["form"] is None),
-        ("frozen strings written as JavaScript writes them, a seed above 0", all(fdec(v) for v in fit["strings"].values()) and fz[0].get("seed", 1) > 0),
+        ("frozen strings in the format's order, written as JavaScript writes them, a seed above 0", all(fdec(v) for v in fit["strings"].values()) and fz[0].get("seed", 1) > 0 and list(fit["strings"]) == list(FITS[kid])),
         ("fitSha256 and profileSha256 the digests of fit and profile", r["fitSha256"] == hashlib.sha256(report.canonical(fit).encode("ascii")).hexdigest()
          and r["profileSha256"] == K.seq_sha256([float(v) for v in r["profile"]["values"] + r["profile"]["weekend"]])),
         ("a qhat, a finite number, iff calibrated", c["status"] in ("under_calib", "silence", "region") and (c["qhat"] is None) == (c["status"] == "under_calib")
