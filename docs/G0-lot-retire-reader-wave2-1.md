@@ -21,7 +21,7 @@
     names the attempt of its cell that is current at the date of the list: for a core cell, attempt 2 in a list dated on or after the day
     its `wave2.json` row becomes current, attempt 1 before; an entry carried unchanged from an earlier list keeps its attempt. »
   - Its draft's note 3 (recherches `coordination/pieces/2026-10-07-format-w2/FORMAT-W2-draft.md` at `f781057`, l.313-317): the reader
-    reads « the current attempt of an entry at the date of its list, on the pinned registries (`wave1.json` through `readRegistry`,
+    reads « the current attempt of an entry **at the date of its list**, on the pinned registries (`wave1.json` through `readRegistry`,
     `wave2.json` through the closed reader of E-1a) »; « A new entry is admitted on the current attempt at the date of its list only, and
     the status test reads that attempt's status »; (2) « the list key becomes (`task_class`, `cell_key`, `calib_attempt`); an attempt-1
     entry older than the child stays valid in later cumulative lists and covers row 1 only ».
@@ -40,10 +40,13 @@
 - `apps/harness/src/policy-retire.ts`: `readRetireList` takes a fourth parameter, `children` (default: none, the reading of today), the
   attempt 2 of the wave 2 core cells, each with its registry status and the pinned day from which its row is current. Lines changed in
   place, none added nor removed before the end of the file (mutation lines name l.53, l.65, l.80 and l.83): the header (l.5-6), the doc
-  comment (l.57), the signature (l.60), the sort key (l.69), the cell's child (l.73), the current attempt at the list's date (l.75), the
-  status of the attempt named (l.76). Appended after l.85: the types `ChildCell` and `ChildCells`, `attemptAt`, `carried` and `realDay`.
+  comment (l.57), the signature (l.60), the sort key and its refusal, which names the three-part key (l.69), the cell's child (l.73),
+  the current attempt at the list's date (l.75), the status of the attempt named (l.76). Appended after l.85: the types `ChildCell`
+  and `ChildCells`, `attemptAt`, `carried` and `realDay`.
+  l.75 and l.76 each hold two statements on purpose, so that no line moves under an existing mutation line (kept after the review).
 - `apps/harness/test/policy-retire-wave2.test.ts` (new): the closing test and one test per new branch or refusal, each with its mutation
-  line above it.
+  line above it; the status test and the day test carry a second mutation line in their body (on l.76 and l.110).
+- `apps/harness/test/policy-retire.test.ts` l.72: the expected sort refusal names the three-part key, as l.69 now does.
 - `test/test-counts.json`, `test/test-names.json`: by `node scripts/test-count-floor.mjs write` after `npm run test:main`.
 - **Not changed**: `apps/harness/src/policy-guard.ts` (its call l.118 passes no children, so the guard reads every list as today),
   `apps/harness/src/policy-wave2.ts` (no reader of wave 2 cells there to reuse: it holds the chain of policy rows, l.53-64, not a registry
@@ -113,27 +116,35 @@ schema, `tools/` or `packages/` file, docs/ETAT.md and the docs/PAROXYSME regist
   `policy-retire.ts` (~40 insertions and deletions), ~130 in the new test file: ~170, ~220 at +30 %, under 547. No split.
 - **Tests** (`apps/harness/test/policy-retire-wave2.test.ts`): `retire_list_attempt_2_on_a_wave2_cell` (the closing test, with the chain
   where the parent is retired first), then one test per new branch or refusal: the day the child becomes current (D-2), the carried
-  attempt 1 entry (D-3), the list key (D-5), the child's status (D-4), the child's day a real day (D-2). Each red at the base by an
-  assertion (the base ignores `children` and refuses every attempt 2 entry), each with its mutation line above it.
+  attempt 1 entry (D-3), the list key (D-5), the child's status (D-4; also an attempt 1 entry carried after the child is current,
+  under a child that serves no region: it reads its parent's status), the child's day a real day (D-2; also a year or a month written
+  alone, which `Date.parse` reads as a first day). Each red at the base by an assertion (the base ignores `children` and refuses every
+  attempt 2 entry), each with its mutation line above it.
 - **Measured at the head of the code** (`34d250a9`): R-25 in the CI form (`scripts/oracle/r25.mjs` against `c6aa4907`), 156 changed
   lines (148 insertions, 8 deletions), under the lot bound of 547; the content count 0. In `policy-retire.ts`, 8 lines changed in place
   (l.5, l.6, l.57, l.60, l.69, l.73, l.75, l.76) and 26 appended (l.86-111); every other line keeps its number.
+- **Measured after the fold of the review** (`d90fa20d`): R-25 in the CI form, 167 changed lines (158 insertions, 9 deletions), under
+  547; the content count 0. The same 8 lines of `policy-retire.ts` changed in place; the fold rewords l.69's refusal on its own line.
 
 ## 7. Verification (offline, `offline.mjs --no-egress`, Node 24.21.0, Linux; 0 refused connection in every run)
 
-- **The whole `test:main`**, at the base and at the head, each test's outcome compared by name: base 3282 tests (3258 pass, 24
-  skipped), head 3288 (3264 pass, 24 skipped), 0 fail on either side; no outcome of the base differs at the head; the six new tests
-  are the only difference. `node scripts/test-count-floor.mjs write`, then `node scripts/test-count-check.mjs --base c6aa4907…`:
-  321 files, 3288 tests, equal to both records, 0 drop. The head run read the tree before the last edit of the header's l.5 (a
-  comment, the list key named); after it, tsc, eslint, the three retire and guard test files with `test/killer-lines.test.ts` (36
-  tests, 0 fail), the anchor checker and all the runs below were made again at `34d250a9`.
-- **`scripts/red-proof.mjs --base c6aa4907… --gel <the tree at 34d250a9> --draw 6`**: 6 judged, 6 F2P (red at the base by an
-  assertion, green at the head), the 6 mutation lines drawn, 6 killed, each file restored by sha256.
-- **Each mutation line applied alone** at the head with only its test: the six new ones (l.69, l.75, l.76, l.99 twice, l.110) and the
-  four that name `policy-retire.ts` already (l.53, l.65, l.80, l.83, none on a changed line): 10 red by an assertion, the file
-  restored by sha256.
-- **Anchor checker** (`verifie-ancres.mjs`, every killer line of the tree, `--ref c6aa4907…`): 2599 killer lines, 2599 ANCRE, 0
-  DERIVE, 0 PERDU. `test/killer-lines.test.ts` green.
-- **Gates**: `npx tsc --noEmit` clean; eslint on the two touched code files clean, and with the lint ratchet's six rules and
-  `restrict-template-expressions` as errors; `lint:ratchet` 69/69 (the ceiling, unchanged); `lang:gate`, `gate:vocab` and
-  `export:check` OK. The new tests write no path, so the case-folding check has nothing to fold.
+All measured at `d90fa20d`, the head after the fold of the review.
+
+- **The whole `test:main`**, each test's outcome compared by name with the base run (`c6aa4907`): base 3282 tests (3258 pass, 24
+  skipped), head 3288 (3264 pass, 24 skipped), 0 fail on either side, 318 s at the head; no outcome of the base differs at the head;
+  the six new tests are the only difference. Compared with the run at `4c1f15e0` before the fold: the same outcomes and names. No name
+  changed, so the records stay; `node scripts/test-count-check.mjs --base c6aa4907…`: 321 files, 3288 tests, equal to both records, 0 drop.
+- **`scripts/red-proof.mjs --base c6aa4907… --gel <the tree at d90fa20d> --draw 6`**: 7 judged, 7 F2P (red at the base by an
+  assertion, green at the head; `retire_list_reader_closed` too, whose expected refusal now names the three-part key), 6 mutation lines
+  drawn, 6 killed, each file restored by sha256.
+- **Each mutation line applied alone** at the head with only its test: the eight new ones (l.69, l.75, l.76 twice, l.99 twice, l.110
+  twice) and the four that name `policy-retire.ts` already (l.53, l.65, l.80, l.83, none on a changed line): 12 red by an assertion, the
+  file restored by sha256.
+- **Anchor checker** (`verifie-ancres.mjs`, every killer line of the tree, `--ref c6aa4907…`): 2607 killer lines, 2607 ANCRE, 0
+  DERIVE, 0 PERDU (2605 at `4c1f15e0`, 2599 at the base). With `--ref 4c1f15e0…`, the mutation line on l.69
+  (`policy-retire-wave2.test.ts` l.89) reads DERIVE, re-anchored on l.69 itself: the line keeps its number and its mutated text,
+  only the refusal's words changed. `test/killer-lines.test.ts` green.
+- **Gates**: `npx tsc --noEmit` clean; eslint on the three touched code and test files clean, and with the lint ratchet's six rules
+  and `restrict-template-expressions` as errors; `lint:ratchet` 69/69 (the ceiling, unchanged); `lang:gate`, `gate:vocab` and
+  `export:check` OK. The new tests write no path; the three retire and guard test files run green under the case-folding git wrapper,
+  which sees no git call.
