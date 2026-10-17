@@ -13,7 +13,7 @@
 #     path row that has a qhat, whatever its status, each named in result.rows.
 #   pseudo_quarter_2026_07_09: the count on [2026-07-01, 2026-10-01) against the sum of the months 2026-07 to 2026-09 of test.months.
 #   fdlibm_measure: the count on the TEST block; its report holds the census of the two logs on POPULATION and the decisions that differ.
-#   equals_wave2_registry_on_its_blocks (L-O3, on_blocks): the core rows on their three veto blocks. Host runs: MONARK's; tests: made series.
+#   equals_wave2_registry_on_its_blocks (L-O3, on_blocks), equals_wave2b_registry_on_its_blocks (L-O4, on_wave2b): rows on their blocks; host runs MONARK's.
 import hashlib
 import json
 import os
@@ -28,10 +28,10 @@ import recalc_p2
 import report
 
 MODEL = "claude-opus-5-5"
-ACTS = ("original_values_byte_equal", "equals_registry_on_test_block", "pseudo_quarter_2026_07_09", "fdlibm_measure", "equals_wave2_registry_on_its_blocks")
+ACTS = ("original_values_byte_equal", "equals_registry_on_test_block", "pseudo_quarter_2026_07_09", "fdlibm_measure", "equals_wave2_registry_on_its_blocks", "equals_wave2b_registry_on_its_blocks")
 USAGE = ("       python -E -S -s -B -P quarter_counts.py check original_values_byte_equal <sealed series dir> <out dir> <first report.json, "
          "or - for the first invocation> <its sha256, or -> <symbol folder>:<sealed sha256 | pinned> ...\n"
-         "       python -E -S -s -B -P quarter_counts.py check <equals_registry_on_test_block | pseudo_quarter_2026_07_09 | fdlibm_measure> "
+         "       python -E -S -s -B -P quarter_counts.py check <equals_registry_on_test_block | pseudo_quarter_2026_07_09 | fdlibm_measure | equals_wave2b_registry_on_its_blocks> "
          "<registry> <registry sha256> <sealed series dir> <out dir> <symbol folder>:<sealed sha256 | pinned> ..." + W.USAGE)
 FORMAT = "kata-quarter-oracle-v1"
 RULE = ("report.py l.9-13: each field compared is a decision, held by strict equality; the count of the fdlibm_log pass decides, the "
@@ -135,13 +135,17 @@ def act(name, args, identity_line):
         registry, core, sealed, out = (os.path.abspath(args[i]) for i in (0, 2, 4, 5))
         io_guard.output(out)
         result, diffs = on_blocks(registry, args[1], (core, args[3]), sealed, specs(args[6:]))
-    else:
+    elif name != ACTS[5]:
         registry, pin, sealed, out, pins = os.path.abspath(args[0]), args[1], os.path.abspath(args[2]), os.path.abspath(args[3]), specs(args[4:])
         io_guard.output(out)
         rows, res = counted(registry, pin, sealed, pins, PSEUDO if name == ACTS[2] else K.BLOCKS["TEST"])
         diffs = [] if name == ACTS[3] else against(rows, res, name)
         result = {"registry_sha256": pin, "rows": [[r["taskClass"], r["key"]] for r, _, _ in rows], "log": res["log"], "population": POPULATION,
                   "pose": res["pose"], "grid": res["grid"], "math_log_decisions": res["differ"]}
+    else:  # L-O4: <wave 2b registry> <sha256> <sealed series dir> <out dir> <symbol folder>:<sealed sha256> ...
+        registry, sealed, out = (os.path.abspath(args[i]) for i in (0, 2, 3))
+        io_guard.output(out)
+        result, diffs = on_wave2b(registry, args[1], sealed, specs(args[4:]))
     if not os.path.isdir(out):
         os.mkdir(out)
     rep = {"format": FORMAT, "act": name, "identity": dict(zip(IDENT, ident)),
@@ -175,6 +179,34 @@ def on_blocks(registry, pin, core, sealed, pins):
             mine = {"nTest": n, "kTest": k, "UTest": u_test(n, k), "months": got["months"], "drops": got["drops_label"],
                     "vetoed": bool(r["calib"]["status"] == "region" and n >= 1 and E.binom_upper_tail_leq(n, k, r["alpha"], recalc_p2.DELTA))}
             theirs = {**r[b], "drops": r["drops"][b]}
+            diffs += [f"{r['taskClass']} {r['key']} {b}.{x}: tool {report.canonical(mine[x])}, registry {report.canonical(theirs[x])}"
+                      for x in mine if report.canonical(mine[x]) != report.canonical(theirs[x])]
+    return result, diffs
+
+
+def on_wave2b(registry, pin, sealed, pins):
+    """equals_wave2b_registry_on_its_blocks (L-O4, docs/G0-lot-cm5-c4b.md): each wave 2b row with a qhat, whatever its status, counted on the
+    three veto blocks, its sigma_hat that of its estimator on its frozen fit under its profile and usDst (quarter_2b.wave3_rows), from its
+    sealed series read alone, each block's candles from READS[block].start (kata/w2c/blocks.ts:25-30) to its end; held to wave3.json as
+    on_blocks holds wave2.json, and the decisions not evaluable of each block (nonEvaluable.<block>, the instants out)."""
+    import quarter_2b as B  # here, as estimate imports it: no other act loads it
+    rows = [x for x in B.wave3_rows(registry, pin) if x[0]["calib"]["qhat"] is not None]
+    venue = sorted({f for _, _, f in rows})
+    if sorted(pins) != venue:
+        raise Q.Refused(f"the symbol folders named {sorted(pins)} are not the venue's {venue}, those of the wave 2b rows with a qhat")
+    result, diffs = {"registry_sha256": pin, "rows": [[r["taskClass"], r["key"]] for r, _, _ in rows], "blocks": {}}, []
+    whole = {f: Q.read_series(sealed, f, p, *W.READS) for f, p in pins.items()}  # one read of each series, as on_blocks
+    for b, (s, e) in W.BLOCKS.items():  # the block's candles from READS[block].start, the range of the writer's block guard
+        cut = ({**r, "candles": {t: c for t, c in r["candles"].items() if B.READS[b] <= t < e}} for r in whole.values())
+        reads = {r["sym"]: (r, {"declared": frozenset()}, r) for r in cut}
+        res = C.count(reads, rows, (s, e), venue)
+        result["blocks"][b] = {"read_from": Q.iso(B.READS[b]), "pose": res["pose"], "grid": res["grid"], "halts": res["halts"], "log": res["log"],
+                               "math_log_decisions": res["differ"]}
+        for (r, _, _), got in zip(rows, res["rows"]):
+            n, k = got["n_test"], got["k_test"]
+            mine = {"nTest": n, "kTest": k, "UTest": u_test(n, k), "months": got["months"], "drops": got["drops_label"], "nonEvaluable": got["out_input"],
+                    "vetoed": bool(r["calib"]["status"] == "region" and n >= 1 and E.binom_upper_tail_leq(n, k, r["alpha"], recalc_p2.DELTA))}
+            theirs = {**r[b], "drops": r["drops"][b], "nonEvaluable": r["nonEvaluable"][b]}
             diffs += [f"{r['taskClass']} {r['key']} {b}.{x}: tool {report.canonical(mine[x])}, registry {report.canonical(theirs[x])}"
                       for x in mine if report.canonical(mine[x]) != report.canonical(theirs[x])]
     return result, diffs
