@@ -195,35 +195,45 @@ names, a range of three bounds (KQ-2B-INPUT-SHAPE-1).
 
 ## 9. Measures before the push (offline, Node 24.21.0, CPython 3.14.8, Linux)
 
-- **The file**: `test/kata-quarter.test.ts` 45 of 45 in 171 s (bound 300 s; the trunk's 42 took 193 s in a run of the same day on the
-  same container), 0 refused; the three new tests take 1.2 s (`us_dst_profile_keys_and_weekend`), 7.0 s
-  (`wave2b_registry_reader_closed`, 35 launches) and 6.4 s (`equals_wave2b_registry_on_its_blocks`, two runs of the act on a series of
-  26 months). `test/killer-lines.test.ts` 1 of 1; `test/verifier-tool-ci.test.ts` 10 of 10.
+- **The file**: `test/kata-quarter.test.ts` 45 of 45 in 182 s after the review's fold (171 s before it; bound 300 s; the trunk's 42 took
+  193 s in a run of the same day on the same container), 0 refused; the three new tests take 1.4 s (`us_dst_profile_keys_and_weekend`),
+  9.7 s (`wave2b_registry_reader_closed`, 44 launches) and 7.6 s (`equals_wave2b_registry_on_its_blocks`, three runs of the act on a series
+  of 26 months: two counts and one refusal). `test/killer-lines.test.ts` 1 of 1; `test/verifier-tool-ci.test.ts` 10 of 10.
 - **Red at the base**: the seven tests of the wave 2b evaluation (the three new ones and the four of c4a on the input v2), with the
   trunk's `quarter_2b.py`, `quarter_core.py` and `quarter_oracle.py`: 7 of 7 red by an assertion (the input v2 refused by the v1
   reader; the act unknown, its usage printed); the files restored by sha256.
-- **Mutation lines**: 50 new (6 in `frozen_fit_strings_refused_by_name`, 7 in `us_dst_profile_keys_and_weekend`, 31 in
-  `wave2b_registry_reader_closed`, 6 in `equals_wave2b_registry_on_its_blocks`), 2 withdrawn (`factor()`'s `g > 0`, section 8; the
-  v1 factors' form, gone with them), 6 renumbered (the lines of `quarter_oracle.py` after the new branch of `act`, l.152, l.168, l.179,
-  l.180). Each mutation line of the seven tests and of the three earlier tests whose code moved or changed (`equals_wave2_registry_on_its_blocks`,
-  `equals_registry_on_test_block`, `k_test_exact_on_a_made_series`, the one inside it on `quarter_core.py` l.96 included) applied
-  alone, with only its test run, offline: 91 mutation lines, each red by an assertion (the reader's each on its own case), each file
-  restored by sha256, 0 refused. One line first written for the profile digest also disabled the fit digest (`and … or` precedence) and reddened on the fit's
-  case: it was replaced by one that removes the profile digest only, red on its own case.
-- **Anchors** (the atelier's checker, both touched test files against the trunk): 294 mutation lines, 293 on the same line as at the
+- **Mutation lines**: 62 new (7 in `frozen_fit_strings_refused_by_name`, 7 in `us_dst_profile_keys_and_weekend`, 40 in
+  `wave2b_registry_reader_closed`, 8 in `equals_wave2b_registry_on_its_blocks`), 2 withdrawn (`factor()`'s `g > 0`, section 8; the v1
+  factors' form, gone with them), 6 renumbered (the lines of `quarter_oracle.py` after the new branch of `act`, l.152, l.168, l.179, l.180).
+  At the first head of the code, each mutation line of the seven tests and of the three earlier tests whose code moved or changed
+  (`equals_wave2_registry_on_its_blocks`, `equals_registry_on_test_block`, `k_test_exact_on_a_made_series`, the one inside it on
+  `quarter_core.py` l.96 included) applied alone, with only its test run, offline: 91 mutation lines, each red by an assertion, each file
+  restored by sha256, 0 refused. One line first written for the profile digest also disabled the fit digest (`and … or` precedence) and
+  reddened on the fit's case: it was replaced by one that removes the profile digest only, red on its own case. The review's fold adds 12,
+  one for each check that no case reached and one for the order of the frozen strings, which the reader now holds (`quarter_2b.py` l.223,
+  l.224, l.291, three on l.292, l.294, l.295, l.298, l.301 and l.310, `quarter_oracle.py` l.195); then each mutation line of the three tests
+  it touched (`frozen_fit_strings_refused_by_name`, `wave2b_registry_reader_closed`, `equals_wave2b_registry_on_its_blocks`) applied alone
+  again, with only its test run, offline: 62 mutation lines, each red by an assertion, the 12 new each on its own case, each file restored
+  by sha256, 0 refused.
+- **Anchors** (the atelier's checker, the touched test files against the trunk): 306 mutation lines, 305 on the same line as at the
   trunk, 1 on a line changed in place (`quarter_core.py` l.96, `count_row`'s sigma_hat: its text still once on its line, red alone).
-- **Other gates**: typecheck of the two touched test files; `eslint` on them; the six rules of the lint ratchet on the test file (0);
-  `lang:gate`; `gate:vocab`. Under the case-folding git wrapper, the seven tests 7 of 7, every `git add` clean; the 142 names the
-  tests wrote, 0 equal once case is folded, 0 that Windows refuses.
+- **Other gates**: typecheck of the two touched test files; `eslint` on the test file; the six rules of the lint ratchet and
+  `restrict-template-expressions` on it as errors (0); `lang:gate`; `gate:vocab`. Under the case-folding git wrapper, the seven tests
+  7 of 7, every `git add` clean; the 152 names the tests wrote, 0 equal once case is folded, 0 that Windows refuses.
 
 ## 10. Size
 
-R-25 in the CI form: estimated before the code at ~480 (~620 at +30 %), above the plan's ~290 (377 at +30 %) and above the plan's lot
-bound of 547 at the high estimate, under the PR bound of 1 205: the reader holds more checks than the plan priced (the format fixed them
-after the plan), and the input v2 adapts c4a's tests. Measured at the head of the code by `scripts/oracle/r25.mjs`: 609 changed lines
-(528 insertions, 81 deletions; content 0), under the PR bound of 1 205 and above the plan's lot bound of 547 by 62. The excess is the
-reader's checks and their 44 test cases; no split is proposed, as the PR bound holds and the parts cannot be merged apart (the act
-needs the reader, the reader the profile).
+R-25 in the CI form: estimated before the code at ~480 (~620 at +30 %), above the plan's ~290 (377 at +30 %), under the PR bound of 1 205:
+the reader holds more checks than the plan priced (the format fixed them after the plan), and the input v2 adapts c4a's tests. So at the
+time of the estimate, before any code, the lot was already above the plan's lot bound of 547 at the high estimate. The plan's rule (plan
+l.578-580) is that each lot is estimated under 547 at the high estimate and that one above it is split, with a measured bound of at most 1
+150 by `r25()` and the CI gate of 1 205. This lot was not split, and it could have been: the US DST table, the profile and `estimate` v2
+(with KQ-2B-INPUT-SHAPE-1) need neither the reader nor the act, and could have been merged first, the reader of `wave3.json` and the act
+L-O4 after them. Measured at the head by `scripts/oracle/r25.mjs` against the trunk `373e6da3`: 647 changed lines (566 insertions, 81
+deletions; content 0), within the plan's measured bound of 1 150 and the PR bound of 1 205, and above the plan's lot bound of 547 by 100 (by
+62 before the review's changes, whose test cases and mutation lines add 38). The excess is the reader's checks and their 44 test cases. It
+is disclosed here for MONARK to decide (merge as one, or split now into the profile with `estimate` v2, then the reader and the act); no
+split is made in this lot.
 
 ## 11. Questions (default in brackets; each default built here, reversible within this lot)
 
