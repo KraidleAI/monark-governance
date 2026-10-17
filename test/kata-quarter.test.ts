@@ -1554,13 +1554,14 @@ const B2 = "quarter_2b.py", NE = "non_evaluable", T0 = Date.UTC(2026, 0, 1), STE
 const HEADER = "open_time_utc,open_time_ms,open,high,low,close,volume,close_time_ms,quote_volume,trades,taker_buy_base_volume,taker_buy_quote_volume";
 const utc = (t: number): string => new Date(t).toISOString().replace(".000Z", "Z");
 type Ohlc = [number, number, number, number];
-/** n candles of 15 minutes from T0, a walk of a fixed generator written with two decimals; those of skip absent, declared in missing.json.
+/** n candles of 15 minutes from T0, a walk of a fixed generator written with two decimals; those of skip absent, declared in missing.json;
+ *  each candle opens at the close before it, but those of gaps, which open 0.4% above it (none by default).
  *  Its folder, its pin, and the candles by open time (open, high, low, close, as the tool parses their strings). */
-const made = (work: string, n: number, skip: number[] = []): { dir: string; pin: string; at: Map<number, Ohlc> } => {
+const made = (work: string, n: number, skip: number[] = [], gaps: number[] = []): { dir: string; pin: string; at: Map<number, Ohlc> } => {
   const rows = [HEADER], at = new Map<number, Ohlc>(), dir = join(work, "series");
   for (let i = 0, x = 7, c = "100.00"; i < n; i++) {
     x = (x * 48271) % 2147483647;
-    const t = T0 + i * STEP, o = c;
+    const t = T0 + i * STEP, o = gaps.includes(t) ? (Number(c) * 1.004).toFixed(2) : c;
     c = (Number(o) * (1 + (x / 2147483647 - 0.5) / 50)).toFixed(2);
     const hi = (Math.max(Number(o), Number(c)) + 0.01 * (1 + (x % 9))).toFixed(2), lo = (Math.min(Number(o), Number(c)) - 0.01 * (1 + (x % 7))).toFixed(2);
     if (skip.includes(t)) continue;
@@ -1593,8 +1594,8 @@ const valuesOf = (r: Run): Estimates => {
 };
 /** The test's own computation of the three at t, from the written definitions (ADR 0006 D4; the note, sections 3 to 5), JavaScript's log
  *  (V8's, the one that decides; ln, if given, in its place), every sum from the oldest; f the factor of a bar's start, wk the weekend
- *  multiplier, w the GARCH window. */
-const expected = (at: Map<number, Ohlc>, t: number, h: number, form: string, f: (s: number) => number, wk: number, w: number, ln: (x: number) => number = Math.log): Record<string, string> => {
+ *  multiplier, w the GARCH window in bars (its W - 1 returns; ADR 0005 D4), gf the GARCH fit's strings that replace those of FITS. */
+const expected = (at: Map<number, Ohlc>, t: number, h: number, form: string, f: (s: number) => number, wk: number, w: number, ln: (x: number) => number = Math.log, gf: Record<string, string> = {}): Record<string, string> => {
   const sum = (xs: number[]): number => xs.reduce((a, x) => a + x, 0), mean = (xs: number[]): number => sum(xs) / xs.length;
   const bar = (s: number): Ohlc | null => {
     const cs = Array.from({ length: h / STEP }, (_, j) => at.get(s + j * STEP));
@@ -1610,9 +1611,9 @@ const expected = (at: Map<number, Ohlc>, t: number, h: number, form: string, f: 
   });
   const xs = rvs.map((rv, i) => (rv === null ? null : rv / (f(starts[i]!) * f(starts[i]!)))), [b0, b1, b2, b3] = ["b0", "b1", "b2", "b3"].map((k) => Number(FITS["har-rv15-sp-v1"][k as "b0"]));
   const x = xs.some((v) => v === null) ? null : (xs as number[]), har = x === null ? null : b0! + b1! * x.at(-1)! + b2! * mean(x.slice(-DAY / h)) + b3! * mean(x);
-  const g = FITS["garch11-sf-sp-v1"], gc = closes(w + 1);
+  const g = { ...FITS["garch11-sf-sp-v1"], ...gf }, gc = closes(w); // the W bars that end at t, the bar u starting at t - (w - u) h
   let s2: number | null = gc === null ? null : Number(g.seed);
-  for (let u = 1; s2 !== null && u <= w; u++) { const e = ln(gc![u]! / gc![u - 1]!) / f(t - (w + 1 - u) * h); s2 = Number(g.omega) + Number(g.a) * (e * e) + Number(g.b) * s2; }
+  for (let u = 1; s2 !== null && u < w; u++) { const e = ln(gc![u]! / gc![u - 1]!) / f(t - (w - u) * h); s2 = Number(g.omega) + Number(g.a) * (e * e) + Number(g.b) * s2; }
   const ec = closes(101), pow = Array.from({ length: 100 }, (_, i) => 0.94 ** i), z = sum([...pow].reverse());
   const ewma = ec === null ? null : sum(ec.slice(1).map((c, j) => { const r = ln(c / ec[j]!); return ((pow[99 - j]! / z) * r) * r; }));
   return { "har-rv15-sp-v1": out(har), "garch11-sf-sp-v1": out(s2), "ewma-vol-sp-v1": out(ewma === null ? null : ewma) };
@@ -1621,28 +1622,48 @@ const factorFn = (h: number, span: number): ((s: number) => number) => { const m
 
 // reddened by: the window rule computed on binary64 sums or powers, or not up to its cap: W not the least integer from 1 with p^W <= 3/100,
 // the cap of 720 bars at 1h or 180 at 4h not applied or applied at the other horizon, its binding not told, the residual seed weight not
-// p^W, or a + b >= 1 admitted; a = 0.1 and b = 0.07320508075688773 give W = 3 by exact products, 2 by binary64 ones
+// p^(W - 1), the weight of the seed after the W - 1 steps of the recursion (0.5^5 = 0.03125 at p = 0.5, W = 6; 1 at W = 1, also at p = 0),
+// or not the exact p^(W - 1) rounded once (a binary64 power, or p^W and p each rounded before the quotient: at 1h, a = 0.5 and b = 0.49514
+// or 0.49515, each differs from it in the last digits), or a + b >= 1 admitted; a = 0.1 and b = 0.07320508075688773 give W = 3 by exact
+// products, 2 by binary64 ones
 // killer: tools/kata-quarter/quarter_2b.py:43 CONST "pw <= target and" -> "pw < target and"
 // killer: tools/kata-quarter/quarter_2b.py:44 CONST "pw * p" -> "fractions.Fraction(float(pw) * float(p))"
+// killer: tools/kata-quarter/quarter_2b.py:45 CONST "float(pw / p)" -> "float(pw)"
+// killer: tools/kata-quarter/quarter_2b.py:45 CONST "else 1.0" -> "else float(pw)"
+// killer: tools/kata-quarter/quarter_2b.py:45 CONST "float(pw / p) if w > 1" -> "float(p) ** (w - 1) if w > 1"
+// killer: tools/kata-quarter/quarter_2b.py:45 CONST "float(pw / p)" -> "float(pw) / float(p)"
 test("garch_window_exact_on_the_frozen_strings - the GARCH window is the least W from 1 with (a + b)^W <= 0.03 on the frozen strings as rationals, capped at 720 bars at 1h and 180 at 4h: the bounds of the cap that ADR 0006 computes hold, a = 0.0003 and b = 0.0297 give W = 1 where a binary64 sum would not, a = 0.1 and b = 0.07320508075688773 give W = 3 where binary64 products would give 2, and a + b >= 1 is refused by name", () => {
   assert.ok(existsSync(join(REPO, QUARTER, B2)), `${QUARTER}/${B2} absent`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-2b-window-")), series = made(work, 16);
-  const exact = (a: string, b: string, cap: number): [number, boolean] => { // the test's own products, in integers
+  const once = (n: bigint, d: bigint): number => { // n / d in [0, 1] rounded once to the nearest binary64, ties to even: 53 bits, then the rest
+    const len = (x: bigint): number => x.toString(2).length, k = BigInt(53 + len(d) - len(n)), s = (n << k) / d >= 1n << 53n ? k - 1n : k;
+    const q = (n << s) / d, r = (n << s) % d, m = Number(2n * r > d || (2n * r === d && q % 2n === 1n) ? q + 1n : q); // m <= 2^53, exact
+    return m / Number(1n << s); // by a power of two: exact
+  };
+  // the test's own products, in integers: W, the cap's binding, p^(W - 1) rounded once, and p^W and p rounded apart before their quotient
+  const exact = (a: string, b: string, cap: number): [number, boolean, number, number] => {
     const d = Math.max(...[a, b].map((s) => s.split(".")[1]?.length ?? 0)), den = 10n ** BigInt(d);
     const p = [a, b].map((s) => BigInt(s.replace(".", "")) * 10n ** BigInt(d - (s.split(".")[1]?.length ?? 0))).reduce((x, y) => x + y);
-    let w = 1, pn = p, pd = den;
-    for (; 100n * pn > 3n * pd && w < cap; w++) [pn, pd] = [pn * p, pd * den];
-    return [w, 100n * pn > 3n * pd];
+    let w = 1, pn = p, pd = den, qn = 1n, qd = 1n; // p^w and p^(w - 1)
+    for (; 100n * pn > 3n * pd && w < cap; w++) [qn, qd, pn, pd] = [pn, pd, pn * p, pd * den];
+    return [w, 100n * pn > 3n * pd, once(qn, qd), w > 1 ? once(pn, pd) / once(p, den) : 1];
   };
+  const apart: string[] = []; // the rows where two roundings differ from p^(W - 1) rounded once
   const fit = (a: string, b: string) => ({ "garch11-sf-sp-v1": { omega: "0.000002", a, b, seed: "0.00002" } });
   for (const [horizon, a, b, w, capped] of [["1h", "0.5", "0.49514", 720, false], ["1h", "0.5", "0.49515", 720, true], ["4h", "0.5", "0.48070", 180, false],
     ["4h", "0.5", "0.48071", 180, true], ["4h", "0.1", "0.88", 174, false], ["1h", "0.0003", "0.0297", 1, false],
-    ["1h", "0.1", "0.07320508075688773", 3, false]] as const) {
+    ["1h", "0.1", "0.07320508075688773", 3, false], ["4h", "0.25", "0.25", 6, false], ["1h", "0", "0", 1, false]] as const) {
     const got = valuesOf(estimate(series, input(work, `${horizon}-${a}-${b}`, { horizon, span: 4 * HOUR, fits: fit(a, b) }))).garch_window;
     assert.deepEqual([got.W, got.capped], [w, capped], `${horizon}, a ${a}, b ${b}: W ${w}, the cap ${capped ? "binds" : "does not bind"}`);
-    assert.deepEqual(exact(a, b, horizon === "1h" ? 720 : 180), [w, capped], "the same by the test's own exact products");
-    assert.ok(Math.abs(Number(got.seed_weight) / (Number(a) + Number(b)) ** w - 1) < 1e-9 && Number(got.seed_weight) > 0.03 === capped, `the residual seed weight p^W: ${got.seed_weight}`);
+    const [ew, ecapped, weight, twice] = exact(a, b, horizon === "1h" ? 720 : 180);
+    assert.deepEqual([ew, ecapped], [w, capped], "the same by the test's own exact products");
+    const p = Number(a) + Number(b), known: Record<string, string> = { "0.25": "0.03125", "0.0003": "1", "0": "1" }; // p^(W - 1), exact in binary64
+    assert.ok(Math.abs(Number(got.seed_weight) / p ** (w - 1) - 1) < 1e-9 && Number(got.seed_weight) >= 0.03, `the residual seed weight p^(W - 1), not below 0.03: ${got.seed_weight}`);
+    assert.ok(known[a] === undefined || got.seed_weight === known[a], `p = ${p}, W = ${w}: the seed weight ${known[a]}, not ${got.seed_weight}`);
+    assert.equal(got.seed_weight, String(weight), `${horizon}, a ${a}, b ${b}: the seed weight the test's own exact p^(W - 1), rounded once`);
+    if (String(twice) !== String(weight)) apart.push(`${horizon} ${a} ${b}`);
   }
+  assert.ok(apart.includes("1h 0.5 0.49515"), `a row that tells p^(W - 1) rounded once from two roundings: ${apart.join(", ")}`);
   const over = estimate(series, input(work, "over", { horizon: "1h", span: 4 * HOUR, fits: fit("0.5", "0.5") }));
   assert.equal(over.status, 2, `a + b = 1: exit 2\n${over.stdout}${over.stderr}`);
   assert.equal(over.stdout, "REFUSED: garch11-sf-sp-v1: a + b = 1.0 is not below 1: no window with p^W <= 0.03\n");
@@ -1675,7 +1696,10 @@ test("har_candle_and_rogers_satchell_forms - har-rv15-sp-v1 on a made series equ
 });
 
 // reddened by: a GARCH return deseasonalized by the factor of t or of another bar, a recursion not seeded with the frozen seed, other
-// returns than the W of the W + 1 bars before t, the EWMA other than wave 1's or with a factor inside, the factor of t or the weekend
+// returns than the W - 1 of the W bars that end at t (W counts bars, ADR 0005 D4; at the cap, 720 at 1h and 180 at 4h, a value from W
+// bars and from W + 1, none from W - 1; at W = 1 the root of the seed from the one bar [t - h, t), none without it), a return within a bar
+// (its close over its own open) for the one between the closes of two bars (the cap case's series opens a few bars off the close before),
+// the EWMA other than wave 1's or with a factor inside, the factor of t or the weekend
 // multiplier left out of either, a GARCH window of bars of another horizon, a value where a bar of the window is absent, a factor of 0
 // admitted, or values printed from the math.log pass, the changed ones not listed or not counted
 // killer: tools/kata-quarter/quarter_2b.py:115 CONST "factor(f, win[u][K.B_START])" -> "factor(f, t)"
@@ -1683,6 +1707,10 @@ test("har_candle_and_rogers_satchell_forms - har-rv15-sp-v1 on a made series equ
 // killer: tools/kata-quarter/quarter_2b.py:109 CONST "K.H_MS[horizon]" -> "K.H_MS[\"1h\"]"
 // killer: tools/kata-quarter/quarter_2b.py:64 CONST "g > 0" -> "g >= 0"
 // killer: tools/kata-quarter/quarter_2b.py:176 CONST "passes[\"ln\"].items()" -> "passes[\"base\"].items()"
+// killer: tools/kata-quarter/quarter_2b.py:110 CONST "K.window_at(bars, t, w, h)" -> "K.window_at(bars, t, w + 1, h)"
+// killer: tools/kata-quarter/quarter_2b.py:114 CONST "range(1, w)" -> "range(0, w)"
+// killer: tools/kata-quarter/quarter_2b.py:114 CONST "range(1, w)" -> "range(1, w - 1)"
+// killer: tools/kata-quarter/quarter_2b.py:118 CONST "win[u][K.B_CLOSE] / win[u - 1][K.B_CLOSE]" -> "win[u][K.B_CLOSE] / win[u][K.B_OPEN]"
 test("garch_and_ewma_on_deseasonalized_inputs - garch11-sf-sp-v1 (each return deseasonalized by the factor of its own bar, the recursion seeded with the frozen seed, which is not omega / (1 - a - b)) and ewma-vol-sp-v1 (the EWMA of wave 1, then the factor of t and the weekend multiplier) equal the test's own computation bit for bit at 1h and at 4h; non_evaluable when a bar of their window is absent or a factor of their inputs is 0 or absent; with the port of the log moved, the values are the port's and each value math.log changes is listed and counted", () => {
   assert.ok(existsSync(join(REPO, QUARTER, B2)), `${QUARTER}/${B2} absent`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-2b-garch-")), series = made(work, 10 * 96, [T0 + 9 * DAY + 150 * 60_000]);
@@ -1701,6 +1729,22 @@ test("garch_and_ewma_on_deseasonalized_inputs - garch11-sf-sp-v1 (each return de
     const want = expected(long.at, T0 + d, 4 * HOUR, "candle", factorFn(4 * HOUR, 18 * DAY), Number(wk4[i]), 34);
     for (const k of ["garch11-sf-sp-v1", "ewma-vol-sp-v1"]) assert.ok(at4.values[utc(T0 + d)]?.[k] === want[k] && /^0\.0[0-9]+$/.test(want[k] ?? ""), `${k} at 4h, ${utc(T0 + d)}: ${want[k]}`);
   }
+  const gaps = [100, 400, 700].map((k) => T0 + k * HOUR), month = made(join(work, "month"), 31 * 96, [], gaps); // 30 days of bars from T0, the cap at both horizons, and one day more
+  assert.ok(gaps.every((t) => month.at.get(t)?.[0] !== month.at.get(t - STEP)?.[3]), "three bars of both horizons open off the close before: a bar's close over its open is not its return");
+  for (const [horizon, h, b, w] of [["1h", HOUR, "0.946", 720], ["4h", 4 * HOUR, "0.94", 180]] as const) { // p = 0.996 and 0.99: the cap binds
+    const gf = { omega: "0.000002", a: "0.05", b, seed: "0.0001" }, ts = [T0 + w * h - h, T0 + w * h, T0 + w * h + h]; // W - 1, W and W + 1 bars from T0
+    const cap = valuesOf(estimate(month, input(work, `cap-${horizon}`, { horizon, span: 31 * DAY, fits: { "garch11-sf-sp-v1": gf }, instants: Object.fromEntries(ts.map((t) => [utc(t), "1.00"])) })));
+    assert.deepEqual([cap.garch_window.W, cap.garch_window.capped], [w, true], `${horizon}, p = 0.05 + ${b}: W = ${w}, the cap binds`);
+    const want = ts.map((t) => expected(month.at, t, h, "candle", factorFn(h, 31 * DAY), 1, w, Math.log, gf)["garch11-sf-sp-v1"]);
+    assert.ok(want[1] !== NE && want[2] !== NE && want[1] !== want[2], `the test's own values from W and from W + 1 bars: ${JSON.stringify(want)}`);
+    assert.deepEqual(ts.map((t) => cap.values[utc(t)]?.["garch11-sf-sp-v1"]), [NE, want[1], want[2]], `${horizon}, the cap: exactly W bars read, W - 1 from T0 non_evaluable`);
+  }
+  const one = { omega: "0.000002", a: "0.0003", b: "0.0297", seed: "0.0001" }, t1 = [8 * DAY, 9 * DAY + 3 * HOUR, 9 * DAY + 4 * HOUR].map((d) => T0 + d); // the candle of 9d 02:30 absent
+  const w1 = valuesOf(estimate(series, input(work, "w1", { horizon: "1h", span: 10 * DAY, fits: { "garch11-sf-sp-v1": one }, instants: Object.fromEntries(t1.map((t) => [utc(t), "1.10"])) })));
+  assert.deepEqual(w1.garch_window, { W: 1, capped: false, seed_weight: "1" }, "p = 0.03: W = 1, no step, the seed's weight 1");
+  const f1 = factorFn(HOUR, 10 * DAY), root = (t: number): string => String(Math.sqrt(Number(one.seed)) * f1(t) * 1.1);
+  assert.deepEqual(t1.map((t) => w1.values[utc(t)]?.["garch11-sf-sp-v1"]), [root(t1[0]!), NE, root(t1[2]!)], "W = 1: no return, s2 = seed, from the one bar [t - h, t); non_evaluable without it");
+  assert.deepEqual(t1.map((t) => expected(series.at, t, HOUR, "candle", f1, 1.1, 1, Math.log, one)["garch11-sf-sp-v1"]), [root(t1[0]!), NE, root(t1[2]!)], "the same by the test's own recursion");
   const [tz, ta] = [T0 + 10 * DAY, T0 + 12 * DAY]; // the factor of [tz - 1h, tz) is 0, that of [ta - 1h, ta) absent; ta's GARCH window holds no tz - 1h
   const zero = valuesOf(estimate(long, input(work, "g0", { horizon: "1h", span: 18 * DAY, instants: { [utc(tz)]: "1.00", [utc(ta)]: "1.00" },
     edit: (o) => ({ ...o, factors: { ...(o.factors as Input), [utc(tz - HOUR)]: "0", [utc(ta - HOUR)]: undefined } }) })));

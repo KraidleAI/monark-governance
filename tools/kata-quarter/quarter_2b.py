@@ -33,16 +33,16 @@ USAGE = "usage: python -E -S -s -B -P quarter_counts.py estimate <series dir> <s
 
 
 def window(exact, horizon):
-    """The GARCH window rule, exact on the frozen strings (ADR l.132-133): p = a + b as rationals; W the smallest integer from 1 with
-    p^W <= 3/100, capped at CAP[horizon]. Returns W, whether the cap binds (the least such W is above it) and p^W rounded once to binary64,
-    the residual seed weight. a + b >= 1 has no such W: a named refusal (the fit procedure keeps a + b below 1)."""
+    """The GARCH window rule, exact on the frozen strings (ADR l.132-133): p = a + b as rationals; W bars, the smallest integer from 1 with
+    p^W <= 3/100, capped at CAP[horizon]. Returns W, whether the cap binds (the least such W is above it) and p^(W-1), the residual seed
+    weight of the W - 1 steps of garch(), rounded once to binary64. a + b >= 1 has no such W: a named refusal (the fit keeps a + b below 1)."""
     p, target = exact["a"] + exact["b"], fractions.Fraction(3, 100)
     if p >= 1:
         raise Q.Refused(f"{KATAS[1]}: a + b = {float(p)!r} is not below 1: no window with p^W <= 0.03")
     w, pw = 1, p
     while not pw <= target and w < CAP[horizon]:
         w, pw = w + 1, pw * p
-    return w, not pw <= target, float(pw)
+    return w, not pw <= target, float(pw / p) if w > 1 else 1.0  # p^(W-1), exact; p^0 at W = 1, where p may be 0
 
 
 def frozen(kata, fit, horizon):
@@ -103,15 +103,15 @@ def har(fit, form, t, horizon, candles, bars, f):
 
 
 def garch(fit, w, t, horizon, bars, f):
-    """sigma_fit_t of garch11-sf-sp-v1 (ADR l.131, l.125): on the w one-bar log returns of the w + 1 bars that end at t, each
-    deseasonalized by the factor of its own bar u, e_u = r_u / f(u): s2 = seed, then s2 = (omega + a e_u e_u) + b s2 from the oldest; the
-    root of the last s2, the variance of [t, t + h). NE when a bar or a factor is absent."""
+    """sigma_fit_t of garch11-sf-sp-v1 (ADR l.131, l.125; W counts bars, ADR 0005 D4): on the w - 1 one-bar log returns of the w bars that
+    end at t, each deseasonalized by the factor of its own bar u, e_u = r_u / f(u): s2 = seed, then s2 = (omega + a e_u e_u) + b s2 from the
+    oldest (w = 1: no return, s2 = seed); the root of the last s2, the variance of [t, t + h). NE when a bar or a factor is absent."""
     h = K.H_MS[horizon]
-    win = K.window_at(bars, t, w + 1, h)
+    win = K.window_at(bars, t, w, h)
     if win is None:
         return K.NE
     omega, a, b, s2 = (fit[k] for k in FITS[KATAS[1]])
-    for u in range(1, w + 1):
+    for u in range(1, w):
         g = factor(f, win[u][K.B_START])
         if g == K.NE:
             return K.NE
@@ -174,7 +174,7 @@ def estimate(args, identity_line):
     w, capped, weight = fits[KATAS[1]][1]
     res = {"horizon": x["horizon"], "form": x["form"], "garch_window": {"W": w, "capped": capped, "seed_weight": K.js_number(weight)},
            "values": {Q.iso(t): dict(zip(KATAS, map(out, vs))) for t, vs in passes["ln"].items()}}
-    print("\n".join([MODEL, "# quarter_counts.py estimate - the three wave 2b estimators on their frozen fits, at the instants given",
+    print("\n".join([MODEL, "# quarter_counts.py estimate - the three wave 2b estimators on their frozen fits, at the instants given; seed_weight is p^(W-1)",
                      json.dumps(res, sort_keys=True, separators=(",", ":")), *(f"value differs {d}" for d in differ),
                      f"math.log values that differ from the fdlibm_log pass, which decides: {len(differ)}", identity_line(ident),
                      *io_guard.input_lines(), "VERDICT: GREEN"]), flush=True)
