@@ -950,6 +950,14 @@
   "projection_under_calib_row",
   "registry_cell_closed_reader"
  ],
+ "apps/harness/test/policy-retire-wave2.test.ts": [
+  "retire_list_attempt_2_from_the_day_its_child_is_current",
+  "retire_list_attempt_2_on_a_wave2_cell",
+  "retire_list_attempt_2_reads_the_status_of_its_child",
+  "retire_list_carried_attempt_1_entry_kept_after_its_child",
+  "retire_list_child_current_day_is_a_real_day",
+  "retire_list_entries_of_one_cell_by_attempt"
+ ],
  "apps/harness/test/policy-retire.test.ts": [
   "live_n_max_is_longest_quarter",
   "retire_list_reader_closed",

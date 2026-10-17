@@ -80,6 +80,7 @@
  "apps/harness/test/policy-guard.test.ts": 19,
  "apps/harness/test/policy-marginal.test.ts": 4,
  "apps/harness/test/policy-projection.test.ts": 10,
+ "apps/harness/test/policy-retire-wave2.test.ts": 6,
  "apps/harness/test/policy-retire.test.ts": 10,
  "apps/harness/test/policy-row-schema-corpus.test.ts": 1,
  "apps/harness/test/policy-table-file.test.ts": 8,
