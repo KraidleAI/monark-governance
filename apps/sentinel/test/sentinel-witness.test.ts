@@ -32,20 +32,23 @@ const memReader = (files: Record<string, string>): Reader => ({
  *  through their exports; and the package directories a workspace specifier traversed. An import() call fails it, as it
  *  fails the witness. The same walk, through a tree reader, is syntaxTreeClosure of scripts/sentinel-witness.mjs, which
  *  print runs on every tree it composes; this test keeps its own copy, since it ships in the public export and the tool
- *  does not. */
+ *  does not. A Node module outside NODE_MODULES, the closed list the tool holds too, fails it: a worker, a child process,
+ *  vm or a module hook runs code no closure holds. */
+const NODE_MODULES = ["node:crypto", "node:fs", "node:path", "node:url"];
 function syntaxTreeClosure(root: string, entry: string): { modules: string[]; packageDirs: string[] } {
-  const pkgs = new Map<string, { dir: string; exports: Record<string, string> }>();
+  const pkgs = new Map<string, { dir: string; exports: string | Record<string, string> }>();
   for (const group of ["apps", "packages"]) {
     for (const name of readdirSync(join(root, group))) {
       const pj = join(root, group, name, "package.json");
       if (!existsSync(pj)) continue;
-      const j = JSON.parse(readFileSync(pj, "utf8")) as { name: string; exports?: Record<string, string> };
+      const j = JSON.parse(readFileSync(pj, "utf8")) as { name: string; exports?: string | Record<string, string> };
       pkgs.set(j.name, { dir: `${group}/${name}`, exports: j.exports ?? {} });
     }
   }
   const isFile = (rel: string): boolean => existsSync(join(root, rel)) && statSync(join(root, rel)).isFile();
   const dirs = new Set<string>(), seen = new Set<string>(), queue = [entry];
   const resolve = (from: string, spec: string): string | null => {
+    assert.ok(!spec.startsWith("node:") || NODE_MODULES.includes(spec), `${from}: ${spec} is outside the closed list of Node modules`);
     if (spec.startsWith("node:")) return null;
     if (spec.startsWith(".")) {
       const base = posix.normalize(posix.join(posix.dirname(from), spec));
@@ -55,7 +58,8 @@ function syntaxTreeClosure(root: string, entry: string): { modules: string[]; pa
     }
     const m = /^(@[^/]+\/[^/]+)(\/.*)?$/.exec(spec);
     const pk = pkgs.get(m?.[1] ?? "");
-    const target = pk?.exports[m?.[2] === undefined ? "." : `.${m[2]}`];
+    const sub = m?.[2] === undefined ? "." : `.${m[2]}`, ex = pk?.exports;
+    const target = typeof ex === "string" ? (sub === "." ? ex : undefined) : ex?.[sub];
     assert.ok(pk !== undefined && target !== undefined, `${from}: ${spec} is a workspace export`);
     dirs.add(pk.dir);
     return posix.normalize(posix.join(pk.dir, target));

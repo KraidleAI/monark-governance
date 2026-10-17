@@ -9,7 +9,8 @@
 //       closure does not hold apps/sentinel/src/witness.ts, or holds one whose bytes differ from the witness.ts next to
 //       this tool (its sentinel does not write this witness: run the tool of that tree); and one that fails the checks the
 //       closure test makes on the real tree: a walk of the TypeScript syntax tree (syntaxTreeClosure) finds another
-//       closure, or a file of the closure makes a load that no specifier shows. Prints one JSON object { witness, files,
+//       closure, an import() call or a Node module outside a closed list (no worker, child process, vm or module hook),
+//       or a module of the closure makes a load forbiddenLoads names (require, eval, …). Prints one JSON object { witness, files,
 //       tree, overlay }. Git runs as `git -C <repo>` with every inherited GIT_* variable removed from its environment
 //       (`git -C` yields neither to GIT_DIR nor to GIT_INDEX_FILE); never a write.
 //   node scripts/sentinel-witness.mjs compare --expected <64-hex> --after-day <YYYY-MM-DD> [--url <served timeline>]
@@ -33,6 +34,8 @@ export const ENTRY = "apps/sentinel/src/run.ts";
 const WITNESS_MODULE = "apps/sentinel/src/witness.ts";
 export const SERVED_TIMELINE = "https://monarkgate.tech/narabi/timeline.jsonl";
 const MAX_BYTES = 8 * 1024 * 1024;
+/** The Node modules a closure may import, a closed list (the closure test of apps/sentinel holds the same one). */
+const NODE_MODULES = ["node:crypto", "node:fs", "node:path", "node:url"];
 const SHA_RE = /^[0-9a-f]{64}$/;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 /** The flags each command takes: required, then optional. The runbook's steps name these, as written here. */
@@ -136,7 +139,8 @@ export async function runCompare({ expected, afterDay, get = httpsGet, url = SER
 /** The second walk, on the TypeScript syntax tree, independent of the witness's scanner (the closure test keeps its own copy,
  *  read from disk: it ships in the public export, this tool does not): from `entry`, the modules Node loads (an import or
  *  export declaration naming a module, a type-only one erased; a relative specifier as the file, ".ts" or "/index.ts"; a
- *  workspace one through its package.json exports), the package directories traversed; an import() call throws. */
+ *  workspace one through its package.json exports), the package directories traversed; an import() call throws, and so
+ *  does a Node module outside NODE_MODULES. */
 export function syntaxTreeClosure(reader, entry) {
   const pkgs = new Map();
   for (const group of ["apps", "packages"]) {
@@ -149,6 +153,7 @@ export function syntaxTreeClosure(reader, entry) {
   }
   const dirs = new Set(), seen = new Set(), queue = [entry];
   const resolve = (from, spec) => {
+    if (spec.startsWith("node:") && !NODE_MODULES.includes(spec)) throw new Error(`${from}: ${spec} is outside the closed list of Node modules (${NODE_MODULES.join(", ")}): a worker, a child process, vm or a module hook runs code no closure holds`);
     if (spec.startsWith("node:")) return null;
     if (spec.startsWith(".")) {
       const base = posix.normalize(posix.join(posix.dirname(from), spec));

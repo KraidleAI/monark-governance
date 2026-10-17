@@ -6,10 +6,10 @@
 // not a load. `import type` and `export type` are skipped: Node erases them, nothing loads. A relative specifier resolves
 // to the file named, then with ".ts", then "/index.ts"; a workspace specifier `@monark/<name>[/<sub>]` resolves through
 // the `exports` field of the package.json of the workspace package of that name (apps/* and packages/*), and that
-// package.json joins the list; a `node:` builtin is not a file. Fail-closed: an import() call, a call named require, a
-// specifier that resolves to no file, a package outside the workspace and a path outside the root each throw, and run.ts
-// publishes nothing. An import() call is told by the word import before "(", not after a dot, so a method named import
-// and a `typeof import("...")` in a type are refused too: an excess, closed.
+// package.json joins the list; a `node:` builtin is not a file. Fail-closed, run.ts then publishing nothing: an import() call,
+// a call named require, an unreadable import or export declaration, an unterminated string, template, comment or regular
+// expression, a specifier that resolves to no file, a package outside the workspace, a path outside the root. An import()
+// call is the word import before "(", not after "." or "?.": a method named import, `typeof import("...")`, refused too.
 // closureWitness is the sha256 of a version line followed, for each path of the sorted list, by
 // "<path>\0<sha256 of its bytes>\n": each content is bound to its path. Node built-ins only; every read goes through
 // the reader (fsReader is the on-disk one, the local witness tool brings a reader of git trees); no network, no

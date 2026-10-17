@@ -47,7 +47,7 @@ const gitIn = (repo: string) => {
   };
 };
 
-// killer: scripts/sentinel-witness.mjs:32 CONST "apps/sentinel/src/run.ts" -> "apps/sentinel/src/windows.ts"
+// killer: scripts/sentinel-witness.mjs:33 CONST "apps/sentinel/src/run.ts" -> "apps/sentinel/src/windows.ts"
 test("sentinel_witness_cli_prints_closure_digest", async () => {
   const tool = await loadTool(), w = await loadWitness();
   assert.equal(typeof tool.runPrint, "function", "scripts/sentinel-witness.mjs exports runPrint");
@@ -74,7 +74,7 @@ test("sentinel_witness_cli_prints_closure_digest", async () => {
   assert.equal(printed.overlay, null, "no overlay asked, none applied");
 });
 
-// killer: scripts/sentinel-witness.mjs:65 CONST "parseOverlay(overlay)" -> "null"
+// killer: scripts/sentinel-witness.mjs:68 CONST "parseOverlay(overlay)" -> "null"
 test("sentinel_witness_cli_composes_overlay_tree", async () => {
   const tool = await loadTool(), w = await loadWitness();
   assert.equal(typeof tool.runPrint, "function", "scripts/sentinel-witness.mjs exports runPrint");
@@ -121,7 +121,7 @@ test("sentinel_witness_cli_composes_overlay_tree", async () => {
   assert.notEqual(expected, runPrint({ repo, tree: B }).witness, "the composition differs from B alone");
   /** "threw: <message>" when print refuses, else the witness it printed. */
   const printOutcome = (o: Parameters<typeof runPrint>[0]): string => { const r = attempt(() => runPrint(o)); return typeof r === "string" ? r : `printed ${r.witness}`; };
-  // killer: scripts/sentinel-witness.mjs:72 CONST "laidFiles.length === 0" -> "false"
+  // killer: scripts/sentinel-witness.mjs:75 CONST "laidFiles.length === 0" -> "false"
   assert.match(printOutcome({ repo, tree: B, overlay: `apps/nosuch=${A}` }), /^threw: .*has no file under apps\/nosuch/, "an overlay whose commit has no file under its prefix is refused, never laid as nothing");
   // A commit whose sentinel does not write this witness: its run.ts no longer imports witness.ts, which is gone from apps/sentinel/src.
   rmSync(join(repo, ...WITNESS.split("/")));
@@ -129,7 +129,7 @@ test("sentinel_witness_cli_composes_overlay_tree", async () => {
   git("commit", "-q", "-a", "-m", "a sentinel without the closure witness");
   const C = git("rev-parse", "HEAD");
   const NOT_THIS = /^threw: .*the sentinel of this tree does not write this witness/;
-  // killer: scripts/sentinel-witness.mjs:91 CONST "theirs === undefined || !ours.equals(Buffer.from(theirs))" -> "false"
+  // killer: scripts/sentinel-witness.mjs:94 CONST "theirs === undefined || !ours.equals(Buffer.from(theirs))" -> "false"
   assert.match(printOutcome({ repo, tree: C }), NOT_THIS, "print refuses a tree whose sentinel does not write the closure witness");
   assert.match(printOutcome({ repo, tree: B, overlay: `apps/sentinel=${C}` }), NOT_THIS, "print refuses a composition whose sentinel directory does not write it");
   // A witness module whose bytes differ from the one this tool runs: another witness, refused as well.
@@ -146,22 +146,27 @@ test("sentinel_witness_cli_composes_overlay_tree", async () => {
   put(repo, { [WITNESS]: files0[WITNESS], "apps/sentinel/src/x.ts": "export const x = 1;\n", [ENTRY]: hidden('import { x } from "./x.ts";\nexport const u = x;') });
   git("add", "--", ".");
   git("commit", "-q", "-m", "a sentinel whose closure the witness misreads");
-  // killer: scripts/sentinel-witness.mjs:192 CONST "extra.length > 0 || missing.length > 0" -> "false"
+  // killer: scripts/sentinel-witness.mjs:197 CONST "extra.length > 0 || missing.length > 0" -> "false"
   assert.match(printOutcome({ repo, tree: git("rev-parse", "HEAD") }), /^threw: .*\(witness only: none; syntax tree only: apps\/sentinel\/src\/x\.ts\)/, "print refuses a tree on which the witness reads less than the syntax tree");
   put(repo, { [ENTRY]: `${files0[ENTRY]}const m: number | undefined = 4;\nexport const z = m! / 2 + ("/" + ' " import "./x.ts" '); // '\n` });
   git("commit", "-q", "-a", "-m", "a sentinel whose closure the witness reads too wide");
   assert.match(printOutcome({ repo, tree: git("rev-parse", "HEAD") }), /^threw: .*\(witness only: apps\/sentinel\/src\/x\.ts; syntax tree only: none\)/, "print refuses a tree on which the witness reads more than the syntax tree");
   put(repo, { [ENTRY]: hidden('export const f = (): Promise<unknown> => import("./x.ts");') });
   git("commit", "-q", "-a", "-m", "a sentinel whose import() call the witness misreads");
-  // killer: scripts/sentinel-witness.mjs:172 CONST "n.expression.kind === ts.SyntaxKind.ImportKeyword" -> "false"
+  // killer: scripts/sentinel-witness.mjs:177 CONST "n.expression.kind === ts.SyntaxKind.ImportKeyword" -> "false"
   assert.match(printOutcome({ repo, tree: git("rev-parse", "HEAD") }), /^threw: apps\/sentinel\/src\/run\.ts: an import\(\) call: a load made at run time/, "print refuses a tree whose import() call the witness does not see and the syntax tree does");
   put(repo, { [ENTRY]: `${files0[ENTRY]}export const g = (): unknown => process.getBuiltinModule("node:fs");\n` });
   git("commit", "-q", "-a", "-m", "a sentinel that loads a module by name at run time");
-  // killer: scripts/sentinel-witness.mjs:194 CONST "loads.length > 0" -> "false"
+  // killer: scripts/sentinel-witness.mjs:199 CONST "loads.length > 0" -> "false"
   assert.match(printOutcome({ repo, tree: git("rev-parse", "HEAD") }), /^threw: .*a load that no specifier shows \(apps\/sentinel\/src\/run\.ts l\.5: getBuiltinModule\)/, "print refuses a tree whose closure loads a module by a form no specifier shows");
+  // A worker runs a module that no import names: its Node module is outside the closed list, refused.
+  put(repo, { [ENTRY]: `${files0[ENTRY]}import { Worker } from "node:worker_threads";\nexport const w = (): Worker => new Worker(new URL("./x.ts", import.meta.url));\n` });
+  git("commit", "-q", "-a", "-m", "a sentinel that starts a worker");
+  // killer: scripts/sentinel-witness.mjs:156 CONST "spec.startsWith(\"node:\") && !NODE_MODULES.includes(spec)" -> "false"
+  assert.match(printOutcome({ repo, tree: git("rev-parse", "HEAD") }), /^threw: apps\/sentinel\/src\/run\.ts: node:worker_threads is outside the closed list of Node modules/, "print refuses a tree whose closure imports a Node module outside the closed list, a worker's among them");
 });
 
-// killer: scripts/sentinel-witness.mjs:132 CONST "next.sentinel_sha === expected" -> "true"
+// killer: scripts/sentinel-witness.mjs:135 CONST "next.sentinel_sha === expected" -> "true"
 test("sentinel_witness_cli_compares_served_line", async () => {
   const tool = await loadTool();
   assert.ok(typeof tool.runCompare === "function" && typeof tool.SERVED_TIMELINE === "string", "scripts/sentinel-witness.mjs exports runCompare and the served timeline URL");
@@ -176,7 +181,7 @@ test("sentinel_witness_cli_compares_served_line", async () => {
   assert.deepEqual(asked, [SERVED_TIMELINE, SERVED_TIMELINE], "one GET of the served timeline per comparison");
 });
 
-// killer: scripts/sentinel-witness.mjs:130 CONST "lines.find((l) => l.day > afterDay)" -> "lines.findLast((l) => l.day <= afterDay)"
+// killer: scripts/sentinel-witness.mjs:133 CONST "lines.find((l) => l.day > afterDay)" -> "lines.findLast((l) => l.day <= afterDay)"
 test("sentinel_witness_cli_ignores_deploy_day_line", async () => {
   const tool = await loadTool();
   assert.equal(typeof tool.runCompare, "function", "scripts/sentinel-witness.mjs exports runCompare");
@@ -191,7 +196,7 @@ test("sentinel_witness_cli_ignores_deploy_day_line", async () => {
   assert.deepEqual([r.status, r.exit, r.day], ["confirmed", 0, next.day], "the lines written up to the deploy day are not compared");
 });
 
-// killer: scripts/sentinel-witness.mjs:131 CONST "status: \"waiting\", exit: 2" -> "status: \"confirmed\", exit: 0"
+// killer: scripts/sentinel-witness.mjs:134 CONST "status: \"waiting\", exit: 2" -> "status: \"confirmed\", exit: 0"
 test("sentinel_witness_cli_waits_without_a_post_deploy_line", async () => {
   const tool = await loadTool();
   assert.equal(typeof tool.runCompare, "function", "scripts/sentinel-witness.mjs exports runCompare");
@@ -201,13 +206,13 @@ test("sentinel_witness_cli_waits_without_a_post_deploy_line", async () => {
   const r = await runCompare({ expected: last.sentinel_sha, afterDay: last.day, get: servedGet(fixtureText(), []) });
   assert.deepEqual([r.status, r.exit, r.day], ["waiting", 2, null], "no line after the deploy day yet: waiting, exit 2, never confirmed");
   // The deploy day was served before the deploy: a timeline that no longer serves it (cut before it, or empty) is refused, not awaited.
-  // killer: scripts/sentinel-witness.mjs:129 CONST "!lines.some((l) => l.day === afterDay)" -> "false"
+  // killer: scripts/sentinel-witness.mjs:132 CONST "!lines.some((l) => l.day === afterDay)" -> "false"
   const cut = fixtureText().split("\n").filter((l) => l.trim() !== "").slice(0, -1).join("\n") + "\n";
   await assert.rejects(runCompare({ expected: last.sentinel_sha, afterDay: last.day, get: servedGet(cut, []) }), /--after-day .* is not served/, "a timeline cut before the deploy day is refused, never read as waiting");
   await assert.rejects(runCompare({ expected: last.sentinel_sha, afterDay: last.day, get: servedGet("", []) }), /--after-day .* is not served/, "an empty timeline is refused, never read as waiting");
 });
 
-// killer: scripts/sentinel-witness.mjs:114 CONST "res.status !== 200" -> "res.status >= 400"
+// killer: scripts/sentinel-witness.mjs:117 CONST "res.status !== 200" -> "res.status >= 400"
 test("sentinel_witness_cli_reads_the_served_timeline_strictly", async () => {
   const tool = await loadTool();
   assert.ok(typeof tool.httpsGet === "function" && typeof tool.servedLines === "function", "scripts/sentinel-witness.mjs exports httpsGet and servedLines");
@@ -222,7 +227,7 @@ test("sentinel_witness_cli_reads_the_served_timeline_strictly", async () => {
   const URL_OK = "https://example.invalid/timeline.jsonl";
   await assert.rejects(httpsGet("http://example.invalid/timeline.jsonl", answer(200)), /https only/, "an http URL is refused");
   assert.equal(calls.length, 0, "an http URL is refused before any request");
-  // killer: scripts/sentinel-witness.mjs:113 SDL "redirect: \"manual\", " -> ""
+  // killer: scripts/sentinel-witness.mjs:116 SDL "redirect: \"manual\", " -> ""
   await assert.rejects(httpsGet(URL_OK, answer(301)), /answered 301/, "a redirect is refused, never followed");
   assert.equal(calls[0]?.redirect, "manual", "the GET asks fetch not to follow a redirect");
   await assert.rejects(httpsGet(URL_OK, answer(204)), /answered 204/, "a success other than 200 is refused");
@@ -231,7 +236,7 @@ test("sentinel_witness_cli_reads_the_served_timeline_strictly", async () => {
   // The served lines: LF-ended JSON lines, a day and a 64-hex sentinel_sha each, days strictly increasing.
   const line = (day: string, sha = "a".repeat(64)): string => JSON.stringify({ day, sentinel_sha: sha });
   assert.deepEqual(servedLines(`${line("2026-09-18")}\n${line("2026-09-19")}\n`).map((l) => l.day), ["2026-09-18", "2026-09-19"], "well-formed lines are read");
-  // killer: scripts/sentinel-witness.mjs:106 CONST "!(lines[i].day > lines[i - 1].day)" -> "false"
+  // killer: scripts/sentinel-witness.mjs:109 CONST "!(lines[i].day > lines[i - 1].day)" -> "false"
   assert.throws(() => servedLines(`${line("2026-09-18")}\n${line("2026-09-18")}\n`), /line 2: the days do not increase/, "two lines of one day are refused");
   assert.throws(() => servedLines(`${line("2026-09-19")}\n${line("2026-09-18")}\n`), /line 2: the days do not increase/, "decreasing days are refused");
   assert.throws(() => servedLines(`${line("2026-09-18")}\n${line("2026-09-19")}`), /does not end with a line feed/, "a timeline without its final line feed is refused");

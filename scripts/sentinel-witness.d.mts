@@ -10,7 +10,7 @@ export const COMMANDS: Readonly<Record<"print" | "compare", Readonly<{ required:
 export type Overlay = { readonly prefix: string; readonly sha: string };
 /** A reader of a git tree, the files under the overlay's prefix read at its sha (an overlay commit with no file there throws); git runs with no inherited GIT_* variable. */
 export function gitTreeReader(repo: string, tree: string, overlay?: string | null): { reader: TreeReader; tree: string; overlay: Overlay | null };
-/** The print command: the closure witness of apps/sentinel/src/run.ts on the composed tree; throws when its closure lacks the tool's own witness.ts, byte for byte, or fails the checks of the closure test (another closure on the syntax tree, a load no specifier shows). */
+/** The print command: the closure witness of apps/sentinel/src/run.ts on the composed tree; throws when its closure lacks the tool's own witness.ts, byte for byte, or fails the checks of the closure test (another closure on the syntax tree, an import() call, a Node module outside a closed list, a load forbiddenLoads names). */
 export function runPrint(o: { repo?: string; tree: string; overlay?: string | null }): { witness: string; files: string[]; tree: string; overlay: Overlay | null };
 export type ServedLine = { readonly day: string; readonly sentinel_sha: string };
 export function servedLines(text: string): ServedLine[];
