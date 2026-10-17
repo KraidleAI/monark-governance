@@ -39,7 +39,7 @@
 
 - `apps/harness/src/policy-retire.ts`: `readRetireList` takes a fourth parameter, `children` (default: none, the reading of today), the
   attempt 2 of the wave 2 core cells, each with its registry status and the pinned day from which its row is current. Lines changed in
-  place, none added nor removed before the end of the file (mutation lines name l.53, l.65, l.80 and l.83): the header (l.6), the doc
+  place, none added nor removed before the end of the file (mutation lines name l.53, l.65, l.80 and l.83): the header (l.5-6), the doc
   comment (l.57), the signature (l.60), the sort key (l.69), the cell's child (l.73), the current attempt at the list's date (l.75), the
   status of the attempt named (l.76). Appended after l.85: the types `ChildCell` and `ChildCells`, `attemptAt`, `carried` and `realDay`.
 - `apps/harness/test/policy-retire-wave2.test.ts` (new): the closing test and one test per new branch or refusal, each with its mutation
@@ -115,3 +115,25 @@ schema, `tools/` or `packages/` file, docs/ETAT.md and the docs/PAROXYSME regist
   where the parent is retired first), then one test per new branch or refusal: the day the child becomes current (D-2), the carried
   attempt 1 entry (D-3), the list key (D-5), the child's status (D-4), the child's day a real day (D-2). Each red at the base by an
   assertion (the base ignores `children` and refuses every attempt 2 entry), each with its mutation line above it.
+- **Measured at the head of the code** (`34d250a9`): R-25 in the CI form (`scripts/oracle/r25.mjs` against `c6aa4907`), 156 changed
+  lines (148 insertions, 8 deletions), under the lot bound of 547; the content count 0. In `policy-retire.ts`, 8 lines changed in place
+  (l.5, l.6, l.57, l.60, l.69, l.73, l.75, l.76) and 26 appended (l.86-111); every other line keeps its number.
+
+## 7. Verification (offline, `offline.mjs --no-egress`, Node 24.21.0, Linux; 0 refused connection in every run)
+
+- **The whole `test:main`**, at the base and at the head, each test's outcome compared by name: base 3282 tests (3258 pass, 24
+  skipped), head 3288 (3264 pass, 24 skipped), 0 fail on either side; no outcome of the base differs at the head; the six new tests
+  are the only difference. `node scripts/test-count-floor.mjs write`, then `node scripts/test-count-check.mjs --base c6aa4907…`:
+  321 files, 3288 tests, equal to both records, 0 drop. The head run read the tree before the last edit of the header's l.5 (a
+  comment, the list key named); after it, tsc, eslint, the three retire and guard test files with `test/killer-lines.test.ts` (36
+  tests, 0 fail), the anchor checker and all the runs below were made again at `34d250a9`.
+- **`scripts/red-proof.mjs --base c6aa4907… --gel <the tree at 34d250a9> --draw 6`**: 6 judged, 6 F2P (red at the base by an
+  assertion, green at the head), the 6 mutation lines drawn, 6 killed, each file restored by sha256.
+- **Each mutation line applied alone** at the head with only its test: the six new ones (l.69, l.75, l.76, l.99 twice, l.110) and the
+  four that name `policy-retire.ts` already (l.53, l.65, l.80, l.83, none on a changed line): 10 red by an assertion, the file
+  restored by sha256.
+- **Anchor checker** (`verifie-ancres.mjs`, every killer line of the tree, `--ref c6aa4907…`): 2599 killer lines, 2599 ANCRE, 0
+  DERIVE, 0 PERDU. `test/killer-lines.test.ts` green.
+- **Gates**: `npx tsc --noEmit` clean; eslint on the two touched code files clean, and with the lint ratchet's six rules and
+  `restrict-template-expressions` as errors; `lint:ratchet` 69/69 (the ceiling, unchanged); `lang:gate`, `gate:vocab` and
+  `export:check` OK. The new tests write no path, so the case-folding check has nothing to fold.
