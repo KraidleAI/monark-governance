@@ -772,18 +772,35 @@ async function main() {
     console.error(`assert-fleet-html: FAIL-CLOSED — no .css under apps/site/.next/static. Run \`${SITE_BUILD_RUN}\` first (never a skip).`);
     process.exit(1);
   }
-  const drawn = cssFiles.flatMap((f) => cssContentSpelling(readFileSync(join(cssDir, f), "utf8"), "building"));
+  let drawn = [];
+  try {
+    drawn = cssFiles.flatMap((f) => cssContentSpelling(readFileSync(join(cssDir, f), "utf8"), "building", `apps/site/.next/static/${f.split("\\").join("/")}`));
+  } catch (e) {
+    console.error(String(e instanceof Error ? e.message : e));
+    process.exit(1);
+  }
   if (drawn.length > 0) {
     console.error(`assert-fleet-html: the built CSS draws building: ${drawn.join(" | ")}`);
     process.exit(1);
   }
-  console.log(`assert-fleet-html OK — ${String(cssFiles.length)} built CSS file(s), no content declaration spells building.`);
+  console.log(`assert-fleet-html OK — ${String(cssFiles.length)} built CSS file(s), no content or custom property declaration spells building.`);
 }
 
-/** The content values of a CSS text that spell word, its CSS escapes decoded, letters only, any case. */
-export function cssContentSpelling(css, word) {
-  const unescape = (v) => v.replace(/\\([0-9a-f]{1,6})\s?/gi, (_, x) => String.fromCodePoint(parseInt(x, 16))).replace(/\\(.)/g, "$1");
-  return [...String(css).matchAll(/\bcontent\s*:\s*((?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[^;}"'])*)/g)].map((m) => m[1] ?? "").filter((v) => unescape(v).replace(/[^a-z]/gi, "").toLowerCase().includes(word));
+/** The values of the content declarations and of the custom property declarations of a CSS text that spell word, its CSS escapes
+ *  decoded (in the property name too), letters only, any case of the name and of the value, read once over the whole value and once
+ *  over its strings alone (a function between two strings, attr() or counter(), may draw nothing). A declaration is read wherever it
+ *  starts, a comment may stand before its colon, a string may run over a line continuation or to the end of the text. Fail-closed: an
+ *  escape past U+10FFFF throws, naming `file`. Not read: the other properties and descriptors that draw a string (quotes,
+ *  list-style-type, the descriptors of @counter-style and @property), a word split across custom properties. */
+export function cssContentSpelling(css, word, file = "the CSS text") {
+  const point = (e, x) => { const c = parseInt(x, 16); if (c > 0x10ffff) throw new Error(`assert-fleet-html: FAIL-CLOSED — ${file}: the CSS escape ${e.trim()} is past U+10FFFF`); return String.fromCodePoint(c); };
+  const unescape = (v) => v.replace(/\\([0-9a-f]{1,6})\s?/gi, point).replace(/\\([\s\S])/g, "$1");
+  // Each piece reads its text one way only (an escape takes all its hex digits, a comment ends at its first */): no backtracking blow-up.
+  const decl = /(?<![-\w\u0080-\uffff\\])(?=((?:[-\w\u0080-\uffff]|\\(?:[0-9a-f]{6}|[0-9a-f]{1,5}(?![0-9a-f]))\s?|\\[^\n\r\f0-9a-f])+)(?:\s|\/\*[^*]*\*+(?:[^/*][^*]*\*+)*\/)*:\s*((?:"(?:[^"\\]|\\[\s\S])*(?:"|$)|'(?:[^'\\]|\\[\s\S])*(?:'|$)|\/\*(?:[^*]|\*(?!\/))*(?:\*\/|$)|[^;{}"'])*))/gi;
+  const drawing = (name) => { const n = unescape(name).toLowerCase(); return n === "content" || n.startsWith("--"); };
+  const letters = (t) => t.replace(/[^a-z]/gi, "").toLowerCase();
+  const strings = (v) => [...v.matchAll(/"((?:[^"\\]|\\[\s\S])*)(?:"|$)|'((?:[^'\\]|\\[\s\S])*)(?:'|$)/g)].map((q) => unescape(q[1] ?? q[2] ?? "")).join("");
+  return [...String(css).matchAll(decl)].filter((m) => drawing(m[1] ?? "")).map((m) => m[2] ?? "").filter((v) => letters(unescape(v)).includes(word) || letters(strings(v)).includes(word));
 }
 
 // Run-guard (mirrors scripts/grep-forbidden.mjs, scripts/export-public.mjs): the CLI runs only when invoked
