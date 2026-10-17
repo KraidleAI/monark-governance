@@ -223,17 +223,22 @@ names, a range of three bounds (KQ-2B-INPUT-SHAPE-1).
 
 ## 10. Size
 
-R-25 in the CI form: estimated before the code at ~480 (~620 at +30 %), above the plan's ~290 (377 at +30 %), under the PR bound of 1 205:
-the reader holds more checks than the plan priced (the format fixed them after the plan), and the input v2 adapts c4a's tests. So at the
-time of the estimate, before any code, the lot was already above the plan's lot bound of 547 at the high estimate. The plan's rule (plan
-l.578-580) is that each lot is estimated under 547 at the high estimate and that one above it is split, with a measured bound of at most 1
-150 by `r25()` and the CI gate of 1 205. This lot was not split, and it could have been: the US DST table, the profile and `estimate` v2
-(with KQ-2B-INPUT-SHAPE-1) need neither the reader nor the act, and could have been merged first, the reader of `wave3.json` and the act
-L-O4 after them. Measured at the head by `scripts/oracle/r25.mjs` against the trunk `373e6da3`: 647 changed lines (566 insertions, 81
-deletions; content 0), within the plan's measured bound of 1 150 and the PR bound of 1 205, and above the plan's lot bound of 547 by 100 (by
-62 before the review's changes, whose test cases and mutation lines add 38). The excess is the reader's checks and their 44 test cases. It
-is disclosed here for MONARK to decide (merge as one, or split now into the profile with `estimate` v2, then the reader and the act); no
-split is made in this lot.
+R-25 in the CI form (`scripts/oracle/r25.mjs` against the trunk `373e6da3`). **The gap to the estimate**: the plan priced c4b at ~290 (plan
+l.596: the profile, the weekend and the DST table ~80, the reader of the 2b registry ~80, their share of the tests of c4, and the code of
+L-O4 ~30); made, 609 changed lines at the head of the code (528 insertions, 81 deletions; content 0), and 647 after the review's changes
+(566 insertions, 81 deletions). Of the 609, 229 are the tool's code (`quarter_2b.py` 181, `quarter_oracle.py` 40, `quarter_core.py` 8), near
+the ~190 the plan gives the code; 376 are `test/kata-quarter.test.ts` (321 insertions, 55 deletions), and 4 the pinned names and their
+count. **Its cause** is mostly the tests: the format, frozen after the plan, fixed reader checks the plan did not price (a row of 33 keys,
+each check refused by name), and the reader's checks have their cases (35 registries, 44 after the review); the test builds its own registry
+and series (`row2b`, `wave2bReg`, `decided`, `series2b`), since no fixture file can hold the format's 72 rows; and the input v2 rewrites the
+four tests of c4a. The estimate written before the code (~480, ~620 at +30 %) already passed the plan's lot bound of 547 at the high
+estimate.
+
+The parts could have been merged apart, in one order: the DST table, the profile and `estimate` v2 (with KQ-2B-INPUT-SHAPE-1) need neither
+the reader nor the act and could have gone first; the reader needs the profile and the act needs the reader, so those two follow. The lot
+was not split. **MONARK's decision** (`coordination/messages/2026-10-17-MONARK-vers-RECHERCHES-c4b-taille.md` of RECHERCHES, mailbox commit
+`5a98f1f5`): no split. The rule is the plan's (plan l.578-580): 547 bounds the estimate at the G0, the measure is bounded by `r25()` at 1
+150 and by the CI gate at 1 205; 609, and 647 after the review, are under both.
 
 ## 11. Questions (default in brackets; each default built here, reversible within this lot)
 
