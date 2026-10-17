@@ -222,8 +222,9 @@ after the fold of the first review, 400 (395 insertions, 5 deletions).
   s² = seed, sigma_fit_t = √seed (`NE` when that bar is absent). `window()` prints the residual seed weight p^(W−1), the weight of the
   seed after the W − 1 steps, the exact rational rounded once to binary64 (1 at W = 1, also when p = 0); ADR 0006 D4 l.133 names p^W,
   and the value printed is p^(W−1), said as it is: it differs from p^W by the factor 1/p. The output key stays `seed_weight` (no test and
-  no format names another), and the second line of `estimate` now ends « seed_weight is p^(W-1) ». The statements of sections 4, 7 and
-  10 on « the W one-bar log returns of the W + 1 bars » and « W + 1 bars for GARCH » read W − 1 returns of W bars from this date.
+  no format names another), and the second line of `estimate` now ends « seed_weight is p^(W-1) ». The statements of sections 4 (l.76,
+  l.84) and 10 (l.165), and Q5 (l.181), on « the residual seed weight p^W », « the W one-bar log returns of the W + 1 bars » and « W + 1
+  bars for GARCH », read p^(W−1) and W − 1 returns of W bars from this date.
 - **What did not change**: W itself (the smallest integer from 1 with p^W ≤ 3/100, exact on the frozen strings as rationals, capped at
   `CAP`), the cap flag, the refusal of a + b ≥ 1, the input format, the HAR and the EWMA, the two passes of the log, every name of a test.
   At the cap, the W bars of a first decision are the 30 days of inputs before its block, so no decision is lost to the window.
@@ -232,3 +233,9 @@ after the fold of the first review, 400 (395 insertions, 5 deletions).
   `non_evaluable` from W − 1; at W = 1 the root of the seed, `non_evaluable` without the bar [t − h, t); the seed weight p^(W−1), exact
   at p = 0.5 (0.03125 at W = 6), 1 at W = 1 and at p = 0. Five mutation lines more (the weight p^W, the weight at W = 1, the window of
   W + 1 bars, a return more, a return less).
+- **The fold of its review** (2026-10-17; the test and this note, no line of the tool): the seed weight is compared as a string with the
+  test's own exact p^(W−1), integer products rounded once to the nearest binary64, ties to even, on every row of the window test; at 1h,
+  a = 0.5 with b = 0.49514 a binary64 power differs from it, and with b = 0.49515 so does p^W over p, each rounded apart. The series of the
+  cap case opens three bars of both horizons (T0 + 100 h, 400 h, 700 h) 0.4% above the close before, so a bar's close over its own open
+  is not the return between the closes of two bars; every other series is unchanged. Three mutation lines more (the weight as a binary64
+  power, the weight rounded twice, a return within a bar).
