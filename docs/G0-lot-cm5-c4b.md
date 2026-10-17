@@ -29,7 +29,7 @@
     (the reader checks of one row) and `wave3_rows(path, pin)` (the checks across rows), each refusal by name;
   - **the place of a 2b row in the count** (section 5): each row read is given to `quarter_core.count` with a cell that carries its
     sigma_hat (its estimator on its frozen fit, under its profile and `usDst`) and its lookback.
-- `tools/kata-quarter/quarter_core.py`, three lines in place: `lookback` takes a row's own lookback when its cell carries one, and
+- `tools/kata-quarter/quarter_core.py`, four lines in place: `lookback` takes a row's own lookback when its cell carries one, and
   `count_row` takes a row's own sigma_hat when its cell carries one (a 2b row has no hour-of-week table); nothing else of the count
   changes, and a wave 1 or core row is counted as before.
 - `tools/kata-quarter/quarter_oracle.py`: the act L-O4 `equals_wave2b_registry_on_its_blocks` (section 6), its name in `ACTS`, its
@@ -37,7 +37,8 @@
 - `estimate` takes the profile in place of the given factors (section 7, Q9): input `kata-2b-estimate-input-v2`.
 - `test/kata-quarter.test.ts`: three tests at its end and the four tests of c4a adapted to the input v2 (section 8);
   `scripts/verifier-tool-ci.mjs`: the three names in `QUARTER_TESTS`; `test/verifier-tool-ci.test.ts`: the count of the file's tests;
-  `test/test-counts.json` and `test/test-names.json` by `write`.
+  `test/test-counts.json` and `test/test-names.json` unchanged: the file is outside `test:main`, and no test of `test:main` is added,
+  removed or renamed.
 - **No optimizer**: nothing here fits anything; every value read is a frozen string of the registry or of the input.
 
 ## 2. The rows of the 2b registry are not in the quarter count on Q_k
@@ -192,13 +193,35 @@ names, a range of three bounds (KQ-2B-INPUT-SHAPE-1).
 
 ## 9. Measures before the push (offline, Node 24.21.0, CPython 3.14.8, Linux)
 
-[filled at the head of the code]
+- **The file**: `test/kata-quarter.test.ts` 45 of 45 in 171 s (bound 300 s; the trunk's 42 took 193 s in a run of the same day on the
+  same container), 0 refused; the three new tests take 1.2 s (`us_dst_profile_keys_and_weekend`), 7.0 s
+  (`wave2b_registry_reader_closed`, 35 launches) and 6.4 s (`equals_wave2b_registry_on_its_blocks`, two runs of the act on a series of
+  26 months). `test/killer-lines.test.ts` 1 of 1; `test/verifier-tool-ci.test.ts` 10 of 10.
+- **Red at the base**: the seven tests of the wave 2b evaluation (the three new ones and the four of c4a on the input v2), with the
+  trunk's `quarter_2b.py`, `quarter_core.py` and `quarter_oracle.py`: 7 of 7 red by an assertion (the input v2 refused by the v1
+  reader; the act unknown, its usage printed); the files restored by sha256.
+- **Mutation lines**: 50 new (6 in `frozen_fit_strings_refused_by_name`, 7 in `us_dst_profile_keys_and_weekend`, 31 in
+  `wave2b_registry_reader_closed`, 6 in `equals_wave2b_registry_on_its_blocks`), 2 withdrawn (`factor()`'s `g > 0`, section 8; the
+  v1 factors' form, gone with them), 6 renumbered (the lines of `quarter_oracle.py` after the new branch of `act`, l.152, l.168, l.179,
+  l.180). Each mutation line of the seven tests and of the three earlier tests whose code moved or changed (`equals_wave2_registry_on_its_blocks`,
+  `equals_registry_on_test_block`, `k_test_exact_on_a_made_series`, the one inside it on `quarter_core.py` l.96 included) applied
+  alone, with only its test run, offline: 91 mutation lines, each red by an assertion (the reader's each on its own case), each file
+  restored by sha256, 0 refused. One line first written for the profile digest also disabled the fit digest (`and … or` precedence) and reddened on the fit's
+  case: it was replaced by one that removes the profile digest only, red on its own case.
+- **Anchors** (the atelier's checker, both touched test files against the trunk): 294 mutation lines, 293 on the same line as at the
+  trunk, 1 on a line changed in place (`quarter_core.py` l.96, `count_row`'s sigma_hat: its text still once on its line, red alone).
+- **Other gates**: typecheck of the two touched test files; `eslint` on them; the six rules of the lint ratchet on the test file (0);
+  `lang:gate`; `gate:vocab`. Under the case-folding git wrapper, the seven tests 7 of 7, every `git add` clean; the 142 names the
+  tests wrote, 0 equal once case is folded, 0 that Windows refuses.
 
 ## 10. Size
 
 R-25 in the CI form: estimated before the code at ~480 (~620 at +30 %), above the plan's ~290 (377 at +30 %) and above the plan's lot
 bound of 547 at the high estimate, under the PR bound of 1 205: the reader holds more checks than the plan priced (the format fixed them
-after the plan), and the input v2 adapts c4a's tests. Measured at the head: [filled].
+after the plan), and the input v2 adapts c4a's tests. Measured at the head of the code by `scripts/oracle/r25.mjs`: 609 changed lines
+(528 insertions, 81 deletions; content 0), under the PR bound of 1 205 and above the plan's lot bound of 547 by 62. The excess is the
+reader's checks and their 35 test cases; no split is proposed, as the PR bound holds and the parts cannot be merged apart (the act
+needs the reader, the reader the profile).
 
 ## 11. Questions (default in brackets; each default built here, reversible within this lot)
 
