@@ -256,6 +256,7 @@ caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
   `cd /opt/monark-harness && npm ci && chown -R monark:monark . && systemctl restart monark-harness`. The
   orchestrator writes a VPS-side `/opt/monark-harness-redeploy.sh` wrapping these steps during the initial
   deploy (same redeploy motif as the vitrine's `/opt/monark-redeploy.sh`); later updates just run it.
+  The sentinel runs from this tree: around an update, the steps of *Sentinel witness (deployment and next day)* below.
 
 ## Retire a kata row (ENGINE-ROW-RETIRE-PATH-1)
 
@@ -477,6 +478,26 @@ then step 3 again, which gives a new T_c. These git commands are the one act of 
 (default of Q-RL-4 of the G0; item RETIRE-REDO-MESSAGE-1). After T_d, never: a published file is never rewritten nor
 withdrawn (`rewritten`, `withdrawn`: `scripts/spec-publish.mjs` l.203, l.207); a correction is a new dated directory at
 a later date (`scripts/spec-policy-tables.mjs` l.168-169).
+
+## Sentinel witness (deployment and next day)
+
+The Narabi sentinel runs from this tree (`deploy/monark-sentinel.service`: `WorkingDirectory=/opt/monark-harness`), and each daily
+line carries `sentinel_sha`, the digest of the execution closure of `apps/sentinel/src/run.ts` (`apps/sentinel/src/witness.ts`):
+an update that changes a file of that closure changes it for every line written after the update. Around such an update:
+
+1. Before the deployment, outside 00:30-10:05 UTC (the four timer slots, their random delay and the unit's timeout end by 10:05
+   UTC, `deploy/monark-sentinel.service`), on the VPS: `systemctl is-active monark-sentinel.service` reads `inactive`.
+2. On the orchestrator's machine, the expected witness of what ships:
+   `node scripts/sentinel-witness.mjs print --tree <sha> [--overlay apps/sentinel=<sha>]` (the overlay when `apps/sentinel`
+   ships from another commit than the rest of the tree); it prints `{ witness, files, tree, overlay }`.
+3. The last day served before the deployment: the `day` of the last line of `https://monarkgate.tech/narabi/timeline.jsonl`.
+4. The orchestrator records the line "expected witness": the witness, the commit(s), the last day served (in
+   `docs/JOURNAL-PROVENANCE.md` when a public sentence needs it, else in its local register).
+5. The next day, after 10:05 UTC: `node scripts/sentinel-witness.mjs compare --expected <64-hex> --after-day <YYYY-MM-DD>`, with
+   the witness of step 2 and the day of step 3. Exit 0 "confirmed"; 1 "mismatch" (the first line after that day carries another
+   witness: the orchestrator records a pending line, then a correction, before any other line); 2 "waiting" (no line after that
+   day yet, a late catch-up: run it again later); 3 a failure. The orchestrator records "witness confirmed", "mismatch" or
+   "waiting".
 
 ## Kata path and version checks (deployment CA, section 6)
 

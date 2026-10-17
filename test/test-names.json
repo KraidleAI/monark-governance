@@ -1108,6 +1108,12 @@
   "sentinel_quorum_accepts_chainstack_as_distinct_operator — chainstack.com is its own provider, quorum-eligible with a public endpoint (L-3; ADR-M012 item m)",
   "sentinel_retry_replays_incident_and_exit_codes — no_quorum exits 1 (0 lines), catch-up reproduces the published line_hash, re-run is a no-op (L-4 / C-6; ADR-NARABI-OPS-1)"
  ],
+ "apps/sentinel/test/sentinel-witness.test.ts": [
+  "sentinel_build_witness_covers_execution_closure",
+  "sentinel_sha_changes_when_calibration_module_changes",
+  "sentinel_witness_binds_path_to_content",
+  "sentinel_witness_refuses_dynamic_import"
+ ],
  "apps/sentinel/test/sentinel.test.ts": [
   "sentinel_bound_thm1_daily",
   "sentinel_c1_fail_closed",
@@ -3498,6 +3504,16 @@
  ],
  "test/sentinel-no-kata-key.test.ts": [
   "sentinel_imports_no_kata_key"
+ ],
+ "test/sentinel-witness-cli.test.ts": [
+  "runbook_harness_update_runs_the_sentinel_witness_step",
+  "sentinel_line_carries_closure_witness",
+  "sentinel_witness_cli_compares_served_line",
+  "sentinel_witness_cli_composes_overlay_tree",
+  "sentinel_witness_cli_ignores_deploy_day_line",
+  "sentinel_witness_cli_prints_closure_digest",
+  "sentinel_witness_cli_reads_the_served_timeline_strictly",
+  "sentinel_witness_cli_waits_without_a_post_deploy_line"
  ],
  "test/served-history.test.ts": [
   "served_history_cli_reads_t_e_from_the_merge_commit",
