@@ -36,6 +36,7 @@ import { loadDocsReferences, DOCS_REFERENCES_REL, DOCS_QUOTE_MAX_WORDS } from ".
 import { siteVocabulary } from "../apps/site/lib/docs-vocab.ts";
 import { loadGateEnums } from "../apps/site/lib/gate-enums.ts";
 import { SHOGEN_SERVED_SCOPE } from "../apps/site/lib/shogen-copy.ts";
+import { ALLOWED_TOOL_NAMES, REGISTERED_TOOL_NAMES } from "../apps/harness/src/tools/registry.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const read = (rel: string): string => readFileSync(join(ROOT, ...rel.split("/")), "utf8");
@@ -603,7 +604,7 @@ test("lang_gate_walks_the_docs_components — apps/site/components/docs is walke
 // ── (12) Pli of the review: the investor's visual validation of 2026-09-24, the D8 forms, the cited platform names ────────
 // V-1: what of Shōgen is served, one sentence, byte for byte, on its three surfaces.
 const SHOGEN_SCOPE_TEXT =
-  "What is built and served is the attest tool: one committed witness, its bytes, its hash and its named residual hypotheses. The full Shōgen sensor, which produces continuous testimonies across sources, is under test and is not served yet.";
+  "What is built and served is the attest tool: one committed witness, its bytes, its hash and its named residual hypotheses. The full Shōgen sensor, meant to produce continuous testimonies across sources, is under test and is not served yet.";
 const honestLimitsParagraphs = (panelSource: string): string[] => {
   const block = /<PanelBlock title="Honest limits" status="built">([\s\S]*?)<\/PanelBlock>/.exec(panelSource)?.[1] ?? "";
   return [...block.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)].map((m) => (m[1] ?? "").trim());
@@ -638,6 +639,34 @@ test("shogen_served_scope_is_said_on_three_surfaces — one sentence, byte for b
   const mutant = read(panel).replace("<p className=\"mt-2\">{SHOGEN_SERVED_SCOPE}</p>", "");
   assert.notEqual(mutant, read(panel), "premise: the mutant applies");
   assert.notEqual(honestLimitsParagraphs(mutant)[1], "{SHOGEN_SERVED_SCOPE}", "mutant: the panel without the sentence must red");
+});
+
+// PXC-02 part 2 (C04, A40): the full Shōgen sensor and its fully developed layer are said in the mood of intent, while the
+// harness serves no sensor tool but attest. The premise both tests share: when another sensor tool is served, they red.
+const assertOnlyAttestServesShogen = (): void => {
+  assert.deepEqual([...REGISTERED_TOOL_NAMES].sort(), ["attest", "calibrate", "cascade", "gate"], "premise: the harness registers attest, gate, cascade and calibrate only; when a sensor tool is served this reds and the sentence is revisited");
+  assert.deepEqual([...ALLOWED_TOOL_NAMES].sort(), ["attest", "calibrate", "cascade", "gate"], "premise: the closed tool universe is the same four tools");
+  const shogen = FLEET_AGENTS.find((a) => a.name === "Shōgen");
+  assert.ok(shogen !== undefined && shogen.status === "built" && shogen.wiring.served_by.startsWith("MCP attest"), "premise: the register serves Shōgen through the attest tool");
+};
+
+// killer: apps/site/lib/shogen-copy.ts:10 CONST "meant to produce" -> "which produces"
+test("shogen_full_sensor_is_meant_to_produce_while_only_attest_is_served — the scope sentence says the full Shōgen sensor is meant to produce its testimonies, while the attest tool alone is served", () => {
+  assertOnlyAttestServesShogen();
+  assert.ok(SHOGEN_SERVED_SCOPE.includes("The full Shōgen sensor, meant to produce continuous testimonies across sources, is under test and is not served yet."), "the full sensor is said to produce its testimonies today");
+  assert.doesNotMatch(SHOGEN_SERVED_SCOPE, /\bwhich produces\b/, "the present-tense form is gone");
+});
+
+// killer: apps/site/components/docs/piece-doc-page.tsx:145 CONST "is meant to be an attested perception layer" -> "is an attested perception layer"
+test("shogen_docs_page_says_the_full_layer_is_meant_to_be — the Shōgen page says the fully developed layer is meant to be an attested perception layer, each verb in the same mood and no capability added, while the attest tool alone is served", () => {
+  assertOnlyAttestServesShogen();
+  const PIECE = "apps/site/components/docs/piece-doc-page.tsx";
+  const page = read(PIECE).replace(/\s+/g, " ");
+  const sentence =
+    "{name}, fully developed, is meant to be an attested perception layer: it is meant to capture what each source said over an attested transport, type it into facts, aggregate facts into a quorum verdict, and attach to that verdict a diversity certificate: the measured independence of the sources behind it, with shared upstreams, shared hosts and shared failures written down. The whole is meant to be verifiable offline by a third party with no trust in {name}. An attestation proves what a source said, never that the source is right.";
+  assert.ok(page.includes(sentence), "the page says the full layer is, today");
+  for (const now of ["is an attested perception layer", "it captures what", "The whole is verifiable offline"]) assert.ok(!page.includes(now), `the present-tense form "${now}" is gone`);
+  assert.ok(saidIn(PIECE).includes(", fully developed, is meant to be an attested perception layer: it is meant to capture"), "the page, as it renders, says it");
 });
 
 // V-3: the eleven pieces are "smart pieces" in the three sentences the investor named; "company" is said nowhere on the fleet

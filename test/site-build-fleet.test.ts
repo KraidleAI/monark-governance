@@ -1721,13 +1721,13 @@ test("building_panel_block_is_named_only_by_its_definition_and_the_shogen_panel 
   assert.match(read("apps/site/components/panel-shell.tsx"), /export function PanelBlock\(\{ title, status, children \}: \{ title: string; status: AgentStatus; children: ReactNode \}\)/, "PanelBlock keeps the two public statuses");
 });
 
-// killer: apps/site/components/panel-shell.tsx:31 CONST "<StatusBadge status={status} className=\"ml-auto\" />" -> "<span className=\"c-pill c-pill--upcoming ml-auto\">building</span>"
+// killer: apps/site/components/panel-shell.tsx:42 CONST "c-pill c-pill--building ml-auto" -> "c-pill c-pill--upcoming ml-auto"
 test("shogen_building_pill_is_served_once_in_its_block — the /fleet page, rendered on the server with every panel open, shows the word building once, as the pill of the How it works block of the Shōgen panel; a second one reds when a file the page imports draws it, under any name, through the render prop or the function child of a dialog part, in a value or placeholder attribute, or with the word split by an empty span, b, i, em or strong tag, a comment as stripHiddenSurfaces reads one, or an invisible character; text drawn by CSS or by another attribute, a state a script reaches after the first render, a render function that reads its part's state, a prop Base UI computes from that state (aria-expanded, data-popup-open of a Trigger) or a prop Base UI computes for Portal, Backdrop or Popup, and a word split by an element with content, by another empty element or by an empty tag CSS gives a box are outside this test (Shōgen N-14; the seam is PXC-08)", async () => {
   const { html, at } = await buildingAt((await renderOpen(["fleet/page.tsx"]))["fleet/page.tsx"] ?? "");
   assert.ok(html.includes(">Honest limits<") && html.includes(">Open panel<"), "the panels render open, beside their cards (false-green guard)");
   assert.equal(at.length, 1, "the page shows building as a text or a value of its own exactly once, empty inline tags, comments and invisible characters taken out");
   const before = html.slice(0, at[0]);
-  assert.match(before, /<span class="c-pill c-pill--upcoming ml-auto">$/, "that text is the pill, in the look of the upcoming pill");
+  assert.match(before, /<span class="c-pill c-pill--building ml-auto">$/, "that text is the pill, in its own look");
   const last = (re: RegExp): string => decodeEntities([...before.matchAll(re)].at(-1)?.[1] ?? "");
   assert.equal(last(/<h3\b[^>]*>([^<]*)<\/h3>/g), "How it works", "the pill heads the How it works block");
   assert.equal(last(/<h2\b[^>]*data-slot="dialog-title"[^>]*>([^<]*)<\/h2>/g), "Shōgen", "the block is in the Shōgen panel");
@@ -1740,6 +1740,34 @@ test("no_css_of_the_site_draws_building — no content declaration in the .css f
   const unescape = (v: string): string => v.replace(/\\([0-9a-f]{1,6})\s?/gi, (_, x: string) => String.fromCodePoint(parseInt(x, 16))).replace(/\\(.)/g, "$1");
   const drawn = css.flatMap((f) => [...read(f).matchAll(/\bcontent\s*:\s*((?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[^;}"'])*)/g)].map((m) => `${f}: ${m[1] ?? ""}`)); // a quoted value may hold ; or }
   assert.deepEqual(drawn.filter((d) => unescape(d).replace(/[^a-z]/gi, "").toLowerCase().includes("building")), [], "no CSS content spells building");
+});
+
+// killer: apps/site/app/globals.css:293 CONST "background: var(--surface); color: var(--ink2); border: 1px dashed var(--ink2);" -> "background: color-mix(in oklch, var(--ink) 8%, var(--bg)); color: var(--ink2);"
+test("building_pill_has_its_own_look — the site's CSS draws c-pill--building and its dot, each apart from its upcoming rule, with no content declaration and never the colour of built (SITE-BUILDING-PILL-ASPECT-1)", () => {
+  const css = read("apps/site/app/globals.css");
+  const rule = (sel: string): string | undefined => new RegExp("^\\s*" + sel.replace(/[.:-]/g, "\\$&") + "\\s*\\{([^}]*)\\}", "m").exec(css)?.[1]?.trim();
+  const [built, upcoming, upcomingDot] = [rule(".c-pill--built"), rule(".c-pill--upcoming"), rule(".c-pill--upcoming::before")];
+  const builtColour = /var\((--[\w-]+)\)/.exec(built ?? "")?.[1];
+  assert.ok(upcoming !== undefined && upcomingDot !== undefined && builtColour !== undefined, "the upcoming rules and the colour of built are found (false-green guard)");
+  const [building, buildingDot] = [rule(".c-pill--building"), rule(".c-pill--building::before")];
+  assert.ok(building !== undefined && buildingDot !== undefined, "no rule draws the building pill");
+  assert.notEqual(building, upcoming, "the building pill is drawn apart from the upcoming pill");
+  assert.notEqual(buildingDot, upcomingDot, "its dot is drawn apart from the upcoming dot");
+  for (const d of [building, buildingDot]) {
+    assert.doesNotMatch(d, /\bcontent\s*:/, "the building rules write no content");
+    assert.ok(!d.includes(`var(${builtColour})`), `the building rules never take the colour of built (${builtColour})`);
+  }
+});
+
+// killer: scripts/assert-fleet-html.mjs:786 CONST ".toLowerCase().includes(word)" -> ".includes(word)"
+test("o2_reads_the_built_css_bundle_for_building — O-2 exports the reader it runs over every .css file next build ships, the CSS of the site and of the packages it imports: a content declaration that spells building, its CSS escapes decoded, in any case, is found; an empty one is not (SITE-BUILDING-PILL-CSS-BUNDLE-1; the run on the built bundle is replayed from the g3-site run: lines)", async () => {
+  // Loaded here, not at the top: on a tree without the export this test reds by this assertion, not by the module load.
+  const checker = (await import("../scripts/assert-fleet-html.mjs")) as { cssContentSpelling?: (css: string, word: string) => string[] };
+  assert.equal(typeof checker.cssContentSpelling, "function", "O-2 reads the built CSS bundle for building");
+  const spelling = checker.cssContentSpelling!;
+  assert.deepEqual(spelling('.a::before{content:"buil\\64 ing"}', "building"), ['"buil\\64 ing"'], "a spelling written with a CSS escape is found");
+  assert.deepEqual(spelling('.a::after{content:"BUILDING"}', "building"), ['"BUILDING"'], "a spelling in capitals is found");
+  assert.deepEqual(spelling('.c-pill::before{content:""}.b{content:var(--tw-content)}', "building"), [], "an empty content and a variable are not");
 });
 
 // Two pages render from fixtures/usde-calib-scores.json. Three conditions hold for them (decision of 2026-10-08): the render may read

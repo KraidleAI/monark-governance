@@ -19,7 +19,7 @@
 // built set — the expected notes are NEVER duplicated here) to derive the expected notes, then reads the
 // freshly built artefact. The .d.mts twin gives the root nodenext tsc the type surface (governance-only,
 // NOT whitelisted for the public export: no exported .ts imports this module).
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -764,6 +764,26 @@ async function main() {
     console.error(String(e instanceof Error ? e.message : e));
     process.exit(1);
   }
+
+  // --- the built CSS bundle: the CSS of the site and of the packages it imports, as next build ships it ---
+  const cssDir = join(REPO_ROOT, "apps", "site", ".next", "static");
+  const cssFiles = existsSync(cssDir) ? readdirSync(cssDir, { recursive: true }).map(String).filter((f) => f.endsWith(".css")) : [];
+  if (cssFiles.length === 0) {
+    console.error(`assert-fleet-html: FAIL-CLOSED — no .css under apps/site/.next/static. Run \`${SITE_BUILD_RUN}\` first (never a skip).`);
+    process.exit(1);
+  }
+  const drawn = cssFiles.flatMap((f) => cssContentSpelling(readFileSync(join(cssDir, f), "utf8"), "building"));
+  if (drawn.length > 0) {
+    console.error(`assert-fleet-html: the built CSS draws building: ${drawn.join(" | ")}`);
+    process.exit(1);
+  }
+  console.log(`assert-fleet-html OK — ${String(cssFiles.length)} built CSS file(s), no content declaration spells building.`);
+}
+
+/** The content values of a CSS text that spell word, its CSS escapes decoded, letters only, any case. */
+export function cssContentSpelling(css, word) {
+  const unescape = (v) => v.replace(/\\([0-9a-f]{1,6})\s?/gi, (_, x) => String.fromCodePoint(parseInt(x, 16))).replace(/\\(.)/g, "$1");
+  return [...String(css).matchAll(/\bcontent\s*:\s*((?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[^;}"'])*)/g)].map((m) => m[1] ?? "").filter((v) => unescape(v).replace(/[^a-z]/gi, "").toLowerCase().includes(word));
 }
 
 // Run-guard (mirrors scripts/grep-forbidden.mjs, scripts/export-public.mjs): the CLI runs only when invoked

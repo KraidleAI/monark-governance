@@ -290,6 +290,8 @@
   .c-pill--ukemi::before { background: var(--ukemi); }
   .c-pill--upcoming { background: color-mix(in oklch, var(--ink) 8%, var(--bg)); color: var(--ink2); }
   .c-pill--upcoming::before { border: 1px solid var(--ink2); }
+  .c-pill--building { background: var(--surface); color: var(--ink2); border: 1px dashed var(--ink2); }
+  .c-pill--building::before { border: 1px dashed var(--ink2); }
   /* A fact read from a file (e.g. an attestation record in a proof): neutral, never the green of a `built` pill. */
   .c-pill--fact { background: var(--surface); color: var(--ink); border: 1px solid var(--rule); }
   .c-pill--fact::before { background: var(--ink2); }
