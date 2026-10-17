@@ -1761,35 +1761,51 @@ test("building_pill_has_its_own_look — the site's CSS draws c-pill--building a
   }
 });
 
-// killer: scripts/assert-fleet-html.mjs:801 CONST ".toLowerCase();" -> ";"
-test("o2_reads_the_built_css_bundle_for_building — O-2 exports the reader it runs over every .css file next build ships, the CSS of the site and of the packages it imports: a content declaration or a custom property declaration that spells building, its CSS escapes decoded, in any case of its value and of its name, is found, read over the whole value and over its strings alone (a function between them may draw nothing), its name escaped, a comment before its colon, a line continuation in its string or its string left open at the end of the text; an escape past U+10FFFF fails closed and names the file; an empty content and a variable are not, and a selector of many escapes or a run of comments is read in bounded time (SITE-BUILDING-PILL-CSS-BUNDLE-1; the run on the built bundle is replayed from the g3-site run: lines)", async () => {
+// killer: scripts/assert-fleet-html.mjs:832 CONST ".toLowerCase();" -> ";"
+test("o2_reads_the_built_css_bundle_for_building — O-2 exports the reader it runs over every .css file next build ships, the CSS of the site and of the packages it imports: a content declaration or a custom property declaration that spells building, its CSS escapes decoded, in any case of its value and of its name, is found, read over the whole value and over its strings alone (a function between them may draw nothing), its name escaped, a comment before its colon or between its strings, a line continuation in its string or its string left open at the end of the text; a comment opener inside a string, an unquoted url() or an escape hides nothing, and a newline ends a string; an escape past U+10FFFF fails closed and names the file; an empty content and a variable are not, and adverse texts of 200 kB, many comments or many escapes are read in linear time (SITE-BUILDING-PILL-CSS-BUNDLE-1; the run on the built bundle is replayed from the g3-site run: lines)", async () => {
   // Loaded here, not at the top: on a tree without the export this test reds by this assertion, not by the module load.
   const checker = (await import("../scripts/assert-fleet-html.mjs")) as { cssContentSpelling?: (css: string, word: string, file?: string) => string[] };
   assert.equal(typeof checker.cssContentSpelling, "function", "O-2 reads the built CSS bundle for building");
   const spelling = checker.cssContentSpelling!;
   assert.deepEqual(spelling('.a::before{content:"buil\\64 ing"}', "building"), ['"buil\\64 ing"'], "a spelling written with a CSS escape is found");
   assert.deepEqual(spelling('.a::after{content:"BUILDING"}', "building"), ['"BUILDING"'], "a spelling in capitals is found");
-  // killer: scripts/assert-fleet-html.mjs:800 CONST "unescape(name).toLowerCase()" -> "unescape(name)"
+  // killer: scripts/assert-fleet-html.mjs:862 CONST "name?.s.toLowerCase()" -> "name?.s"
   assert.deepEqual(spelling('.a::after{CONTENT:"building"}.b::after{Content:"building"}', "building"), ['"building"', '"building"'], "a property name in capitals is found: CSS reads it in any case");
-  // killer: scripts/assert-fleet-html.mjs:800 CONST "n.startsWith(\"--\")" -> "false"
+  // killer: scripts/assert-fleet-html.mjs:863 CONST "n2?.startsWith(\"--\")" -> "false"
   assert.deepEqual(spelling('.a{--label:"building"}.a::before{content:var(--label)}', "building"), ['"building"'], "a custom property that spells building is found, whatever reads it");
-  // killer: scripts/assert-fleet-html.mjs:800 CONST "unescape(name)" -> "name"
+  // killer: scripts/assert-fleet-html.mjs:822 CONST "s += c;" -> "s += t[j + 1];"
   assert.deepEqual(spelling('.a::before{cont\\65nt:"building"}', "building"), ['"building"'], "a property name written with a CSS escape is found");
-  // killer: scripts/assert-fleet-html.mjs:803 CONST "|| letters(strings(v)).includes(word)" -> "|| false"
+  // killer: scripts/assert-fleet-html.mjs:839 CONST "|| str >= d.sat" -> "|| false"
   assert.deepEqual(spelling('.a::before{content:"buil" attr(data-none) "ding"}.b::before{content:"buil" counter(c, none) "ding"}', "building"), ['"buil" attr(data-none) "ding"', '"buil" counter(c, none) "ding"'], "two strings that spell building around a function that may draw nothing are found");
-  // killer: scripts/assert-fleet-html.mjs:799 CONST "(?:\\s|\\/\\*[^*]*\\*+(?:[^/*][^*]*\\*+)*\\/)*:" -> "\\s*:"
-  assert.deepEqual(spelling('.a::before{content/* a */:"building"}', "building"), ['"building"'], "a comment before the colon hides nothing");
-  // killer: scripts/assert-fleet-html.mjs:799 CONST "\"(?:[^\"\\\\]|\\\\[\\s\\S])*" -> "\"(?:[^\"\\\\]|\\\\.)*"
+  // killer: scripts/assert-fleet-html.mjs:844 CONST "t.startsWith(\"/*\", i)" -> "false"
+  assert.deepEqual([spelling('.a::before{content/* a */:"building"}', "building"), spelling('.b::before{content:"buil"/*"x"*/"ding"}', "building")], [['"building"'], ['"buil"/*"x"*/"ding"']], "a comment before the colon or between two strings, a quote inside it, hides nothing");
   assert.deepEqual(spelling('.a::before{content:"buil\\\nding"}', "building"), ['"buil\\\nding"'], "a line continuation in a string is read through");
-  // killer: scripts/assert-fleet-html.mjs:799 CONST "(?:\"|$)" -> "\""
+  // killer: scripts/assert-fleet-html.mjs:821 CONST "t.startsWith(\"\\r\\n\", j + 1)" -> "false"
+  assert.deepEqual(spelling('.a::before{content:"buil\\\r\n;ding"}', "building"), ['"buil\\\r\n;ding"'], "a line continuation over a CR LF is one, and the ; after it stays in the string");
   assert.deepEqual(spelling('.a::before{content:"building', "building"), ['"building'], "a string left open at the end of the text is read");
-  // killer: scripts/assert-fleet-html.mjs:796 CONST "if (c > 0x10ffff) throw" -> "if (false) throw"
+  // killer: scripts/assert-fleet-html.mjs:847 CONST " && !isNl(t[k])" -> ""
+  assert.deepEqual(spelling(".a::before{content:'x\n}.b::before{content:'/* building */'}", "building"), ["'/* building */'"], "a newline no backslash escapes ends a string, as CSS reads it: the next rule is read, its string whole");
+  // killer: scripts/assert-fleet-html.mjs:852 CONST "t[j] === \"(\" && !hash && /^url$/i.test(s)" -> "false"
+  assert.deepEqual(spelling('.a{background:url(/*)}.b::before{content:"building"}/* */', "building"), ['"building"'], "a comment opener inside an unquoted url() opens no comment");
+  // killer: scripts/assert-fleet-html.mjs:811 CONST "t.startsWith(\"\\r\\n\", j + 1 + hex.length) ? 2 : " -> ""
+  // killer: scripts/assert-fleet-html.mjs:811 CONST "isWs(t[j + 1 + hex.length]) ? 1 : 0" -> "0"
+  assert.deepEqual(spelling('.a{b:u\\72 l(/*)}.c{b:u\\72\r\nl(/*)}.d::before{content:"building"}/* */', "building"), ['"building"'], "url written with an escape and the white space it takes, a space or a CR LF, is url");
+  // killer: scripts/assert-fleet-html.mjs:854 CONST "while (url && isWs(t[k])) k++;" -> ""
+  // killer: scripts/assert-fleet-html.mjs:855 CONST " || t[k] === '\"' || t[k] === \"'\"" -> ""
+  assert.deepEqual(spelling('.a{b:url( "x)")}.c::before{content/**/:"building"}', "building"), ['"building"'], "url( then white space and a quote is a function: its string is read as a string, a ) inside it ends nothing");
+  // killer: scripts/assert-fleet-html.mjs:872 CONST "c === \"#\" || c === \"@\"" -> "false"
+  assert.deepEqual(spelling('#url(.a::before{content/**/:"building"})', "building"), ['"building"'], "#url( is a hash, not a url(): the comment after it is a comment");
+  // killer: scripts/assert-fleet-html.mjs:850 CONST "isName(i) || escapes(i)" -> "isName(i)"
+  assert.deepEqual(spelling('.\\/*{}.a::before{content:"building"}/* */', "building"), ['"building"'], "an escaped slash opens no comment");
+  // killer: scripts/assert-fleet-html.mjs:813 CONST "c > 0x10ffff ?" -> "false ?"
   assert.throws(() => spelling('.a::before{content:"\\110000"}', "building", "chunks/x.css"), { name: "Error", message: "assert-fleet-html: FAIL-CLOSED — chunks/x.css: the CSS escape \\110000 is past U+10FFFF" }, "an escape past U+10FFFF fails closed and names the file");
-  // killer: scripts/assert-fleet-html.mjs:799 CONST "(?:[0-9a-f]{6}|[0-9a-f]{1,5}(?![0-9a-f]))" -> "[0-9a-f]{1,6}"
-  // killer: scripts/assert-fleet-html.mjs:799 CONST "\\/\\*[^*]*\\*+(?:[^/*][^*]*\\*+)*\\/" -> "\\/\\*[\\s\\S]*?\\*\\/"
+  // Adverse texts: the reader of 72727449, one regular expression tried at each name, took 24 to 60 s on the four of 200 kB.
+  const adverse = [".x" + "\\61".repeat(28) + "{color:red}", ".a{content" + "/**/".repeat(10000) + " b}", ".a{" + "\\61\u00a0".repeat(24) + "}",
+    ".x" + "\\61 ".repeat(50000) + "{color:red}", ".a{" + "b:/* ".repeat(40000), ".a{" + 'b:"'.repeat(66667), "x:".repeat(100000)];
+  assert.ok(adverse.slice(3).every((a) => a.length >= 200000), "the four adverse texts of the control are of 200 kB at least (false-green guard)");
   const t0 = performance.now();
-  assert.deepEqual([spelling(".x" + "\\61".repeat(28) + "{color:red}", "building"), spelling(".a{content" + "/**/".repeat(28) + " b}", "building")], [[], []], "a selector of escapes and a run of comments before no colon are not declarations");
-  assert.ok(performance.now() - t0 < 500, "28 escapes in a selector and 28 comments before no colon are read in bounded time: each piece of the reader reads its text one way only");
+  assert.deepEqual(adverse.map((a) => spelling(a, "building")), adverse.map(() => []), "escapes, comments, open strings and colons that draw nothing are not declarations that spell building");
+  assert.ok(performance.now() - t0 < 500, "the seven adverse texts (840 kB in all) are read in linear time: each character a bounded number of times, no regular expression that backtracks");
   assert.deepEqual(spelling('.c-pill::before{content:""}.b{content:var(--tw-content)}', "building"), [], "an empty content and a variable are not");
 });
 

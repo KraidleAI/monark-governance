@@ -788,19 +788,92 @@ async function main() {
 
 /** The values of the content declarations and of the custom property declarations of a CSS text that spell word, its CSS escapes
  *  decoded (in the property name too), letters only, any case of the name and of the value, read once over the whole value and once
- *  over its strings alone (a function between two strings, attr() or counter(), may draw nothing). A declaration is read wherever it
- *  starts, a comment may stand before its colon, a string may run over a line continuation or to the end of the text. Fail-closed: an
- *  escape past U+10FFFF throws, naming `file`. Not read: the other properties and descriptors that draw a string (quotes,
- *  list-style-type, the descriptors of @counter-style and @property), a word split across custom properties. */
+ *  over its strings alone (a function between two strings, attr() or counter(), may draw nothing). One pass reads the text in the
+ *  tokens a CSS tokenizer reads (each case checked against the lightningcss of the repository): a comment, a string (to its quote, to a newline no backslash escapes, or to the end
+ *  of the text, a line continuation read through), an escape, an unquoted url( ... ) and a name are each read once. A declaration is a
+ *  name, then white space or comments, then a colon, wherever it stands outside a comment, a string and a url( ... ), its value running
+ *  to the next ; { or } outside them; a comment counts for nothing, even between two strings. Linear time: each character is read a
+ *  bounded number of times and no regular expression can backtrack. Fail-closed: an escape past U+10FFFF in the name of a
+ *  declaration or in the value of a drawing one throws, naming `file`. Not read: the other properties and descriptors that draw a
+ *  string (quotes, list-style-type, the descriptors of @counter-style and @property), a word split across custom properties, a word
+ *  written only inside a comment, a declaration inside a comment or a string. */
 export function cssContentSpelling(css, word, file = "the CSS text") {
-  const point = (e, x) => { const c = parseInt(x, 16); if (c > 0x10ffff) throw new Error(`assert-fleet-html: FAIL-CLOSED — ${file}: the CSS escape ${e.trim()} is past U+10FFFF`); return String.fromCodePoint(c); };
-  const unescape = (v) => v.replace(/\\([0-9a-f]{1,6})\s?/gi, point).replace(/\\([\s\S])/g, "$1");
-  // Each piece reads its text one way only (an escape takes all its hex digits, a comment ends at its first */): no backtracking blow-up.
-  const decl = /(?<![-\w\u0080-\uffff\\])(?=((?:[-\w\u0080-\uffff]|\\(?:[0-9a-f]{6}|[0-9a-f]{1,5}(?![0-9a-f]))\s?|\\[^\n\r\f0-9a-f])+)(?:\s|\/\*[^*]*\*+(?:[^/*][^*]*\*+)*\/)*:\s*((?:"(?:[^"\\]|\\[\s\S])*(?:"|$)|'(?:[^'\\]|\\[\s\S])*(?:'|$)|\/\*(?:[^*]|\*(?!\/))*(?:\*\/|$)|[^;{}"'])*))/gi;
-  const drawing = (name) => { const n = unescape(name).toLowerCase(); return n === "content" || n.startsWith("--"); };
-  const letters = (t) => t.replace(/[^a-z]/gi, "").toLowerCase();
-  const strings = (v) => [...v.matchAll(/"((?:[^"\\]|\\[\s\S])*)(?:"|$)|'((?:[^'\\]|\\[\s\S])*)(?:'|$)/g)].map((q) => unescape(q[1] ?? q[2] ?? "")).join("");
-  return [...String(css).matchAll(decl)].filter((m) => drawing(m[1] ?? "")).map((m) => m[2] ?? "").filter((v) => letters(unescape(v)).includes(word) || letters(strings(v)).includes(word));
+  const t = String(css), n = t.length, found = [];
+  const fail = (e) => { throw new Error(`assert-fleet-html: FAIL-CLOSED — ${file}: the CSS escape ${e.trim()} is past U+10FFFF`); };
+  const isNl = (c) => c === "\n" || c === "\r" || c === "\f";
+  const isWs = (c) => c === " " || c === "\t" || isNl(c);
+  const isName = (j) => { const c = t.charCodeAt(j); return c >= 0x80 || c === 45 || c === 95 || (c >= 48 && c <= 57) || ((c | 32) >= 97 && (c | 32) <= 122); };
+  const escapes = (j) => t[j] === "\\" && !isNl(t[j + 1] ?? "\n");
+  /** The escape at j, its backslash read: [the code point it stands for, the index after it, its text if past U+10FFFF]. */
+  const escape = (j) => {
+    const hex = /^[0-9a-f]{1,6}/i.exec(t.slice(j + 1, j + 7))?.[0];
+    if (hex === undefined) return [t[j + 1] ?? "", j + 2, null];
+    const end = j + 1 + hex.length + (t.startsWith("\r\n", j + 1 + hex.length) ? 2 : isWs(t[j + 1 + hex.length]) ? 1 : 0);
+    const c = parseInt(hex, 16);
+    return c > 0x10ffff ? ["\ufffd", end, t.slice(j, end)] : [String.fromCodePoint(c), end, null];
+  };
+  /** The escapes and code points from j that pass test, decoded: [their text, the index after them, the first escape past U+10FFFF]. */
+  const run = (j, test) => {
+    let s = "", bad = null, from = j;
+    while (j < n && test(j)) {
+      if (t[j] !== "\\") { j++; continue; }
+      s += t.slice(from, j);
+      if (t.startsWith("\r\n", j + 1)) j += 3;
+      else { const [c, end, b] = escape(j); s += c; bad ??= b; j = end; }
+      from = j;
+    }
+    return [s + t.slice(from, j), j, bad];
+  };
+  // The drawing declarations whose values end at the next ; { or }, and the letters from the colon of the first one: read once for all.
+  let seg = null, name = null, hash = false, i = 0;
+  const add = (s, quoted, bad) => {
+    if (seg === null) return;
+    if (bad !== null) fail(bad);
+    const l = s.replace(/[^a-z]/gi, "").toLowerCase();
+    seg.all.push(l); seg.at += l.length;
+    if (quoted) { seg.str.push(l); seg.sat += l.length; }
+  };
+  const close = (end) => {
+    if (seg === null) return;
+    const [all, str] = [seg.all.join("").lastIndexOf(word), seg.str.join("").lastIndexOf(word)];
+    for (const d of seg.decls) if (all >= d.at || str >= d.sat) found.push(t.slice(d.from, end));
+    seg = null;
+  };
+  while (i < n) {
+    const c = t[i];
+    if (t.startsWith("/*", i)) { const e = t.indexOf("*/", i + 2); i = e < 0 ? n : e + 2; hash = false; continue; }
+    if (isWs(c)) { i++; hash = false; continue; }
+    if (c === '"' || c === "'") {
+      const [s, j, bad] = run(i + 1, (k) => t[k] !== c && !isNl(t[k]));
+      add(s, true, bad);
+      [name, hash, i] = [null, false, t[j] === c ? j + 1 : j];
+    } else if (isName(i) || escapes(i)) {
+      const [s, j, bad] = run(i, (k) => isName(k) || escapes(k));
+      const url = t[j] === "(" && !hash && /^url$/i.test(s);
+      let k = j + 1;
+      while (url && isWs(t[k])) k++;
+      if (!url || t[k] === '"' || t[k] === "'") { add(s, false, bad); [name, hash, i] = [{ s, bad }, false, j]; continue; }
+      // An unquoted url( ... ): one token to its first ) that no backslash escapes, a comment opener or a quote inside it included.
+      const [u, e, ubad] = run(k, (m) => t[m] !== ")");
+      add(s + u, false, bad ?? ubad);
+      [name, hash, i] = [null, false, e + 1];
+    } else if (c === ":") {
+      if (name !== null && name.bad !== null) fail(name.bad);
+      const n2 = name?.s.toLowerCase();
+      if (n2 === "content" || n2?.startsWith("--")) {
+        let from = i + 1;
+        while (from < n && /\s/.test(t[from])) from++;
+        seg ??= { all: [], at: 0, str: [], sat: 0, decls: [] };
+        seg.decls.push({ from, at: seg.at, sat: seg.sat });
+      }
+      [name, hash, i] = [null, false, i + 1];
+    } else {
+      if (c === ";" || c === "{" || c === "}") close(i);
+      [name, hash, i] = [null, c === "#" || c === "@", i + 1];
+    }
+  }
+  close(n);
+  return found;
 }
 
 // Run-guard (mirrors scripts/grep-forbidden.mjs, scripts/export-public.mjs): the CLI runs only when invoked
