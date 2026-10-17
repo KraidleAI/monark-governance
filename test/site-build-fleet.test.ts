@@ -1745,7 +1745,7 @@ test("no_css_of_the_site_draws_building — no content declaration in the .css f
 // killer: apps/site/app/globals.css:293 CONST "background: var(--surface); color: var(--ink2); border: 1px dashed var(--ink2);" -> "background: color-mix(in oklch, var(--ink) 8%, var(--bg)); color: var(--ink2);"
 test("building_pill_has_its_own_look — the site's CSS draws c-pill--building and its dot, each apart from its upcoming rule, with no content declaration and never the colour of built (SITE-BUILDING-PILL-ASPECT-1)", () => {
   const css = read("apps/site/app/globals.css");
-  const rule = (sel: string): string | undefined => new RegExp("^\\s*" + sel.replace(/[.:-]/g, "\\$&") + "\\s*\\{([^}]*)\\}", "m").exec(css)?.[1]?.trim();
+  const rule = (sel: string): string | undefined => new RegExp("^\\s*" + sel.replace(/[\\^$.*+?()[\]{}|:-]/g, "\\$&") + "\\s*\\{([^}]*)\\}", "m").exec(css)?.[1]?.trim();
   const [built, upcoming, upcomingDot] = [rule(".c-pill--built"), rule(".c-pill--upcoming"), rule(".c-pill--upcoming::before")];
   const builtColour = /var\((--[\w-]+)\)/.exec(built ?? "")?.[1];
   assert.ok(upcoming !== undefined && upcomingDot !== undefined && builtColour !== undefined, "the upcoming rules and the colour of built are found (false-green guard)");
