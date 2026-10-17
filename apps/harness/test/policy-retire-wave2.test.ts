@@ -91,23 +91,32 @@ test("retire_list_entries_of_one_cell_by_attempt", () => {
   // The list key is (task_class, cell_key, calib_attempt): one entry per attempt of a cell, in attempt order.
   const l1 = admit(() => read([ONE], "2027-01-04"));
   admit(() => read([ONE, TWO], "2027-01-06", l1));
-  for (const off of [[TWO, ONE], [TWO, TWO], [ONE, ONE]]) assert.throws(() => read(off, "2027-01-06", l1), /not sorted by \(task_class, cell_key\), or a repeated cell, at .* \(one entry per attempt of a cell, in attempt order\)/);
+  for (const off of [[TWO, ONE], [TWO, TWO], [ONE, ONE]]) assert.throws(() => read(off, "2027-01-06", l1), /not sorted by \(task_class, cell_key, calib_attempt\), or a repeated key, at .* \(one entry per attempt of a cell, in attempt order\)/);
 });
 
 // killer: apps/harness/src/policy-retire.ts:76 CONST "e.calib_attempt === 1 ? c.status : (child?.status ?? \"\")" -> "c.status"
 test("retire_list_attempt_2_reads_the_status_of_its_child", () => {
-  // The status test reads the status of the attempt named: the child's for attempt 2, the wave 1 cell's for attempt 1.
+  // The status test reads the status of the attempt named: the child's for attempt 2, the wave 1 cell's for attempt 1, also when an
+  // attempt 1 entry is carried after the child is current.
   const vetoed = find((r) => r.status === "vetoed");
   const child = kids("region", DAY, vetoed);
   admit(() => read([entryOf(vetoed, 2)], DAY, undefined, child)); // a child that serves a region, its parent vetoed
   assert.throws(() => read([entryOf(vetoed)], "2027-01-04", undefined, child), /serves no region \(registry status vetoed\)/);
   for (const st of ["vetoed", "silence", "under_calib"]) assert.throws(() => read([TWO], DAY, undefined, kids(st)), new RegExp(`serves no region \\(registry status ${st}\\)`));
+  // The parent retired first, then a child that serves no region: the carried attempt 1 entry reads its parent's status, region.
+  // killer: apps/harness/src/policy-retire.ts:76 CONST "e.calib_attempt === 1 ? c.status" -> "now === 1 ? c.status"
+  for (const st of ["vetoed", "silence", "under_calib"]) {
+    const l1 = admit(() => read([ONE], "2027-01-04", undefined, kids(st)));
+    assert.deepEqual(admit(() => read([ONE], "2027-01-06", l1, kids(st))).entries, [ONE]);
+  }
 });
 
 // killer: apps/harness/src/policy-retire.ts:110 CONST "t >= 0 && new Date(t).toISOString().startsWith(d)" -> "true"
 test("retire_list_child_current_day_is_a_real_day", () => {
   // The day a child becomes current is a real day written YYYY-MM-DD, refused by name otherwise when an entry of its cell is read.
-  for (const day of ["2027-02-30", "2027-13-01", "2027-1-05", "", "2027-01-05T00:00:00Z"]) {
+  // A year or a month alone parses as its first day: the form YYYY-MM-DD refuses it.
+  // killer: apps/harness/src/policy-retire.ts:110 CONST "/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(d) && " -> ""
+  for (const day of ["2027-02-30", "2027-13-01", "2027-1-05", "", "2027-01-05T00:00:00Z", "2027-01", "2027"]) {
     assert.throws(() => read([ONE], "2027-01-06", undefined, kids("region", day)), new RegExp(`has a child whose current day '${day}' is not a real day YYYY-MM-DD`));
   }
   admit(() => read([ONE], "2027-01-06", undefined, kids("region", "2027-02-28")));

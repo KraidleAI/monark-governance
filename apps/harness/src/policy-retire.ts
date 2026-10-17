@@ -66,7 +66,7 @@ export function readRetireList(pin: RetirePin, registryBytes: Uint8Array, previo
   const entries = top.entries.map((e, i) => closed<RetireEntry>(e, ENTRY, `${pin.file} entries[${String(i)}]`));
   entries.forEach((e, i) => {
     const p = entries[i - 1];
-    if (p !== undefined && (p.task_class > e.task_class || (p.task_class === e.task_class && (p.cell_key > e.cell_key || (p.cell_key === e.cell_key && p.calib_attempt >= e.calib_attempt))))) fail(`${pin.file}: entries not sorted by (task_class, cell_key), or a repeated cell, at ${e.task_class} ${e.cell_key} (one entry per attempt of a cell, in attempt order)`);
+    if (p !== undefined && (p.task_class > e.task_class || (p.task_class === e.task_class && (p.cell_key > e.cell_key || (p.cell_key === e.cell_key && p.calib_attempt >= e.calib_attempt))))) fail(`${pin.file}: entries not sorted by (task_class, cell_key, calib_attempt), or a repeated key, at ${e.task_class} ${e.cell_key} (one entry per attempt of a cell, in attempt order)`);
   });
   const cells = new Map(readRegistry(registryBytes).map((c) => [`${c.taskClass} ${c.key}`, c] as const));
   for (const e of entries) {
