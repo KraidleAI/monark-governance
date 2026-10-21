@@ -254,6 +254,7 @@ test("bell_probe_ots_upgrades_a_pending_proof_once_complete", async () => {
 // at the stamp (under the tip, depth 2) or at an upgrade (under its pending node), or one refused a level short of the bound, or refused
 // unnamed; a proof on disk that does not read failing the whole step (no row of the run written, no other proof asked) instead of that
 // proof alone, or failing unnamed (G2 of part 4, nit-7)
+// killer: scripts/probe-bell-ots.mjs:117 CONST "readTree(c, msg, depth)" -> "readTree(c, msg, 0)"
 test("bell_probe_ots_written_proof_always_reads_again", async () => {
   assert.ok(P.BELL_PROBE_ALERTS.includes("ots_op_unsupported") && P.BELL_PROBE_ALERTS.includes("probe_error"), "the two names, in the closed list");
   /** An answer `k` sha256 operations deep, ending in a commitment pending at `uri`: its deepest node `k` below the node it is grafted at. */
