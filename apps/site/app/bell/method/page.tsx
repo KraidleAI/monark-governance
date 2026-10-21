@@ -131,7 +131,7 @@ export default function BellMethodPage() {
           <p className="c-lede" style={{ marginTop: 12 }}>
             Everything a third party needs to recompute a Bell record from the public ledger and from closing prices and
             consolidated volumes read under their own licence. The closing price is the consolidated close: the last
-            last-sale-eligible trade of the regular session across all US venues (Tapes A, B and C), as reported in the
+            last-sale-eligible trade of the regular session on Tapes A, B and C, as reported in the
             day&rsquo;s final end-of-day summary; a change to this definition is a new dated version of this page.
           </p>
           <nav className="c-toc" aria-label="On this page" style={{ marginTop: 16 }}>
@@ -209,8 +209,8 @@ export default function BellMethodPage() {
   previousTradingDay(anchorDay)
       if session ∈ { pre, regular }`}</pre>
             <p className="c-muted c-small" style={{ marginTop: 10 }}>
-              For the off-hours regimes and for after-hours, the anchor day&rsquo;s official close has already settled when the
-              session occurs, so that close is the reference. For pre-market and regular hours, the anchor day&rsquo;s close has
+              For the off-hours regimes and for after-hours, the anchor day&rsquo;s regular session has already ended when the
+              session occurs, so that day&rsquo;s close is the reference. For pre-market and regular hours, the anchor day&rsquo;s close has
               not settled yet at session time; using it would read the future, so the reference is the prior trading
               day&rsquo;s close. Off-hours regimes, the ones Bell reports, are keyed to their anchor day.
             </p>
@@ -543,8 +543,8 @@ exceeds(θ) = | VWAP_share − P_close | / P_close > θ`}</pre>
             <p>
               The collector core will be exported so that a third party recomputes the digests offline:{" "}
               <Placeholder name="url_replay" state="to be exported" />. Its commands and file names will be printed here
-              from the exported repository; with the same inputs on disk, no network call is needed. A replay confirms the
-              arithmetic; the only check on a fact is the on-chain recompute.
+              from the exported repository; with the same inputs on disk, no network call is needed. A replay confirms the arithmetic;
+              a fact is checked by recomputing it from the public ledger and from a reference close read under your own licence.
             </p>
             <dl className="c-kv" style={{ marginTop: 12 }}>
               {runs.map((r) => (

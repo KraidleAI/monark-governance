@@ -530,7 +530,7 @@ export default function BellPage() {
               Each published fact will identify its on-chain transactions, so that a third party can recompute price, size,
               time and direction from the public ledger, and every gap and ratio bit for bit with the replay code once it is
               exported, given the same closing price (the consolidated close: the last last-sale-eligible trade of the regular
-              session across all US venues) and consolidated volume read under the reader&rsquo;s own licence.
+              session on Tapes A, B and C) and consolidated volume read under the reader&rsquo;s own licence.
             </p>
           </div>
           <div className="c-card">
@@ -666,8 +666,10 @@ export default function BellPage() {
         </p>
       </section>
 
-      {/* Short conditions — the disclaimer block validated by counsel, verbatim (counsel's GO on
-          the Bell legal texts as drafted); publisher identity fields stay visible placeholders. The full
+      {/* Short conditions — the disclaimer block validated by counsel (counsel's GO on the Bell legal texts as
+          drafted), VERBATIM except for one deviation, with its reason: factual exactness, the sentence of the signature item
+          on how a fact is checked names the public ledger and a reference close read under the reader's own licence, as
+          deviation (8) of the Terms header does for the Terms. Publisher identity fields stay visible placeholders. The full
           Terms of Use and Privacy Notice are linked at its foot. */}
       <section className="c-section" id="conditions" aria-labelledby="l-conditions">
         <span className="c-label" id="l-conditions">conditions in short · they apply to Bell&rsquo;s published records</span>
