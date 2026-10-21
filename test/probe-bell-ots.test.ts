@@ -239,7 +239,7 @@ test("bell_probe_ots_upgrades_a_pending_proof_once_complete", async () => {
   await run(u, tl, NOON, { answer: evil });
   const lastOne = (x: string): Buffer => (x === URI(P.OTS_AGGREGATORS[3] ?? "") ? Buffer.concat([Buffer.from([0x08]), att(BITCOIN, Buffer.from([0x01]))]) : Buffer.from([0xf2, 0x00]));
   const before = proofOf(u, 1), odd = await run(u, tl, NOON, { upgrade: lastOne });
-  assert.deepEqual([opsOf(odd.report.alerts), proofOf(u, 1).equals(before), rows(u).length, asks(odd), odd.seen.some((x) => x.startsWith("https://calendar.evil.test"))],
+  assert.deepEqual([opsOf(odd.report.alerts), proofOf(u, 1).equals(before), rows(u).length, asks(odd), odd.seen.some((x) => new URL(x).hostname === "calendar.evil.test")],
     [["ots_op_unsupported"], true, 1, 3, false]);
   const bad = await run(scratch(), tl, NOON, { answer: (k) => (k === 0 ? Buffer.from([0xf2, 0x00]) : pending(k, URI(P.OTS_AGGREGATORS[k] ?? ""))) });
   assert.deepEqual([opsOf(bad.report.alerts), bad.report.ots?.lines_stamped], [["ots_op_unsupported"], 1], "at the stamp: that answer dropped, the three others merged");
