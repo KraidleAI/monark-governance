@@ -42,7 +42,7 @@ const ENV: Record<string, string> = { BELL_SOLANA_RPC: `https://${HELIUS_HOST}`,
 // The fixture of bell-units-compose.test.ts: two fills per mint in each unit's window, the trajectory 1 then 1.0039 from 2026-09-01.
 const FILLS: Readonly<Record<string, readonly number[]>> = { [D1]: [Date.UTC(2026, 9, 2, 14), Date.UTC(2026, 9, 3, 15)], [D2]: [Date.UTC(2026, 9, 5, 14), Date.UTC(2026, 9, 5, 22)] };
 let fills: readonly number[] = FILLS[D1] ?? [];
-const EFF = Math.floor(Date.UTC(2026, 8, 1) / 1000), CLOSE = { scaled: "364000000000", decimal: 364 };
+const EFF = Math.floor(Date.UTC(2026, 8, 1) / 1000), CLOSE = { scaled: "3003300300000", decimal: 3003.3003 };
 const pool = (m: string): { vaultBase: string; vaultQuote: string } => { const p = POOLS.find((x) => x.baseSymbol === m && x.chain === "solana"); assert.ok(p?.vaultBase !== undefined && p.vaultQuote !== undefined); return { vaultBase: p.vaultBase, vaultQuote: p.vaultQuote }; };
 const mintOf = (m: string): string => XSTOCKS.find((t) => t.symbol === m)?.address ?? "";
 const TRAJ = JSON.stringify(Object.fromEntries(BELL_UNIVERSE.map((m) => [m, { scanComplete: true, scanMethod: "authority", events: [
@@ -56,7 +56,7 @@ function rpc(method: string, params: unknown[]): unknown {
   if (method === "getSignaturesForAddress") return (params[1] as { before?: string }).before !== undefined ? []
     : fills.map((ms, i) => ({ signature: `${m}-sig${String(i)}`, slot: 10 + i, blockTime: ms / 1000, err: null })).reverse();
   if (method === "getTransaction") return { slot: 10, transaction: { message: { accountKeys: [{ pubkey: pool(m).vaultBase }, { pubkey: pool(m).vaultQuote }] } },
-    meta: { err: null, preTokenBalances: bal("1000000000", "5000000000"), postTokenBalances: bal("1100000000", "4635000000") } };
+    meta: { err: null, preTokenBalances: bal("1000000000", "5000000000"), postTokenBalances: bal("1100000000", "1988448875") } };
   if (method === "getAccountInfo") return (params[1] as { encoding?: string }).encoding === "base64" ? { context: { slot: 9 }, value: { data: [stateConfigB64(), "base64"] } }
     : { context: { slot: 9 }, value: { data: { parsed: { info: { supply: "1000000000", decimals: 8, extensions: [] } } } } };
   throw new Error(`unexpected ${method}`);
