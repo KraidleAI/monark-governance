@@ -17,14 +17,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateKeyPairSync } from "node:crypto";
 import { BELL_LAYOUT, BELL_LEGACY_ORIGIN, BELL_PUBLIC_ORIGIN, BELL_UNIVERSE, UNIT_DUE_MARGIN_MIN } from "../../../scripts/bell-deploy.mjs";
 import { runProbe } from "../../../scripts/probe-bell.mjs";
 import { keyringOf, lineHash, sha256Hex } from "../scripts/bell-chain.mjs";
 import { runCli } from "../scripts/bell-publish.mjs";
-import { urlSource, verifyServed } from "../scripts/bell-verify.mjs";
+import { BellVerifyError, urlSource, verifyServed } from "../scripts/bell-verify.mjs";
 import { dueInstant, unitOf } from "../src/plan.ts";
 import { POOLS, XSTOCKS } from "../src/pools.ts";
 import { f64BitsHexLE } from "../src/rebase-trajectory.ts";
@@ -139,6 +139,9 @@ test("bell_units_compose_tick_to_publish_to_probe", async () => {
   mkdirSync(creds);
   writeFileSync(join(creds, cred), key.export({ type: "pkcs8", format: "pem" })); // act: the key, as PID 1 hands it to the publisher
   const treeFiles = [[valueOf(probeArgv, "--keyring"), JSON.stringify(keyringOf(key, 1))], [valueOf(probeArgv, "--smtp-pass-file"), "secret-x\n"]] as const;
+  // Killer (2), the array the loop below writes (VERIF-PLI-4b V-1): its paths, closed. An entry under the probe's state reddens here.
+  assert.deepEqual(treeFiles.map(([f]) => relative(root, f).split(sep).join("/")), ["opt/monark-bell-probe/apps/bell/keys/bell-keyring.json", "etc/monark/bell-probe-smtp-pass"],
+    "the loop writes the probe tree's keyring and its password file, and nothing else (never the probe's state)");
   for (const [file, text] of treeFiles) { // acts: the probe tree's keyring, its password file (under the tree's root and /etc/monark, never its state)
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, text, { mode: 0o600 });
@@ -200,7 +203,11 @@ test("bell_units_compose_tick_to_publish_to_probe", async () => {
     // The reader (C-5): bell-verify over a loopback server serving the published tree the probe read, with the committed Caddy headers.
     const srv = await serveDir(pub, committedCaddyRules());
     try {
-      const rep = await verifyServed({ source: urlSource(srv.url), keyring: keyringOf(key, 1) });
+      // The reader refuses by an exception (bell-verify.mjs, refuse): its refusal is an assertion here, named with its code (VERIF-PLI-4b V-2).
+      const rep = await verifyServed({ source: urlSource(srv.url), keyring: keyringOf(key, 1) }).catch((e: unknown) => {
+        if (e instanceof BellVerifyError) assert.fail(`bell-verify, the reader's side, refuses the tree the probe read: ${e.code}: ${e.detail}`);
+        throw e;
+      });
       assert.deepEqual([rep.status, rep.head_seq, rep.publications, rep.breaks], ["consistent_with_supplied_keyring", 2, 2, []], "bell-verify, the reader's side, on the tree the probe read");
     } finally { await srv.close(); }
   } finally {
