@@ -34,8 +34,8 @@ PrivateTmp=true
 ReadWritePaths=/var/lib/monark-probe
 # Bell's former key directory stays on this host until the act of part 5 (DC-8, M-15), inaccessible; no leading `-` (BELL-OLD-HOST-MASKS-1).
 InaccessiblePaths=/etc/monark/bell
-# Caps (PLAN-P4 C4-11): a quarter of one CPU; MemoryMax proposed, two copies of a timeline of at most 8 MiB (the body and the kept copy)
-# with the immutables and the proofs, twice the Narabi probe's 128M; re-measured at the first real start (part 5).
+# Caps (PLAN-P4 C4-11): a quarter of one CPU; MemoryMax proposed, below the probe's peak in memory; measured before the timer is enabled
+# (BELL-PROBE-MEMORY-1).
 CPUQuota=25%
 MemoryMax=256M
 TasksMax=64

@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ATTEMPT_BUDGET, BELL_COLLECT_ENV_FILE, BELL_COLLECT_ENV_KEYS, BELL_COLLECT_SECRETS_DIR, BELL_COLLECT_TIMER, BELL_COLLECT_TREE_PATHS, BELL_COLLECT_UNIT,
-  BELL_FLOORS, BELL_LAYOUT, BELL_OPERATORS, BELL_PUBLISH_UNIT } from "../scripts/bell-deploy.mjs";
+  BELL_FLOORS, BELL_LAYOUT, BELL_LEGACY_ORIGIN, BELL_OPERATORS, BELL_PUBLIC_ORIGIN, BELL_PUBLISH_UNIT } from "../scripts/bell-deploy.mjs";
 import { BELL_TREE_PATHS } from "../scripts/verify-bell.mjs";
 import { tickMain, type TickDeps } from "../apps/bell/src/tick.ts";
 import { nextTradingDay } from "../apps/bell/src/sessions.ts";
@@ -305,4 +305,13 @@ test("bell_runbook_mark_rotation_and_rescue_are_the_closed_forms", () => {
     assert.equal(t.split(from).length === 2 && argvOf(t.replace(from, to)) !== want, true, `the check reddens on: ${from} -> ${to}`);
   }
   assert.equal((rescue[0] ?? "").replace(`if ${IDLE(COLLECT)};`, "if true;").startsWith(RESCUE), false, "the check reddens on a rescue without the predicate");
+});
+
+// killer: docs/RUNBOOK-bell.md:979 CONST "never names it by Bell's public name" -> "never names it `bell.monarkgate.tech`"
+test("bell_runbook_probe_section_never_names_bells_public_host", () => {
+  // G2 of part 4, nit-2 (PLAN-P4 C4-10): section 22 acts on the former host, read as $FORMER, never by Bell's public names (the host names of
+  // the two origins of bell-deploy.mjs, which step 9 of lot 5b moves to the new host), and writes no IPv4 address.
+  const s22 = section("## 22. "), names = [...new Set([BELL_PUBLIC_ORIGIN, BELL_LEGACY_ORIGIN].map((o) => new URL(o).hostname))];
+  assert.deepEqual([s22.startsWith(`${LF}## 22. The Bell probe on the former host`), s22.includes("FORMER=$(cat /f/tmp/bell-dn/probe-host.txt)"), names.length > 0,
+    names.filter((h) => s22.includes(h)), /\b\d{1,3}(?:\.\d{1,3}){3}\b/.test(s22)], [true, true, true, [], false], "section 22: the former host by $FORMER, no public name, no address");
 });

@@ -41,16 +41,18 @@ export const OTS_MAX_UPGRADES = 8;
 export const OTS_UNSTAMPED_ALERT_H = 24;
 /** Proposed (C4-8, dated line of 2026-10-16 19:1x UTC): the code defaults of the calendar server (FAITS LSP-12 bis point 10: at least 6 h
  *  between two transactions, a first transaction aimed at 1 008 blocks, 6 confirmations before a proof is kept), at the ten-minute block
- *  spacing (not read in those FAITS) 6 + 168 + 1 = 175 h, rounded up to the next whole day; point 11 (0.73 h between transactions, a value
- *  of the day) is far below it. */
+ *  spacing (nPowTargetSpacing = 10 * 60, FAITS BELL-OTS-SPACING-READ-1 of 2026-10-21) 6 + 168 + 1 = 175 h, rounded up to the next whole
+ *  day; point 11 (0.73 h between transactions, a value of the day) is far below it. */
 export const OTS_PENDING_STALE_H = 192;
 
 const MAGIC = Buffer.from("004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e89294", "hex");
-const APPEND = 0xf0, PREPEND = 0xf1, SHA256 = 0x08, FORK = 0xff, ATT = 0x00, MAX_MSG = 4096, MAX_PAYLOAD = 8192, MAX_DEPTH = 256;
+const APPEND = 0xf0, PREPEND = 0xf1, SHA256 = 0x08, FORK = 0xff, ATT = 0x00, MAX_MSG = 4096, MAX_PAYLOAD = 8192, MAX_DEPTH = 256, TIP_DEPTH = 2;
 const PENDING = "83dfe30d2ef90c8e", BITCOIN = "0588960d73d71901", LITECOIN = "06869a0d73d71b45";
 const sha256 = (b) => createHash("sha256").update(b).digest();
 /** An answer carries an operation this client does not compute (ots_op_unsupported). */
 export class OtsOpUnsupported extends Error {}
+/** A tree reaches a node at depth MAX_DEPTH, which readProof refuses: an answer refused at its graft (ots_op_unsupported, treeOf). */
+class OtsTooDeep extends Error {}
 
 const varuint = (v) => { const out = []; for (let n = v; ; n = Math.floor(n / 128)) { out.push(n >= 128 ? (n % 128) | 0x80 : n); if (n < 128) return Buffer.from(out); } };
 const varbytes = (b) => Buffer.concat([varuint(b.length), b]);
@@ -97,7 +99,7 @@ export function mergeTree(a, b) {
 /** The timestamp tree at `msg` read from cursor `c` (timestamp.py deserialize, its _recursion_limit of 256 at the root, minus one a level,
  *  refused at 0: a node at depth 256 is refused): {msg, atts, ops: [{tag, arg, node}]}. */
 function readTree(c, msg, depth = 0) {
-  if (depth >= MAX_DEPTH) throw new Error("ots: recursion limit");
+  if (depth >= MAX_DEPTH) throw new OtsTooDeep("ots: recursion limit");
   const node = { msg, atts: [], ops: [] };
   const item = (tag) => {
     if (tag === ATT) { const t = Buffer.from(c.take(8)).toString("hex"); mergeTree(node, { atts: [attestationOf(t, c.bytes(MAX_PAYLOAD))], ops: [] }); return; }
@@ -110,8 +112,9 @@ function readTree(c, msg, depth = 0) {
   item(tag);
   return node;
 }
-/** A calendar answer: the whole of `buf` as the tree at `msg`. */
-export function readAnswer(buf, msg) { const c = cursor(buf), t = readTree(c, msg); if (!c.end()) throw new Error("ots: trailing bytes"); return t; }
+/** A calendar answer: the whole of `buf` as the tree at `msg`, grafted at a node at `depth` of its proof, each of its nodes counted at its
+ *  depth once grafted: an answer that would put a node at MAX_DEPTH is refused here, never written, so a written proof always reads again. */
+export function readAnswer(buf, msg, depth = 0) { const c = cursor(buf), t = readTree(c, msg, depth); if (!c.end()) throw new Error("ots: trailing bytes"); return t; }
 /** The bytes of a tree (timestamp.py serialize). */
 function writeTree(n) {
   const items = [...[...n.atts].sort(attCmp).map((a) => Buffer.concat([Buffer.from([ATT]), Buffer.from(a.tag, "hex"), varbytes(a.payload)])),
@@ -128,8 +131,8 @@ export function readProof(buf) {
   return t;
 }
 export const writeProof = (root) => Buffer.concat([MAGIC, varuint(1), Buffer.from([SHA256]), root.msg, writeTree(root)]);
-/** Every attestation of a tree, with the node that holds it. */
-const attestationsOf = (n) => [...n.atts.map((a) => ({ node: n, a })), ...n.ops.flatMap((o) => attestationsOf(o.node))];
+/** Every attestation of a tree, with the node that holds it and that node's depth (the root at 0, as readTree counts). */
+const attestationsOf = (n, depth = 0) => [...n.atts.map((a) => ({ node: n, a, depth })), ...n.ops.flatMap((o) => attestationsOf(o.node, depth + 1))];
 export const isComplete = (root) => attestationsOf(root).some((x) => x.a.tag === BITCOIN);
 /** A pending URI the upgrade may ask (OTS_WHITELIST_SUFFIXES). */
 export function whitelisted(uri) {
@@ -166,16 +169,18 @@ function calendarCall(fetchFn) {
     } catch { return null; } finally { clearTimeout(timer); }
   };
 }
-/** An answer of a 200 read as the tree at `msg`; null when it is none or malformed; ots_op_unsupported pushed to `alerts` when it carries an
- *  operation this client does not compute. */
-function treeOf(answer, msg, alerts) {
+/** An answer of a 200 read as the tree at `msg`, grafted at a node at `depth`; null when it is none or malformed; ots_op_unsupported pushed
+ *  to `alerts` when it carries an operation this client does not compute or would put a node at MAX_DEPTH once grafted (G2 of part 4,
+ *  nit-7): either way an answer this client does not take, dropped, the proof on disk kept as written (PLAN-P4 C4-8). */
+function treeOf(answer, msg, alerts, depth) {
   if (answer?.status !== 200 || answer.body === null) return null;
-  try { return readAnswer(answer.body, msg); } catch (e) { if (e instanceof OtsOpUnsupported) alerts.push("ots_op_unsupported"); return null; }
+  try { return readAnswer(answer.body, msg, depth); } catch (e) { if (e instanceof OtsOpUnsupported || e instanceof OtsTooDeep) alerts.push("ots_op_unsupported"); return null; }
 }
 
 /** The OpenTimestamps step of one run over the kept copy on disk (`kept`, its lines `lines`) and the registry under `dir`; `write` is the
  *  probe's atomic write, `fetchFn` the run's transport, `after` the last seq the previous run asked an upgrade for. Resolves {alerts,
- *  summary}; a registry that does not parse throws (probe_error). */
+ *  summary}; a registry that does not parse throws (probe_error); a pending proof that does not read is probe_error for itself alone (G2 of
+ *  part 4, nit-7): left as found and counted pending, the other proofs asked and the run's rows written. */
 export async function otsRun({ dir, kept, lines, nowMs, fetchFn, write, after = 0 }) {
   const call = calendarCall(fetchFn), alerts = [], regPath = join(dir, "registry.jsonl"), at = new Date(nowMs).toISOString(), H = 3_600_000;
   const prior = existsSync(regPath) ? readFileSync(regPath) : Buffer.alloc(0), rows = prior.toString("utf8").split("\n").filter((l) => l !== "").map((l) => JSON.parse(l));
@@ -196,8 +201,8 @@ export async function otsRun({ dir, kept, lines, nowMs, fetchFn, write, after = 
     if (!there && stamps < OTS_MAX_STAMPS) {
       stamps += 1;
       write(name, m.text);
-      const nonce = randomBytes(16), tipMsg = sha256(Buffer.concat([digest, nonce])), tip = { msg: tipMsg, atts: [], ops: [] };
-      const trees = (await Promise.all(OTS_AGGREGATORS.map((a) => call(`${a}/digest`, tipMsg)))).map((x) => treeOf(x, tipMsg, alerts)).filter((t) => t !== null);
+      const nonce = randomBytes(16), tipMsg = sha256(Buffer.concat([digest, nonce])), tip = { msg: tipMsg, atts: [], ops: [] }; // TIP_DEPTH: root, nonce, sha256
+      const trees = (await Promise.all(OTS_AGGREGATORS.map((a) => call(`${a}/digest`, tipMsg)))).map((x) => treeOf(x, tipMsg, alerts, TIP_DEPTH)).filter((t) => t !== null);
       if (trees.length >= OTS_M) {
         for (const t of trees) mergeTree(tip, t);
         proof = { msg: digest, atts: [], ops: [{ tag: APPEND, arg: nonce, node: { msg: Buffer.concat([digest, nonce]), atts: [], ops: [{ tag: SHA256, arg: null, node: tip }] } }] };
@@ -216,13 +221,16 @@ export async function otsRun({ dir, kept, lines, nowMs, fetchFn, write, after = 
   let calls = 0, pending = 0, last = after;
   const proofs = [...new Map(rows.filter((r) => r.event !== "tried").map((r) => [r.seq, r])).values()].filter((r) => !r.complete).sort((a, b) => a.seq - b.seq);
   for (const r of [...proofs.filter((x) => x.seq > after), ...proofs.filter((x) => x.seq <= after)]) {
-    const proof = readProof(readFileSync(join(dir, r.proof))), before = alerts.length, was = writeProof(proof);
-    for (const { node, a } of attestationsOf(proof)) {
+    let proof = null;
+    try { proof = readProof(readFileSync(join(dir, r.proof))); } catch { proof = null; }
+    if (proof === null) { alerts.push("probe_error"); pending += 1; continue; } // the probe's own state that does not read, as a registry: left as found
+    const before = alerts.length, was = writeProof(proof);
+    for (const { node, a, depth } of attestationsOf(proof)) {
       if (calls >= OTS_MAX_UPGRADES || isComplete(proof)) break;
       if (a.uri === null || !whitelisted(a.uri)) continue;
       calls += 1;
       last = r.seq;
-      const t = treeOf(await call(`${a.uri}/timestamp/${node.msg.toString("hex")}`), node.msg, alerts);
+      const t = treeOf(await call(`${a.uri}/timestamp/${node.msg.toString("hex")}`), node.msg, alerts, depth);
       if (t !== null) mergeTree(node, t);
     }
     if (!writeProof(proof).equals(was) && alerts.length === before) { // a 200 with nothing new writes nothing (otsclient/cmds.py l.310-318)

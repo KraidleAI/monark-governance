@@ -976,7 +976,7 @@ Narabi probe's deployment (`docs/RUNBOOK-sentinel.md`); the acts below write the
 two units, never `/opt/monark-probe` nor `/etc/monark/probe.env`, and only read `/var/lib/monark-probe`, which the unit alone writes.
 
 **When.** Part 5 only, by the orchestrator, after the G7 of part 4, read from `/f/tmp/bell-dn/probe-G7.txt`; its key: section 1. The host is
-the former host, and this section never names it `bell.monarkgate.tech`: step 9 of lot 5b (G0 BELL-COLLECT-TIMER-1, the DNS switch, in both
+the former host, and this section never names it by Bell's public name: step 9 of lot 5b (G0 BELL-COLLECT-TIMER-1, the DNS switch, in both
 of its branches) moves that name to the new host, the one the probe watches, while the former host keeps its provider's name
 (`srv1993906.hstgr.cloud`, the host facts under "Who runs this" above). Each command reads that name as `$FORMER` from `/f/tmp/bell-dn/probe-host.txt`, a file the
 orchestrator writes from the dated FAITS of part 5 that names the former host, and its SSH host key is put under that name once, by
