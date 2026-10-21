@@ -35,6 +35,7 @@ const PROVIDER_FORMS = CASH_CROSS_CHECK_FORMS;
 const BINARY = /\.(png|jpg|jpeg|gif|ico|webp|woff2?|ttf|otf)$/i;
 
 // killer: test/helpers/provider-forms.ts:13 CONST "/\\bmassive\\b/i" -> "/\\bmassiv\\b/i"
+// killer: test/helpers/provider-forms.ts:13 CONST "/\\bmassive\\b/i" -> "/massive/i"
 test("no_cash_cross_provider_name_in_export — no cash cross-check provider form in any exported file (decision 69, L-6)", () => {
   const kept = collectFiles(ROOT).kept;
   assert.ok(kept.length >= 80, `implausibly few exported files (${kept.length}) — false green?`);
@@ -61,8 +62,8 @@ test("no_cash_cross_provider_name_in_export — no cash cross-check provider for
   assert.deepEqual(PROVIDER_FORMS.map((p) => p.why).sort(), Object.keys(samples).sort(), "the closed list of cash cross-check forms");
   for (const { re, why } of PROVIDER_FORMS) assert.ok(re.test(samples[why] ?? ""), `form "${why}" must match its sample (mutant: the name in an exported README)`);
 
-  // Negative controls (imposed) — a bare "Polygon" (blockchain) and unrelated words stay GREEN (never a bare Polygon).
-  for (const green of ["the token is also deployed on Polygon", "a large redemption window", "a polygonal mesh"]) {
+  // Negative controls (imposed) — a bare "Polygon" (blockchain), a "massive" that is not a whole word, and unrelated words stay GREEN.
+  for (const green of ["the token is also deployed on Polygon", "a large redemption window", "a polygonal mesh", "a massively parallel replay"]) {
     assert.ok(!PROVIDER_FORMS.some((p) => p.re.test(green)), `must stay green (no bare Polygon / adjective false-positive): ${green}`);
   }
 });
