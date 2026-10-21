@@ -34,6 +34,7 @@ const PROVIDER_FORMS = CASH_CROSS_CHECK_FORMS;
 // Binary whitelist entries carry no prose (out/logo.png, out/banner.jpg); read only text.
 const BINARY = /\.(png|jpg|jpeg|gif|ico|webp|woff2?|ttf|otf)$/i;
 
+// killer: test/helpers/provider-forms.ts:13 CONST "/\\bmassive\\b/i" -> "/\\bmassiv\\b/i"
 test("no_cash_cross_provider_name_in_export — no cash cross-check provider form in any exported file (decision 69, L-6)", () => {
   const kept = collectFiles(ROOT).kept;
   assert.ok(kept.length >= 80, `implausibly few exported files (${kept.length}) — false green?`);
