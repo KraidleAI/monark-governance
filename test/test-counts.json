@@ -197,7 +197,7 @@
  "test/bell-method.test.ts": 6,
  "test/bell-ots-proofs.test.ts": 3,
  "test/bell-publication-state.test.ts": 2,
- "test/bell-recompute-phrases.test.ts": 3,
+ "test/bell-recompute-phrases.test.ts": 4,
  "test/bell-runbook.test.ts": 6,
  "test/bell-served.test.ts": 13,
  "test/byo-demo-probe.test.ts": 2,

@@ -2004,6 +2004,7 @@
   "bell_publication_anchor_state_is_derived_strictly — M-1..M-4, M-7, M-7 bis, M-8, M-9 and the sentences S-0..S-3 (T-1)"
  ],
  "test/bell-recompute-phrases.test.ts": [
+  "bell_conditions_block_declares_its_deviation",
   "bell_site_recompute_phrases_name_a_definition_not_a_source",
   "bell_terms_deviation_8_is_declared_in_the_header",
   "bell_terms_header_carries_no_counsel_pending_mention"
