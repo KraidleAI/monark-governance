@@ -70,7 +70,7 @@ const opsOf = (alerts: readonly string[]): string[] => alerts.filter((a) => a.st
 // reddened by: a line stamped twice or not at all, a proof under fewer than OTS_M answers, a digest posted other than sha256(manifest digest,
 // nonce), a calendar asked again for a stamped line, or a line left without proof past OTS_UNSTAMPED_ALERT_H after its first missed try
 // unnamed, named sooner, or timed from the served published_at (a date in the future never rings; an old line rings at its first try)
-// killer: scripts/probe-bell-ots.mjs:201 CONST "trees.length >= OTS_M" -> "trees.length >= 1"
+// killer: scripts/probe-bell-ots.mjs:206 CONST "trees.length >= OTS_M" -> "trees.length >= 1"
 test("bell_probe_stamps_each_new_line_once", async () => {
   assert.ok(typeof P.readProof === "function" && P.OTS_M === 2 && P.OTS_AGGREGATORS.length === 4, "the OpenTimestamps step: m = 2 of the four aggregators (FAITS LSP-12 bis)");
   assert.deepEqual([...P.OTS_AGGREGATORS], ["https://a.pool.opentimestamps.org", "https://b.pool.opentimestamps.org", "https://a.pool.eternitywall.com", "https://ots.btc.catallaxy.com"]);
@@ -93,7 +93,7 @@ test("bell_probe_stamps_each_new_line_once", async () => {
   const done = await run(t, bytes(LINES), "2026-10-20T22:00:00.000Z");
   assert.deepEqual([done.exitCode, opsOf(done.report.alerts), rows(t).filter((x) => x.event === "stamped").map((x) => x.seq)], [0, [], [1, 2, 3]], "answered: stamped, once each");
   // From the first missed try, not from the served published_at: a line dated three days ahead (2026-10-19T19:59:59Z) still rings 24 h after it.
-  // killer: scripts/probe-bell-ots.mjs:212 CONST "Date.parse(String(t0.at))" -> "Date.parse(String(lines[n - 1].published_at))"
+  // killer: scripts/probe-bell-ots.mjs:217 CONST "Date.parse(String(t0.at))" -> "Date.parse(String(lines[n - 1].published_at))"
   const f = scratch(), ahead = bytes([pub(1, null, "2026-10-16")]), down = { answer: (): number => 503 };
   const f1 = await run(f, ahead, "2026-10-16T12:00:00.000Z", down), f2 = await run(f, ahead, "2026-10-17T11:59:00.000Z", down), f3 = await run(f, ahead, "2026-10-17T12:01:00.000Z", down);
   assert.deepEqual([f1.report.alerts, f2.report.alerts, f3.report.alerts, rows(f).map((x) => x.event)], [[], [], ["ots_unstamped"], ["tried"]], "a date in the future rings all the same");
@@ -102,7 +102,7 @@ test("bell_probe_stamps_each_new_line_once", async () => {
   // bound waiting without a row or an alert; then the last two.
   // killer: scripts/probe-bell.mjs:264 CONST "if (++pubs > BELL_PROBE_MAX_NEW_PUBLICATIONS) return at(null);" -> ""
   // killer: scripts/probe-bell.mjs:323 CONST "lines = [...k.parsed, ...n.parsed.slice(0, good)];" -> "lines = k.parsed;"
-  // killer: scripts/probe-bell-ots.mjs:209 SDL "if (!tried) continue;" -> ""
+  // killer: scripts/probe-bell-ots.mjs:214 SDL "if (!tried) continue;" -> ""
   const six: Obj[] = [], c = scratch();
   for (const d of ["2026-10-09", "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16"]) six.push(pub(six.length + 1, six.at(-1) ?? null, d));
   const c1 = await run(c, bytes(six), NOON, { answer: () => 503 }), c2 = await run(c, bytes(six), "2026-10-20T13:00:00.000Z"), c3 = await run(c, bytes(six), "2026-10-20T14:00:00.000Z");
@@ -113,7 +113,7 @@ test("bell_probe_stamps_each_new_line_once", async () => {
 
 // reddened by: a registry row rewritten or dropped (each registry a byte prefix of the next), a row before its proof, or a proof found
 // without its row (a cut between the two) stamped again instead of adopted
-// killer: scripts/probe-bell-ots.mjs:236 CONST "Buffer.concat([prior, " -> "Buffer.concat(["
+// killer: scripts/probe-bell-ots.mjs:244 CONST "Buffer.concat([prior, " -> "Buffer.concat(["
 test("bell_probe_ots_registry_is_append_only", async () => {
   assert.ok("PROBE_FS" in P && typeof P.readProof === "function", "the probe's file gestures and its proof reader");
   const s = scratch(), reg = (): Buffer => (existsSync(OTS(s, "registry.jsonl")) ? readFileSync(OTS(s, "registry.jsonl")) : Buffer.alloc(0)), seq: Buffer[] = [];
@@ -134,7 +134,7 @@ test("bell_probe_ots_registry_is_append_only", async () => {
 // that does not bind to its files by bindPublicationAnchor (tuyau T-q2), a proof of the reference client not written back byte for byte, the
 // attestations of a node off the reference's order, a block attestation compared or written by its bytes, a pending one written by its bytes,
 // an empty URI refused, or a recursion limit off the reference's
-// killer: scripts/probe-bell-ots.mjs:120 CONST "i < items.length - 1 ?" -> "i < 0 ?"
+// killer: scripts/probe-bell-ots.mjs:123 CONST "i < items.length - 1 ?" -> "i < 0 ?"
 test("bell_probe_ots_proof_reads_with_the_site_reader", async () => {
   assert.ok(typeof P.writeProof === "function", "the probe's proof writer");
   const s = scratch();
@@ -151,12 +151,12 @@ test("bell_probe_ots_proof_reads_with_the_site_reader", async () => {
   // (8100 is height 1: one attestation, written 01); a pending payload goes by its URI (a length of 14 written 8e00 reads, alone or merged with
   // the same URI, and is written 0e: notary.py _serialize_payload); an empty URI reads (check_uri); a node at depth 255 reads, at 256 is refused
   // (timestamp.py _recursion_limit).
-  // killer: scripts/probe-bell-ots.mjs:85 CONST "a.tag < b.tag ? -1 : 1" -> "a.tag < b.tag ? 1 : -1"
-  // killer: scripts/probe-bell-ots.mjs:85 CONST "a.height - b.height" -> "b.height - a.height"
-  // killer: scripts/probe-bell-ots.mjs:81 SDL "if (a.uri !== null) a.payload = varbytes(Buffer.from(a.uri));" -> ""
-  // killer: scripts/probe-bell-ots.mjs:82 SDL "else if (a.height !== null) a.payload = varuint(a.height);" -> ""
-  // killer: scripts/probe-bell-ots.mjs:80 CONST "/^[A-Za-z0-9._/:-]*$/" -> "/^[A-Za-z0-9._/:-]+$/"
-  // killer: scripts/probe-bell-ots.mjs:100 CONST "depth >= MAX_DEPTH" -> "depth > MAX_DEPTH"
+  // killer: scripts/probe-bell-ots.mjs:87 CONST "a.tag < b.tag ? -1 : 1" -> "a.tag < b.tag ? 1 : -1"
+  // killer: scripts/probe-bell-ots.mjs:87 CONST "a.height - b.height" -> "b.height - a.height"
+  // killer: scripts/probe-bell-ots.mjs:83 SDL "if (a.uri !== null) a.payload = varbytes(Buffer.from(a.uri));" -> ""
+  // killer: scripts/probe-bell-ots.mjs:84 SDL "else if (a.height !== null) a.payload = varuint(a.height);" -> ""
+  // killer: scripts/probe-bell-ots.mjs:82 CONST "/^[A-Za-z0-9._/:-]*$/" -> "/^[A-Za-z0-9._/:-]+$/"
+  // killer: scripts/probe-bell-ots.mjs:102 CONST "depth >= MAX_DEPTH" -> "depth > MAX_DEPTH"
   const detached = (tree: Buffer): Buffer => Buffer.concat([Buffer.from("004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e89294", "hex"), Buffer.from([0x01, 0x08]), sha("node"), tree]);
   const fork = (items: Buffer[]): Buffer => Buffer.concat(items.flatMap((b, i) => (i < items.length - 1 ? [Buffer.from([0xff]), b] : [b])));
   const at = (u: string): Buffer => att(PENDING, Buffer.concat([Buffer.from([u.length]), Buffer.from(u)])), block = (...b: number[]): Buffer => att(BITCOIN, Buffer.from(b));
@@ -181,7 +181,7 @@ test("bell_probe_ots_proof_reads_with_the_site_reader", async () => {
 
 // reddened by: a manifest of the probe off the bytes scripts/anchor-bell-timeline.mjs writes from the same kept copy and immutables, for a
 // publication line and a key line
-// killer: scripts/probe-bell-ots.mjs:148 CONST ".sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));" -> ";"
+// killer: scripts/probe-bell-ots.mjs:151 CONST ".sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));" -> ";"
 test("bell_probe_ots_manifest_is_the_anchor_tool_manifest", async () => {
   assert.ok(typeof P.manifestOf === "function", "the probe's manifest");
   const rot = { schema: "bell-timeline-v1", seq: 4, kind: "key_rotation", published_at: "2026-10-19T11:00:00.000Z", prev_line_hash: lineHash(LINES[2]), key_id: id(K1),
@@ -202,14 +202,14 @@ test("bell_probe_ots_manifest_is_the_anchor_tool_manifest", async () => {
 // reddened by: a pending proof not upgraded when its calendar completes it, an answer merged off its node, the nonce or a pending commitment
 // lost, a complete proof asked again (in the same run too), a URI off the whitelist asked, an unknown operation merged or the proof rewritten,
 // a 200 with nothing new written, the budget spent at the head of the list each run, or a proof pending past OTS_PENDING_STALE_H unnamed
-// killer: scripts/probe-bell-ots.mjs:221 CONST "calls >= OTS_MAX_UPGRADES || isComplete(proof)" -> "calls >= OTS_MAX_UPGRADES"
+// killer: scripts/probe-bell-ots.mjs:229 CONST "calls >= OTS_MAX_UPGRADES || isComplete(proof)" -> "calls >= OTS_MAX_UPGRADES"
 test("bell_probe_ots_upgrades_a_pending_proof_once_complete", async () => {
   assert.ok(typeof P.whitelisted === "function" && P.whitelisted("https://alice.btc.calendar.opentimestamps.org") && !P.whitelisted("https://calendar.opentimestamps.org.evil.test"), "the whitelist");
   const s = scratch(), tl = bytes(LINES.slice(0, 1)), first = await run(s, tl), pend = proofOf(s, 1);
   const asks = (x: { seen: string[] }): number => x.seen.filter((u) => u.includes("/timestamp/")).length, still = await run(s, tl);
   assert.deepEqual([asks(first), asks(still), proofOf(s, 1).equals(pend), opsOf(still.report.alerts), rows(s).length], [0, 4, true, [], 1], "404: still pending, nothing written");
   // A 200 that brings nothing new (the commitment the proof holds, again): no row, no write (otsclient/cmds.py l.310-318).
-  // killer: scripts/probe-bell-ots.mjs:228 CONST "!writeProof(proof).equals(was) && " -> ""
+  // killer: scripts/probe-bell-ots.mjs:236 CONST "!writeProof(proof).equals(was) && " -> ""
   const same = await run(s, tl, NOON, { upgrade: (uri) => att(PENDING, Buffer.concat([Buffer.from([uri.length]), Buffer.from(uri)])) });
   assert.deepEqual([asks(same), proofOf(s, 1).equals(pend), rows(s).length], [4, true, 1], "a 200 with nothing new: no row, no write");
   const upgrade = (uri: string): Buffer | number => (uri === URI(P.OTS_AGGREGATORS[1] ?? "") ? Buffer.concat([Buffer.from([0x08]), att(BITCOIN, Buffer.from([0xb4, 0x9a, 0x37]))]) : 404);
@@ -225,8 +225,8 @@ test("bell_probe_ots_upgrades_a_pending_proof_once_complete", async () => {
   // The budget shared: two proofs whose calendars never complete and a third that would. The first run spends its OTS_MAX_UPGRADES calls on
   // the first two; the next resumes after the last seq asked, completes the third in one call (asked no more), then asks the two others. A
   // proof still pending OTS_PENDING_STALE_H after its "stamped" row (NOON) is named.
-  // killer: scripts/probe-bell-ots.mjs:218 CONST "...proofs.filter((x) => x.seq > after), " -> ""
-  // killer: scripts/probe-bell-ots.mjs:234 CONST "OTS_PENDING_STALE_H * H" -> "OTS_PENDING_STALE_H * H * 2"
+  // killer: scripts/probe-bell-ots.mjs:223 CONST "...proofs.filter((x) => x.seq > after), " -> ""
+  // killer: scripts/probe-bell-ots.mjs:242 CONST "OTS_PENDING_STALE_H * H" -> "OTS_PENDING_STALE_H * H * 2"
   assert.deepEqual([P.OTS_PENDING_STALE_H, P.BELL_PROBE_ALERTS.includes("ots_pending_stale")], [192, true], "ots_pending_stale: 192 h (FAITS LSP-12 bis point 10), named");
   const v = scratch();
   await run(v, bytes(LINES));
@@ -248,4 +248,51 @@ test("bell_probe_ots_upgrades_a_pending_proof_once_complete", async () => {
     [["ots_op_unsupported"], true, 1, 3, false]);
   const bad = await run(scratch(), tl, NOON, { answer: (k) => (k === 0 ? Buffer.from([0xf2, 0x00]) : pending(k, URI(P.OTS_AGGREGATORS[k] ?? ""))) });
   assert.deepEqual([opsOf(bad.report.alerts), bad.report.ots?.lines_stamped], [["ots_op_unsupported"], 1], "at the stamp: that answer dropped, the three others merged");
+});
+
+// reddened by: a calendar answer grafted past MAX_DEPTH (a proof written that the next run cannot read: its rows lost at each run after),
+// at the stamp (under the tip, depth 2) or at an upgrade (under its pending node), or one refused a level short of the bound, or refused
+// unnamed; a proof on disk that does not read failing the whole step (no row of the run written, no other proof asked) instead of that
+// proof alone, or failing unnamed (G2 of part 4, nit-7)
+// killer: scripts/probe-bell-ots.mjs:117 CONST "readTree(c, msg, depth)" -> "readTree(c, msg, 0)"
+test("bell_probe_ots_written_proof_always_reads_again", async () => {
+  assert.ok(P.BELL_PROBE_ALERTS.includes("ots_op_unsupported") && P.BELL_PROBE_ALERTS.includes("probe_error"), "the two names, in the closed list");
+  /** An answer `k` sha256 operations deep, ending in a commitment pending at `uri`: its deepest node `k` below the node it is grafted at. */
+  const deep = (k: number, uri: string): Buffer => Buffer.concat([Buffer.alloc(k, 0x08), att(PENDING, Buffer.concat([Buffer.from([uri.length]), Buffer.from(uri)]))]);
+  const depthOf = (n: P.OtsNode): number => Math.max(0, ...n.ops.map((o) => 1 + depthOf(o.node)));
+  const depthAt = (st: string, n: number): number => { try { return depthOf(P.readProof(proofOf(st, n))); } catch { return -1; } };
+  const fault = (alerts: readonly string[]): string[] => alerts.filter((a) => a.startsWith("ots_") || a === "probe_error");
+  const asks = (x: { seen: string[] }): number => x.seen.filter((u) => u.includes("/timestamp/")).length, cal = (k: number): string => URI(P.OTS_AGGREGATORS[k] ?? "");
+  // At the stamp the tip is at depth 2 (the root, its nonce appended, sha256): an answer 254 deep would put a node at 256, refused and named,
+  // the three others merged; one 253 deep reaches 255 and is kept. The proof reads, and the next run writes its rows.
+  // killer: scripts/probe-bell-ots.mjs:49 CONST "TIP_DEPTH = 2;" -> "TIP_DEPTH = 1;"
+  // killer: scripts/probe-bell-ots.mjs:49 CONST "TIP_DEPTH = 2;" -> "TIP_DEPTH = 3;"
+  // killer: scripts/probe-bell-ots.mjs:177 CONST " || e instanceof OtsTooDeep" -> ""
+  const s = scratch(), at2 = (k: number): Buffer => (k === 0 ? deep(254, cal(0)) : k === 1 ? deep(253, cal(1)) : pending(k, cal(k)));
+  const s1 = await run(s, bytes(LINES.slice(0, 1)), NOON, { answer: at2 }), s2 = await run(s, bytes(LINES.slice(0, 2)));
+  assert.deepEqual([fault(s1.report.alerts), depthAt(s, 1), fault(s2.report.alerts), rows(s).map((x) => [x.seq, x.event])],
+    [["ots_op_unsupported"], 255, [], [[1, "stamped"], [2, "stamped"]]], "at the stamp: the answer past the bound refused and named, the proof read again");
+  // At an upgrade the pending node is at depth 4 (the tip, the calendar's prefix, sha256): an answer 252 deep is refused and named, the proof
+  // kept as written; one 251 deep is merged, written, and read by the next run, which writes its rows.
+  // killer: scripts/probe-bell-ots.mjs:135 CONST "attestationsOf(o.node, depth + 1)" -> "attestationsOf(o.node, depth)"
+  // killer: scripts/probe-bell-ots.mjs:135 CONST "({ node: n, a, depth })" -> "({ node: n, a, depth: depth + 1 })"
+  const u = scratch(), one = (k: number, d: number) => (uri: string): Buffer | number => (uri === cal(k) ? deep(d, cal(k)) : 404);
+  await run(u, bytes(LINES.slice(0, 1)));
+  const before = proofOf(u, 1), u2 = await run(u, bytes(LINES.slice(0, 2)), NOON, { upgrade: one(0, 252) });
+  assert.deepEqual([fault(u2.report.alerts), proofOf(u, 1).equals(before), rows(u).map((x) => [x.seq, x.event])], [["ots_op_unsupported"], true, [[1, "stamped"], [2, "stamped"]]],
+    "at an upgrade: the answer past the bound refused and named, the proof kept as written, the run's row written");
+  const u3 = await run(u, bytes(LINES), NOON, { upgrade: one(1, 251) }), u4 = await run(u, bytes(LINES));
+  assert.deepEqual([fault(u3.report.alerts), depthAt(u, 1), depthAt(u, 2), fault(u4.report.alerts), asks(u4) > 0, rows(u).map((x) => `${String(x.seq)}:${String(x.event)}`)],
+    [[], 255, 255, [], true, ["1:stamped", "2:stamped", "3:stamped", "2:upgraded", "1:upgraded"]], "an answer to the bound: merged, then read again");
+  // A pending proof on disk that does not read: named for that proof alone (probe_error, the probe's own state, as a registry that does not
+  // parse), left as found; the other proof still asked, the run's rows written.
+  // killer: scripts/probe-bell-ots.mjs:225 CONST "catch { proof = null; }" -> "catch (e) { throw e; }"
+  // killer: scripts/probe-bell-ots.mjs:226 CONST "alerts.push(\"probe_error\"); " -> ""
+  // killer: scripts/probe-bell-ots.mjs:226 CONST "pending += 1; continue;" -> "continue;"
+  const v = scratch();
+  await run(v, bytes(LINES.slice(0, 2)));
+  writeFileSync(OTS(v, "timeline-seq1-manifest.txt.ots"), "not a proof");
+  const v2 = await run(v, bytes(LINES));
+  assert.deepEqual([fault(v2.report.alerts), asks(v2), v2.report.ots?.proofs_pending, readFileSync(OTS(v, "timeline-seq1-manifest.txt.ots"), "utf8"), rows(v).map((x) => [x.seq, x.event])],
+    [["probe_error"], 4, 3, "not a proof", [[1, "stamped"], [2, "stamped"], [3, "stamped"]]], "an unreadable proof: named, alone; the rows of the run written");
 });

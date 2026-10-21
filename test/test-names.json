@@ -2013,6 +2013,7 @@
   "bell_runbook_jobs_carry_the_unit_properties",
   "bell_runbook_mark_rotation_and_rescue_are_the_closed_forms",
   "bell_runbook_never_prints_secrets_nor_private_key",
+  "bell_runbook_probe_section_never_names_bells_public_host",
   "bell_runbook_stops_both_units_before_rotation",
   "bell_runbook_unlocks_as_the_unit_user_never_root"
  ],
@@ -3057,6 +3058,7 @@
   "bell_probe_ots_proof_reads_with_the_site_reader",
   "bell_probe_ots_registry_is_append_only",
   "bell_probe_ots_upgrades_a_pending_proof_once_complete",
+  "bell_probe_ots_written_proof_always_reads_again",
   "bell_probe_stamps_each_new_line_once"
  ],
  "test/probe-bell.test.ts": [
