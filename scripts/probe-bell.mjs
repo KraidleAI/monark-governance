@@ -10,21 +10,31 @@
 //      file never imports (L-1: nothing of apps/bell/scripts/, nothing of apps/bell/src/ but sessions.ts, no node:child_process);
 //   4. freshness on the trading calendar (C4-5): the unit due at the latest deadline passed must be covered by a published window; and the
 //      calendar-free bound (PXB-20): the last window ends at most CALENDAR_FREE_BOUND_H before the run, a bound read here, never in sessions.ts;
-//   5. the legacy origin (compareOrigins, tuyau T-o3) and the site's /api/v1/status.json (tuyau T-s2), absent without an alert, against the head.
+//   5. the legacy origin (compareOrigins, tuyau T-o3) and the site's /api/v1/status.json (tuyau T-s2), absent without an alert, against the head;
+//   6. (lot 4b, BELL-PROBE-SERVED-STATE-CHECK-1) the served state as bell-verify.mjs:105-112 checks it: each new publication's two immutables
+//      read at BELL_PUBLIC_ORIGIN, hashed to their names and their envelopes bound to the line (a line is kept only with them, mirrored under
+//      bell/states/ and bell/provenance/), a new line kept in its canonical bytes only, and the current state.json and provenance.json bound to
+//      the head whenever the served timeline walks whole, a catch-up included (one reread on a difference, its extension walked first);
+//   7. (lot 4b, tuyau T-q) the OpenTimestamps step of scripts/probe-bell-ots.mjs over the kept copy on disk: each line stamped once, a pending
+//      proof upgraded at the following runs, under bell/ots/ with its append-only registry.
 // THE HEAD is the last publication line, as the reader's (walkTimeline of bell-chain.mjs, head_seq of bell-verify.mjs): bell.json's head_seq and
 // head_line_hash, the mail's head_seq and the hash the site status is compared with; a key line after the last publication moves none of them.
-// CONTRACT: bell.json (BELL_PROBE_KEYS) and the kept copy, under --state, each written atomically (a temporary file, fsync, rename, fsync of
-// the directory). One mail through probe-narabi's sendSmtp on the transition to unhealthy, once a UTC day while it lasts, and on recovery, at
+// The head and the freshness read every new line that walks; kept_lines counts the mirror, which waits for the immutables of a line.
+// CONTRACT: bell.json (BELL_PROBE_KEYS), the kept copy, its immutables and the OpenTimestamps files, under --state, each written atomically (a
+// temporary file, fsync, rename, fsync of the directory; PROBE_FS). One mail through probe-narabi's sendSmtp on the transition to unhealthy, once a UTC day while it lasts, and on recovery, at
 // most one a run; SMTP_PASS is read from its 0600 file when a mail is sent, never from the environment (DOJO-PROBE-UID-BOUNDARY-1). EXIT: 0
 // healthy and no failed mail; 1 unhealthy, a failed mail or a write refused; 2 usage error, nothing written. The entry point runProbe takes the
-// clock and the transport (fetch, sendSmtp) as its only dependencies: no option and no variable changes an origin or the clock.
+// clock and the transport (fetch, for the origins and the calendars; sendSmtp) as its only dependencies: no option and no variable changes an origin or the clock.
 import { createHash, createPublicKey, randomBytes, verify } from "node:crypto";
 import { closeSync, constants, existsSync, fstatSync, fsyncSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BELL_COLLECT_SLOTS_UTC, BELL_LEGACY_ORIGIN, BELL_PUBLIC_ORIGIN, BELL_PUBLISH_TIMEOUT_START_SEC, TICK_TIMEOUT_START_SEC, UNIT_DUE_MARGIN_MIN } from "./bell-deploy.mjs";
-import { DEFAULT_MAX_BYTES, SMTP_MAX_BYTES, isEmailish, sanitizeField, sendSmtp, smtpDeadlineMs, urlTransportAllowed } from "./probe-narabi.mjs";
+import { DEFAULT_MAX_BYTES, MAX_SMTP_DEADLINE_MS, SMTP_MAX_BYTES, isEmailish, sanitizeField, sendSmtp, smtpDeadlineMs, urlTransportAllowed } from "./probe-narabi.mjs";
 import { CALENDAR_RANGE, PRE_OPEN, earliestPublishUtc, etWallClockToUtcMs, isTradingDay, nextTradingDay, refCloseDateOf } from "../apps/bell/src/sessions.ts";
+import { OTS_MAX_STAMPS, OTS_MAX_UPGRADES, OTS_TIMEOUT_MS, otsRun } from "./probe-bell-ots.mjs";
+export { OTS_AGGREGATORS, OTS_M, OTS_MAX_STAMPS, OTS_MAX_UPGRADES, OTS_PENDING_STALE_H, OTS_TIMEOUT_MS, OTS_UNSTAMPED_ALERT_H, isComplete, manifestOf, readProof, whitelisted,
+  writeProof } from "./probe-bell-ots.mjs";
 
 /** bell.json schema version. */
 export const SCHEMA = 1;
@@ -36,27 +46,34 @@ export const SMTP_PASS_MAX_BYTES = 1024;
 /** The tree of the probe on its host: the static import closure of this file, plus the committed keyring. Byte order. */
 export const BELL_PROBE_TREE_ROOT = "/opt/monark-bell-probe";
 export const BELL_PROBE_TREE_PATHS = Object.freeze(["apps/bell/keys/bell-keyring.json", "apps/bell/src/sessions.ts", "scripts/bell-deploy.mjs",
-  "scripts/probe-bell.mjs", "scripts/probe-narabi.mjs"]);
+  "scripts/probe-bell-ots.mjs", "scripts/probe-bell.mjs", "scripts/probe-narabi.mjs"]);
 // Bounds (value + motive). FRESHNESS_MARGIN_MIN 10 min past the slot, the tick and the publication (C4-5, proposed); CALENDAR_FREE_BOUND_H
 // 120 h (PXB-20: the longest legitimate gap of 2025-2026 is about four days, a Friday closure then the weekend); SITE_STATUS_LAG_MIN 15 min
 // (the site's ARCHI, proposed); GET_TIMEOUT_MS 30 s per GET (bell-verify's TIMEOUT_MS); MAX_LINE_BYTES 1 MiB (the publisher's MAX_LINE_BYTES,
-// bell-validate.mjs BOUNDS); SITE_STATUS_MAX_BYTES 64 KiB (status.json is one small envelope). Worst run: six GETs and one mail, under 1 500 s.
+// bell-validate.mjs BOUNDS); SITE_STATUS_MAX_BYTES 64 KiB (status.json is one small envelope); BELL_PROBE_MAX_NEW_PUBLICATIONS 4 a run
+// (their immutables read; the next ones wait for the next run: one or two publications a day, four runs).
 export const FRESHNESS_MARGIN_MIN = 10;
 export const CALENDAR_FREE_BOUND_H = 120;
 export const SITE_STATUS_LAG_MIN = 15;
 export const GET_TIMEOUT_MS = 30_000;
 export const MAX_LINE_BYTES = 1024 * 1024;
 export const SITE_STATUS_MAX_BYTES = 64 * 1024;
+export const BELL_PROBE_MAX_NEW_PUBLICATIONS = 4;
+/** The worst run, every term a bound of this code: GETs of GET_TIMEOUT_MS (the timeline; the legacy origin's two reads and their reread; the
+ *  site status; state.json and provenance.json, then their reread with the timeline; two immutables per new publication), the stamps (four
+ *  parallel calendar calls under one timer each) and the upgrade calls of OTS_TIMEOUT_MS, the mail's MAX_SMTP_DEADLINE_MS. The
+ *  unit's TimeoutStartSec is this plus a margin (bell_probe_unit_is_hardened_and_never_on_bell_host). */
+export const BELL_PROBE_WORST_RUN_MS = (1 + 4 + 1 + 5 + 2 * BELL_PROBE_MAX_NEW_PUBLICATIONS) * GET_TIMEOUT_MS + (OTS_MAX_STAMPS + OTS_MAX_UPGRADES) * OTS_TIMEOUT_MS + MAX_SMTP_DEADLINE_MS;
 /** The closed alert names: the read's, the chain's (bell-verify's names, so the differential compares reasons), the calendar's, the two origins', the site status', the run's. */
 export const BELL_PROBE_ALERTS = Object.freeze(["probe_error", "secret_in_environment", "keyring_invalid", "insecure_url", "bad_port", "redirect",
   "http_status", "unreachable", "timeout", "too_large", "prefix_rewritten", "timeline_malformed", "chain_broken", "rotation_key_not_in_keyring",
   "key_not_in_keyring", "signature_invalid", "key_not_active", "rotation_malformed", "revocation_malformed", "head_signed_by_revoked_key", "stale",
   "calendar_free_bound", "legacy_origin_differs", "legacy_origin_redirect", "legacy_origin_unreachable", "site_status_behind", "site_status_error",
-  "write_refused"]);
+  "write_refused", "immutable_mismatch", "envelope_mismatch", "bell_sha_mismatch", "state_not_bound_by_head", "ots_unstamped", "ots_op_unsupported", "ots_pending_stale"]);
 /** The closed keys of bell.json, in their order. */
 export const BELL_PROBE_KEYS = Object.freeze(["schema", "checked_at", "status", "alerts", "served_lines", "kept_lines", "new_lines", "head_seq",
   "head_line_hash", "last_window_end_utc", "due_unit", "due_by_utc", "legacy_origin", "site_status", "site_status_since", "alerted", "alert_error",
-  "last_alert_day"]);
+  "last_alert_day", "ots"]);
 
 const HEX64 = /^[0-9a-f]{64}$/, DAY = /^\d{4}-\d{2}-\d{2}$/, GENESIS = "0".repeat(64), HOUR_MS = 3_600_000, DAY_MS = 86_400_000;
 const sha256Hex = (b) => createHash("sha256").update(b).digest("hex");
@@ -219,6 +236,55 @@ async function siteStatusOf(get, headHash, since, nowMs, checkedAt) {
   const first = since ?? checkedAt;
   return { site_status: "differs", site_status_since: first, alert: nowMs - Date.parse(first) > SITE_STATUS_LAG_MIN * 60_000 ? "site_status_behind" : null };
 }
+/** The envelopes of a publication's immutables against its line (bell-verify.mjs checkPublication): schema, seq, published_at and runs of
+ *  both, each run's bell_sha, window and the provenance's bellSha, each bell_sha the sha256 of its digest; null when they hold. */
+function envelopeOf(line, sBuf, pBuf) {
+  try {
+    const s = JSON.parse(sBuf.toString("utf8")), p = JSON.parse(pBuf.toString("utf8"));
+    const ok = (e, schema) => e !== null && typeof e === "object" && e.schema === schema && e.seq === line.seq && e.published_at === line.published_at
+      && Array.isArray(e.runs) && e.runs.length === line.runs.length;
+    if (!ok(s, "bell-public-state-v1") || !ok(p, "bell-public-provenance-v1")) return "envelope_mismatch";
+    for (const [i, r] of s.runs.entries()) {
+      if (r?.bell_sha !== line.runs[i]?.bell_sha || p.runs[i]?.bellSha !== r.bell_sha || canonicalOf(r.window) !== canonicalOf(line.runs[i].window)) return "envelope_mismatch";
+      if (sha256Hex(canonicalOf(r.digest)) !== r.bell_sha) return "bell_sha_mismatch";
+    }
+    return null;
+  } catch { return "envelope_mismatch"; }
+}
+/** The two immutables of each publication among the new lines `lines`, at most BELL_PROBE_MAX_NEW_PUBLICATIONS, read at BELL_PUBLIC_ORIGIN as
+ *  bell-verify.mjs:105-112 reads them (64-hex names and runs an array, else timeline_malformed; a GET that fails, named as the transport names
+ *  it; bytes hashed to their names, else immutable_mismatch; envelopes, envelopeOf). Resolves {good: the lines before the first that fails or
+ *  past the bound, files, alert}. */
+async function immutablesOf(get, lines) {
+  const files = new Map();
+  for (let i = 0, pubs = 0; i < lines.length; i++) {
+    const l = lines[i], at = (alert) => ({ good: i, files, alert });
+    if (l.kind !== "publication") continue;
+    if (!HEX64.test(l.state_sha256) || !HEX64.test(l.provenance_sha256) || !Array.isArray(l.runs)) return at("timeline_malformed");
+    if (++pubs > BELL_PROBE_MAX_NEW_PUBLICATIONS) return at(null);
+    const s = await get(`${BELL_PUBLIC_ORIGIN}/states/${l.state_sha256}.json`), p = await get(`${BELL_PUBLIC_ORIGIN}/provenance/${l.provenance_sha256}.json`);
+    if (!s.ok || !p.ok) return at((s.ok ? p : s).reason);
+    if (sha256Hex(s.body) !== l.state_sha256 || sha256Hex(p.body) !== l.provenance_sha256) return at("immutable_mismatch");
+    const why = envelopeOf(l, s.body, p.body);
+    if (why !== null) return at(why);
+    files.set(`states/${l.state_sha256}.json`, s.body).set(`provenance/${l.provenance_sha256}.json`, p.body);
+  }
+  return { good: lines.length, files, alert: null };
+}
+/** bell-verify.mjs:107-108: the served state.json and provenance.json are the head's (a GET that fails, named as the transport names it). On
+ *  a difference they are read once more with the timeline, which must extend the body read first (`body`, its lines `seen`); the extension
+ *  is walked under `trust` after them, and only a walk that holds makes its last publication the head (one published between two GETs). */
+async function headBoundOf(get, head, body, seen, trust) {
+  for (let attempt = 0, h = head; ; attempt++) {
+    const s = await get(`${BELL_PUBLIC_ORIGIN}/state.json`), p = await get(`${BELL_PUBLIC_ORIGIN}/provenance.json`);
+    if (!s.ok || !p.ok) return (s.ok ? p : s).reason;
+    if (sha256Hex(s.body) === h.state_sha256 && sha256Hex(p.body) === h.provenance_sha256) return null;
+    if (attempt > 0) return "state_not_bound_by_head";
+    const t = await get(`${BELL_PUBLIC_ORIGIN}/timeline.jsonl`), x = t.ok && t.body.subarray(0, body.length).equals(body) ? linesOf(t.body.subarray(body.length)) : null;
+    const w = x === null || x.torn ? null : walkLines([...seen, ...x.parsed], trust, seen.length);
+    h = w?.ok === true ? (w.head ?? head) : head;
+  }
+}
 
 // ---- the run ----
 /** The LF-terminated lines of `buf`: each raw line (its LF included) and its parse (null: not JSON, or past MAX_LINE_BYTES); `torn` when the
@@ -229,30 +295,40 @@ function linesOf(buf) {
   const parsed = raws.map((b) => { if (b.length > MAX_LINE_BYTES) return null; try { return JSON.parse(b.toString("utf8")); } catch { return null; } });
   return { raws, parsed, torn: raws.reduce((n, b) => n + b.length, 0) !== buf.length };
 }
-/** Steps 1 to 5 on the report `r`; returns the new kept copy, or null when it is unchanged. */
+/** Steps 1 to 6 on the report `r`; returns the new kept copy (null when it is unchanged) and the immutables it names, to write first. */
 async function check(r, a, nowMs, prior, get, keptPath) {
   if (process.env.SMTP_PASS !== undefined) r.alerts.push("secret_in_environment");
   let trust = null;
   try { trust = trustOf(JSON.parse(readFileSync(a.keyring ?? DEFAULT_KEYRING, "utf8"))); } catch { trust = null; }
-  if (trust === null) { r.alerts.push("keyring_invalid"); return null; }
+  if (trust === null) { r.alerts.push("keyring_invalid"); return { keep: null, files: new Map() }; }
   const kept = existsSync(keptPath) ? readFileSync(keptPath) : Buffer.alloc(0), k = linesOf(kept);
   if (k.torn || k.parsed.includes(null)) throw new Error("bell probe: the kept copy does not parse");
-  let lines = k.parsed, keep = null;
+  let lines = k.parsed, keep = null, files = new Map(), seen = null;
   const got = await get(`${BELL_PUBLIC_ORIGIN}/timeline.jsonl`);
   if (!got.ok) r.alerts.push(got.reason);
   else if (got.body.length < kept.length || !got.body.subarray(0, kept.length).equals(kept)) r.alerts.push("prefix_rewritten");
   else {
     const n = linesOf(got.body.subarray(kept.length)), w = walkLines([...k.parsed, ...n.parsed], trust, k.parsed.length);
-    const good = w.ok ? n.parsed.length : w.seq - 1 - k.parsed.length;
+    let good = w.ok ? n.parsed.length : w.seq - 1 - k.parsed.length;
     if (n.torn) r.alerts.push("timeline_malformed");
     if (!w.ok) r.alerts.push((n.raws[w.seq - 1 - k.parsed.length]?.length ?? 0) > MAX_LINE_BYTES ? "too_large" : w.reason); // bell-verify.mjs:90, for the line where the walk fails (the reader names any too-long line first)
     else if (w.head !== null && w.voided.includes(w.head.seq)) r.alerts.push("head_signed_by_revoked_key");
-    Object.assign(r, { served_lines: k.parsed.length + n.parsed.length, new_lines: good });
+    // A new line is kept in its canonical bytes only, the ones its line_hash names and the anchor tool hashes (anchor-bell-timeline.mjs l.28,
+    // l.41: no CR, the canonical form; a CR is never canonical), so that the manifest the probe stamps is the operator's.
+    const odd = n.raws.slice(0, good).findIndex((b, i) => sha256Hex(b.subarray(0, -1)) !== lineHashOf(n.parsed[i]));
+    if (odd >= 0) { r.alerts.push("timeline_malformed"); good = odd; }
+    // The head and the freshness read every line that walks; the mirror keeps those whose immutables are read (the ones past
+    // BELL_PROBE_MAX_NEW_PUBLICATIONS wait for the next run, with no alert: a catch-up rings nothing). The head is bound to state.json
+    // whenever the whole served timeline walks, a catch-up included.
     lines = [...k.parsed, ...n.parsed.slice(0, good)];
+    const imm = await immutablesOf(get, n.parsed.slice(0, good));
+    if (imm.alert !== null) r.alerts.push(imm.alert);
+    [good, files, seen] = [imm.good, imm.files, w.ok && !n.torn && odd < 0 ? [...k.parsed, ...n.parsed] : null];
+    Object.assign(r, { served_lines: k.parsed.length + n.parsed.length, new_lines: good, kept_lines: k.parsed.length + good });
     if (good > 0) keep = Buffer.concat([kept, ...n.raws.slice(0, good)]);
   }
   const head = lines.filter((l) => l.kind === "publication").at(-1) ?? null, lastEnd = lastWindowEnd(lines), f = freshnessOf(nowMs, lastEnd);
-  Object.assign(r, { kept_lines: lines.length, head_seq: head?.seq ?? null, head_line_hash: head === null ? null : lineHashOf(head),
+  Object.assign(r, { kept_lines: r.kept_lines ?? k.parsed.length, head_seq: head?.seq ?? null, head_line_hash: head === null ? null : lineHashOf(head),
     last_window_end_utc: lastEnd === null ? null : new Date(lastEnd).toISOString(), due_unit: f.due_unit, due_by_utc: f.due_by_utc });
   if (f.stale) r.alerts.push("stale");
   if (f.bound) r.alerts.push("calendar_free_bound");
@@ -264,17 +340,21 @@ async function check(r, a, nowMs, prior, get, keptPath) {
     Object.assign(r, { site_status: s.site_status, site_status_since: s.site_status_since });
     if (s.alert !== null) r.alerts.push(s.alert);
   }
-  return keep;
+  const bound = seen !== null && head !== null ? await headBoundOf(get, head, got.body, seen, trust) : null;
+  if (bound !== null) r.alerts.push(bound);
+  return { keep, files };
 }
 
-/** The prior alert bit and the site status' first difference, read back from bell.json; anything but a record of this schema reads as none. */
+/** The prior alert bit, the site status' first difference and the last seq asked an upgrade (ots.upgrade_after_seq), read back from
+ *  bell.json; anything but a record of this schema reads as none. */
 function priorOf(path) {
   try {
     const j = JSON.parse(readFileSync(path, "utf8")), day = typeof j?.last_alert_day === "string" && DAY.test(j.last_alert_day) ? j.last_alert_day : null;
     const since = typeof j?.site_status_since === "string" && !Number.isNaN(Date.parse(j.site_status_since)) ? j.site_status_since : null;
-    if (j?.schema === SCHEMA && typeof j.alerted === "boolean" && (!j.alerted || day !== null)) return { alerted: j.alerted, last_alert_day: day, site_status_since: since };
+    const after = Number.isSafeInteger(j?.ots?.upgrade_after_seq) && j.ots.upgrade_after_seq > 0 ? j.ots.upgrade_after_seq : 0;
+    if (j?.schema === SCHEMA && typeof j.alerted === "boolean" && (!j.alerted || day !== null)) return { alerted: j.alerted, last_alert_day: day, site_status_since: since, ots_after: after };
   } catch { /* absent or corrupt */ }
-  return { alerted: false, last_alert_day: null, site_status_since: null };
+  return { alerted: false, last_alert_day: null, site_status_since: null, ots_after: 0 };
 }
 /** The SMTP password at `path`, or null: a regular file reached without following a final symbolic link (O_NOFOLLOW, absent on win32), never
  *  waited on, at most SMTP_PASS_MAX_BYTES read in one go, one non-empty line of UTF-8 without a BOM (its final newline dropped), and on POSIX
@@ -329,18 +409,30 @@ async function mailOf(r, prior, smtp, passFile) {
   }
   return { alerted, last_alert_day, alert_error };
 }
-/** fsync(2) of a directory makes a renamed entry durable; win32 opens it "r+" (bell-publish.mjs DURABLE_FS, measured). */
-function fsyncDir(dir) { const fd = openSync(dir, process.platform === "win32" ? "r+" : "r"); try { fsyncSync(fd); } finally { closeSync(fd); } }
+/** The file gestures of writeAtomic (BELL-PROBE-ATOMIC-FAULT-1, calque of DURABLE_FS of apps/bell/scripts/bell-publish.mjs): a MUTABLE object on
+ *  purpose, the test seam that cuts a run between two gestures. fsync(2) of a directory makes a renamed entry durable; win32 opens it "r+"
+ *  (bell-publish.mjs DURABLE_FS, measured). */
+export const PROBE_FS = {
+  open: (tmp) => openSync(tmp, "wx", 0o644),
+  write: (fd, data) => { writeFileSync(fd, data); },
+  fsync: (fd) => { fsyncSync(fd); },
+  close: (fd) => { closeSync(fd); },
+  rename: (a, b) => { renameSync(a, b); },
+  remove: (p) => { rmSync(p, { force: true }); },
+  fsyncDir: (dir) => { const fd = openSync(dir, process.platform === "win32" ? "r+" : "r"); try { fsyncSync(fd); } finally { closeSync(fd); } },
+};
+/** `dir` and its missing parents made, each one's entry synced in its parent (ensureDir of bell-publish.mjs). */
+function ensureDir(dir, D) { if (existsSync(dir)) return; ensureDir(dirname(dir), D); mkdirSync(dir); D.fsyncDir(dirname(dir)); }
 /** `data` to `path` atomically: a temporary file of the same directory, written and synced, renamed over `path`, then the directory synced. */
-function writeAtomic(path, data) {
+function writeAtomic(path, data, D = PROBE_FS) {
   const dir = dirname(path), tmp = join(dir, `.tmp-${String(process.pid)}-${randomBytes(6).toString("hex")}`);
-  mkdirSync(dir, { recursive: true });
+  ensureDir(dir, D);
   try {
-    const fd = openSync(tmp, "wx", 0o644);
-    try { writeFileSync(fd, data); fsyncSync(fd); } finally { closeSync(fd); }
-    renameSync(tmp, path);
-  } catch (e) { rmSync(tmp, { force: true }); throw e; }
-  fsyncDir(dir);
+    const fd = D.open(tmp);
+    try { D.write(fd, data); D.fsync(fd); } finally { D.close(fd); }
+    D.rename(tmp, path);
+  } catch (e) { D.remove(tmp); throw e; }
+  D.fsyncDir(dir);
 }
 
 const FLAGS = { "--state": "state", "--keyring": "keyring", "--smtp-pass-file": "smtpPassFile" };
@@ -363,10 +455,17 @@ export async function runProbe(argv, { clock, fetch, smtp }) {
   const nowMs = clock(), out = join(a.state, "bell.json"), keptPath = join(a.state, "bell", "timeline.jsonl"), prior = priorOf(out);
   const r = { schema: SCHEMA, checked_at: new Date(nowMs).toISOString(), status: "unhealthy", alerts: [], served_lines: null, kept_lines: null,
     new_lines: null, head_seq: null, head_line_hash: null, last_window_end_utc: null, due_unit: null, due_by_utc: null, legacy_origin: null,
-    site_status: null, site_status_since: null, alerted: false, alert_error: null, last_alert_day: null };
-  let keep = null;
-  try { keep = await check(r, a, nowMs, prior, httpTransport(fetch), keptPath); } catch { r.alerts.push("probe_error"); }
-  if (keep !== null) { try { writeAtomic(keptPath, keep); } catch { r.alerts.push("write_refused"); } }
+    site_status: null, site_status_since: null, alerted: false, alert_error: null, last_alert_day: null, ots: null };
+  let c = { keep: null, files: new Map() };
+  try { c = await check(r, a, nowMs, prior, httpTransport(fetch), keptPath); } catch { r.alerts.push("probe_error"); }
+  // The immutables first, then the kept copy that names them (a cut between the two leaves files no kept line names yet).
+  if (c.keep !== null) { try { for (const [rel, b] of c.files) writeAtomic(join(a.state, "bell", ...rel.split("/")), b); writeAtomic(keptPath, c.keep); } catch { r.alerts.push("write_refused"); } }
+  try {
+    const kept = existsSync(keptPath) ? readFileSync(keptPath) : Buffer.alloc(0);
+    const o = await otsRun({ dir: join(a.state, "bell", "ots"), kept, lines: linesOf(kept).parsed, nowMs, fetchFn: fetch, write: (p, d) => { writeAtomic(p, d); }, after: prior.ots_after });
+    r.alerts.push(...o.alerts);
+    r.ots = o.summary;
+  } catch { r.alerts.push("probe_error"); }
   r.alerts = [...new Set(r.alerts)];
   r.status = r.alerts.length === 0 ? "healthy" : "unhealthy";
   Object.assign(r, await mailOf(r, prior, smtp, a.smtpPassFile ?? DEFAULT_SMTP_PASS_FILE));
