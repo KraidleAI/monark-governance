@@ -132,8 +132,8 @@ test("bell_probe_ots_registry_is_append_only", async () => {
 
 // reddened by: a proof the site's reader does not read as a sha256 timestamp of its manifest, pending at the calendars that answered, a row
 // that does not bind to its files by bindPublicationAnchor (tuyau T-q2), a proof of the reference client not written back byte for byte, the
-// attestations of a node off the reference's order, a block attestation compared or written by its bytes, an empty URI refused, or a recursion
-// limit off the reference's
+// attestations of a node off the reference's order, a block attestation compared or written by its bytes, a pending one written by its bytes,
+// an empty URI refused, or a recursion limit off the reference's
 // killer: scripts/probe-bell-ots.mjs:120 CONST "i < items.length - 1 ?" -> "i < 0 ?"
 test("bell_probe_ots_proof_reads_with_the_site_reader", async () => {
   assert.ok(typeof P.writeProof === "function", "the probe's proof writer");
@@ -148,10 +148,12 @@ test("bell_probe_ots_proof_reads_with_the_site_reader", async () => {
   }
   // No committed proof below holds two attestations at a node: given out of order, a node's are written as the reference sorts them (notary.py
   // __lt__: the tag, then the height or the URI; 255 before 256, whose LEB128 bytes sort the other way); a block payload goes by its height
-  // (8100 is height 1: one attestation, written 01); an empty URI reads (check_uri); a node at depth 255 reads, at 256 is refused (timestamp.py
-  // _recursion_limit).
+  // (8100 is height 1: one attestation, written 01); a pending payload goes by its URI (a length of 14 written 8e00 reads, alone or merged with
+  // the same URI, and is written 0e: notary.py _serialize_payload); an empty URI reads (check_uri); a node at depth 255 reads, at 256 is refused
+  // (timestamp.py _recursion_limit).
   // killer: scripts/probe-bell-ots.mjs:85 CONST "a.tag < b.tag ? -1 : 1" -> "a.tag < b.tag ? 1 : -1"
   // killer: scripts/probe-bell-ots.mjs:85 CONST "a.height - b.height" -> "b.height - a.height"
+  // killer: scripts/probe-bell-ots.mjs:81 SDL "if (a.uri !== null) a.payload = varbytes(Buffer.from(a.uri));" -> ""
   // killer: scripts/probe-bell-ots.mjs:82 SDL "else if (a.height !== null) a.payload = varuint(a.height);" -> ""
   // killer: scripts/probe-bell-ots.mjs:80 CONST "/^[A-Za-z0-9._/:-]*$/" -> "/^[A-Za-z0-9._/:-]+$/"
   // killer: scripts/probe-bell-ots.mjs:100 CONST "depth >= MAX_DEPTH" -> "depth > MAX_DEPTH"
@@ -161,6 +163,9 @@ test("bell_probe_ots_proof_reads_with_the_site_reader", async () => {
   assert.ok(P.writeProof(P.readProof(detached(fork([at("https://b.test"), block(0x80, 0x02), at("https://a.test"), block(0xff, 0x01)]))))
     .equals(detached(fork([block(0xff, 0x01), block(0x80, 0x02), at("https://a.test"), at("https://b.test")]))), "a node's attestations, in the reference's order");
   assert.ok(P.writeProof(P.readProof(detached(fork([block(0x81, 0x00), block(0x01)])))).equals(detached(block(0x01))), "a height, by its value");
+  const wide = att(PENDING, Buffer.concat([Buffer.from([0x8e, 0x00]), Buffer.from("https://a.test")]));
+  assert.deepEqual([wide, fork([wide, at("https://a.test")])].map((t) => P.writeProof(P.readProof(detached(t))).equals(detached(at("https://a.test")))), [true, true],
+    "a pending URI, by its value");
   const read = (tree: Buffer): string => { try { const t = P.readProof(detached(tree)); return `read ${String(t.ops.length)} ${JSON.stringify(t.atts[0]?.uri ?? null)}`; } catch { return "refused"; } };
   assert.deepEqual([read(att(PENDING, Buffer.from([0x00]))), read(Buffer.concat([Buffer.alloc(255, 0x08), block(0x01)])), read(Buffer.concat([Buffer.alloc(256, 0x08), block(0x01)]))],
     ["read 0 \"\"", "read 1 null", "refused"], "an empty URI; depth 255, then 256");
