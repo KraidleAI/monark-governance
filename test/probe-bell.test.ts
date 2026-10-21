@@ -586,3 +586,64 @@ test("bell_probe_chain_verdict_equals_the_readers_on_a_corpus", () => {
   assert.deepEqual([...reasons].sort(), ["chain_broken", "key_not_active", "key_not_in_keyring", "ok", "ok, voided and broken", "revocation_malformed", "rotation_key_not_in_keyring",
     "rotation_malformed", "signature_invalid", "timeline_malformed"], "non-vacuity: every reason of the walk, and both forms of success, met");
 });
+
+// ---- lot 4b: the unit and its timer (PLAN-P4 C4-5, C4-11) -------------------------------------------------------------------------
+const PROBE_SVC = "deploy/monark-bell-probe.service", PROBE_TIMER = "deploy/monark-bell-probe.timer";
+/** A committed unit's directives in order, [section, key, value] (comments and blank lines dropped). */
+function unit(rel: string): Array<[string, string, string]> {
+  let section = "";
+  return read(rel).split("\n").flatMap((line): Array<[string, string, string]> => {
+    const l = line.trim(), i = l.indexOf("=");
+    if (l === "" || l.startsWith("#")) return [];
+    if (/^\[\w+\]$/.test(l)) { section = l.slice(1, -1); return []; }
+    return [[section, l.slice(0, i), l.slice(i + 1)]];
+  });
+}
+const values = (u: ReadonlyArray<[string, string, string]>, s: string, k: string): string[] => u.filter(([a, b]) => a === s && b === k).map(([, , v]) => v);
+const minutes = (hm: string): number => { const [h = 0, m = 0] = hm.split(":").map(Number); return h * 60 + m; };
+
+// reddened by: a shot of the probe before its collection slot plus the tick's and the publisher's TimeoutStartSec and the probe's margin, or an
+// hour or more past it; a start of the probe that meets one of monark-probe, monark-dojo-probe or monark-dojo-publish; a [Timer] value
+// unwritten; the probe and the collector beside it above one vCPU
+// killer: deploy/monark-bell-probe.timer:14 CONST "23:30:00" -> "23:20:00"
+test("bell_probe_timer_after_the_unit_due_relation", () => {
+  const t = unit(PROBE_TIMER), shots = values(t, "Timer", "OnCalendar").map((v) => /^\*-\*-\* (\d{2}:\d{2}):00 UTC$/.exec(v)?.[1] ?? "?");
+  const gap = (D.TICK_TIMEOUT_START_SEC + D.BELL_PUBLISH_TIMEOUT_START_SEC) / 60 + P.FRESHNESS_MARGIN_MIN; // 132 min: the relation, never a literal
+  assert.deepEqual(shots.map((x, i) => (minutes(x) - minutes(D.BELL_COLLECT_SLOTS_UTC[i] ?? "") + 1440) % 1440).map((d) => d >= gap && d < gap + 60), [true, true, true, true],
+    `each shot ${String(gap)} minutes to an hour more after its slot (${D.BELL_COLLECT_SLOTS_UTC.join(" ")}): ${shots.join(" ")}`);
+  assert.deepEqual(t.filter(([s, k]) => s === "Timer" && k !== "OnCalendar").map(([, k, v]) => `${k}=${v}`), ["AccuracySec=1s", "RandomizedDelaySec=0", "Persistent=true", `Unit=${posix.basename(PROBE_SVC)}`]);
+  // Each start, [shot, shot + TimeoutStartSec + AccuracySec] in seconds of the UTC day, against the timed units of the former host.
+  const windows = (timer: string, svc: string): Array<[number, number]> => {
+    const u = unit(timer), acc = Number(/^(\d+)s$/.exec(values(u, "Timer", "AccuracySec")[0] ?? "60s")?.[1]), start = Number(values(unit(svc), "Service", "TimeoutStartSec")[0]);
+    return values(u, "Timer", "OnCalendar").map((v) => minutes(/(\d{2}:\d{2}):00 UTC$/.exec(v)?.[1] ?? "") * 60).map((s) => [s, s + start + acc]);
+  };
+  const mine = windows(PROBE_TIMER, PROBE_SVC), meets = (a: [number, number], b: [number, number]): boolean => [-86_400, 0, 86_400].some((k) => a[0] < b[1] + k && b[0] + k < a[1]);
+  assert.equal(mine.length, 4, "four starts");
+  for (const [timer, svc] of [["deploy/monark-probe.timer", "deploy/monark-probe.service"], ["deploy/monark-dojo-probe.timer", "deploy/monark-dojo-probe.service"],
+    ["deploy/monark-dojo-publish.timer", "deploy/monark-dojo-publish.service"]] as const) {
+    for (const w of mine) for (const o of windows(timer, svc)) assert.ok(!meets(w, o), `${timer}: ${JSON.stringify(w)} vs ${JSON.stringify(o)}`);
+  }
+  const quota = (rel: string): number => Number(/^(\d+)%$/.exec(values(unit(rel), "Service", "CPUQuota")[0] ?? "")?.[1]);
+  assert.deepEqual([values(unit("deploy/monark-dojo-collect.timer"), "Timer", "OnCalendar"), quota(PROBE_SVC) + quota("deploy/monark-dojo-collect.service") <= 100],
+    [["*-*-* *:00/5:00 UTC"], true], "the Dojo collector runs beside each start: both within one vCPU");
+});
+
+// reddened by: a [Service] directive off its closed list or value (the user probe, its one writable path, Bell's former key directory masked
+// without "-", the caps, SMTP_PASS unset), a TimeoutStartSec other than the code's worst run plus 60 s or above 1 500 s, an ExecStart off the
+// probe of the tree, or a directive that names a path of Bell's host or a credential
+// killer: deploy/monark-bell-probe.service:36 CONST "InaccessiblePaths=/etc/monark/bell" -> "InaccessiblePaths=-/etc/monark/bell"
+test("bell_probe_unit_is_hardened_and_never_on_bell_host", () => {
+  const svc = unit(PROBE_SVC).filter(([s]) => s === "Service"), root = P.BELL_PROBE_TREE_ROOT, start = P.BELL_PROBE_WORST_RUN_MS / 1000 + 60;
+  assert.ok(start <= 1500, `the worst run plus its margin, at most 1 500 s: ${String(start)}`);
+  const env = ["NODE_OPTIONS", "NODE_TLS_REJECT_UNAUTHORIZED", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
+    "http_proxy", "https_proxy", "all_proxy", "no_proxy", "SMTP_PASS"];
+  assert.deepEqual(svc.map(([, k, v]) => `${k}=${v}`), ["Type=oneshot", `WorkingDirectory=${root}`, "EnvironmentFile=/etc/monark/probe.env",
+    `ExecStart=/usr/bin/env node ${root}/scripts/probe-bell.mjs --state /var/lib/monark-probe --keyring ${root}/apps/bell/keys/bell-keyring.json --smtp-pass-file ${P.DEFAULT_SMTP_PASS_FILE}`,
+    `TimeoutStartSec=${String(start)}`, `UnsetEnvironment=${env.join(" ")}`, "User=probe", "Group=probe", "NoNewPrivileges=true", "ProtectSystem=strict", "ProtectHome=true",
+    "PrivateTmp=true", "ReadWritePaths=/var/lib/monark-probe", "InaccessiblePaths=/etc/monark/bell", "CPUQuota=25%", "MemoryMax=256M", "TasksMax=64"], "the [Service] of the probe, closed");
+  assert.deepEqual([P.DEFAULT_SMTP_PASS_FILE, P.BELL_PROBE_TREE_PATHS.includes("scripts/probe-bell.mjs"), P.BELL_PROBE_TREE_PATHS.includes(relative(REPO, P.DEFAULT_KEYRING).split(sep).join("/"))],
+    ["/etc/monark/bell-probe-smtp-pass", true, true], "its own password file (RENDU-4a 7.4); the program and the keyring of its tree");
+  const bellHost = [...Object.values(D.BELL_LAYOUT).map((x) => x.path), "/opt/monark-bell", D.BELL_COLLECT_TREE_ROOT, D.BELL_COLLECT_SECRETS_DIR];
+  const named = svc.flatMap(([, , v]) => v.split(/[\s:=,"']+/)).filter((p) => bellHost.some((d) => p === d || p.startsWith(`${d}/`)));
+  assert.deepEqual([named, svc.filter(([, k]) => /Credential/.test(k))], [[], []], "no path of Bell's host, no credential");
+});

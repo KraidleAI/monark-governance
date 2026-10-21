@@ -99,6 +99,9 @@
  "apps/bell/test/bell-src-clean.test.ts": [
   "universe_src_clean_of_fetch_and_keys"
  ],
+ "apps/bell/test/bell-units-compose-probe.test.ts": [
+  "bell_units_compose_tick_to_publish_to_probe"
+ ],
  "apps/bell/test/bell-units-compose.test.ts": [
   "bell_units_compose_tick_to_publish_to_verify"
  ],
@@ -3047,6 +3050,8 @@
   "bell_probe_reads_the_origin_constant_only",
   "bell_probe_reads_the_timeline_incrementally_and_checks_the_kept_prefix",
   "bell_probe_site_status_is_optional_and_compared_when_served",
+  "bell_probe_timer_after_the_unit_due_relation",
+  "bell_probe_unit_is_hardened_and_never_on_bell_host",
   "bell_probe_verifies_against_the_committed_keyring_not_the_served_key"
  ],
  "test/probe-coinbase-bounds.test.ts": [
