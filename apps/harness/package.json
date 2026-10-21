@@ -9,7 +9,7 @@
     "./calibration": "./src/calibration.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/server": "2.0.0",
+    "@modelcontextprotocol/server": "2.3.1",
     "@monark/contracts": "0.0.0",
     "@monark/hikae": "0.0.0",
     "@monark/monark": "0.0.0",
