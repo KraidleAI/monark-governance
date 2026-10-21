@@ -54,18 +54,20 @@ export function narabiGateIdentity(description) {
   return class_id && key ? { class_id, key } : null;
 }
 
-async function getOpenApi() {
-  const res = await fetch(`${API_HOST}${OPENAPI_PATH}`, { redirect: "manual", signal: AbortSignal.timeout(30_000) });
+async function getOpenApi(get) {
+  const res = await get(`${API_HOST}${OPENAPI_PATH}`, { redirect: "manual", signal: AbortSignal.timeout(30_000) });
   if (res.status !== 200) fail(`GET ${OPENAPI_PATH} answered ${String(res.status)} (200 only, no redirect followed)`);
   const buf = Buffer.from(await res.arrayBuffer());
   if (buf.length === 0 || buf.length > MAX_BYTES) fail(`GET ${OPENAPI_PATH} body size ${String(buf.length)} out of bounds`);
   return buf;
 }
 
-/** The facts the sources say now (everything but read_at). */
-async function readFacts() {
-  const body = await getOpenApi();
-  const ca = JSON.parse(readFileSync(join(ROOT, CA_REL), "utf8"));
+/** The facts the sources under `root` say now (everything but read_at): the served document read through `get` (fetch by
+ *  default: the seam of scripts/sync-dojo-served.mjs), the deployment record and the two timer units read under `root`.
+ *  Fail-closed: any check exits 1, nothing written. */
+export async function readNarabiFacts({ root, get = fetch }) {
+  const body = await getOpenApi(get);
+  const ca = JSON.parse(readFileSync(join(root, CA_REL), "utf8"));
   const pinned = (ca.checks ?? []).find((c) => c.name === "openapi")?.sha256;
   if (typeof pinned !== "string" || !/^[0-9a-f]{64}$/.test(pinned)) fail(`${CA_REL} carries no openapi sha256`);
   const servedSha = sha256(body);
@@ -83,12 +85,12 @@ async function readFacts() {
   if (distinct.size !== 1) fail(`the served document names ${String(distinct.size)} committed Narabi class/key pairs (exactly one expected)`);
   const gate = { ...ids[0], openapi_sha256: servedSha };
 
-  const sentinelUnit = readFileSync(join(ROOT, SENTINEL_TIMER_REL), "utf8");
+  const sentinelUnit = readFileSync(join(root, SENTINEL_TIMER_REL), "utf8");
   const slots = onCalendarSlots(sentinelUnit);
   if (slots.length === 0) fail(`${SENTINEL_TIMER_REL} carries no OnCalendar slot`);
   const delay = /^RandomizedDelaySec=(\d+)\s*$/m.exec(sentinelUnit)?.[1];
   if (delay === undefined || Number(delay) <= 0) fail(`${SENTINEL_TIMER_REL} carries no positive RandomizedDelaySec`);
-  const shots = onCalendarSlots(readFileSync(join(ROOT, PROBE_TIMER_REL), "utf8"));
+  const shots = onCalendarSlots(readFileSync(join(root, PROBE_TIMER_REL), "utf8"));
   if (shots.length === 0 || shots[0] !== DEADLINE_UTC) fail(`the first shot of ${PROBE_TIMER_REL} is not the probe deadline ${DEADLINE_UTC}`);
   return {
     gate,
@@ -100,23 +102,29 @@ async function readFacts() {
 const COMMENT =
   "Committed, hashed facts that /narabi states and the two published Narabi files do not carry, rendered through apps/site/lib/narabi-served-load.ts (by /narabi, and by the Narabi freshness line of / and /fleet) after a sha256 check against apps/site/data/manifest.sha256.json. Written by the source repository's sync tool (not part of this export). gate = the class id and key of the one committed Narabi class, read from the gate description of the served https://api.monarkgate.tech/openapi.json, whose sha256 (openapi_sha256) equals the value the deployment conformity record holds for it. sentinel_timer = the daily UTC publication slots and the random delay of the sentinel's systemd timer. probe = the freshness deadline of the external probe and its daily UTC shots. No market value, no data-source name.";
 
-async function main() {
-  const check = process.argv.includes("--check");
-  const facts = await readFacts();
-  const outAbs = join(ROOT, OUT_REL);
-  const old = existsSync(outAbs) ? JSON.parse(readFileSync(outAbs, "utf8")) : null;
-  const same =
-    old !== null &&
-    JSON.stringify({ gate: old.gate, sentinel_timer: old.sentinel_timer, probe: old.probe }) === JSON.stringify(facts);
-  if (check) {
-    if (!same || narabiEntryFix(ROOT) !== null) {
-      console.error(`sync-narabi-served --check: ${same ? `the manifest entry of ${OUT_REL} is not its sha256` : `${OUT_REL} no longer says what the sources say now`}; re-run without --check.`);
-      process.exit(1);
-    }
-    console.log(`sync-narabi-served --check OK — ${OUT_REL} equals the sources (served openapi sha256 ${facts.gate.openapi_sha256}).`);
-    return;
+/** Does the committed record `old` (or null) say the facts the sources say now (read_at aside)? Pure; the judgment of the write
+ *  (unchanged: nothing written) and of --check. */
+export function sameNarabiFacts(old, facts) {
+  return old !== null && JSON.stringify({ gate: old.gate, sentinel_timer: old.sentinel_timer, probe: old.probe }) === JSON.stringify(facts);
+}
+
+const committedUnder = (root) => (existsSync(join(root, OUT_REL)) ? JSON.parse(readFileSync(join(root, OUT_REL), "utf8")) : null);
+
+/** --check under `root`: the committed record says what the sources say now and its manifest entry is its sha256. Writes
+ *  nothing; a difference: one line on stderr, exit 1. Same: one line on stdout (exit 0). */
+export async function checkNarabiServed({ root, get = fetch }) {
+  const facts = await readNarabiFacts({ root, get });
+  const same = sameNarabiFacts(committedUnder(root), facts);
+  if (!same || narabiEntryFix(root) !== null) {
+    console.error(`sync-narabi-served --check: ${same ? `the manifest entry of ${OUT_REL} is not its sha256` : `${OUT_REL} no longer says what the sources say now`}; re-run without --check.`);
+    process.exit(1);
   }
-  if (same) {
+  console.log(`sync-narabi-served --check OK — ${OUT_REL} equals the sources (served openapi sha256 ${facts.gate.openapi_sha256}).`);
+}
+
+async function main() {
+  const facts = await readNarabiFacts({ root: ROOT, get: fetch });
+  if (sameNarabiFacts(committedUnder(ROOT), facts)) {
     let repaired;
     try { repaired = repairNarabiEntry(ROOT); } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
     console.log(`sync-narabi-served: unchanged — ${OUT_REL} already says what the sources say; ${repaired ? "its stale manifest entry is set again" : "nothing written"}.`);
@@ -154,4 +162,4 @@ export function writeNarabiServed(root, facts, readAt) {
 }
 
 // Run-guard (mirrors the repo's scripts): the CLI runs only when invoked directly, never on import.
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) await main();
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) await (process.argv.includes("--check") ? checkNarabiServed({ root: ROOT, get: fetch }) : main());

@@ -62,7 +62,7 @@ def kata_lib_state():
 
 def lookback(rows):
     """The longest input window of the rows counted, W bars of h, in ms."""
-    return max(K.W[cell["kata"]] * K.H_MS[r["horizon"]] for r, cell, _ in rows)
+    return max(cell.get("look") or K.W[cell["kata"]] * K.H_MS[r["horizon"]] for r, cell, _ in rows)  # a wave 2b row: its own (lot c4b)
 
 
 def venue_halts(reads, venue):
@@ -89,11 +89,11 @@ def venue_halts(reads, venue):
 def count_row(row, cell, candles, bars, grid, halts):
     """The decision of one row at each instant of its grid: out (sigma_hat not computable), drop (label not formed, or its window meets
     a halt), else covered, or miss when the score is strictly above qhat."""
-    h, kid, table, qhat = K.H_MS[row["horizon"]], cell["kata"], row["hourOfWeekFactors"], row["calib"]["qhat"]
+    h, kid, table, qhat = K.H_MS[row["horizon"]], cell["kata"], row.get("hourOfWeekFactors"), row["calib"]["qhat"]  # a wave 2b row has none
     out = []
     for t in grid:
-        win = K.window_at(bars, t, K.W[kid], h)
-        sh = recalc_p2.sigma_hat({"t": t, "v": {kid: K.NE if win is None else K.KATA_FUNCS[kid](win)}}, kid, table, h)
+        win = None if "sigma" in cell else K.window_at(bars, t, K.W[kid], h)  # a wave 2b row: its sigma_hat (quarter_2b.row)
+        sh = cell["sigma"](t, candles, bars) if "sigma" in cell else recalc_p2.sigma_hat({"t": t, "v": {kid: K.NE if win is None else K.KATA_FUNCS[kid](win)}}, kid, table, h)
         if sh == K.NE:
             out.append("out")
             continue

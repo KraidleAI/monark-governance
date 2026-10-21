@@ -69,7 +69,7 @@ test("retire_list_reader_closed", () => {
     [top({ entries: [{ ...e, n_test: -1 }] }), /entries\[0\]\.n_test is off the format/], [top({ entries: [{ ...e, cell_key: `${e.cell_key}x` }] }), /names no cell of the registry/],
     [top({ entries: [{ ...e, task_class: "btc-dir-4h" }] }), /names no cell of the registry/], [top({ entries: [{ ...e, calib_attempt: 2 }] }), /not the current attempt 1 of its cell/],
     [top({ entries: [entryOf(find((r) => r.status === "vetoed"))] }), /serves no region \(registry status vetoed\)/],
-    [top({ entries: [e, e] }), /not sorted by \(task_class, cell_key\), or a repeated cell/], [top({ entries: [...ok].reverse() }), /not sorted/],
+    [top({ entries: [e, e] }), /not sorted by \(task_class, cell_key, calib_attempt\), or a repeated key/], [top({ entries: [...ok].reverse() }), /not sorted/],
     [top({ entries: [{ ...entryOf(DIR, ADR), cause: "epoch:EE-1/x" }] }), /cause outside live:<k> and adr:/], [top({ entries: [{ ...e, cause: ADR }] }), /counts off its cause/],
     [top({ entries: [{ ...e, k_test: 0, n_test: 0 }] }), /counts off its cause/], [top({ entries: [{ ...e, k_test: 101 }] }), /counts off its cause/],
   ];

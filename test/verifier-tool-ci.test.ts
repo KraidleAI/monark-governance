@@ -225,7 +225,7 @@ test("verifier_tool_driver_pins_the_second_tree_test_names - the driver names ea
   assert.ok(Array.isArray(q.QUARTER_TESTS) && typeof q.presenceOf === "function" && typeof q.quarterTestProblems === "function", "the driver pins the names and exports its presence map");
   const names = q.QUARTER_TESTS, file = q.QUARTER_TEST ?? "", declared = read(file).split(/\r?\n/).filter((l) => l.startsWith("test(")).map((l) => /^test\("([a-z0-9_]+) - /.exec(l)?.[1]);
   assert.deepEqual(declared, names, "QUARTER_TESTS names the tests of the file, in its order");
-  assert.equal(names.length, 38, "the number of the file's tests, written here: a test removed with its name changes it, as a removal line does in test:main");
+  assert.equal(names.length, 45, "the number of the file's tests, written here: a test removed with its name changes it, as a removal line does in test:main");
   const lost = names.slice(1).map((n, i) => `ok ${i + 1} - ${n} - what it holds`).concat([`ok ${names.length} - ${names[1]} - again`]);
   const tap = [...lost, ...Object.entries({ tests: names.length, pass: names.length, fail: 0, cancelled: 0, skipped: 0, todo: 0 }).map(([k, n]) => `# ${k} ${n}`)].join("\n");
   assert.deepEqual(q.quarterTestProblems(tap, 0), [`${file}: the test ${names[0]} passed 0 time(s), once wanted`, `${file}: the test ${names[1]} passed 2 time(s), once wanted`], "a test removed from the file, its count met by another");

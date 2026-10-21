@@ -3,6 +3,8 @@
 // course modules only. SOURCE-REPO tool (not exported, like scripts/sync-bell-served.mjs); run by the orchestrator
 // after the course's report step, BEFORE a storefront build:
 //   node scripts/sync-ukemi-course.mjs --report <path to hyp-report-<event>.json>
+//   node scripts/sync-ukemi-course.mjs --check [--report <path>]   write nothing; exit 1 unless the manifest entry is the
+//                                    committed file's sha256 and, with a report, the file is what it composes now
 //
 // It replaces the hand copy of the report. FAIL-CLOSED checks before any write:
 //   - schema ukemi-u4b-hyp/1, kind report; body.event_id === provenance.event_id;
@@ -130,33 +132,68 @@ export function setManifestEntry(manifestText, rel, sha) {
   return JSON.stringify(m, null, 2) + "\n";
 }
 
-function main() {
-  const reportPath = arg(process.argv.slice(2), "--report");
-  if (reportPath === undefined) fail("usage: node scripts/sync-ukemi-course.mjs --report <path to hyp-report-<event>.json>");
-  let report;
-  try {
-    report = JSON.parse(readFileSync(reportPath, "utf8"));
-  } catch (e) {
-    fail(`cannot read the report (${e instanceof Error ? e.message : String(e)})`);
-  }
-  const toolSha = sha256(lf(readFileSync(join(ROOT, TOOL_REL), "utf8")));
-  let site;
-  try {
-    site = buildSiteCourse(report, toolSha);
-  } catch (e) {
-    fail(e instanceof Error ? e.message : String(e));
-  }
+/** The CRLF->LF sha256 of the course tool under `root` (the digest a report must name). */
+const toolShaUnder = (root) => sha256(lf(readFileSync(join(root, TOOL_REL), "utf8")));
+
+/** Write the site file of `report` under `root` and set its manifest entry, the manifest text computed first (throws,
+ *  writing nothing, on any check). Returns the site object and the file's CRLF->LF sha256. */
+export function writeSiteCourse(root, report) {
+  const site = buildSiteCourse(report, toolShaUnder(root));
   const text = JSON.stringify(site, null, 2) + "\n";
   const fileSha = sha256(lf(text));
-  let manifest;
+  const manifest = setManifestEntry(readFileSync(join(root, MANIFEST_REL), "utf8"), OUT_REL, fileSha);
+  writeFileSync(join(root, OUT_REL), text);
+  writeFileSync(join(root, MANIFEST_REL), manifest);
+  return { site, sha: fileSha };
+}
+
+/** --check under `root` (SYNC-CHECK-MODE-1): the manifest entry of the committed file is its CRLF->LF sha256;
+ *  with a report, the committed file is also, byte for byte, what that report composes now (buildSiteCourse). Reads only; the
+ *  problems, empty when the file holds. A report that fails a check is a problem too. */
+export function courseCheckProblems(root, report) {
+  const problems = [];
+  const text = readFileSync(join(root, OUT_REL), "utf8");
+  const entry = JSON.parse(readFileSync(join(root, MANIFEST_REL), "utf8"))?.files?.[OUT_REL];
+  if (entry !== sha256(lf(text))) problems.push(`the manifest entry of ${OUT_REL} is not the sha256 of the committed file`);
+  if (report !== undefined) {
+    try {
+      if (JSON.stringify(buildSiteCourse(report, toolShaUnder(root)), null, 2) + "\n" !== lf(text)) problems.push(`${OUT_REL} is not what the report composes now`);
+    } catch (e) {
+      problems.push(`the report does not compose (${e instanceof Error ? e.message : String(e)})`);
+    }
+  }
+  return problems;
+}
+
+function readReport(reportPath) {
   try {
-    manifest = setManifestEntry(readFileSync(join(ROOT, MANIFEST_REL), "utf8"), OUT_REL, fileSha);
+    return JSON.parse(readFileSync(reportPath, "utf8"));
+  } catch (e) {
+    return fail(`cannot read the report (${e instanceof Error ? e.message : String(e)})`);
+  }
+}
+
+function main() {
+  const argv = process.argv.slice(2), reportPath = arg(argv, "--report");
+  const usage = "usage: node scripts/sync-ukemi-course.mjs --report <path to hyp-report-<event>.json> | --check [--report <path>]";
+  if (argv.includes("--report") && (reportPath === undefined || reportPath === "" || reportPath.startsWith("--"))) fail(usage); // a --report without its path, never the manifest check alone
+  if (argv.includes("--check")) {
+    const problems = courseCheckProblems(ROOT, reportPath === undefined ? undefined : readReport(reportPath));
+    if (problems.length > 0) {
+      console.error(`sync-ukemi-course --check FAILED — ${problems.join("; ")}; re-run without --check.`);
+      process.exit(1);
+    }
+    console.log(`sync-ukemi-course --check OK — ${OUT_REL} matches its manifest entry${reportPath === undefined ? "" : " and is what the report composes now"}.`);
+    return;
+  }
+  if (reportPath === undefined) fail(usage);
+  let done;
+  try {
+    done = writeSiteCourse(ROOT, readReport(reportPath));
   } catch (e) {
     fail(e instanceof Error ? e.message : String(e));
   }
-  writeFileSync(join(ROOT, OUT_REL), text);
-  writeFileSync(join(ROOT, MANIFEST_REL), manifest);
-  console.log(`sync-ukemi-course OK — ${OUT_REL} written (episode ${site.body.event_id}, body_digest ${site.body_digest}); manifest entry set to ${fileSha}`);
+  console.log(`sync-ukemi-course OK — ${OUT_REL} written (episode ${done.site.body.event_id}, body_digest ${done.site.body_digest}); manifest entry set to ${done.sha}`);
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

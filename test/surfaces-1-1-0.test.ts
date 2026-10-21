@@ -124,7 +124,7 @@ test("srf_site_says_scores_digest — no site source says 'calibration digest' (
   assert.match(copy.DIGEST_NOTE, /^The scores digest identifies the calibration points/, "the note names the scores digest");
 });
 
-// killer: docs/RUNBOOK-vitrine.md:36 CONST "`preflight`" -> "`main`"
+// killer: docs/RUNBOOK-vitrine.md:37 CONST "`preflight`" -> "`main`"
 test("srf_runbook_vitrine_refusal_falls_at_preflight — the runbook says where release-public refuses since the preflight guard", () => {
   const lines = read("docs", "RUNBOOK-vitrine.md").split("\n");
   const at = lines.findIndex((l) => l.includes("#181 (RELEASE-PREFLIGHT-SEND-GUARD-1)"));
@@ -207,7 +207,7 @@ function strayT0Lines(text: string): string[] {
 // write (each path read from its writer, the journal of act 2 included, so the release of act 9 sees a clean tree); the act 2
 // command parses as the deploy check reads it; act 8 publishes the release contract-1.1.0, by its name, with both roots, and parses as
 // spec-publish reads it; no line of the section but the acts carries text. French runbook: only code spans are read here.
-// killer: docs/RUNBOOK-vitrine.md:47 CONST " docs/JOURNAL-PROVENANCE.md apps/site/data/harness-served.json" -> " apps/site/data/harness-served.json"
+// killer: docs/RUNBOOK-vitrine.md:48 CONST " docs/JOURNAL-PROVENANCE.md apps/site/data/harness-served.json" -> " apps/site/data/harness-served.json"
 test("srf_runbook_vitrine_t0_order — deploy, green CA, harness, Narabi and ukemi syncs, re-pin, site, spec, release", async () => {
   const harness = await import("../scripts/sync-harness-served.mjs"), ukemi = await import("../scripts/sync-ukemi-served.mjs");
   const narabi = (await import(new URL("../scripts/sync-narabi-served.mjs", import.meta.url).href)) as { OUT_REL: string };

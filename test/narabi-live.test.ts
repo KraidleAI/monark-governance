@@ -1166,7 +1166,7 @@ test("narabi_committed_records_fail_closed — the served-facts record and the c
 // T0-TOOLING-1 (review B-3, c bis): the Narabi sync sets its own manifest entry (canonical form) instead of printing it for a
 // hand edit. Replayed on a copy of the committed record: the same facts and read_at give back the committed bytes and entry;
 // new facts move the entry to the new file, and the site loader accepts it. No network: the sync's write step only.
-// killer: scripts/sync-narabi-served.mjs:144 CONST "return next === text ? null : next;" -> "return null;"
+// killer: scripts/sync-narabi-served.mjs:152 CONST "return next === text ? null : next;" -> "return null;"
 test("narabi_sync_sets_its_manifest_entry", async () => {
   const sync = (await import(new URL("../scripts/sync-narabi-served.mjs", import.meta.url).href)) as Record<string, unknown>;
   const write = sync["writeNarabiServed"] as ((root: string, facts: unknown, readAt: string) => string) | undefined;
@@ -1201,9 +1201,9 @@ test("narabi_sync_sets_its_manifest_entry", async () => {
 });
 
 // killer: apps/site/lib/narabi-copy.ts:92 CONST "with an unchanged sentinel_sha and Node version. The sentinel_sha hashes the sentinel's own top-level source files, not the packages it imports." -> "written by an unchanged sentinel build and Node version."
-test("narabi_code_version_glossary_says_what_the_witness_hashes — the witness hashes the sentinel's top-level sources, not the packages it imports (SENTINEL-DEPLOY-GUARD-1 makes the old word true again)", () => {
-  const run = readFileSync(join(ROOT, "apps", "sentinel", "src", "run.ts"), "utf8");
-  assert.ok(run.includes('readdirSync(srcDir).filter((f) => f.endsWith(".ts"))'), "premise: sentinelSha hashes the top-level .ts files of src/; when the witness covers the execution closure this reds and the glossary is revisited");
+test("narabi_code_version_glossary_says_what_the_witness_hashes — the witness hashes the sentinel's top-level sources, not the packages it imports (SENTINEL-DEPLOY-GUARD-1 makes the old word true again)", async () => {
+  const copy = (await import("../apps/site/lib/narabi-copy.ts").catch(() => ({}))) as { SERVED_WITNESS?: unknown };
+  assert.equal(copy.SERVED_WITNESS, "top-level-sources", "premise: the served lines carry the witness of the top-level sources; when SERVED_WITNESS moves to the execution closure this reds and the glossary is revisited");
   const deps = Object.keys((JSON.parse(readFileSync(join(ROOT, "apps", "sentinel", "package.json"), "utf8")) as { dependencies?: Record<string, string> }).dependencies ?? {});
   assert.ok(deps.some((d) => d.startsWith("@monark/")), "premise: the sentinel imports workspace packages the witness does not hash");
   const def = GLOSSARY.find((g) => g.term === "code version")?.def ?? "";
@@ -1212,11 +1212,19 @@ test("narabi_code_version_glossary_says_what_the_witness_hashes — the witness 
 });
 
 // killer: apps/site/components/narabi/narabi-live.tsx:529 CONST "with an unchanged sentinel_sha and Node version; the sentinel_sha hashes the sentinel's own top-level source files, not the packages it imports;" -> "written by an unchanged sentinel build and Node version;"
-test("narabi_code_version_note_says_what_the_witness_hashes — the register note of the code versions says what the glossary says (SENTINEL-DEPLOY-GUARD-1 makes the old word true again)", () => {
-  assert.ok(readFileSync(join(ROOT, "apps", "sentinel", "src", "run.ts"), "utf8").includes('readdirSync(srcDir).filter((f) => f.endsWith(".ts"))'), "premise: sentinelSha hashes the top-level .ts files of src/; when the witness covers the execution closure this reds and the note is revisited");
+test("narabi_code_version_note_says_what_the_witness_hashes — the register note of the code versions says what the glossary says (SENTINEL-DEPLOY-GUARD-1 makes the old word true again)", async () => {
+  const copy = (await import("../apps/site/lib/narabi-copy.ts").catch(() => ({}))) as { SERVED_WITNESS?: unknown };
+  assert.equal(copy.SERVED_WITNESS, "top-level-sources", "premise: the served lines carry the witness of the top-level sources; when SERVED_WITNESS moves to the execution closure this reds and the note is revisited");
   const comp = readComponent();
   assert.doesNotMatch(comp, /unchanged sentinel build/, "the note does not promise an unchanged build");
-  assert.ok(comp.includes("the sentinel_sha hashes the sentinel's own top-level source files, not the packages it imports"), "the note says what the witness leaves out");
+  // The note as /narabi renders it: the note attribute read from the parsed component, where a comment holds no attribute.
+  const ts = (await import("typescript")).default, notes: string[] = [];
+  const visit = (node: import("typescript").Node): void => {
+    if (ts.isJsxAttribute(node) && node.name.getText() === "note" && node.initializer !== undefined && ts.isStringLiteral(node.initializer)) notes.push(node.initializer.text);
+    ts.forEachChild(node, visit);
+  };
+  visit(ts.createSourceFile("narabi-live.tsx", comp, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX));
+  assert.ok(notes.some((n) => n.includes("the sentinel_sha hashes the sentinel's own top-level source files, not the packages it imports")), "the note says what the witness leaves out");
 });
 
 // killer: README.md:125 CONST "published with the Node version of each line. What it carries" -> "published so anyone can replay it. What it carries"
@@ -1239,8 +1247,8 @@ test("narabi_page_copy_claims_no_attested_flow — the /narabi lede, the level n
   assert.doesNotMatch(HERO_DEK, /\battested\b/i, "the lede does not call the window attested");
   assert.match(HERO_DEK, /recomputable, published with its Node version/, "the lede says what a window is");
   assert.ok(!LEVELS.some((l) => /attested/i.test(l.name)), "no level is named Attested");
-  const src = readFileSync(join(ROOT, "apps", "site", "lib", "narabi-live.ts"), "utf8");
-  assert.ok(!src.includes("`# attestation`") && src.includes("`# flow record (AttestedFlow)`"), "the recipe names the flow record, not an attestation");
+  const recipe = recomputeRecipe(parseState(NARABI_SNAPSHOT.stateJson), parseTimeline(NARABI_SNAPSHOT.timelineJsonl)).split("\n");
+  assert.ok(!recipe.includes("# attestation") && recipe.includes("# flow record (AttestedFlow)"), "the recipe, as the page builds it, names the flow record, not an attestation");
 });
 
 // killer: apps/site/lib/narabi-live.ts:925 CONST "a hash-chained timeline whose windows anyone can recompute onchain, each line recording its Node version" -> "a published timeline that anyone can recompute and replay from the two static files"

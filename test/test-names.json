@@ -950,6 +950,14 @@
   "projection_under_calib_row",
   "registry_cell_closed_reader"
  ],
+ "apps/harness/test/policy-retire-wave2.test.ts": [
+  "retire_list_attempt_2_from_the_day_its_child_is_current",
+  "retire_list_attempt_2_on_a_wave2_cell",
+  "retire_list_attempt_2_reads_the_status_of_its_child",
+  "retire_list_carried_attempt_1_entry_kept_after_its_child",
+  "retire_list_child_current_day_is_a_real_day",
+  "retire_list_entries_of_one_cell_by_attempt"
+ ],
  "apps/harness/test/policy-retire.test.ts": [
   "live_n_max_is_longest_quarter",
   "retire_list_reader_closed",
@@ -995,6 +1003,14 @@
   "w2_module_is_not_served",
   "w2e_tail_edges_of_the_counts_entry",
   "w2e_tail_vectors"
+ ],
+ "apps/harness/test/policy-wave2b.test.ts": [
+  "w2b_chain_one_current_attempt_per_cell",
+  "w2b_guard_admits_a_wave2b_row",
+  "w2b_guard_refuses_a_kata_id_or_w_off_its_estimator",
+  "w2b_guard_refuses_a_profile_off_26_or_14_values",
+  "w2b_guard_refuses_columns_off_the_mark",
+  "w2b_guard_refuses_off_attempt_1_or_the_base_delta"
  ],
  "apps/harness/test/registry.test.ts": [
   "harness_served_honesty_carriers_pass_vocab",
@@ -1107,6 +1123,12 @@
   "sentinel_never_prints_endpoint_url — an endpoint's key-bearing path never reaches an error, a written line, or stdout (C-1; ADR-NARABI-OPS-1)",
   "sentinel_quorum_accepts_chainstack_as_distinct_operator — chainstack.com is its own provider, quorum-eligible with a public endpoint (L-3; ADR-M012 item m)",
   "sentinel_retry_replays_incident_and_exit_codes — no_quorum exits 1 (0 lines), catch-up reproduces the published line_hash, re-run is a no-op (L-4 / C-6; ADR-NARABI-OPS-1)"
+ ],
+ "apps/sentinel/test/sentinel-witness.test.ts": [
+  "sentinel_build_witness_covers_execution_closure",
+  "sentinel_sha_changes_when_calibration_module_changes",
+  "sentinel_witness_binds_path_to_content",
+  "sentinel_witness_refuses_dynamic_import"
  ],
  "apps/sentinel/test/sentinel.test.ts": [
   "sentinel_bound_thm1_daily",
@@ -3417,6 +3439,13 @@
   "red_proof_worktree_gel_counts_untracked_files_and_exits_zero",
   "red_proof_worktree_gel_with_a_junctioned_node_modules_is_judged"
  ],
+ "test/release-preflight-captures.test.ts": [
+  "export_preflight_fails_closed_when_host_unreachable",
+  "export_preflight_refuses_on_stale_capture",
+  "release_preflight_refuses_by_exit_status",
+  "release_preflight_runs_the_five_real_checks",
+  "runbook_vitrine_export_step_runs_the_five_checks"
+ ],
  "test/release-public-flow.test.ts": [
   "release_public_flow — message gate, refusals before any gate, export:check before export, one local commit, no push, gh reads only"
  ],
@@ -3498,6 +3527,16 @@
  ],
  "test/sentinel-no-kata-key.test.ts": [
   "sentinel_imports_no_kata_key"
+ ],
+ "test/sentinel-witness-cli.test.ts": [
+  "runbook_harness_update_runs_the_sentinel_witness_step",
+  "sentinel_line_carries_closure_witness",
+  "sentinel_witness_cli_compares_served_line",
+  "sentinel_witness_cli_composes_overlay_tree",
+  "sentinel_witness_cli_ignores_deploy_day_line",
+  "sentinel_witness_cli_prints_closure_digest",
+  "sentinel_witness_cli_reads_the_served_timeline_strictly",
+  "sentinel_witness_cli_waits_without_a_post_deploy_line"
  ],
  "test/served-history.test.ts": [
   "served_history_cli_reads_t_e_from_the_merge_commit",
@@ -3757,6 +3796,15 @@
   "srf_skill_names_the_kata_classes_and_the_reserved_pattern — the skill says the kata classes are served and which BYO class names are refused",
   "srf_ukemi_digest_note_is_the_1_1_0_note — the whole note, order clause included",
   "srf_ukemi_sync_comment_says_scores_digest — the written $comment is the 1.1.0 text, byte for byte"
+ ],
+ "test/sync-check-mode.test.ts": [
+  "sync_narabi_capture_check_refuses_capture_older_than_bound",
+  "sync_narabi_capture_check_refuses_diverged_prefix",
+  "sync_narabi_served_check_exits_1_on_changed_fact",
+  "sync_served_check_mode_exits_1_on_stale_capture_harness",
+  "sync_served_check_mode_exits_1_on_stale_capture_ukemi",
+  "sync_served_check_mode_exits_1_on_stale_capture_ukemi_course",
+  "sync_served_check_mode_ignores_read_at_only"
  ],
  "test/test-count-check.test.ts": [
   "test_count_check_holds_each_name_gone_to_its_line",
