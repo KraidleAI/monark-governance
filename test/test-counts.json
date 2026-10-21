@@ -261,6 +261,7 @@
  "test/no-secret-in-repo.test.ts": 1,
  "test/oracle-run.test.ts": 19,
  "test/pin-bell-legal.test.ts": 8,
+ "test/probe-bell-ots.test.ts": 5,
  "test/probe-bell.test.ts": 13,
  "test/probe-coinbase-bounds.test.ts": 9,
  "test/probe-dojo-live.test.ts": 24,

@@ -3027,6 +3027,13 @@
   "pin_bell_legal_refuses_any_argument",
   "pin_bell_legal_restores_on_a_failed_postcondition"
  ],
+ "test/probe-bell-ots.test.ts": [
+  "bell_probe_ots_manifest_is_the_anchor_tool_manifest",
+  "bell_probe_ots_proof_reads_with_the_site_reader",
+  "bell_probe_ots_registry_is_append_only",
+  "bell_probe_ots_upgrades_a_pending_proof_once_complete",
+  "bell_probe_stamps_each_new_line_once"
+ ],
  "test/probe-bell.test.ts": [
   "bell_probe_alerts_on_stale_broken_or_rewritten",
   "bell_probe_calendar_free_bound_alerts_whatever_the_calendar",
