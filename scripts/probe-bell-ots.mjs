@@ -10,13 +10,13 @@
 // the posted digest, at most 10 000 bytes). An UPGRADE (cmds.py l.277-299): each pending attestation whose URI the whitelist admits is asked
 // GET <uri>/timestamp/<hex of its node's message>; 200 merges the answer under that node, 404 is "still pending", never an error. A proof is
 // complete once it records a Bitcoin block (cmds.py is_timestamp_complete); a complete proof is not asked again. Only append, prepend and
-// sha256 are computed (the server imports no other, FAITS point 7): any other operation tag in an answer is ots_op_unsupported, the answer
-// dropped and the proof on disk kept as written. STATE, under <state>/bell/ots/: timeline-seq<n>-manifest.txt and its .ots (the names of
-// docs/bell-publications/, PUBLICATION_PROOF of apps/site/lib/bell-anchors.ts), each written by the probe's atomic write, then the run's rows
-// of registry.jsonl, rewritten as its prior bytes plus the new rows (append only): "stamped" and "upgraded" name a proof, "tried" the first
-// run that asked the calendars for a line and got no proof. A proof found without its row (a cut between the two) is adopted, never stamped
-// again: one automatic proof per line. ots_unstamped: a line still without proof OTS_UNSTAMPED_ALERT_H after its "tried" row (C4-8, dated
-// line of 2026-10-16 19:1x UTC: from the first missed try, on the probe's own clock, never from the served published_at); a line the run's
+// sha256 are computed (the server imports no other, FAITS point 7): any other operation tag in an answer, or a graft reaching MAX_DEPTH, is
+// ots_op_unsupported, the answer dropped and the proof on disk kept as written. STATE, under <state>/bell/ots/: timeline-seq<n>-manifest.txt and
+// its .ots (the names of docs/bell-publications/, PUBLICATION_PROOF of apps/site/lib/bell-anchors.ts), each written by the probe's atomic write,
+// then the run's rows of registry.jsonl, rewritten as its prior bytes plus the new rows (append only): "stamped" and "upgraded" name a proof,
+// "tried" the first run that asked the calendars for a line and got no proof. A proof found without its row (a cut between the two) is adopted,
+// never stamped again: one automatic proof per line. ots_unstamped: a line still without proof OTS_UNSTAMPED_ALERT_H after its "tried" row (C4-8,
+// dated line of 2026-10-16 19:1x UTC: from the first missed try, on the probe's own clock, never from the served published_at); a line the run's
 // bound leaves for the next run is not tried. ots_pending_stale: a proof still pending OTS_PENDING_STALE_H after its "stamped" row. Bounds of
 // one run: at most OTS_MAX_STAMPS lines stamped (four parallel calls under one OTS_TIMEOUT_MS timer each) and OTS_MAX_UPGRADES upgrade calls
 // of OTS_TIMEOUT_MS each (the reference client's --timeout, 5 s), shared by the pending proofs: the run resumes after the last seq the run

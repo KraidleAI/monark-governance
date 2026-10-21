@@ -265,7 +265,6 @@ test("bell_probe_ots_written_proof_always_reads_again", async () => {
   const asks = (x: { seen: string[] }): number => x.seen.filter((u) => u.includes("/timestamp/")).length, cal = (k: number): string => URI(P.OTS_AGGREGATORS[k] ?? "");
   // At the stamp the tip is at depth 2 (the root, its nonce appended, sha256): an answer 254 deep would put a node at 256, refused and named,
   // the three others merged; one 253 deep reaches 255 and is kept. The proof reads, and the next run writes its rows.
-  // killer: scripts/probe-bell-ots.mjs:117 CONST "readTree(c, msg, depth)" -> "readTree(c, msg, 0)"
   // killer: scripts/probe-bell-ots.mjs:49 CONST "TIP_DEPTH = 2;" -> "TIP_DEPTH = 1;"
   // killer: scripts/probe-bell-ots.mjs:49 CONST "TIP_DEPTH = 2;" -> "TIP_DEPTH = 3;"
   // killer: scripts/probe-bell-ots.mjs:177 CONST " || e instanceof OtsTooDeep" -> ""
