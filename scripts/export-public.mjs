@@ -565,6 +565,33 @@ function doExport(root, outDir) {
   console.log("  EXPORT-MANIFEST.json written (files[].{path,sha256,bytes}, excluded_tests[], excluded_data[]).");
 }
 
+// ---- CAPTURE CHECKS (SYNC-CHECK-MODE-1) ------------------------------------------------------
+// The five site capture tools whose --check a send runs first: release-public.mjs in its preflight, and the step of
+// docs/RUNBOOK-vitrine.md before --out. This export stays without network and without child process: it only JUDGES
+// the results that the caller obtained, one { tool, exit, stderr } per tool.
+export const CAPTURE_CHECK_TOOLS = Object.freeze([
+  "sync-harness-served.mjs", "sync-ukemi-served.mjs", "sync-ukemi-course.mjs", "sync-narabi-capture.mjs", "sync-narabi-served.mjs",
+]);
+
+/** The problems of a set of capture check results (pure): a malformed result, a tool outside the closed list or given twice, a
+ *  tool of the list without a result, and every exit other than 0 (null: the child did not run to an exit), named with the
+ *  last line of its stderr. Empty: every capture says what its source serves now. */
+export function captureCheckProblems(results) {
+  if (!Array.isArray(results)) return ["the capture check results are not a list"];
+  const problems = [], seen = new Set();
+  for (const r of results) {
+    const ok = r !== null && typeof r === "object" && typeof r.tool === "string" && (r.exit === null || Number.isInteger(r.exit)) && typeof r.stderr === "string";
+    if (!ok) { problems.push(`a malformed capture check result: ${JSON.stringify(r)}`); continue; }
+    if (!CAPTURE_CHECK_TOOLS.includes(r.tool)) { problems.push(`${r.tool} is not a capture tool`); continue; }
+    if (seen.has(r.tool)) { problems.push(`${r.tool} has more than one result`); continue; }
+    seen.add(r.tool);
+    const last = r.stderr.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).at(-1);
+    if (r.exit !== 0) problems.push(`scripts/${r.tool} --check ${r.exit === null ? "did not run to an exit" : `exited ${String(r.exit)}`}${last === undefined ? "" : `: ${last.slice(0, 400)}`}`);
+  }
+  for (const t of CAPTURE_CHECK_TOOLS) if (!seen.has(t)) problems.push(`scripts/${t} --check has no result`);
+  return problems;
+}
+
 // ---- CHECK mode ---------------------------------------------------------------------------
 function doCheck(root, selectedScopes) {
   const { kept, structuralViolations, frenchMd, missingRequired, maskers, pathMatchers } = collectFiles(root);

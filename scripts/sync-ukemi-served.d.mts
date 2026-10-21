@@ -58,3 +58,20 @@ export const IO: { write: (abs: string, text: string) => void; remove: (abs: str
 export function applyWrites(root: string, writes: [string, string][], remove: string | null): void;
 /** The manifest of a promotion, resumable after an interruption between the manifest write and the pending file's removal. */
 export function promotedManifest(root: string, manifestText: string, servedRel: string, sha: string, pendingRel: string): string;
+/** SYNC-CHECK-MODE-1: a fetch-like reader, the seam of the sync's two reads (fetch by default). */
+export type Get = (url: string, init?: RequestInit) => Promise<Response>;
+/** The served snapshot the sync writes, from the two bodies read, the read instant and the deploy check record `ca` (its JSON
+ *  text); throws on any check. */
+export function ukemiServedOf(input: { openapi: Buffer; gate: Buffer; readAt: string; ca: string }): Record<string, unknown>;
+/** The text the sync writes for a served snapshot (two-space JSON, LF). */
+export function servedText(out: Record<string, unknown>): string;
+/** The served snapshot under `root` as the default sync builds it (read_at included), the two reads through `get`; exits 1 on
+ *  any check (fail-closed). */
+export function buildUkemiServed(opts: { root: string; get?: Get; ca: string }): Promise<Record<string, unknown>>;
+/** --check of a served snapshot: the top-level keys that differ (read_at and pending_since aside; "layout" for bytes alone) and
+ *  the committed pending_since day or null. */
+export function snapshotDrift(committedText: string, built: Record<string, unknown>, textOf: (snapshot: Record<string, unknown>) => string): { drift: string[]; pendingSince: string | null };
+/** Does the site manifest under `root` hold, for `rel`, the CRLF->LF sha256 of the committed file? Reads only. */
+export function manifestEntryHolds(root: string, rel: string): boolean;
+/** --check: exits 1 on a difference, returns on a match. Writes nothing. */
+export function checkUkemiServed(opts: { root: string; get?: Get; ca: string }): Promise<void>;

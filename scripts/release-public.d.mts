@@ -28,3 +28,15 @@ export function sendGuard(blockers: readonly string[]): BranchGuardResult;
 
 /** The local gates [name, command], in order, export:check last (ADR-PUBLIC-CADENCE-1 D1.4); frozen, pinned by the tests. */
 export const LOCAL_GATES: ReadonlyArray<readonly [string, string]>;
+
+/** SYNC-CHECK-MODE-1: the site capture tools whose --check the preflight runs (export-public.mjs's closed list). */
+export const CAPTURE_CHECKS: readonly string[];
+/** One capture check: the tool, its exit (null: no exit reached), its stderr; the default runner adds the child's arguments. */
+export interface CaptureCheckRun { tool: string; exit: number | null; stderr: string; args?: string[] }
+export type RunCheck = (opts: { root: string; tool: string }) => CaptureCheckRun;
+/** `node scripts/<tool> --check` as a child under `root`, output captured. */
+export function defaultRunCheck(opts: { root: string; tool: string }): CaptureCheckRun & { args: string[] };
+/** The problems of the five capture checks run through `runCheck`; never aborts. */
+export function capturePreflight(opts: { root: string; runCheck?: RunCheck }): string[];
+/** RELEASE ABORTED (exit 1) on any problem of capturePreflight; returns otherwise. */
+export function captureGate(opts: { root: string; runCheck?: RunCheck }): void;

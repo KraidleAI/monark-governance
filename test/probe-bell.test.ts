@@ -401,7 +401,7 @@ test("bell_probe_exits_1_when_unhealthy_or_mail_fails", async () => {
   try {
     const cut = await run({ state: s8, tree: tree7, now: iso(Date.parse(NOON) + 60_000) }), left = readdirSync(s8).filter((e) => e.startsWith(".tmp-"));
     assert.deepEqual([cut.exitCode, readFileSync(out8).equals(prior8), left.length, synced.length > 0], [1, true, 1, true], "cut before the rename: exit 1, the prior report whole");
-    assert.equal(JSON.parse(readFileSync(join(s8, left[0] ?? ""), "utf8")).checked_at, cut.report.checked_at, "the temporary file holds the new report");
+    assert.equal((JSON.parse(readFileSync(join(s8, left[0] ?? ""), "utf8")) as { checked_at?: unknown }).checked_at, cut.report.checked_at, "the temporary file holds the new report");
   } finally { Object.assign(P.PROBE_FS, { rename, remove, fsync }); }
   // The immutables first, then the kept copy that names them: a run cut at the rename of bell/timeline.jsonl leaves the new line's immutables
   // in place and the prior kept copy whole; the next run keeps the line.

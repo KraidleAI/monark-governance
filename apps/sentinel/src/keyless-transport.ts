@@ -6,8 +6,8 @@
 // here). The public URLs carry NO secret, so this module reads NO endpoint key and never prints a URL past its
 // redacted ORIGIN (C-1 calque of rpc.ts:redactEndpoint). It is the ONLY allowlisted fetch site of the sentinel
 // (the fetch_only_inside_client grep allowlists it, retraction trigger = "the keyless pool moves under the guard",
-// route beta). It is a TOP-LEVEL module so sentinelSha (run.ts:readdirSync of the top-level *.ts) witnesses it (M-11);
-// a sub-folder module would be missed by that non-recursive provenance sha.
+// route beta). run.ts loads it by an import, so the build witness, which hashes the execution closure of run.ts
+// (sentinelSha, witness.ts), covers it wherever it sits under src/.
 import { redactEndpoint } from "./rpc.ts";
 import type { RpcCall } from "./rpc.ts";
 

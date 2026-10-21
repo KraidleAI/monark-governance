@@ -36,7 +36,7 @@ function admit<T>(f: () => T, what: string): T {
 
 // reddened by: a step heading that names another instant than the script's, a step out of the order of INSTANTS, or one missing, or
 // a merge of the harness pull request not said to follow the publication (T_d before T_e)
-// killer: docs/RUNBOOK-harness.md:372 CONST "(T_e)" -> "(T_f)"
+// killer: docs/RUNBOOK-harness.md:373 CONST "(T_e)" -> "(T_f)"
 test("runbook_retire_steps_carry_the_seven_instants_in_order", () => {
   const steps = [...section().matchAll(/^### (\d+)\. .*\((T_[a-z])\)$/gm)].map((m) => [Number(m[1]), m[2] ?? ""]);
   assert.deepEqual(steps, INSTANTS.map(([name], i) => [i + 1, name]), "steps 1 to 7 carry T_a to T_g, in the order of scripts/retire-latency.mjs");
@@ -47,7 +47,7 @@ test("runbook_retire_steps_carry_the_seven_instants_in_order", () => {
 // reddened by: the input shown off the closed format retire-latency-v1 (its format, a key, the cycle, an instant name or their
 // order), or a second input shown, or a refusal of the report or its exit codes cited otherwise than the script names and returns them,
 // or an Exit 1 list that is not the set of refusal codes of the script (a code missing, renamed or added; G2 of #223, m-2)
-// killer: docs/RUNBOOK-harness.md:429 CONST "\"format\": \"retire-latency-v1\"" -> "\"format\": \"retire-latency-v2\""
+// killer: docs/RUNBOOK-harness.md:430 CONST "\"format\": \"retire-latency-v1\"" -> "\"format\": \"retire-latency-v2\""
 test("runbook_retire_shows_the_closed_latency_input", () => {
   const blocks = [...section().matchAll(/```json\n([\s\S]*?)```/g)].map((m) => admit(() => JSON.parse(m[1] ?? "") as { instants: Record<string, string> }, "the input shown parses"));
   assert.equal(blocks.length, 1, "one input is shown");
@@ -66,7 +66,7 @@ test("runbook_retire_shows_the_closed_latency_input", () => {
 // reddened by: the input not said to be UTF-8 without a byte order mark while the report parses the file as read in UTF-8 (a BOM
 // fails JSON.parse, format_invalid), or a PowerShell form of the write that does not turn the BOM off or that resolves a relative
 // name against the process directory, which Set-Location does not change, instead of the current location
-// killer: docs/RUNBOOK-harness.md:438 CONST "(New-Object System.Text.UTF8Encoding $false)" -> "(New-Object System.Text.UTF8Encoding $true)"
+// killer: docs/RUNBOOK-harness.md:439 CONST "(New-Object System.Text.UTF8Encoding $false)" -> "(New-Object System.Text.UTF8Encoding $true)"
 test("runbook_retire_input_is_written_in_utf8_without_a_bom", () => {
   assert.ok(read("scripts", "retire-latency.mjs").includes('JSON.parse(readFileSync(argv[0], "utf8"))'), "the report parses the file as read in UTF-8");
   assert.throws(() => JSON.parse("\uFEFF{}"), SyntaxError, "a byte order mark read in UTF-8 fails JSON.parse");
@@ -79,7 +79,7 @@ test("runbook_retire_input_is_written_in_utf8_without_a_bom", () => {
 // reddened by: the list directory off RETIRE_DIR, the redo rule off the refusal the writer prints, a command off the usage of its
 // script, a script run that does not exist, or a publication command that spec-publish does not read as a dated table version
 // with its previous root
-// killer: docs/RUNBOOK-harness.md:300 CONST "apps/harness/data/kata/retire/" -> "apps/harness/data/retire/"
+// killer: docs/RUNBOOK-harness.md:301 CONST "apps/harness/data/kata/retire/" -> "apps/harness/data/retire/"
 test("runbook_retire_quotes_the_writer_the_report_and_the_publication_gate", async () => {
   const text = section().replace(/\s+/g, " "), writer = read("scripts", "spec-policy-tables.mjs"), latency = read("scripts", "retire-latency.mjs");
   assert.ok(text.includes(`\`${RETIRE_DIR}/retire-<YYYY-MM-DD>.json\``), "the retire list lies where the writer reads it");
@@ -103,7 +103,7 @@ test("runbook_retire_quotes_the_writer_the_report_and_the_publication_gate", asy
 // written with no scope at all (the counter-example `git rm -r -f` alone excepted, by name), a git clean without -d, or a second form
 // of git rm (G2 of #223, m-3); a git clean -f not right after its git clean -n dry run on the same path, or a git restore that does
 // not unstage (--staged), which leaves a staged directory staged
-// killer: docs/RUNBOOK-harness.md:472 CONST "`git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`" -> "`git clean -f -d`"
+// killer: docs/RUNBOOK-harness.md:473 CONST "`git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`" -> "`git clean -f -d`"
 test("runbook_retire_redo_removes_the_dated_directory_only", () => {
   const dir = `spec/${datedDir("2027-01-04").replace("2027-01-04", "<YYYY-MM-DD>")}`, text = section().replace(/\s+/g, " ");
   const scoped = [...text.matchAll(/`(git [a-z]+ [^`]*?) -- ([^`]*)`/g)].map((m): [string, string] => [m[1] ?? "", m[2] ?? ""]);
@@ -118,7 +118,7 @@ test("runbook_retire_redo_removes_the_dated_directory_only", () => {
 
 // reddened by: a refusal of the publication gate cited under a name that scripts/spec-publish.mjs does not raise, or the usage exit of
 // the writer cited otherwise than it returns it
-// killer: docs/RUNBOOK-harness.md:366 CONST "`short_digest`" -> "`short_digests`"
+// killer: docs/RUNBOOK-harness.md:367 CONST "`short_digest`" -> "`short_digests`"
 test("runbook_retire_cites_the_refusals_of_the_gate_and_the_writer", async () => {
   const text = section().replace(/\s+/g, " "), gate = read("scripts", "spec-publish.mjs");
   const from = text.indexOf("Every refusal is named by its code"), cited = text.slice(from, text.indexOf("### 5.", from));
@@ -135,7 +135,7 @@ test("runbook_retire_cites_the_refusals_of_the_gate_and_the_writer", async () =>
 
 // reddened by: a clock refusal cited on the wrong side of the server clock, as kata-path.ts (stale) and tools/gate.ts (future) test it,
 // or one of the two cited without the other
-// killer: docs/RUNBOOK-harness.md:400 CONST "in the past is `produced_at_stale`" -> "in the past is `produced_at_future`"
+// killer: docs/RUNBOOK-harness.md:401 CONST "in the past is `produced_at_stale`" -> "in the past is `produced_at_future`"
 test("runbook_retire_clock_refusals_face_the_way_the_code_tests_them", () => {
   const sideOf = (src: string, code: string): string => {
     const i = src.indexOf(`"${code}"`), cond = i < 0 ? "" : src.slice(src.lastIndexOf("if (", i), i);
@@ -150,7 +150,7 @@ test("runbook_retire_clock_refusals_face_the_way_the_code_tests_them", () => {
 
 // reddened by: a reason said to be tested before (or after) another while kata-path.ts tests it after (or before), a reason the scale
 // path does not return, or `out_of_support` named with no order sentence that the test reads
-// killer: docs/RUNBOOK-harness.md:404 CONST "`out_of_support` (`kata-path.ts` l.93)" -> "`calib_retired` (`kata-path.ts` l.93)"
+// killer: docs/RUNBOOK-harness.md:405 CONST "`out_of_support` (`kata-path.ts` l.93)" -> "`calib_retired` (`kata-path.ts` l.93)"
 test("runbook_retire_support_precedes_retired_as_kata_path_tests_it", () => {
   const src = read("apps", "harness", "src", "kata-path.ts"), scale = src.slice(src.indexOf("const s = row.calib_support"));
   const at: Record<string, number> = { out_of_support: scale.indexOf('reason: "out_of_support"'), calib_retired: scale.indexOf("reason: calib }") };
@@ -163,7 +163,7 @@ test("runbook_retire_support_precedes_retired_as_kata_path_tests_it", () => {
 
 // reddened by: a git command of the section that converts line ends, the CRLF of a clone stated with no clone command that turns
 // core.autocrlf off (or with one that leaves it on), or the governance tree said to keep LF while .gitattributes no longer forces it
-// killer: docs/RUNBOOK-harness.md:358 CONST "`git -c core.autocrlf=false clone`" -> "`git -c core.autocrlf=true clone`"
+// killer: docs/RUNBOOK-harness.md:359 CONST "`git -c core.autocrlf=false clone`" -> "`git -c core.autocrlf=true clone`"
 test("runbook_retire_line_ends_follow_the_attributes", () => {
   const text = section().replace(/\s+/g, " "), attrs = read(".gitattributes").split(/\r?\n/);
   const git = [...text.matchAll(/`(git [^`]*core\.autocrlf[^`]*)`/g)].map((m) => m[1] ?? "");
@@ -174,7 +174,7 @@ test("runbook_retire_line_ends_follow_the_attributes", () => {
 });
 
 // reddened by: a rebase of the lot branch said anywhere but under "never" (a rebase moves the committer dates T_b and T_c are read on)
-// killer: docs/RUNBOOK-harness.md:380 CONST "never rebase it" -> "rebase it"
+// killer: docs/RUNBOOK-harness.md:381 CONST "never rebase it" -> "rebase it"
 test("runbook_retire_lot_branch_is_never_rebased", () => {
   const text = section().replace(/\s+/g, " ");
   assert.deepEqual([...text.matchAll(/\brebase/gi)].map((m) => text.slice(Math.max(0, m.index - 12), m.index + 6)).filter((s) => !s.endsWith("never rebase")), [], "a rebase is cited only as never done");

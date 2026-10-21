@@ -24,7 +24,12 @@ const ROOT = join(import.meta.dirname, "..");
 const git = (cwd: string, ...args: string[]): string => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 interface RunOpts { mirror?: string | null; email?: string; vis?: string; gates?: string[][]; dirty?: boolean }
 
-// killer: scripts/release-public.mjs:211 SDL "    abort(\"export failed\");" -> ""
+// killer: scripts/release-public.mjs:147 SDL "if (code !== 0) console.error(\"\\nRELEASE ABORTED: RELEASE-PREFLIGHT-SEND-GUARD-1 could not read the exported tree" -> ""
+// killer: scripts/release-public.mjs:207 SDL "if (!sg.ok) abort(" -> ""
+// killer: scripts/release-public.mjs:212 SDL "captureGate({ root: SRC, runCheck" -> ""
+// killer: scripts/release-public.mjs:215 SDL "if (!vis.ok || vis.out !== \"private\") abort(" -> ""
+// killer: scripts/release-public.mjs:215 ROR "vis.out !== \"private\"" -> "vis.out === \"public\""
+// killer: scripts/release-public.mjs:252 SDL "    abort(\"export failed\");" -> ""
 test("release_public_flow — message gate, refusals before any gate, export:check before export, one local commit, no push, gh reads only", async () => {
   const tmp = mkdtempSync(join(tmpdir(), "monark-release-flow-"));
   try {
@@ -79,7 +84,9 @@ test("release_public_flow — message gate, refusals before any gate, export:che
       const pathKey = Object.keys(env).find((k) => k.toUpperCase() === "PATH") ?? "PATH"; // win32 spells it Path
       env[pathKey] = `${bin}${delimiter}${env[pathKey] ?? ""}`;
       if (o.mirror !== null) env.MONARK_PUBLIC_MIRROR = o.mirror ?? mirrorR;
-      Object.assign(env, { FAKE_GH_LOG: ghLog, FAKE_GH_VIS: o.vis ?? "private", FLOW_JOURNAL: journal, FLOW_INJECT: JSON.stringify({ gates: o.gates ?? gates(all.map(() => 0)), remote: bare }) });
+      // The four network capture checks answer 0 (no GET in a test); sync-ukemi-course.mjs --check runs for real on the copy.
+      const checks = ["sync-harness-served.mjs", "sync-ukemi-served.mjs", "sync-narabi-capture.mjs", "sync-narabi-served.mjs"].map((tool) => ({ tool, exit: 0, stderr: "" }));
+      Object.assign(env, { FAKE_GH_LOG: ghLog, FAKE_GH_VIS: o.vis ?? "private", FLOW_JOURNAL: journal, FLOW_INJECT: JSON.stringify({ gates: o.gates ?? gates(all.map(() => 0)), remote: bare, checks }) });
       if (o.dirty === true) writeFileSync(join(src, "dirty.txt"), "x\n"); // an uncommitted file in the source tree
       const r = spawnSync(process.execPath, [driver, ...args], { cwd: tmp, env, encoding: "utf8", timeout: 300_000 });
       rmSync(join(src, "dirty.txt"), { force: true });
@@ -137,8 +144,21 @@ test("release_public_flow — message gate, refusals before any gate, export:che
     refuse([
       ["unexpected remote (C-G2-1)", ["--message", ok], { mirror: mirrorX }, "points at an unexpected remote"],
       ["visibility public (CA-1.7, M1-q)", ["--message", ok], { vis: "public" }, "visibility reads 'public'"],
+      ["visibility internal (CA-1.7)", ["--message", ok], { vis: "internal" }, "visibility reads 'internal'"],
       ["visibility unreadable (CA-1.7, M1-q)", ["--message", ok], { vis: "fail" }, "visibility reads ''"],
     ]);
+
+    // SYNC-CHECK-MODE-1: past the pending refusal, a site capture that no longer says what its source says stops the release in
+    // its preflight (captureGate), before any gate and any gh read: the course manifest entry, committed wrong, fails the real
+    // `sync-ukemi-course.mjs --check` that the default runner launches on the copy. Its own line is printed in the refusal.
+    const { setManifestEntry } = await import("../scripts/sync-ukemi-course.mjs");
+    const manifestRel = join(src, "apps", "site", "data", "manifest.sha256.json");
+    writeFileSync(manifestRel, setManifestEntry(readFileSync(manifestRel, "utf8"), "apps/site/data/ukemi-course.json", "0".repeat(64)));
+    git(src, "-c", "user.email=flow@users.noreply.github.com", "commit", "-q", "-am", "stale-course-capture");
+    refuse([["stale course capture", ["--message", ok], {}, "RELEASE ABORTED: a site capture does not say what its source serves now: scripts/sync-ukemi-course.mjs --check exited 1"]]);
+    const staleCourse = run(["--message", ok]);
+    assert.ok(staleCourse.out.includes("the manifest entry of apps/site/data/ukemi-course.json is not the sha256 of the committed file"), `the refusal carries the line of the --check:\n${staleCourse.out.slice(-1500)}`);
+    git(src, "reset", "-q", "--hard", "HEAD~1");
 
     // G2 N-1: the export still has the last word. A committed file the preflight lets through but the export refuses (a
     // reader-local Windows path, D7 septies (iii)): every gate runs, then the release stops on its export, mirror untouched.
