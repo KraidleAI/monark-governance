@@ -34,6 +34,8 @@ const PROVIDER_FORMS = CASH_CROSS_CHECK_FORMS;
 // Binary whitelist entries carry no prose (out/logo.png, out/banner.jpg); read only text.
 const BINARY = /\.(png|jpg|jpeg|gif|ico|webp|woff2?|ttf|otf)$/i;
 
+// killer: test/helpers/provider-forms.ts:13 CONST "/\\bmassive\\b/i" -> "/\\bmassiv\\b/i"
+// killer: test/helpers/provider-forms.ts:13 CONST "/\\bmassive\\b/i" -> "/massive/i"
 test("no_cash_cross_provider_name_in_export — no cash cross-check provider form in any exported file (decision 69, L-6)", () => {
   const kept = collectFiles(ROOT).kept;
   assert.ok(kept.length >= 80, `implausibly few exported files (${kept.length}) — false green?`);
@@ -50,13 +52,18 @@ test("no_cash_cross_provider_name_in_export — no cash cross-check provider for
   }
   assert.deepEqual(hits, [], `cash cross-check provider form on an EXPORTED surface (decision 69):\n${hits.join("\n")}`);
 
-  // Positive controls — each form, alone, reds (the scan is load-bearing per form).
-  assert.ok(/\bmassive\b/i.test("the close is cross-checked against Massive"), "brand form must match (mutant: the name in an exported README)");
-  assert.ok(/polygon\.io/i.test("provider: 'polygon.io'"), "domain form must match");
-  assert.ok(/POLYGON_API_KEY/.test("no POLYGON_API_KEY set, cross-check skipped"), "env-key form must match");
+  // Positive controls — each form OF THE SHARED MODULE, alone, matches its one closed sample (the scan is load-bearing per form,
+  // and a form weakened in the module reds here); the list of forms is closed on the samples.
+  const samples: Record<string, string> = {
+    "cash cross-check provider brand (whole word; conservative over-match)": "the close is cross-checked against Massive",
+    "cash cross-check provider API domain": "provider: 'polygon.io'",
+    "cash cross-check provider env-key name": "no POLYGON_API_KEY set, cross-check skipped",
+  };
+  assert.deepEqual(PROVIDER_FORMS.map((p) => p.why).sort(), Object.keys(samples).sort(), "the closed list of cash cross-check forms");
+  for (const { re, why } of PROVIDER_FORMS) assert.ok(re.test(samples[why] ?? ""), `form "${why}" must match its sample (mutant: the name in an exported README)`);
 
-  // Negative controls (imposed) — a bare "Polygon" (blockchain) and unrelated words stay GREEN (never a bare Polygon).
-  for (const green of ["the token is also deployed on Polygon", "a large redemption window", "a polygonal mesh"]) {
+  // Negative controls (imposed) — a bare "Polygon" (blockchain), a "massive" that is not a whole word, and unrelated words stay GREEN.
+  for (const green of ["the token is also deployed on Polygon", "a large redemption window", "a polygonal mesh", "a massively parallel replay"]) {
     assert.ok(!PROVIDER_FORMS.some((p) => p.re.test(green)), `must stay green (no bare Polygon / adjective false-positive): ${green}`);
   }
 });

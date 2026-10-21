@@ -3,12 +3,15 @@
  * deviation (8) of the Terms header, and the counsel-pending mention.
  *   (1) bell_site_recompute_phrases_name_a_definition_not_a_source: the legal table is read through loadBellLegal(ROOT)
  *       (fail-closed on the manifest sha256); on the three pages, no form of the shared provider lists
- *       (test/helpers/provider-forms.ts), no "collector&rsquo;s source", the definition of the closing price on the method
- *       page and on /bell; every sentence of the closed inventory that speaks of recomputing a gap, a ratio or the close
- *       carries "licen" or the table's "our data sources", never the table's "public inputs".
+ *       (test/helpers/provider-forms.ts), no "collector&rsquo;s source", no "official close" (the served definition is the
+ *       consolidated close), no "across all US venues" (the source says "on Tapes A, B or C"), the definition of the closing
+ *       price on the method page and on /bell; every sentence of the closed inventory that speaks of recomputing a gap, a
+ *       ratio or the close carries "licen" or the table's "our data sources", never the table's "public inputs".
  *   (2) bell_terms_deviation_8_is_declared_in_the_header: the header comment of terms/page.tsx carries "(8)" and its reason.
  *   (3) bell_terms_header_carries_no_counsel_pending_mention: "to be validated by counsel" is absent from the Terms header and
  *       from the $comment of the legal data file (read after loadBellLegal(ROOT), which checks its sha256).
+ *   (4) bell_conditions_block_declares_its_deviation: the comment of the conditions block of /bell declares its one deviation
+ *       from the counsel's text with its reason, and carries no counsel-pending mention.
  * Each test carries a positive control: a faulty phrase injected into an in-memory copy reds its check (FM-3.3).
  */
 import { test } from "node:test";
@@ -25,8 +28,11 @@ type Pages = Record<PageKey, string>;
 const readPages = (): Pages => ({ method: read(PAGES.method), page: read(PAGES.page), terms: read(PAGES.terms) });
 const read = (rel: string): string => readFileSync(join(ROOT, rel), "utf8");
 const flat = (src: string): string => src.replace(/\{" "\}/g, " ").replace(/\s+/g, " ");
-const DEFINITION = "the last last-sale-eligible trade of the regular session across all US venues";
+const DEFINITION = "the last last-sale-eligible trade of the regular session on Tapes A, B and C";
 const COLLECTOR = /collector(?:&rsquo;|'|’)s source/i;
+// Two forms the served definition rules out, matched on the flattened page (a line break may split them; flat() makes it a space).
+const OFFICIAL_CLOSE = /\bofficial clos/i;
+const ALL_VENUES = /across all US venues/i;
 const COUNSEL_PENDING = /to be validated by counsel/i;
 
 /** The legal data, only once its sha256 equals the manifest entry; a refusal is an assertion failure, no message relayed. */
@@ -44,10 +50,17 @@ function insteadPhrases(data: BellLegalData): string[] {
 }
 
 // The closed inventory of the "recompute" surfaces (G0 §1.2, plus page.tsx l.282, constat C-1). "licensed": speaks of
-// recomputing a gap, a ratio or the close. "stays": true for the on-chain facts, and for a gap under the reader's own licence.
+// recomputing a gap, a ratio or the close. "stays": true for the on-chain facts, and for a gap under the reader's own licence;
+// or ruled to stay on 2026-10-21, as written or as corrected that day (the method description, the reference-close day, the
+// signature card, the title of the first property of /bell).
 const INVENTORY: { page: PageKey; start: string; end?: string; rule: "licensed" | "stays" }[] = [
+  { page: "method", start: "Definitions pinned to the collector source", end: "collector source.", rule: "stays" },
   { page: "method", start: "Everything a third party needs to recompute a Bell record", end: "dated version of this page.", rule: "licensed" },
+  { page: "method", start: "For the off-hours regimes and for after-hours, the anchor day&rsquo;s regular session has already ended", end: "so that day&rsquo;s close is the reference.", rule: "stays" },
+  { page: "method", start: "It says nothing about whether the line&rsquo;s content is true", rule: "stays" },
+  { page: "method", start: "A replay confirms the arithmetic", end: "a reference close read under your own licence.", rule: "licensed" },
   { page: "method", start: "With the same inputs", rule: "licensed" },
+  { page: "page", start: "Recomputable from the ledger", end: "</h3>", rule: "stays" },
   { page: "page", start: "A public, signed record of how tokenized", end: "anyone can recompute it.", rule: "stays" },
   { page: "page", start: "Each published fact will identify its on-chain transactions", end: "own licence.", rule: "licensed" },
   { page: "page", start: "This page and the facts it links to", rule: "stays" },
@@ -78,6 +91,10 @@ function recomputeProblems(pages: Pages, instead: string[]): string[] {
       if (COLLECTOR.test(line)) out.push(`${key}:${i + 1} names the collector's source`);
     });
   }
+  for (const key of Object.keys(PAGES) as PageKey[]) {
+    if (OFFICIAL_CLOSE.test(flat(pages[key]))) out.push(`${key}: names an official close, not the consolidated close`);
+    if (ALL_VENUES.test(flat(pages[key]))) out.push(`${key}: says across all US venues, which no read source says`);
+  }
   for (const key of ["method", "page"] as const) if (!flat(pages[key]).includes(DEFINITION)) out.push(`${key}: the definition of the closing price is absent`);
   for (const { page, start, end, rule } of INVENTORY) {
     const s = sentence(flat(pages[page]), start, end);
@@ -98,6 +115,18 @@ function termsHeader(src: string): string {
 const deviation8Problems = (header: string): string[] =>
   /\(8\) factual exactness:[^()]*recomput[^()]*licen[^()]*already requires/.test(flat(header)) ? [] : ["the Terms header does not declare deviation (8) with its reason"];
 
+/** The comment of the conditions block of page.tsx: from "Short conditions" to the end of the comment. */
+function conditionsComment(src: string): string {
+  const i = src.indexOf("{/* Short conditions"), j = i < 0 ? -1 : src.indexOf("*/}", i);
+  return j < 0 ? "" : src.slice(i, j);
+}
+
+const conditionsProblems = (comment: string): string[] => [
+  /VERBATIM except for one deviation, with its reason: factual exactness,[^()]*reference close read under the reader's own licence/.test(flat(comment))
+    ? "" : "the conditions block comment does not declare its one deviation with its reason",
+  COUNSEL_PENDING.test(flat(comment)) ? "the conditions block comment carries a counsel-pending mention" : "",
+].filter((p) => p !== "");
+
 const counselProblems = (header: string, comment: string): string[] =>
   [COUNSEL_PENDING.test(header) ? "the Terms header" : "", COUNSEL_PENDING.test(comment) ? "the legal data $comment" : ""].filter((w) => w !== "").map((w) => `${w} carries a counsel-pending mention`);
 
@@ -113,7 +142,9 @@ const CLOSE_SAMPLES: Record<string, string> = {
   "close feed product family name": "Nasdaq Last Sale",
 };
 
-// killer: apps/site/app/bell/page.tsx:693 CONST "from the public ledger and from a reference close read under your own licence" -> "from the public inputs"
+// killer: apps/site/app/bell/page.tsx:695 CONST "from the public ledger and from a reference close read under your own licence" -> "from the public inputs"
+// killer: apps/site/app/bell/method/page.tsx:213 CONST "so that day&rsquo;s close is the reference" -> "so the prior trading day&rsquo;s close is the reference"
+// killer: apps/site/app/bell/method/page.tsx:547 SDL "a fact is checked by recomputing it" -> ""
 test("bell_site_recompute_phrases_name_a_definition_not_a_source", () => {
   const instead = insteadPhrases(legal());
   assert.deepEqual(instead, ["public inputs", "our data sources"], "row ten of the Terms table names the two phrases to use instead");
@@ -132,6 +163,10 @@ test("bell_site_recompute_phrases_name_a_definition_not_a_source", () => {
   assert.ok(recomputeProblems(collector, instead).some((p) => p.includes("collector")), "control: the collector's source reds");
   const named = { ...pages, terms: `${pages.terms}\nthe close is read from Databento` };
   assert.ok(recomputeProblems(named, instead).some((p) => p.includes("close source brand")), "control: a close-source name reds");
+  const official = { ...pages, page: `${pages.page}\nthe anchor day&rsquo;s official\n  close has already settled` };
+  assert.ok(recomputeProblems(official, instead).some((p) => p.includes("official close")), "control: an official close, across a line break, reds");
+  const venues = { ...pages, terms: `${pages.terms}\nthe last eligible trade across all US venues` };
+  assert.ok(recomputeProblems(venues, instead).some((p) => p.includes("across all US venues")), "control: across all US venues reds");
 });
 
 // killer: apps/site/app/bell/terms/page.tsx:27 CONST "(8) factual exactness: in sections one and two, the sentences on what can be" -> ""
@@ -154,4 +189,15 @@ test("bell_terms_header_carries_no_counsel_pending_mention", () => {
   // Positive controls: the mention injected into the header, or into the $comment, reds.
   assert.equal(counselProblems(`${header} (to be validated by counsel)`, comment).length, 1, "control: the mention in the header reds");
   assert.equal(counselProblems(header, `${comment} (to be validated by counsel)`).length, 1, "control: the mention in the $comment reds");
+});
+
+// killer: apps/site/app/bell/page.tsx:670 CONST "VERBATIM except for one deviation, with its reason: factual exactness," -> "verbatim;"
+// killer: apps/site/app/bell/page.tsx:669 CONST "validated by counsel (counsel's GO" -> "to be validated by counsel (counsel's GO pending"
+test("bell_conditions_block_declares_its_deviation", () => {
+  const comment = conditionsComment(read(PAGES.page));
+  assert.ok(comment.length > 0, "the comment of the conditions block is found");
+  assert.deepEqual(conditionsProblems(comment), []);
+  // Positive controls: the comment without its declared deviation, or with the pending mention, reds.
+  assert.equal(conditionsProblems(comment.replace(/VERBATIM except/g, "verbatim")).length, 1, "control: no declared deviation reds");
+  assert.equal(conditionsProblems(`${comment} (to be validated by counsel)`).length, 1, "control: the pending mention reds");
 });
