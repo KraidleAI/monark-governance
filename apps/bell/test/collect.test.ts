@@ -677,6 +677,7 @@ test("bell_halt_delta_brackets_real_fills_integration", () => {
 
 // ---- L-1 (C-2): runMain composes the WHOLE pipeline offline (read fills -> Databento close cross-check ->
 // ---- collect -> write state/provenance), asserted on the PRODUCED artifacts (never a regex on the source) ----
+// killer: apps/bell/src/close.ts:189 ROR "dbnScaled === scaledFromDecimal" -> "dbnScaled !== scaledFromDecimal"
 test("bell_close_databento_replays_synthetic_fixture", async () => {
   const btMs = Date.UTC(2026, 8, 19, 13, 31, 4), btSec = Math.floor(btMs / 1000); // Sat 2026-09-19 => weekend, ref close 2026-09-18
   const pool = POOLS.find((p) => p.baseSymbol === "TSLAx" && p.chain === "solana")!;

@@ -185,7 +185,7 @@ test("bell_cash_labels_are_generic", async () => {
 // no bar => the cross did NOT take place: `unavailable` + the fault {cash-crosscheck, bar_date} (C09 refuses), the Databento
 // close still carried (interim Q3(ii) (a)), never `mismatch` (no value disagreement), never the first element taken blind.
 // SYNTHETIC throughout (close 123.45 on 2026-09-07, see above; 123.46 synthetic too); `t` = midnight ET of the bar's day.
-// killer: apps/bell/src/close.ts:184 CONST "?.find((b) => typeof b.t === \"number\" && Number.isFinite(b.t) && barDateET(b.t) === date)" -> "?.[0]"
+// killer: apps/bell/src/close.ts:184 CONST "?.find((b) => typeof b.t === \"number\" && Math.abs(b.t) <= 8.64e15 && barDateET(b.t) === date)" -> "?.[0]"
 test("bell_cash_cross_refuses_bar_of_another_date", async () => {
   const day = "2026-09-07", rec = { hd: { ts_event: nsOf(day) }, close: "123450000000" };
   const midnightET = (d: number): number => etWallClockToUtcMs(2026, 9, d, 0, 0, 0);
@@ -205,6 +205,7 @@ test("bell_cash_cross_refuses_bar_of_another_date", async () => {
   // ET, not UTC: 2026-09-07 02:00Z is 2026-09-06 22:00 ET (its UTC date is the requested day, its ET date is not).
   notMade(await run([{ c: 123.45, t: Date.UTC(2026, 8, 7, 2, 0, 0) }]), "the bar is dated in ET, never by its UTC date");
   notMade(await run([{ c: 123.45 }]), "an undated bar proves no date");
+  for (const t of [8.64e15 + 1, -1e20, Number.NaN]) notMade(await run([{ c: 123.45, t }]), `a t outside the Date range (${String(t)}) proves no date, never a transport fault`);
   notMade(await run([]), "no bar: the cross did not take place");
   // control: the bar dated the requested day is the one kept, wherever it sits in the results.
   const ok = await run([{ c: 123.46, t: midnightET(4) }, { c: 123.45, t: midnightET(7) }]);

@@ -181,7 +181,7 @@ export async function readReferenceCloses(datesByUnderlying: Readonly<Record<str
         // bar or none => the cross did not take place: unavailable + the named fault bar_date (C09 refuses), never mismatch (no
         // value disagreement), never the first element taken blind. A transport fault keeps its own status (catch below).
         const res = await deps.polygonGet(`/v2/aggs/ticker/${underlying}/range/1/day/${date}/${date}?adjusted=false`, deps.polygonKey);
-        const bar = res.results?.find((b) => typeof b.t === "number" && Number.isFinite(b.t) && barDateET(b.t) === date);
+        const bar = res.results?.find((b) => typeof b.t === "number" && Math.abs(b.t) <= 8.64e15 && barDateET(b.t) === date);
         if (bar === undefined) deps.faults.push({ provider: CASH_CROSS_LABEL, status: "bar_date" });
         massiveC = bar?.c;
       } catch (e) { deps.faults.push({ provider: CASH_CROSS_LABEL, status: statusOf(e) }); }
