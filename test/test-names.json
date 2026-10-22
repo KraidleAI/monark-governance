@@ -160,6 +160,7 @@
   "bell_checks_refuse_adv_period_across_the_sip_switch_without_ruling"
  ],
  "apps/bell/test/close.test.ts": [
+  "bell_cash_cross_refuses_bar_of_another_date",
   "bell_cash_cross_scaled_integer_equality",
   "bell_cash_keyless_emits_no_request",
   "bell_cash_labels_are_generic",
@@ -205,6 +206,29 @@
   "bell_residual_map_is_single_source",
   "bell_timeline_is_hash_chained"
  ],
+ "apps/bell/test/corporate-actions.test.ts": [
+  "bell_ca_cancelled_issuer_event_never_lifts",
+  "bell_ca_d_candidates_span_weekend",
+  "bell_ca_disagreement_takes_union_and_records",
+  "bell_ca_dividend_ex_absent_at_m_never_takes_an_older_one",
+  "bell_ca_dividend_ex_beyond_half_percent_never_publishes_the_ex_day",
+  "bell_ca_dividend_ex_on_the_day_after_the_anchor_of_t",
+  "bell_ca_dividend_mark_bound_half_percent",
+  "bell_ca_dividend_marks_without_abstaining",
+  "bell_ca_honx_union_of_two_windows",
+  "bell_ca_issuer_versions_union_and_bits_fallback",
+  "bell_ca_klac_t_in_day",
+  "bell_ca_nflx_t_before_s",
+  "bell_ca_open_abstention_starts_from_the_candidates_of_t_c",
+  "bell_ca_silent_chain_new_market",
+  "bell_ca_t_after_close_of_d",
+  "bell_ca_t_compared_in_floored_seconds",
+  "bell_ca_unexplained_step_abstains",
+  "bell_ca_unitless_types_never_auto_lift",
+  "bell_ca_unread_issuer_abstains_without_lift",
+  "bell_ca_volume_from_t_to_end_of_next_month",
+  "bell_ca_window_predicate_is_unit_xor"
+ ],
  "apps/bell/test/discover.test.ts": [
   "bell_discover_cli_writes_measure_from_runMain — runMain --discover -> discovery-<MINT>.json (CA-11, C-5 confirm)",
   "bell_discover_confirm_vault_executable_and_system_owned — C-5 erratum: executable AND in map => dex; System-owned RETAINED",
@@ -237,6 +261,11 @@
   "bell_eth_course_fails_closed_without_eth_method_caps",
   "bell_eth_course_refuses_keyless_labels_in_operators",
   "bell_universe_429_streak_stops_fail_closed"
+ ],
+ "apps/bell/test/measure-cash-pairs.test.ts": [
+  "bell_measure_cash_pairs_cost_first",
+  "bell_measure_cash_pairs_prints_counts_only",
+  "bell_measure_cash_pairs_sign_median_and_course_paths"
  ],
  "apps/bell/test/plan.test.ts": [
   "bell_plan_emits_at_most_one_unit_per_tick",
@@ -1068,6 +1097,13 @@
   "usde_committed_scores_equal_the_scores_fixture (adapter 1e12, A1)",
   "usde_pre_registered_stats_reproduce (n=613, q̂ support 61, q99 support 6, non-degenerate)",
   "usde_series_fixture_is_sha_pinned (the recorder's exact input)"
+ ],
+ "apps/koyomi/test/calib-inventory.test.ts": [
+  "koyomi_calib_inventory_cost_first",
+  "koyomi_calib_inventory_prints_counts_only"
+ ],
+ "apps/koyomi/test/label-read.test.ts": [
+  "koyomi_label_reader_close_equals_bell_reader"
  ],
  "apps/sentinel/test/pool-rpc-1a.test.ts": [
   "pool_rpc_1a_ca1_public_endpoints_membership — llamarpc AND blastapi removed, pocket added, 7 hosts, ≥ 2 distinct providers (CA-1; M-1/M-2/M-8)",
@@ -3044,6 +3080,7 @@
   "oracle_modified_tree_is_replayed_on_its_content — same key, dirty tree: never served, the clone carries the untracked file; the record and owner.txt name the frozen dirty tree (M6, M7, X8, X9)",
   "oracle_r25_integration_reads_the_declared_proof - --r25-proof: the tree's module runs on the declared proof (here a written PR: the count of today), the record names the mode and the proof sha256, the D4 key changes with the proof; no flag: unproven, r25_proof null; a missing file: refusal (ADR-M003 D9 nonies, T-11)",
   "oracle_r25_over_the_ci_bound_is_red — insertions + deletions against VIBEGATES_PR_LIMIT 5, equality green (-gt): 3 + 2 = 5 green, 3 + 3 = 6 red, 15 + 3 red (3 committed + 2 tracked-dirty + 10 untracked); same R25_DIFF_RE as test 38 (M11, M13, X6, X7)",
+  "oracle_range_mode_judges_each_first_parent_merge_under_its_own_bound",
   "oracle_reads_the_tests_of_test_main — the tests field comes from the suite's gate as the real tree names it, npm run test:main, which gets the oracle's base as ORACLE_BASE over the host's (TEST-COUNT-FLOOR-1, Q-9 and Q-4 (a))",
   "oracle_record_not_written_is_a_refusal — a gate turns the record path into a directory (BRK) => exit 2, no oracle-result line, no record (C-G2-7)",
   "oracle_red_same_key_record_is_never_served — decision 267 (c): a suite refused by C-V-4, or a red base, is replayed with a mention, never served (X4)",
@@ -3511,6 +3548,7 @@
   "collect_ts_clean_of_paid_key_reads",
   "ethereum_ts_clean_of_fetch_and_keys",
   "fetch_only_inside_client",
+  "koyomi_src_is_a_root_of_the_paid_fetch_scanner",
   "rpc_guard_package_src_clean_and_allowlist_load_bearing",
   "rpc_guard_scanner_comment_cites_lines_that_hold_a_bare_key_name",
   "sentinel_src_clean_and_allowlist_load_bearing",

@@ -98,7 +98,7 @@ function gapRegime(fromDateISO: string): Regime {
 
 /** The most recent trading day STRICTLY BEFORE `dateISO` -- walks back over weekends AND full closures
  *  (holidays), so an off-market instant anchors on the last day the NYSE actually opened (C-1). Bounded. */
-function prevTradingDay(dateISO: string): string {
+export function prevTradingDay(dateISO: string): string {
   let p = addDays(dateISO, -1);
   for (let k = 0; k < 10 && !isTradingDay(p); k++) p = addDays(p, -1);
   return p;

@@ -31,6 +31,8 @@
     "apps/bell/src/**/*.ts",
     "apps/bell/test/**/*.ts",
     "apps/dojo/src/**/*.ts",
-    "apps/dojo/test/**/*.ts"
+    "apps/dojo/test/**/*.ts",
+    "apps/koyomi/src/**/*.ts",
+    "apps/koyomi/test/**/*.ts"
   ]
 }
