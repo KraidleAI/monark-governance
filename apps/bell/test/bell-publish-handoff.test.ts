@@ -514,6 +514,7 @@ test("bell_publish_lock_names_its_holder_and_unlock_frees_only_a_dead_one", asyn
     writeFileSync(join(creds, "bell-signing-key-new"), K2.export({ type: "pkcs8", format: "pem" }));
     writeFileSync(linePath, canonical(P.rotateCosign({ stateDir: b.state, oldKey: KEY, line: P.rotateDraft({ stateDir: b.state, newKey: K2, clock: b.clock }) })) + "\n");
     writeRun(join(inbox, unit(2)), 2, 367n);
+    rmSync(join(b.state, "public", "state.json")); // a torn public tree: a repair (openState) made before the lock would write and be seen
     const writers = [["--inbox", inbox], ["--rotate"], ["--rotate", "--broken"], ["--revoke", keyringOf(KEY, 1).keys[0]?.key_id ?? "", "--from-seq", "1"],
       ["--rotate-commit", "--line", linePath]].map((a) => [...a, "--state", b.state]);
     const before = [tree(b.state), tree(inbox)];
