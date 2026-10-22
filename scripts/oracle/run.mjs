@@ -140,7 +140,7 @@ try {
     const log = join(logs, `${String(ran.length + 1).padStart(2, "0")}-${g.name.replace(/[^\w.-]+/g, "_").slice(0, 60)}.log`), t = Date.now();
     let exit = 1;
     if (g.cmd !== "r25") { const fd = openSync(log, "w"); exit = spawnSync(sh, ["-e", "-c", g.cmd], { cwd: clone, env: genv, stdio: ["ignore", fd, fd] }).status ?? 128; closeSync(fd); }
-    else try { const res = rangeMode ? range(clone, base, results, runDir, gates.some((x) => /^node scripts\/test-count-check\.mjs\b/.test(x.cmd)), genv) : r25(clone, ciText, base, proofFile); [r25counts, exit, r25info] = [res.counts, res.exit, res]; writeFileSync(log, res.log); }
+    else try { const res = rangeMode ? range(clone, base, results, runDir, genv) : r25(clone, ciText, base, proofFile); [r25counts, exit, r25info] = [res.counts, res.exit, res]; writeFileSync(log, res.log); }
     catch (e) { writeFileSync(log, `${e.message}\nRED: diff not computable (fail-closed, ci.yml l.83-88)\n`); }
     ran.push({ name: g.name, lane: STATIC.test(g.cmd) ? "static" : "locked", exit, ms: Date.now() - t, log });
     console.log(`oracle: gate ${g.name} exit=${exit} ${Date.now() - t} ms`);
@@ -176,13 +176,19 @@ export function childEnv(tmp, deny = DENY) { return { ...Object.fromEntries(Obje
 /** Range mode (--range; item ORACLE-PART-RANGE-COUNT-1, ADR-METHODE-2 D3). On the range <base>..HEAD of a part, r25 and the test counts, two
  * gates made for one pull request, are red by construction: the range adds up every lot, and a test born then renamed inside it has its
  * removals line refused. Under --range, each commit of `git rev-list --first-parent <base>..HEAD` (oldest first; a merge, or a commit made
- * on the trunk itself) is judged against its first parent, as its own pull request was: r25 by r25.mjs under the bound, the pathspecs and
- * the metric of ITS OWN ci.yml (`git show <commit>:.github/workflows/ci.yml`), read in a no-checkout worktree of the clone whose HEAD is
- * that commit (r25.mjs reads objects only), with no proof (a pull request's integration proof is not replayed: mode "unproven"); and, when
- * the tree's ci.yml runs scripts/test-count-check.mjs, that script's P4 (its exported dropProblems, run from the tree's own module in a
- * child under the gates' env, the pull request number unset as at the oracle's G7) on the records and the removals list of the commit
- * against those of its first parent. No suite runs per commit: P1 to P3 hold the run of the head to its records in the whole-tree gate,
- * which gets ORACLE_BASE = HEAD^1 (the last step's base) under --range. Each step cites, never trusts, the G7 records of its commit found
+ * on the trunk itself) is judged against its first parent, as its own pull request was, by its own rules: r25 by r25.mjs under the bound,
+ * the pathspecs and the metric of ITS OWN ci.yml (`git show <commit>:.github/workflows/ci.yml`), read in a no-checkout worktree of the
+ * clone whose HEAD is that commit (r25.mjs reads objects only, before anything is written there), with no proof (a pull request's
+ * integration proof is not replayed: mode "unproven"); r25's refusals are those of the oracle's scripts/lot-size-integration.mjs, as in
+ * the single mode, and the step says in `r25.module` and its line whether the commit's file holds the same bytes ("same", the comparison
+ * of integration(), r25.mjs:44, on the blob: eol=lf makes it the checkout's bytes), others ("differs": the oracle's refusals judged it) or
+ * none ("absent"); and, when ITS OWN ci.yml runs scripts/test-count-check.mjs (its run: commands derived by runsOf as l.120-128 derive the
+ * gates), the P4 of ITS OWN scripts/test-count-check.mjs and scripts/test-count-floor.mjs, extracted by `git archive <commit> -- <both>`
+ * into the step's folder (dropProblems, REMOVALS, RECORD and NAMES imported from them in a child under the gates' env, the pull request
+ * number unset as at the oracle's G7), on the records and the removals list of the commit against those of its first parent; a ci.yml
+ * that runs the check while the commit lacks either script leaves the step red, error named. No suite runs per commit: P1 to P3 hold the
+ * run of the head to its records in the whole-tree gate, which gets ORACLE_BASE = HEAD^1 (the last step's base) under --range; that gate
+ * alone is switched by the head's ci.yml. Each step cites, never trusts, the G7 records of its commit found
  * in <root>/oracle-results ({file, sha256, exit, base}; none: []). The other gates run on the whole tree as in the single mode. The gate
  * "range" stands for r25: one log and console line per step and a verdict, red iff a step is red or the range is unreadable; the record's
  * optional field `range` holds {base, steps, exit[, error]} (REQUIRED unchanged). Refused (exit 2): --range on a dirty tree, or with
@@ -198,7 +204,21 @@ try {
 function g7Of(results, commit) { return (existsSync(results) ? readdirSync(results) : []).filter((f) => f.startsWith(`${commit}-G7-`) && f.endsWith(".json")).sort().flatMap((f) => {
   try { const b = readFileSync(join(results, f)), r = JSON.parse(b.toString()); return r?.role === "G7" && r.tree?.head === commit && r.tree?.dirty === null ? [{ file: f, sha256: createHash("sha256").update(b).digest("hex"), exit: r.exit, base: r.base }] : []; } catch { return []; }
 }); }
-function range(clone, base, results, runDir, counts, env) {
+/** The run: commands of a ci.yml text, trimmed, derived as l.120-128 derive the gates (kept there in place for the lines cited): a
+ * one-liner split on &&, its comment cut; a block scalar whole. range() reads with it the switch of the test counts in each commit's ci.yml. */
+function runsOf(ciText) {
+  const lines = ciText.split(/\r?\n/), runs = [];
+  lines.forEach((l, i) => {
+    const m = /^\s*(?:-\s+)?run:\s*(.*)$/.exec(l);
+    if (m === null) return;
+    if (!/^[|>]/.test(m[1])) return void runs.push(...m[1].replace(/\s+#.*$/, "").split(/\s+&&\s+/));
+    let j = i + 1;
+    while (j < lines.length && (lines[j].trim() === "" || lines[j].search(/\S/) > l.indexOf("run:"))) j++;
+    runs.push(lines.slice(i + 1, j).join("\n"));
+  });
+  return runs.map((r) => r.trim());
+}
+function range(clone, base, results, runDir, env) {
   const git = (...a) => execFileSync("git", ["-C", clone, ...a], { encoding: "utf8", maxBuffer: 1 << 30, stdio: ["ignore", "pipe", "pipe"] }), steps = [], lines = [];
   let error = null;
   try {
@@ -208,19 +228,20 @@ function range(clone, base, results, runDir, counts, env) {
     for (const [commit, parent, ...more] of rows) {
       const s = { commit, parent, merge: more.length > 0, subject: git("log", "-1", "--format=%s", commit).trim(), r25: null, tests: null, g7: g7Of(results, commit), exit: 1 };
       try {
-        const wt = join(runDir, `step-${steps.length + 1}`);
+        const wt = join(runDir, `step-${steps.length + 1}`), own = git("show", `${commit}:.github/workflows/ci.yml`), lsi = "scripts/lot-size-integration.mjs";
         git("worktree", "add", "-q", "--no-checkout", "--detach", wt, commit);
-        const r = r25(wt, git("show", `${commit}:.github/workflows/ci.yml`), parent, null);
-        s.r25 = { exit: r.exit, mode: r.mode, counts: r.counts };
-        if (counts) {
-          const c = spawnSync(process.execPath, ["--input-type=module", "-e", countJudge(), join(clone, "scripts"), parent, commit], { cwd: clone, env, encoding: "utf8", maxBuffer: 1 << 26 });
+        const r = r25(wt, own, parent, null), committed = git("ls-tree", "--name-only", commit, "--", lsi) === "" ? null : execFileSync("git", ["-C", clone, "cat-file", "blob", `${commit}:${lsi}`], { maxBuffer: 1 << 30 });
+        s.r25 = { exit: r.exit, mode: r.mode, counts: r.counts, module: committed === null ? "absent" : readFileSync(join(import.meta.dirname, "..", "lot-size-integration.mjs")).equals(committed) ? "same" : "differs" };
+        if (runsOf(own).some((x) => /^node scripts\/test-count-check\.mjs\b/.test(x))) {
+          execFileSync("tar", ["-x", "-f", "-"], { cwd: wt, input: execFileSync("git", ["-C", clone, "archive", commit, "--", "scripts/test-count-check.mjs", "scripts/test-count-floor.mjs"], { maxBuffer: 1 << 26 }), stdio: ["pipe", "ignore", "pipe"] });
+          const c = spawnSync(process.execPath, ["--input-type=module", "-e", countJudge(), join(wt, "scripts"), parent, commit], { cwd: clone, env, encoding: "utf8", maxBuffer: 1 << 26 });
           const problems = c.status === 0 ? JSON.parse(c.stdout) : [`the test-count judge exited ${c.status}`];
           s.tests = { exit: c.status === 0 && problems.length === 0 ? 0 : 1, problems };
         }
         s.exit = s.r25.exit === 0 && (s.tests?.exit ?? 0) === 0 ? 0 : 1;
       } catch (e) { s.error = String(e.message).split("\n")[0]; }
       steps.push(s);
-      lines.push(`${commit.slice(0, 12)} parent ${parent.slice(0, 12)} ${s.merge ? "merge" : "commit"}: r25 ${s.r25?.counts.map((c) => `${c.name} ${c.changed}/${c.limit}`).join(", ") ?? "-"}; tests ${s.tests === null ? (counts ? "-" : "n/a") : `${s.tests.problems.length} problem(s)`}; g7 ${s.g7.map((g) => g.file).join(", ") || "none"}${s.error ? `; error ${s.error}` : ""}: ${s.exit === 0 ? "GREEN" : "RED"}`);
+      lines.push(`${commit.slice(0, 12)} parent ${parent.slice(0, 12)} ${s.merge ? "merge" : "commit"}: r25 ${s.r25?.counts.map((c) => `${c.name} ${c.changed}/${c.limit}`).join(", ") ?? "-"}${s.r25 ? ` (lot-size-integration.mjs ${s.r25.module})` : ""}; tests ${s.tests === null ? (s.error ? "-" : "n/a") : `${s.tests.problems.length} problem(s)`}; g7 ${s.g7.map((g) => g.file).join(", ") || "none"}${s.error ? `; error ${s.error}` : ""}: ${s.exit === 0 ? "GREEN" : "RED"}`);
     }
   } catch (e) { error = String(e.message).split("\n")[0]; }
   const exit = error === null && steps.every((s) => s.exit === 0) ? 0 : 1, red = steps.filter((s) => s.exit !== 0).length;

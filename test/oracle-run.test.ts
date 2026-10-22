@@ -399,23 +399,38 @@ test("oracle_lock_alive_reads_a_zombie_as_dead — a waiter that has exited but 
 });
 
 // ORACLE-PART-RANGE-COUNT-1 (ADR-METHODE-2 D3): four first-parent merges after a range base, under the bound 5, raised to 12 by the fourth
-// merge's own ci.yml: 4, 4, 6 and 9 lines, 23 over the whole range. The second merge renames the test the first one added, with its renamed
-// line (the case of #293 then #298); the third drops a test without a line. The single mode stays as it was: r25 red over the whole range.
-// --range: each merge against its first parent, under its own bound and its own P4; the G7 record of the first merge cited; the whole-tree
-// gates get HEAD^1 as ORACLE_BASE; the range of the fourth merge alone is green; a base off the first-parent chain is red, named; refusals.
-// killer: scripts/oracle/run.mjs:213 CONST "), parent, null)" -> "), base, null)"
+// merge's own ci.yml: 4, 6, 5 and 9 lines, then a commit made on the trunk itself that changes its rules: 1 line, 25 over the whole range.
+// The second merge renames the test the first one added, with its renamed line (the case of #293 then #298), and is red by its bound alone;
+// the third drops a test without a line, red by its P4 alone. The trunk commit drops the test-count check from its ci.yml, hardens the
+// head's dropProblems (every judgement a problem) and changes scripts/lot-size-integration.mjs, which the second merge added as the
+// oracle's. The single mode stays as it was: r25 red over the whole range.
+// --range: each commit against its first parent, under its own bound and its own P4, the switch of the test counts read in its own ci.yml
+// and dropProblems in its own scripts: the merges are judged by the rules they ran under, never by the head's; each step says whether its
+// lot-size-integration.mjs is the oracle's; the G7 record of the first merge cited, not one of another role or of a dirty tree; the
+// whole-tree gates get HEAD^1 as ORACLE_BASE; the range from the third merge is green; a base off the first-parent chain and an empty range
+// are red, named; the D4 key carries `range` under --range only; refusals.
+// killer: scripts/oracle/run.mjs:233 CONST "r25(wt, own, parent, null)" -> "r25(wt, own, base, null)"
 test("oracle_range_mode_judges_each_first_parent_merge_under_its_own_bound", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:216 CONST "join(clone, \"scripts\"), parent, commit]" -> "join(clone, \"scripts\"), base, commit]"
+  // killer: scripts/oracle/run.mjs:237 CONST "join(wt, \"scripts\"), parent, commit]" -> "join(wt, \"scripts\"), base, commit]"
   // killer: scripts/oracle/run.mjs:137 CONST "...(rangeMode ? { ORACLE_BASE: gitS(clone, \"rev-parse\", \"HEAD^1\") } : {})" -> ""
-  type Step = { commit: string; parent: string; merge: boolean; r25: { exit: number; counts: { changed: number; limit: number | null }[] } | null; tests: { exit: number; problems: string[] } | null; g7: unknown[]; exit: number };
+  // killer: scripts/oracle/run.mjs:241 CONST "s.r25.exit === 0 && (s.tests?.exit ?? 0) === 0" -> "s.r25.exit === 0"
+  // killer: scripts/oracle/run.mjs:241 CONST "s.r25.exit === 0 && (s.tests?.exit ?? 0) === 0" -> "(s.tests?.exit ?? 0) === 0"
+  // killer: scripts/oracle/run.mjs:231 CONST "${commit}:.github" -> "HEAD:.github"
+  // killer: scripts/oracle/run.mjs:235 CONST "runsOf(own)" -> "runsOf(git(\"show\", \"HEAD:.github/workflows/ci.yml\"))"
+  // killer: scripts/oracle/run.mjs:237 CONST "join(wt, \"scripts\")" -> "join(clone, \"scripts\")"
+  // killer: scripts/oracle/run.mjs:234 CONST "? \"same\" : \"differs\"" -> "? \"same\" : \"same\""
+  // killer: scripts/oracle/run.mjs:229 CONST "merge: more.length > 0" -> "merge: true"
+  type Step = { commit: string; parent: string; merge: boolean; r25: { exit: number; module: string; counts: { changed: number; limit: number | null }[] } | null; tests: { exit: number; problems: string[] } | null; g7: unknown[]; exit: number };
   const rangeOf = (x: { rec: Rec | null }): { steps: Step[]; exit: number; error?: string } | undefined => (x.rec as unknown as { range?: { steps: Step[]; exit: number; error?: string } } | null)?.range;
+  const keyRange = (x: { rec: Rec | null }): unknown => (x.rec as unknown as { key_parts?: { range?: unknown } } | null)?.key_parts?.range;
   const ci = join(fx.repo, ".github", "workflows", "ci.yml"), at = (): string => git(fx.repo, "rev-parse", "HEAD");
   const file = (f: string, v: unknown): void => { writeFileSync(join(fx.repo, f), typeof v === "string" ? v : `${JSON.stringify(v)}\n`); };
   const names = (n: string[]): void => { file("test/test-counts.json", { "a.test.ts": n.length }); file("test/test-names.json", { "a.test.ts": n }); };
+  const check = "      - run: node scripts/test-count-check.mjs\n", lsi = join("scripts", "lot-size-integration.mjs"), host = (f: string): string => readFileSync(join(ROOT, "scripts", f), "utf8");
   mkdirSync(join(fx.repo, "scripts"));
   mkdirSync(join(fx.repo, "test"));
   for (const f of ["test-count-check.mjs", "test-count-floor.mjs"]) copyFileSync(join(ROOT, "scripts", f), join(fx.repo, "scripts", f));
-  file(".github/workflows/ci.yml", `${readFileSync(ci, "utf8").replace("':(exclude)docs/**'", "':(exclude)docs/**' ':(exclude)scripts/**' ':(exclude)test/**'")}      - run: node scripts/test-count-check.mjs\n`);
+  file(".github/workflows/ci.yml", `${readFileSync(ci, "utf8").replace("':(exclude)docs/**'", "':(exclude)docs/**' ':(exclude)scripts/**' ':(exclude)test/**'")}${check}`);
   file("package.json", JSON.stringify({ name: "fx", private: true, scripts: { ...SCRIPTS, lint: `node -e "console.log('base=' + process.env.ORACLE_BASE)"` } }));
   names(["old"]);
   file("test/test-count-removals.json", []);
@@ -431,25 +446,42 @@ test("oracle_range_mode_judges_each_first_parent_merge_under_its_own_bound", () 
     return at();
   };
   const m1 = merge(1, () => { file("one.txt", "x\n".repeat(4)); names(["old", "born"]); });
-  const m2 = merge(2, () => { file("two.txt", "x\n".repeat(4)); names(["old", "grown"]); file("test/test-count-removals.json", [{ file: "a.test.ts", renamed: "born", to: "grown", reason: "#2: renamed after its review" }]); });
-  const m3 = merge(3, () => { file("three.txt", "x\n".repeat(6)); names(["grown"]); });
+  const m2 = merge(2, () => { file("two.txt", "x\n".repeat(6)); names(["old", "grown"]); file("test/test-count-removals.json", [{ file: "a.test.ts", renamed: "born", to: "grown", reason: "#2: renamed after its review" }]); file(lsi, host("lot-size-integration.mjs")); });
+  const m3 = merge(3, () => { file("three.txt", "x\n".repeat(5)); names(["grown"]); });
   const m4 = merge(4, () => { file("four.txt", "x\n".repeat(7)); file(".github/workflows/ci.yml", readFileSync(ci, "utf8").replace('VIBEGATES_PR_LIMIT: "5"', 'VIBEGATES_PR_LIMIT: "12"')); });
+  file(".github/workflows/ci.yml", readFileSync(ci, "utf8").replace(check, ""));
+  file("scripts/test-count-check.mjs", host("test-count-check.mjs").replace("export function dropProblems(", "export function dropProblems() { return [\"the head's rule\"]; }\nfunction dropProblemsBefore("));
+  file(lsi, `${host("lot-size-integration.mjs")}// the head's rule\n`);
+  git(fx.repo, "commit", "-qam", "the trunk's rules change");
+  const c5 = at();
   const results = join(fx.root, "oracle-results"), g7 = join(results, `${m1}-G7-20261022T000000Z-1.json`), body = `${JSON.stringify({ role: "G7", tree: { head: m1, dirty: null }, base: rb, exit: 0 })}\n`;
   mkdirSync(results, { recursive: true });
   writeFileSync(g7, body);
+  // killer: scripts/oracle/run.mjs:205 CONST "r?.role === \"G7\" && " -> ""
+  // killer: scripts/oracle/run.mjs:205 CONST " && r.tree?.dirty === null" -> ""
+  writeFileSync(join(results, `${m1}-G7-20261022T000001Z-2.json`), `${JSON.stringify({ role: "G2", tree: { head: m1, dirty: null }, base: rb, exit: 0 })}\n`);
+  writeFileSync(join(results, `${m1}-G7-20261022T000002Z-3.json`), `${JSON.stringify({ role: "G7", tree: { head: m1, dirty: "ab" }, base: rb, exit: 0 })}\n`);
   const k = ["--role", "G2", "--static-only"], r = oracle({ ...fx, base: rb }, [...k, "--range"]), range = rangeOf(r);
   assert.deepEqual(range?.steps.map((s) => [s.commit, s.parent, s.merge, s.r25?.counts.map((c) => [c.changed, c.limit]), s.r25?.exit, s.tests?.exit, s.exit]), [
-    [m1, rb, true, [[4, 5]], 0, 0, 0], [m2, m1, true, [[4, 5]], 0, 0, 0], [m3, m2, true, [[6, 5]], 1, 1, 1], [m4, m3, true, [[9, 12]], 0, 0, 0]], r.out);
+    [m1, rb, true, [[4, 5]], 0, 0, 0], [m2, m1, true, [[6, 5]], 1, 0, 1], [m3, m2, true, [[5, 5]], 0, 1, 1], [m4, m3, true, [[9, 12]], 0, 0, 0], [c5, m4, false, [[1, 12]], 0, undefined, 0]], r.out);
   assert.match(range?.steps[2]?.tests?.problems.join("\n") ?? "", /a\.test\.ts: the test "old" is gone since the base/);
-  assert.deepEqual([range?.steps.map((s) => s.g7), range?.exit, r.rec?.gates.find((g) => g.name === "range")?.exit, r.status], [[[{ file: basename(g7), sha256: sha256(Buffer.from(body)), exit: 0, base: rb }], [], [], []], 1, 1, 1]);
-  assert.match(readFileSync(r.rec?.gates.find((g) => g.name === "lint")?.log ?? "", "utf8"), new RegExp(`^base=${m3}\\r?$`, "m"), "the whole-tree gates get HEAD^1, the last merge's base");
-  assert.match(r.out, /oracle: range verdict: 4 step\(s\), 1 red: RED/);
+  assert.deepEqual(range?.steps.map((s) => s.r25?.module), ["absent", "same", "same", "same", "differs"], "the commit's lot-size-integration.mjs against the oracle's, byte for byte");
+  assert.match(r.out, /oracle: range [0-9a-f]{12} parent [0-9a-f]{12} commit: r25 STAT 1\/12 \(lot-size-integration\.mjs differs\); tests n\/a; g7 none: GREEN/);
+  assert.deepEqual([range?.steps.map((s) => s.g7), range?.exit, r.rec?.gates.find((g) => g.name === "range")?.exit, r.status], [[[{ file: basename(g7), sha256: sha256(Buffer.from(body)), exit: 0, base: rb }], [], [], [], []], 1, 1, 1]);
+  assert.match(readFileSync(r.rec?.gates.find((g) => g.name === "lint")?.log ?? "", "utf8"), new RegExp(`^base=${m4}\\r?$`, "m"), "the whole-tree gates get HEAD^1, the last commit's base");
+  assert.match(r.out, /oracle: range verdict: 5 step\(s\), 2 red: RED/);
+  // killer: scripts/oracle/run.mjs:64 CONST "...(rangeMode ? { range: true } : {})" -> "...({})"
   const w = oracle({ ...fx, base: rb }, k);
-  assert.deepEqual([w.status, w.rec?.r25?.map((c) => [c.changed, c.limit]), Object.hasOwn(w.rec ?? {}, "range")], [1, [[23, 12]], false], `the single mode, unchanged: r25 over the whole range ${w.out}`);
+  assert.deepEqual([w.status, w.rec?.r25?.map((c) => [c.changed, c.limit]), Object.hasOwn(w.rec ?? {}, "range")], [1, [[25, 12]], false], `the single mode, unchanged: r25 over the whole range ${w.out}`);
+  assert.deepEqual([keyRange(r), keyRange(w), Object.hasOwn((w.rec as unknown as { key_parts?: object } | null)?.key_parts ?? { range: 0 }, "range"), r.rec?.key === w.rec?.key], [true, undefined, false, false], "the D4 key carries range under --range only: a range record never serves a single run, nor the reverse");
   const g = oracle({ ...fx, base: m3 }, [...k, "--range"]), o = oracle({ ...fx, base: git(fx.repo, "rev-parse", `${m1}^2`) }, [...k, "--range"]);
-  assert.deepEqual([g.status, rangeOf(g)?.steps.map((s) => s.commit), rangeOf(g)?.exit], [0, [m4], 0], g.out);
+  assert.deepEqual([g.status, rangeOf(g)?.steps.map((s) => s.commit), rangeOf(g)?.exit], [0, [m4, c5], 0], g.out);
   assert.deepEqual([o.status, rangeOf(o)?.steps, rangeOf(o)?.exit], [1, [], 1], o.out);
   assert.match(rangeOf(o)?.error ?? "", /is not the first parent of the oldest first-parent commit/);
+  // killer: scripts/oracle/run.mjs:226 CONST "if (rows.length === 0) throw" -> "if (false) throw"
+  const e = oracle({ ...fx, base: c5 }, [...k, "--range"]);
+  assert.deepEqual([e.status, rangeOf(e)?.steps, rangeOf(e)?.exit], [1, [], 1], e.out);
+  assert.match(rangeOf(e)?.error ?? "", /no first-parent commit/);
   assert.deepEqual([oracle({ ...fx, base: rb }, [...k, "--range", "--r25-proof", ci]).status], [2], "a proof is one pull request's");
   writeFileSync(join(fx.repo, "new.txt"), "1\n");
   const d = oracle({ ...fx, base: rb }, [...k, "--range"]);
