@@ -943,9 +943,9 @@ test("bell_ca_issuer_never_written_by_hand", () => {
 });
 
 // ---- BELL-CA-UNDATED-EVENT-1 (decision 2, 13:1x UTC): an event of E with no instant and no paired step is never ignored ----
-// killer: apps/bell/src/collect.ts:950 CONST "undated ? UNDATED_BOTH" -> "false ? UNDATED_BOTH"
-// killer: apps/bell/src/collect.ts:931 CONST "!used.has(p) && p.newBits" -> "p.newBits"
 // killer: apps/bell/src/corporate-actions.ts:211 CONST "continue;" -> "{ continue; }"
+// killer: apps/bell/src/collect.ts:931 CONST "!used.has(p) && p.newBits" -> "p.newBits"
+// killer: apps/bell/src/collect.ts:950 CONST "undated ? UNDATED_BOTH" -> "false ? UNDATED_BOTH"
 test("bell_ca_undated_issuer_event_abstains_every_session", () => {
   // Review nit-1: undatedEventsOf (collect.ts) replays the pairing of reconcile, corporate-actions.ts l.200-225 (the unread-issuer branch,
   // then the pairing and the "cannot be placed" exit). Its first change reds here, so the copy is re-read the day the rule moves
@@ -953,6 +953,8 @@ test("bell_ca_undated_issuer_event_abstains_every_session", () => {
   const CA_SRC = readFileSync(join(HERE, "..", "src", "corporate-actions.ts"), "utf8").replace(/\r\n/g, "\n").split("\n");
   assert.equal(createHash("sha256").update(CA_SRC.slice(199, 225).join("\n")).digest("hex"), "e9dd3151fd721ba0a178529849cc77a1588f884d548ae9a9fc38bce7811741bd",
     "corporate-actions.ts l.200-225 changed: re-read undatedEventsOf (collect.ts) against it, then re-pin");
+  assert.equal(CA_SRC[170], "const STATUSES_THAT_LIFT: ReadonlySet<string> = new Set<string>([]);",
+    "corporate-actions.ts l.171 (STATUSES_THAT_LIFT) changed: undatedEventsOf (collect.ts) does not read it; re-read the copy, then re-pin");
   const U = "corporate_action_undated", CA = "corporate_action_in_window";
   const undated = caRun(caSymbol("TSLAx", { issuerNodes: [caNode("e-undated", null)] })).d;
   assert.deepEqual(caGapAbstain(undated), [U, U, U, U], "no instant, no step: every group of the run abstains, under its own code");

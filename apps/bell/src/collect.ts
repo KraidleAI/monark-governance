@@ -918,10 +918,10 @@ const PUBLISH_BOTH: CaVerdict = { gap: "publish", volume: "publish" };
 const UNDATED_BOTH: CaVerdict = { gap: "corporate_action_undated", volume: "corporate_action_undated" };
 
 /** BELL-CA-UNDATED-EVENT-1 (decision of 2026-10-22 13:1x UTC): the events of E that reconcile cannot place, no instant in any version and no
- *  paired step (corporate-actions.ts l.209-225, where such an event is skipped). Its pairing is replayed step for step: events in the order
+ *  paired step (corporate-actions.ts l.200-225, where such an event is skipped). Its pairing is replayed step for step: events in the order
  *  of issuerEvents, nothing paired for an issuer not read, Cancelled never paired, the bits of the new multiplier then the relative 1e-9,
  *  each step paired once. (STATUSES_THAT_LIFT, empty there, lifts nothing.) Item BELL-CA-UNDATED-IN-RULE-1 moves this into reconcile when
- *  lot 1f opens corporate-actions.ts. */
+ *  the first lot opens corporate-actions.ts l.194-262 or l.171. */
 function undatedEventsOf(sig: Signals): string[] {
   const steps = stepsOf(sig.trajectory), used = new Set<Step>(), read = issuerReadOf(sig.issuer), out: string[] = [];
   for (const e of issuerEvents(sig.issuerNodes)) {

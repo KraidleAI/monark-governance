@@ -44,7 +44,7 @@ function fingerprint(root: string): string {
 }
 
 const POOL = POOLS.find((p) => p.baseSymbol === "TSLAx" && p.chain === "solana")!;
-/** A 56-byte ScaledUiAmountConfig (multiplier m, effTs 0, new multiplier m), the base64 read of the C-3 anchor (collect.test.ts:73). */
+/** A 56-byte ScaledUiAmountConfig (multiplier m, effTs 0, new multiplier m), the base64 read of the C-3 anchor (collect.test.ts stateConfigB64). */
 const stateB64 = (m: number): string => { const b = new Uint8Array(56), v = new DataView(b.buffer); v.setFloat64(32, m, true); v.setFloat64(48, m, true); return Buffer.from(b).toString("base64"); };
 /** ONE real runMain output, offline, --out outside the repo; `usdc` is the swap's quote leg (a distinct vwap, hence bell_sha); `week` shifts session and close by 7 days. */
 async function runMainOut(usdc: bigint, week = 0): Promise<string> {
