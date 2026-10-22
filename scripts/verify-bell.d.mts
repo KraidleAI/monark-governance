@@ -28,4 +28,6 @@ export type CaResult = { code: 0 | 1; ca: Ca; out: string | null } | { code: 2; 
 export function runCa(argv: readonly string[], deps?: CaDeps): Promise<CaResult>;
 export function gitBlob(repo: string, rev: string, path: string): Buffer;
 export function parseDigests(text: string): Map<string, string> | null;
+/** The served keyring a committed keyring stands for (the R2-R5 window, PLAN-P5 C-7): itself, or itself less ONE last {key_id, jwk}; else null. */
+export function servedKeyringOf(committedText: string): string | null;
 export function parseSystemctlCat(text: string): { headers: { index: number; path: string }[]; fragment: string };

@@ -47,23 +47,24 @@ test("bell_publish_reexports_the_validate_bindings", () => {
   assert.ok(new P.BellPublishError("schema_mismatch", "x") instanceof V.BellPublishError, "one error class for both modules");
 });
 
-// No key, no environment: neither the module nor the chain it imports reads process.env or a credential; its imports are exactly
-// node:fs, node:path and ./bell-chain.mjs, and importing it (a fresh node, every resolved URL recorded) never loads bell-publish.mjs.
+// No key, no environment: neither the module nor the chain and the calendar it imports reads process.env or a credential; its imports are
+// exactly node:fs, node:path, ./bell-chain.mjs and ../src/sessions.ts (PXB-1, lot 5a), and importing it (a fresh node, every resolved URL
+// recorded) never loads bell-publish.mjs.
 // killer: apps/bell/scripts/bell-validate.mjs:17 CONST "throw new BellPublishError(code, detail);" -> "throw new BellPublishError(code, process.env.BELL_X ?? detail);"
 test("bell_validate_module_reads_no_environment", () => {
-  for (const f of ["bell-validate.mjs", "bell-chain.mjs"]) {
+  for (const f of ["bell-validate.mjs", "bell-chain.mjs", "../src/sessions.ts"]) {
     const text = readFileSync(join(SCRIPTS, f), "utf8");
     assert.equal(/process\.env|CREDENTIALS_DIRECTORY/.test(text), false, `${f} reads no environment`);
   }
   const specs = [...readFileSync(join(SCRIPTS, "bell-validate.mjs"), "utf8").matchAll(/\bfrom\s+"([^"]+)"/g)].map((m) => m[1]).sort();
-  assert.deepEqual(specs, ["./bell-chain.mjs", "node:fs", "node:path"]);
+  assert.deepEqual(specs, ["../src/sessions.ts", "./bell-chain.mjs", "node:fs", "node:path"]);
   const js = `import { registerHooks } from "node:module"; const seen = [];
 registerHooks({ resolve(s, c, next) { const r = next(s, c); seen.push(r.url); return r; } });
 await import(${JSON.stringify(pathToFileURL(join(SCRIPTS, "bell-validate.mjs")).href)});
 process.stdout.write(JSON.stringify(seen.filter((u) => u.startsWith("file:")).map((u) => u.slice(u.lastIndexOf("/") + 1)).sort()));`;
   const r = spawnSync(process.execPath, ["--no-warnings", "--input-type=module", "-e", js], { encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
-  assert.deepEqual(JSON.parse(r.stdout), ["bell-chain.mjs", "bell-validate.mjs"], "the import loads the module and the chain only");
+  assert.deepEqual(JSON.parse(r.stdout), ["bell-chain.mjs", "bell-validate.mjs", "sessions.ts"], "the import loads the module, the chain and the calendar only");
 });
 
 // The two new files ship in the public export (named, file by file) and carry no form of the cash cross-check provider. The forms

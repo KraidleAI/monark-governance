@@ -1,16 +1,16 @@
 // MONARK Bell -- T-1b validation of a pending bundle (ADR-T1b-backend v2 D4, D5, D7, "Constantes"), extracted from bell-publish.mjs
 // so that the publisher and the collection tick run the SAME rules: validateRun (C-in-1..8, one run directory as runMain writes it)
 // and validateBundle (C-in-1 and C-in-10, the bundle check of publishToDir). It reads only the directory it is given; it holds no
-// key and reads no environment. Node built-ins + bell-chain.mjs only. bell-publish.mjs re-exports its bindings (the same objects).
+// key and reads no environment. Node built-ins, bell-chain.mjs and the calendar ../src/sessions.ts (PXB-1) only. bell-publish.mjs re-exports its bindings.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { canonical, closeLikePath, sha256Hex, rechainRunTimeline } from "./bell-chain.mjs";
+import { canonical, closeLikePath, sha256Hex, rechainRunTimeline } from "./bell-chain.mjs"; import { earliestPublishUtc, refCloseDateOf } from "../src/sessions.ts";
 
 /** The CLOSED list of refusal codes. The detail names a JSON path or a file, never a value. */
 export const REFUSAL_CODES = Object.freeze(["inbox_not_exactly_one_bundle", "too_many_runs", "input_too_large", "schema_mismatch", "unknown_field",
   "bell_sha_mismatch", "close_like_field", "session_not_yet_publishable", "run_timeline_broken", "provenance_binding_mismatch", "url_or_key_shaped_string",
   "duplicate_run", "public_state_too_large", "line_too_large", "existing_timeline_corrupt", "signing_key_missing", "signing_key_not_in_keyring",
-  "no_timeline", "key_already_in_keyring", "revocation_invalid", "key_file_exists", "handoff_start_missing", "start_mark_exists", "start_mark_not_after_bundles", "window_overlaps_published", "lock_held", "clock_unsynced", "manifest_mismatch"]);
+  "no_timeline", "key_already_in_keyring", "revocation_invalid", "key_file_exists", "handoff_start_missing", "start_mark_exists", "start_mark_not_after_bundles", "window_overlaps_published", "lock_held", "clock_unsynced", "manifest_mismatch", "rotation_line_mismatch"]);
 export class BellPublishError extends Error {
   constructor(code, detail) { super(`bell/publish: ${code}: ${detail}`); this.name = "BellPublishError"; this.code = code; this.detail = detail; }
 }
@@ -119,7 +119,7 @@ export function validateRun(ent, dir, at, B, t) {
   (state.digest.gaps ?? []).forEach((g, j) => { // C-in-5 (R-T1b-1: one session early refuses the whole bundle; BELL-EPU-REQUIRED-1: a g_t without its gate too)
     if ((g.earliest_publish_utc !== undefined || Object.hasOwn(g, "gT")) && !(typeof g.earliest_publish_utc === "number" && g.earliest_publish_utc <= t))
       refuse("session_not_yet_publishable", `${at}.state.digest.gaps[${j}].earliest_publish_utc`);
-  });
+  }); abstentionGate(state.digest, at, t); // PXB-1 (i): an abstention no_close_ref served before its gate is refused too (below)
   const rc = rechainRunTimeline(records); // C-in-6
   if (!rc.ok) refuse("run_timeline_broken", `${at}.timeline[${rc.index}]: ${rc.reason}`);
   const symbols = new Set([...["gaps", "volume", "supply", "por", "wrapper"].flatMap((k) => state.digest[k] ?? []), ...(state.halt_deltas ?? [])].map((e) => e.symbol));
@@ -175,4 +175,30 @@ export function readManifest(text) {
     entries.push({ sha256: m[1], path: m[2] });
   }
   return entries;
+}
+
+/** PXB-1 BELL-ABSTAIN-GATE-1, prevention (i) (PLAN-P4 l.387-393; PLAN-P5 C5-5): an abstention no_close_ref is served only once its gate has
+ *  passed, the earliest publication instant of its reference close, earliestPublishUtc(refCloseDateOf(session, session date)) of the
+ *  collector's own calendar (sessions.ts); served before it, it would freeze the abstention of a session whose close is not yet
+ *  publishable (G0 R-1, the irreversible abstained session), as C-in-5 refuses a g_t before its gate. The session date is its volume
+ *  entry's, by the join of apps/bell/ops/q6-controls.mjs:184-200 (within one (symbol, session, regime) bucket the k-th gap is the k-th
+ *  volume entry, of the same n, and the buckets have the same sizes); when a no_close_ref is present and the join is not proven, the run is
+ *  refused as well (fail-closed). The refusal is C-in-5's code, the detail naming the gap. Run by validateRun: the tick and the publisher. */
+function abstentionGate(digest, at, t) {
+  const gaps = Array.isArray(digest.gaps) ? digest.gaps : [];
+  if (!gaps.some((g) => g?.abstain === "no_close_ref")) return;
+  const bucket = (e) => `${String(e?.symbol)}|${String(e?.session)}|${typeof e?.regime === "string" ? e.regime : "null"}`, vols = new Map(), seen = new Map();
+  for (const v of Array.isArray(digest.volume) ? digest.volume : []) vols.set(bucket(v), [...(vols.get(bucket(v)) ?? []), v]);
+  const dates = gaps.map((g) => {
+    const b = bucket(g), k = seen.get(b) ?? 0, v = (vols.get(b) ?? [])[k];
+    seen.set(b, k + 1);
+    return v !== undefined && v.n === g.n && typeof v.session_date_et === "string" ? v.session_date_et : null;
+  });
+  if (dates.includes(null) || [...vols].some(([b, l]) => l.length !== (seen.get(b) ?? 0))) refuse("session_not_yet_publishable", `${at}.state.digest: an abstention no_close_ref and no proven join of gaps and volume entries to date it`);
+  gaps.forEach((g, j) => {
+    if (g.abstain !== "no_close_ref") return;
+    let gate = NaN;
+    try { gate = earliestPublishUtc(refCloseDateOf(g.session, dates[j])); } catch { gate = NaN; }
+    if (!(gate <= t)) refuse("session_not_yet_publishable", `${at}.state.digest.gaps[${j}].abstain: no_close_ref served before its gate`);
+  });
 }

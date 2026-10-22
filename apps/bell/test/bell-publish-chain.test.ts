@@ -4,11 +4,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, sign as edSign, verify as edVerify } from "node:crypto";
 import { canonical as digestCanonical, assertNoClose } from "../src/digest.ts";
 import { canonical, CLOSE_KEY, assertNoCloseLike, signLine, verifyLine, keyIdOf, keyringOf, lineHash, GENESIS } from "../scripts/bell-chain.mjs";
+import { BELL_TREE_PATHS } from "../../../scripts/verify-bell.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const src = (rel: string): string => readFileSync(join(HERE, rel), "utf8");
@@ -94,12 +95,15 @@ test("bell_chain_ed25519_rfc8032_kat", async (t) => {
 
 // ---- S-1 (d) + B-5: the publication scripts import Node built-ins only (allowlist), no network or dynamic loading ----
 // Per-file allowlists (the collection timer, lot 2a-i, ruling of 2026-10-14): bell-chain.mjs imports node: built-ins only; bell-publish.mjs adds
-// ./bell-chain.mjs and ./bell-validate.mjs; bell-validate.mjs imports exactly node:fs, node:path and ./bell-chain.mjs, never the publisher.
+// ./bell-chain.mjs and ./bell-validate.mjs; bell-validate.mjs imports exactly node:fs, node:path, ./bell-chain.mjs and, since lot 5a (PXB-1, PLAN-P5
+// C5-5), the calendar ../src/sessions.ts, never the publisher; sessions.ts, in the publisher tree since then, imports nothing.
 // killer: apps/bell/scripts/bell-validate.mjs:6 CONST "\"node:path\";" -> "\"node:path\"; import { pathToFileURL } from \"node:url\";"
 test("bell_scripts_import_allowlist_no_network", () => {
   const NODE = ["node:crypto", "node:fs", "node:path", "node:url"];
   const ALLOW: Record<string, Set<string>> = { "bell-chain.mjs": new Set(NODE), "bell-publish.mjs": new Set([...NODE, "./bell-chain.mjs", "./bell-validate.mjs"]),
-    "bell-validate.mjs": new Set(["node:fs", "node:path", "./bell-chain.mjs"]) };
+    "bell-validate.mjs": new Set(["node:fs", "node:path", "./bell-chain.mjs", "../src/sessions.ts"]) };
+  const FORBIDDEN = [/node:https?\b/, /node:net\b/, /node:tls\b/, /node:dns\b/, /node:http2\b/, /node:dgram\b/, /child_process/, /\bfetch\s*\(/,
+    /\bimport\s*\(/, /\brequire\s*\(/, /createRequire/, /\bundici\b/, /\bWebSocket\b/];
   for (const f of ["bell-chain.mjs", "bell-publish.mjs", "bell-validate.mjs"]) {
     assert.ok(existsSync(join(HERE, `../scripts/${f}`)), `${f}: the publication script exists`);
     const text = src(`../scripts/${f}`), allow = ALLOW[f] ?? new Set<string>();
@@ -107,9 +111,15 @@ test("bell_scripts_import_allowlist_no_network", () => {
     assert.ok(specs.length >= 1, `${f}: its imports are parsed (non-vacuity)`);
     for (const s of specs) assert.ok(allow.has(s), `${f}: import '${s}' is outside the allowlist`);
     if (f === "bell-validate.mjs") assert.deepEqual([...new Set(specs)].sort(), [...allow].sort(), `${f}: imports exactly ${[...allow].join(", ")}`);
-    for (const re of [/node:https?\b/, /node:net\b/, /node:tls\b/, /node:dns\b/, /node:http2\b/, /node:dgram\b/, /child_process/, /\bfetch\s*\(/,
-      /\bimport\s*\(/, /\brequire\s*\(/, /createRequire/, /\bundici\b/, /\bWebSocket\b/]) {
-      assert.equal(re.test(text), false, `${f}: forbidden network or dynamic-load token ${String(re)}`);
-    }
+    for (const re of FORBIDDEN) assert.equal(re.test(text), false, `${f}: forbidden network or dynamic-load token ${String(re)}`);
   }
+  const cal = src("../src/sessions.ts");
+  assert.deepEqual(cal.split("\n").filter((l) => /^\s*import\b|^\s*export\b.*\bfrom\s*["'`]/.test(l)), [], "sessions.ts: no import statement, no re-export");
+  for (const re of FORBIDDEN) assert.equal(re.test(cal), false, `sessions.ts: forbidden network or dynamic-load token ${String(re)}`);
+  // The closure of the publisher's tree over its parent imports too (nit-3 of the review of lot 5a): each relative import of the three scripts,
+  // resolved from apps/bell/scripts/, is a file of BELL_TREE_PATHS (scripts/verify-bell.mjs), ../src/sessions.ts of bell-validate.mjs included.
+  const rel = ["bell-chain.mjs", "bell-publish.mjs", "bell-validate.mjs"].flatMap((f) => [...src(`../scripts/${f}`).matchAll(/\b(?:from|import)\s*["'`](\.[^"'`]+)["'`]/g)]
+    .map((m) => posix.join("apps/bell/scripts", m[1] ?? "")));
+  assert.deepEqual([rel.includes("apps/bell/src/sessions.ts"), BELL_TREE_PATHS.includes("apps/bell/src/sessions.ts"), rel.filter((p) => !BELL_TREE_PATHS.includes(p))], [true, true, []],
+    "bell-validate.mjs imports ../src/sessions.ts, which is in BELL_TREE_PATHS, and no relative import of the publisher leaves that tree");
 });
