@@ -1,17 +1,22 @@
 // MONARK Koyomi: the input cuts (G0 KOYOMI-A DK-1, DK-5; tests 5 and 6). Night: the `after` window of D, [16:00, 20:00) ET, or
 // [13:00, 17:00) ET on a half-day. Weekend: the `weekend` session's trades from Saturday 00:00 ET, cut strictly before Sunday 17:00 ET,
 // New York daylight time applied. The calendar is an argument (C-A1-13: no module of the lot imports Bell); these tests build it from
-// Bell's committed calendar and clock (relational, like tests 15 and 48). Every expected instant is a literal Date.UTC, never the
-// converter under test (plan A1 §7, "same code in the oracle and the engine"). Namespace imports: a missing symbol fails an assertion.
+// Bell's committed closures, half-days and clock (relational, C-A1-13 as widened on 2026-10-22: tests 3 to 6), under a LITERAL range,
+// never Bell's own: extending Bell's calendar (its 2027 lot) leaves these tests green. Every expected instant is a literal Date.UTC,
+// never the converter under test (plan A1 §7, "same code in the oracle and the engine"). Namespace imports: a missing symbol fails an
+// assertion.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as S from "../../bell/src/sessions.ts";
 import * as K from "../src/cut.ts";
 import type { NyCalendar } from "../src/slots.ts";
 
-/** Bell's committed calendar and New York clock, with `extraHalfDays` added as fixture half-days. */
+/** The fixture's range, literal: the covered years of Bell's calendar when this lot was written, held here so a later extension of
+ *  Bell's range changes nothing in these tests. */
+const FIXTURE_RANGE = { fromISO: "2025-01-01", toISO: "2026-12-31" } as const;
+/** Bell's committed closures, half-days and New York clock under the literal range, with `extraHalfDays` as fixture half-days. */
 const bellCalendar = (extraHalfDays: readonly string[] = []): NyCalendar => ({
-  fullClosures: S.FULL_CLOSURES, halfDays: new Set([...S.HALF_DAYS, ...extraHalfDays]), range: S.CALENDAR_RANGE,
+  fullClosures: S.FULL_CLOSURES, halfDays: new Set([...S.HALF_DAYS, ...extraHalfDays]), range: FIXTURE_RANGE,
   etToUtcMs: S.etWallClockToUtcMs, sipSwitchSundayET: S.SIP_ETH_FROM_ET,
 });
 
@@ -47,7 +52,11 @@ test("koyomi_cut_after_window_bounds", () => {
 // killer: apps/koyomi/src/cut.ts:44 CONST "cal.etToUtcMs(y, mo, d, 17, 0, 0)" -> "Date.UTC(y, mo - 1, d, 22, 0, 0)"
 test("koyomi_cut_sunday_17h_new_york_dst", () => {
   assert.equal(typeof K.sundayCut, "function", "cut.ts exports sundayCut");
-  const cal = bellCalendar(); // range ends 2026-12-31: the Sunday cut never consults it
+  // killer: apps/koyomi/src/cut.ts:35 CONST "checkIso(sundayISO);" -> "checkIso(sundayISO); if (!inRange(cal, sundayISO)) throw new RangeError(\"outside\");"
+  // The fixture's literal range ends 2026-12-31 and both 2027 Sundays lie past it: the Sunday cut never consults the range.
+  const cal = bellCalendar();
+  assert.equal(cal.range.toISO < "2027-03-07", true, "the Sundays below are outside the fixture's range");
+  for (const sunday of ["2027-03-07", "2027-03-14"]) assert.doesNotThrow(() => K.sundayCut(sunday, cal), `${sunday}: a Sunday past the range keeps its cut`);
   // Sunday 2027-03-07, winter time: Saturday 00:00 ET (UTC-5) = 05:00 UTC, Sunday 17:00 ET (UTC-5) = 22:00 UTC.
   const winter = K.sundayCut("2027-03-07", cal);
   assert.deepEqual(winter, { fromUtcMs: Date.UTC(2027, 2, 6, 5, 0, 0), toUtcMs: Date.UTC(2027, 2, 7, 22, 0, 0) });

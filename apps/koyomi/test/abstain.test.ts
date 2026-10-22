@@ -7,8 +7,8 @@ import { readFileSync } from "node:fs";
 import * as A from "../src/abstain.ts";
 
 const srcOf = (name: string): string => readFileSync(new URL(`../src/${name}.ts`, import.meta.url), "utf8");
-/** The import specifiers of a module's source (static `from "..."` and dynamic `import("...")`). */
-const importsOf = (src: string): string[] => [...src.matchAll(/(?:\bfrom\s*|\bimport\s*\(\s*)["']([^"']+)["']/g)].map((m) => m[1] ?? "");
+/** The import specifiers of a module's source: static `from "..."`, bare `import "..."` and dynamic `import("...")`. */
+const importsOf = (src: string): string[] => [...src.matchAll(/(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*)["']([^"']+)["']/g)].map((m) => m[1] ?? "");
 
 // killer: apps/koyomi/src/abstain.ts:21 CONST "\"input_late\"," -> "\"input_late\", \"market_closed\","
 test("koyomi_abstain_closed_list", () => {
@@ -27,6 +27,10 @@ test("koyomi_abstain_closed_list", () => {
   assert.throws(() => A.assertAbstainCode("market_closed"), /not a Koyomi abstention code: "market_closed"/);
   // No code reads the session state: the list module imports nothing, and no module of the lot reaches Bell's sessions
   // (C-A1-13 of the plan: only label-read.ts and input.ts import Bell; the calendar reaches slots and cuts as an argument).
+  // killer: apps/koyomi/src/slots.ts:7 CONST "import type { AbstainCode } from \"./abstain.ts\";" -> "import type { AbstainCode } from \"./abstain.ts\"; import \"../../bell/src/sessions.ts\";"
+  // The guard sees every form of import: static, type-only, bare (side effect only) and dynamic.
+  assert.deepEqual(importsOf('import { a } from "./x.ts";\nimport type { B } from "./y.ts";\nimport "../../bell/src/sessions.ts";\nawait import("./z.ts");\n'),
+    ["./x.ts", "./y.ts", "../../bell/src/sessions.ts", "./z.ts"], "a bare import of Bell is seen");
   assert.deepEqual(importsOf(srcOf("abstain")), [], "abstain.ts is a closed list, it imports nothing");
   for (const name of ["slots", "cut", "abstain"]) {
     const src = srcOf(name);

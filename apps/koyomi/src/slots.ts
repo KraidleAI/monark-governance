@@ -1,9 +1,9 @@
 // MONARK Koyomi: the slots (G0 KOYOMI-A DK-8, DK-5; plan A1 §2, lot A1-b-i). A night is the evening of a NYSE day from Monday to
 // Thursday; it carries a forecast when the next calendar day is a NYSE day, else a `holiday` line. A weekend slot is every Sunday,
 // between the last NYSE day before it (D) and the next one (D'). A closure whose D and D' lie on both sides of the SIP switch Sunday
-// is `straddle`. A date the calendar does not cover is `calendar_unknown`, line by line: no slot is ever guessed. The rank counts the
-// forecast slots only (MONARK's ruling on the hand-written table, 2026-10-22). Pure: the calendar is an argument, built by the caller
-// from Bell's committed one (C-A1-13: this module imports nothing from Bell; dowOf and addDays are restated on ISO dates here).
+// is `straddle`. A date the calendar does not cover is `calendar_unknown`, line by line: no slot is ever guessed. Labels rank
+// `calendar_unknown`, then `straddle`, then `holiday`, and a night may be `straddle` (G0 KA-5). The rank counts the forecast slots of the
+// window only. Pure: the calendar is an argument (C-A1-13: nothing imported from Bell; dowOf and addDays restated on ISO dates here).
 import type { AbstainCode } from "./abstain.ts";
 
 /** What the slots and the cuts read of the New York calendar: full closures, half-days, the covered range (inclusive), the New York
@@ -17,9 +17,12 @@ export interface NyCalendar {
 }
 export type NightLabel = "night" | Extract<AbstainCode, "holiday" | "straddle" | "calendar_unknown">;
 export type SundayLabel = "ordinary" | Extract<AbstainCode, "holiday" | "straddle" | "calendar_unknown">;
-/** One night: D the evening's date, D' the next NYSE day (null when unknown), rank among the forecast nights (null otherwise). */
+/** One night: D the evening's date, D' the next NYSE day (null when unknown). `rank` is the position among the `night` lines of the
+ *  window [fromISO, toISO] asked, counted from fromISO (null on any other label): it starts again with each call, and it is NOT the
+ *  count of scored nights of a cell (DK-2: that count depends on each symbol's abstentions, never on the calendar alone). */
 export interface NightSlot { readonly rank: number | null; readonly d: string; readonly dNext: string | null; readonly label: NightLabel }
-/** One Sunday: dPrev = D, the last NYSE day before it; dNext = D'; both null when unknown. */
+/** One Sunday: dPrev = D, the last NYSE day before it; dNext = D'; both null when unknown. `rank`: as for a night, among the
+ *  `ordinary` Sundays of the window, counted from fromISO; not the count of scored weekends of a cell (DK-2). */
 export interface SundaySlot { readonly rank: number | null; readonly d: string; readonly dPrev: string | null; readonly dNext: string | null; readonly label: SundayLabel }
 
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -37,7 +40,9 @@ export const inRange = (cal: NyCalendar, dateISO: string): boolean => dateISO >=
 /** A NYSE day = a weekday that is not a full closure; half-days are NYSE days. Callers check the range first. */
 export const isNyseDay = (cal: NyCalendar, dateISO: string): boolean => dowOf(dateISO) >= 1 && dowOf(dateISO) <= 5 && !cal.fullClosures.has(dateISO);
 
-/** The nearest NYSE day strictly after (step 1) or before (step -1) a date, or null when the walk leaves the calendar. */
+/** The nearest NYSE day strictly after (step 1) or before (step -1) a date, or null when the walk leaves the calendar or meets no NYSE
+ *  day within 14 days (a closure that long is not a calendar to trust: the slot reads `calendar_unknown`). The longest closure of the
+ *  committed years takes 4 steps (Thursday 2026-12-24 to Monday 12-28); a fixture of 11 steps is tested. */
 function walk(cal: NyCalendar, dateISO: string, step: 1 | -1): string | null {
   for (let day = addDays(dateISO, step), k = 0; k < 14; day = addDays(day, step), k++) {
     if (!inRange(cal, day)) return null;
