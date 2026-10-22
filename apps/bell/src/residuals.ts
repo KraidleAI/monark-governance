@@ -49,6 +49,12 @@ export const COLLECTOR_RESIDUE_CODES = [
   "no_multiplier", // iii (BELL-ADV-1, I-G2-1 a): the shares-per-token multiplier in effect at the session's fills is not
             // established (mint absent or unparseable, rebase gate unverified, no multiplier at a fill). The session's
             // ratio abstains, never a default "1". Counted per session entry.
+  "corporate_action_in_window", // BELL-JUSTESSE-1 G0 DJ-1, DJ-10 (corporate-actions.ts): the unit of the token and the unit of its reference
+            // close differ around a corporate action (a split, a dividend beyond 0.005, a type without unit, an issuer not read), read on
+            // three signals. The session abstains, gap and volume, never adjusted in silence. Counted per entry (gap, volume entry).
+  "corporate_action_undated", // BELL-CA-UNDATED-EVENT-1 (decision of 2026-10-22 13:1x UTC): an event of the issuer with no instant in any
+            // version and no paired step of the multiplier cannot be placed; while the issuer carries it undated, every session of the
+            // symbol in the run abstains, gap and volume, never ignored. Counted per entry. Both names stay outside the CLOSE_KEY guard.
 ] as const;
 
 /** The ONE closed list of residual codes (union). Iterated to build the counter and to check state.json. */

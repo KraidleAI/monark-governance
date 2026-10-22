@@ -210,13 +210,15 @@ test("bell_publish_provenance_projection_is_declared", () => {
 // ---- C-4: the gap whitelist IS keyof GapEntryFilled | keyof GapEntryAbstained (tsc: a missing or extra key is a type error) ----
 type GapKey = keyof GapEntryFilled | keyof GapEntryAbstained;
 const K: Record<GapKey, true> = { symbol: true, session: true, regime: true, vwap: true, volumeBase: true, n: true, cash_cross: true, gT: true,
-  exceed1: true, exceed2: true, exceed5: true, multiplierUsed: true, rebase_residuals: true, earliest_publish_utc: true, abstain: true };
+  exceed1: true, exceed2: true, exceed5: true, multiplierUsed: true, rebase_residuals: true, earliest_publish_utc: true, abstain: true, corporate_action: true };
+// killer: apps/bell/scripts/bell-validate.mjs:31 CONST "abstain: S, corporate_action: S }" -> "abstain: S }"
+// killer: apps/bell/scripts/bell-validate.mjs:34 CONST ", \"corporate_action_in_window\", \"corporate_action_undated\"]" -> "]"
 test("bell_publish_whitelist_equals_collector_types", () => {
   const keys = (o: object | undefined): string[] => Object.keys(o ?? {}).sort();
   assert.deepEqual(keys(WHITELIST.gap), Object.keys(K).sort(), "gap = keyof GapEntryFilled | keyof GapEntryAbstained (digest.ts:66-97)");
   assert.deepEqual(keys(WHITELIST.residuals), [...RESIDUAL_CODES].sort(), "residuals = RESIDUAL_CODES (residuals.ts:55)");
   const SITES: Record<string, string[]> = { // keys read at their construction sites @ adc3260
-    volume: ["symbol", "session", "regime", "session_date_et", "window", "adv_period", "n", "n_bars", "n_trading_days", "formula", "abstain", "vol_ratio", "multiplier_unit"], // collect.ts:224-233
+    volume: ["symbol", "session", "regime", "session_date_et", "window", "adv_period", "n", "n_bars", "n_trading_days", "formula", "abstain", "vol_ratio", "multiplier_unit", "corporate_action"], // collect.ts:224-233, DJ-7
     supply: ["symbol", "supply", "decimals", "multiplier", "paused", "permanent_delegate"], // collect.ts:241-242
     por: ["symbol", "kind", "method", "note", "age_sec", "statement"], // collect.ts:245-247
     wrapper: ["symbol", "contracts", "residue"], // collect.ts:250
@@ -225,7 +227,8 @@ test("bell_publish_whitelist_equals_collector_types", () => {
     digest: ["schema", "gaps", "halt_census", "residuals", "volume", "supply", "por", "wrapper"], // digest.ts:103 + collect.ts:279-281
     state: ["schema", "bell_sha", "window", "residuals", "digest", "halt_deltas"], // collect.ts:303-305
     record: ["symbol", "chain", "n_fills", "sessions", "quorum_coverage", "prev_line_hash"], // collect.ts:90, :254-255
-    provenance: ["bellSha", "generatedAt", "sources", "providers"], sources: ["generated_at", "cash_request_digest", "cash_cross_mismatch_days", "cash_cross_unavailable_days"], // digest.ts:108, collect.ts:294-299
+    provenance: ["bellSha", "generatedAt", "sources", "providers"], sources: ["generated_at", "cash_request_digest", "cash_cross_mismatch_days", "cash_cross_unavailable_days", // digest.ts:108, collect.ts:294-299
+      "d_candidates", "corporate_action_disagreements", "issuer_time_without_step", "multiplier_bits_mismatch", "corporate_action_late"], // G0 DJ-7 (BELL-JUSTESSE-1)
     providers: ["providers", "quorum_required", "providers_distinct", "faults"], fault: ["provider", "status"], // collect.ts:300-301, quorum.ts:80
   };
   for (const [k, v] of Object.entries(SITES)) assert.deepEqual(keys(WHITELIST[k]), [...v].sort(), `WHITELIST.${k}`);
@@ -233,6 +236,8 @@ test("bell_publish_whitelist_equals_collector_types", () => {
 });
 
 // ---- C-4 coverage: REAL collect() outputs carrying every reachable shape pass the whole validation and publish ----
+// killer: apps/bell/scripts/bell-validate.mjs:49 CONST "d_candidates: SA, " -> ""
+// killer: apps/bell/scripts/bell-validate.mjs:38 CONST "multiplier_unit: S, corporate_action: S }" -> "multiplier_unit: S }"
 test("bell_publish_whitelist_covers_all_collector_gap_shapes", () => {
   const w = Date.UTC(2026, 8, 19, 13, 31, 4), ref = "2026-09-18", nowSec = Math.floor(T / 1000); // weekend session, ADV month 2026-08
   const fill = (sig: string, usdc: bigint): SymbolInput["fills"][number] => ({ signature: sig, blockTimeUtcMs: w, baseDelta: 100_000_000n, quoteDelta: -usdc * 1_000_000n });
@@ -244,7 +249,8 @@ test("bell_publish_whitelist_covers_all_collector_gap_shapes", () => {
   const base = { chain: "solana" as const, baseDec: 8, quoteDec: 6, fillsResidues: [], quorumCoverage: 1 };
   const symbols: SymbolInput[] = [
     { ...base, symbol: "TSLAx", fills: [fill("a", 365n)], closeRefBySession: { [ref]: 364 }, crossBySession: { [ref]: "matched" }, advDailyVolumes: aug, mint,
-      porRelayed: { value: "1", updatedAtSec: nowSec - 10 }, rebase: { status: "trajectory_known", events, overwrittenPending: 0, residuals: ["authority_scan_mono_operator", "set_authority_unscanned"] } },
+      porRelayed: { value: "1", updatedAtSec: nowSec - 10 }, rebase: { status: "trajectory_known", events, overwrittenPending: 0, residuals: ["authority_scan_mono_operator", "set_authority_unscanned"] },
+      corporateActions: { issuerNodes: [{ eventId: "div-1", version: 1, caType: "CashDividend", effectiveTimeUtc: new Date(w - 50_000_000).toISOString(), multiplierOld: "1", multiplierNew: "1.0039", status: "Initial" }], trajectory: events } },
     { ...base, symbol: "SPYx", fills: [fill("b", 600n)], closeRefBySession: {}, advDailyVolumes: [], porRelayed: { value: "1", updatedAtSec: nowSec - 200_000 } },
     { ...base, symbol: "NVDAx", fills: [fill("c", 170n)], closeRefBySession: { [ref]: 171 }, crossBySession: { [ref]: "mismatch" }, advDailyVolumes: [] },
     { ...base, symbol: "AAPLx", fills: [fill("d", 230n)], closeRefBySession: { [ref]: 231 }, crossBySession: { [ref]: "unavailable" }, advDailyVolumes: [] },
@@ -256,12 +262,30 @@ test("bell_publish_whitelist_covers_all_collector_gap_shapes", () => {
   for (const [label, ok] of [["abstained gap", g.some((x) => "abstain" in x)], ["rebase_residuals", g.some((x) => "rebase_residuals" in x)], ["cash_cross", g.some((x) => "cash_cross" in x)],
     ["earliest_publish_utc", g.some((x) => "earliest_publish_utc" in x)], ["multiplierUsed", g.some((x) => "multiplierUsed" in x)], ["computed volume", vol.some((x) => "vol_ratio" in x)],
     ["abstained volume", vol.some((x) => "abstain" in x)], ["por unavailable/stale/ok", ["unavailable", "stale", "ok"].every((k) => (d.por as Obj[]).some((x) => x.kind === k))],
-    ["halt_deltas", Array.isArray((r.state as Obj).halt_deltas)], ["quorum_coverage", r.timeline.some((x) => x !== null && typeof x === "object" && "quorum_coverage" in x)]] as const) assert.ok(ok, `collect() produced a ${label} (non-vacuity)`);
+    ["halt_deltas", Array.isArray((r.state as Obj).halt_deltas)], ["quorum_coverage", r.timeline.some((x) => x !== null && typeof x === "object" && "quorum_coverage" in x)],
+    ["dividend mark on a gap", g.some((x) => x.corporate_action === "cash_dividend")], ["dividend mark on a volume entry", vol.some((x) => x.corporate_action === "cash_dividend")],
+    ["d_candidates", Array.isArray((r.provenance.sources as Obj).d_candidates)]] as const) assert.ok(ok, `collect() produced a ${label} (non-vacuity)`);
+  // DJ-1 and BELL-CA-UNDATED-EVENT-1: a second run of the bundle carries the two abstentions of the chantier (a split of M on the
+  // reference day of the TSLAx session; an event of E with no instant and no step on AAPLx).
+  const r2 = collect({ symbols: [
+    { ...base, symbol: "TSLAx", fills: [fill("e", 365n)], closeRefBySession: { [ref]: 364 }, crossBySession: { [ref]: "matched" }, advDailyVolumes: aug, mint,
+      corporateActions: { splits: [{ execution_date: ref, split_from: 1, split_to: 2 }] } },
+    { ...base, symbol: "AAPLx", fills: [fill("f", 230n)], closeRefBySession: { [ref]: 231 }, crossBySession: { [ref]: "matched" }, advDailyVolumes: aug,
+      corporateActions: { issuerNodes: [{ eventId: "undated-1", version: 1, caType: "ForwardSplit", effectiveTimeUtc: null, multiplierOld: "1", multiplierNew: "2", status: "Initial" }] } }],
+    haltRows: [], window: { fromUtcMs: w - 86_400_000, toUtcMs: w + 86_400_000 }, nowSec, staleBoundSec: 93600, generatedAt: new Date(w).toISOString(), providers: ["helius", "solana-foundation"] });
+  const g2 = (r2.digest as Obj).gaps as Obj[], v2 = (r2.digest as Obj).volume as Obj[];
+  assert.deepEqual(g2.map((x) => [x.symbol, x.abstain]), [["AAPLx", "corporate_action_undated"], ["TSLAx", "corporate_action_in_window"]], "the two abstentions of the chantier (non-vacuity)");
+  assert.ok(v2.some((x) => Array.isArray(x.abstain) && (x.abstain as unknown[]).includes("corporate_action_undated")), "an undated abstention on a volume entry (non-vacuity)");
   const s = stage([]), run = join(s.inbox, "b1", "run0");
   mkdirSync(run, { recursive: true }); // the collect.ts:855-859 serialization (journal.json omitted: tolerated, never read)
   writeFileSync(join(run, "state.json"), JSON.stringify(r.state, null, 2));
   writeFileSync(join(run, "timeline.jsonl"), r.timeline.map((l) => JSON.stringify(l)).join("\n") + "\n");
   writeFileSync(join(run, "provenance.json"), JSON.stringify(r.provenance, null, 2));
+  const run1 = join(s.inbox, "b1", "run1");
+  mkdirSync(run1, { recursive: true });
+  writeFileSync(join(run1, "state.json"), JSON.stringify(r2.state, null, 2));
+  writeFileSync(join(run1, "timeline.jsonl"), r2.timeline.map((l) => JSON.stringify(l)).join("\n") + "\n");
+  writeFileSync(join(run1, "provenance.json"), JSON.stringify(r2.provenance, null, 2));
   assert.equal(publish(s).status, "published", "every reachable collector shape passes C-in-1..10");
 });
 

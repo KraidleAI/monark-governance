@@ -13,8 +13,10 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import {
   BELL_SESSION_BOUNDS_ET,
   BELL_CALENDAR,
@@ -29,7 +31,8 @@ import {
   BELL_VOL_RATIO_FORMULA_DISPLAY,
   porGloss,
 } from "../apps/site/lib/bell-method.ts";
-import { loadBellServed } from "../apps/site/lib/bell-served-load.ts";
+import * as BM from "../apps/site/lib/bell-method.ts";
+import { loadBellServed, BELL_SERVED_REL } from "../apps/site/lib/bell-served-load.ts";
 import { classifySession, etWallClockToUtcMs, FULL_CLOSURES, HALF_DAYS, CALENDAR_RANGE } from "../apps/bell/src/sessions.ts";
 import { GAP_PRECISION } from "../apps/bell/src/gap.ts";
 import { RESIDUAL_CODES } from "../apps/bell/src/residuals.ts";
@@ -39,6 +42,7 @@ import { closeLikePath } from "../apps/bell/scripts/bell-chain.mjs";
 const ROOT = join(import.meta.dirname, "..");
 const read = (rel: string): string => readFileSync(join(ROOT, rel), "utf8");
 
+// killer: apps/site/lib/bell-method.ts:70 CONST "readonly BellResidual[] = [" -> "readonly BellResidual[] = [{ code: \"corporate_action_in_window\", gloss: \"a gloss\" },"
 test("bell_method_facts_match_collector — /bell/method definitions equal apps/bell/src (bounds, calendar, decimals, residuals)", () => {
   // Bounds: replay each claimed minute through the collector's classifier, on a normal day and on a half-day.
   const at = (dateISO: string, hhmm: string): string => {
@@ -74,16 +78,18 @@ test("bell_method_facts_match_collector — /bell/method definitions equal apps/
   assert.deepEqual([...BELL_CALENDAR.halfDays].sort(), [...HALF_DAYS].sort(), "half-days must equal sessions.ts HALF_DAYS");
   // Decimals.
   assert.equal(BELL_DECIMALS, GAP_PRECISION, "decimals must equal gap.ts GAP_PRECISION");
-  // Residuals: every served code listed on the page is in the collector's closed list, and every code of the
-  // closed list is on the page (as served or, for a lot not merged at this base, as upcoming).
+  // Residuals (inclusion frozen by G0 DJ-7 of BELL-JUSTESSE-1): every code listed on the page is in the collector's closed list, and the
+  // closed list holds exactly the page's codes plus the two codes of that chantier, which no page glosses before the launch (no published
+  // text, decision of the founder of 2026-10-22 01:2x UTC; item BELL-SITE-RESIDUALS-LIST-1): a third code without its gloss reds this.
   const listed = [...BELL_RESIDUALS_SESSIONS, ...BELL_RESIDUALS_VOLUME, ...BELL_RESIDUALS_HALTS_RESERVES].map((r) => r.code);
   const upcoming = BELL_RESIDUALS_UPCOMING.map((r) => r.code);
   const closed = new Set<string>(RESIDUAL_CODES);
   for (const c of listed) assert.ok(closed.has(c), `page lists '${c}' as a residual but the collector's closed list does not carry it`);
   assert.equal(new Set(listed).size, listed.length, "no residual code listed twice");
   for (const c of upcoming) assert.ok(!closed.has(c), `page marks '${c}' upcoming but the collector's closed list already carries it: list it as served`);
-  for (const c of closed) assert.ok(listed.includes(c), `collector residual '${c}' is missing from the served lists of /bell/method`);
-  assert.deepEqual([...BELL_RESIDUAL_CODES_LISTED].sort(), [...closed].sort(), "the list the loader checks each run against = the collector's closed list");
+  const CHANTIER: readonly string[] = ["corporate_action_in_window", "corporate_action_undated"];
+  assert.deepEqual([...closed].filter((c) => !listed.includes(c)).sort(), [...CHANTIER].sort(), "the closed list = the page's codes + the codes of BELL-JUSTESSE-1, none of them on the page");
+  assert.deepEqual([...BELL_RESIDUAL_CODES_LISTED].sort(), [...closed].filter((c) => !CHANTIER.includes(c)).sort(), "the list the loader checks each run against = the closed list minus the chantier's codes");
 });
 
 test("bell_method_public_repo_link_is_the_footer_link — one repository URL on the storefront", () => {
@@ -168,4 +174,41 @@ test("bell_method_digest_guard_sentence_matches_the_guard — what it refuses, a
   const method = read("apps/site/app/bell/method/page.tsx").replace(/\s+/g, " ");
   assert.ok(method.includes("Close values, reference prices and consolidated volumes (a numeric value under any key naming a close, a reference price, an average daily volume or a share volume) are refused by the digest guard; the on-chain VWAP and base volume are carried."));
   assert.ok(!/any price-like key/.test(method), "the guard does not refuse every price-like key (the VWAP is a price, and it is carried)");
+});
+
+// ---- test 35 (G0 §4, DJ-7; plan P1 C1-8): the page's build guard, extracted from page.tsx l.106-107 to a pure function, refuses a served
+// ---- run that counts a code the page does not list; the loader's rule (bell-served-load.ts l.266) is replayed on the same fixture ----
+// killer: apps/site/lib/bell-method.ts:85 CONST "if (!set.has(code)) throw" -> "if (false) throw"
+// killer: apps/site/app/bell/method/page.tsx:107 SDL "assertServedResidualsListed(runs);" -> ""
+test("bell_method_page_refuses_unlisted_served_code", () => {
+  const guard = (BM as Record<string, unknown>).assertServedResidualsListed;
+  assert.equal(typeof guard, "function", "apps/site/lib/bell-method.ts exports the page's build guard");
+  const check = guard as (runs: ReadonlyArray<{ readonly residuals: Readonly<Record<string, number>> }>) => void;
+  // The fixture: a copy of the committed served file whose first run also counts corporate_action_in_window (synthetic, never committed).
+  type Run = Record<string, unknown> & { residuals: Record<string, number> };
+  const good = read(BELL_SERVED_REL), d = JSON.parse(good) as { head: { runs: Run[] } }, run0 = d.head.runs[0];
+  assert.ok(run0 !== undefined, "the committed served file has a run");
+  const fixture = { ...d, head: { ...d.head, runs: [{ ...run0, residuals: { ...run0.residuals, corporate_action_in_window: 0 } }, ...d.head.runs.slice(1)] } };
+  assert.doesNotThrow(() => { check(d.head.runs); }, "control: the committed runs count only codes the page lists");
+  assert.throws(() => { check(fixture.head.runs); }, /served residual corporate_action_in_window is not in the page's list/, "a served code the page does not list fails the build");
+  // The page calls it on the runs it renders, where the check stood (l.106-107), after the runs are read.
+  const page = read("apps/site/app/bell/method/page.tsx");
+  assert.match(page, /^ {2}assertServedResidualsListed\(runs\);$/m, "the page calls the guard on its runs");
+  assert.ok(page.indexOf("assertServedResidualsListed(runs);") > page.indexOf("const runs = head.runs;"), "after the runs are read");
+  // The loader's rule on the same fixture: a run must count exactly the page's list (the build fails there too).
+  const sha = (s: string): string => createHash("sha256").update(s).digest("hex");
+  const tmp = mkdtempSync(join(tmpdir(), "bell-method-35-"));
+  try {
+    mkdirSync(join(tmp, "apps", "site", "data"), { recursive: true });
+    const put = (body: string): void => {
+      writeFileSync(join(tmp, BELL_SERVED_REL), body);
+      writeFileSync(join(tmp, "apps", "site", "data", "manifest.sha256.json"), JSON.stringify({ algorithm: "sha256", files: { [BELL_SERVED_REL]: sha(body) } }));
+    };
+    put(good.replace(/\r\n/g, "\n"));
+    assert.doesNotThrow(() => loadBellServed(tmp, BELL_RESIDUAL_CODES_LISTED), "control: the committed copy loads against the page's list");
+    put(JSON.stringify(fixture, null, 2) + "\n");
+    assert.throws(() => loadBellServed(tmp, BELL_RESIDUAL_CODES_LISTED), /residuals must count exactly the closed list of codes/, "the loader refuses the same fixture");
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 });

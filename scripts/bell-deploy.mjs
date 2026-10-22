@@ -78,7 +78,7 @@ export const BELL_COLLECT_TREE_ROOT = "/opt/monark-bell-collect";
  *  lot 3c), the package.json Node reads for them (the `type` scope, the `exports` of @monark/rpc-guard); never bell-publish.mjs (G0 N-4). Byte
  *  order. Pinned by bell_collect_tree_is_the_import_closure and run by bell_collect_unit_runs_the_real_tick. */
 export const BELL_COLLECT_TREE_PATHS = Object.freeze(["apps/bell/package.json", "apps/bell/scripts/bell-chain.mjs", "apps/bell/scripts/bell-validate.mjs",
-  "apps/bell/src/checks.ts", "apps/bell/src/close.ts", "apps/bell/src/collect.ts", "apps/bell/src/digest.ts", "apps/bell/src/discover.ts",
+  "apps/bell/src/checks.ts", "apps/bell/src/close.ts", "apps/bell/src/collect.ts", "apps/bell/src/corporate-actions.ts", "apps/bell/src/digest.ts", "apps/bell/src/discover.ts",
   "apps/bell/src/ethereum.ts", "apps/bell/src/gap.ts", "apps/bell/src/halts.ts", "apps/bell/src/handoff-status.ts", "apps/bell/src/operators.ts",
   "apps/bell/src/plan.ts", "apps/bell/src/pools.ts", "apps/bell/src/quorum.ts", "apps/bell/src/reason-canon.ts", "apps/bell/src/rebase-crosscheck.ts",
   "apps/bell/src/rebase-produce.ts", "apps/bell/src/rebase-scan.ts", "apps/bell/src/rebase-trajectory.ts", "apps/bell/src/residuals.ts",

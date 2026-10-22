@@ -55,6 +55,7 @@ import { WHITELIST } from "../apps/bell/scripts/bell-publish.mjs";
 import { BELL_ROOT_REDIRECT } from "../scripts/verify-bell.mjs";
 import * as VB from "../scripts/verify-bell.mjs";
 import { RESIDUAL_CODES } from "../apps/bell/src/residuals.ts";
+import { BELL_RESIDUAL_CODES_LISTED } from "../apps/site/lib/bell-method.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const MANIFEST_REL = "apps/site/data/manifest.sha256.json";
@@ -63,6 +64,13 @@ const sha = (s: string | Uint8Array): string => createHash("sha256").update(s).d
 const shaLf = (rel: string): string => sha(Buffer.from(readFileSync(join(ROOT, rel), "utf8").replace(/\r\n/g, "\n"), "utf8"));
 const readJson = <T>(rel: string): T => JSON.parse(readFileSync(join(ROOT, rel), "utf8")) as T;
 const CHAIN = { walkTimeline, trustOf, lineHash };
+/** The keys G0 DJ-7 of BELL-JUSTESSE-1 (lot 1a-ii) entered into the publisher's WHITELIST, which the storefront neither loads nor lists
+ *  before the launch (plan P1 C1-8, M-9: the committed served file is not refreshed; item BELL-SITE-RESIDUALS-LIST-1). Frozen: the
+ *  committed file and the site's loader are compared to WHITELIST minus exactly these keys. */
+const DJ7_KEYS: Readonly<Record<string, readonly string[]>> = { residuals: ["corporate_action_in_window", "corporate_action_undated"], gap: ["corporate_action"],
+  volume: ["corporate_action"], sources: ["d_candidates", "corporate_action_disagreements", "issuer_time_without_step", "multiplier_bits_mismatch", "corporate_action_late"] };
+const withoutDj7 = (wl: Record<string, unknown>): unknown => Object.fromEntries(Object.entries(JSON.parse(JSON.stringify(wl)) as Record<string, Record<string, unknown>>)
+  .map(([k, o]) => [k, Object.fromEntries(Object.entries(o).filter(([kk]) => !(DJ7_KEYS[k] ?? []).includes(kk)))]));
 /** servedKeyringOf of scripts/verify-bell.mjs (the R2-R5 window, PLAN-P5 C-7), checked to exist first: at the base a named red, never a TypeError. */
 function servedKeyringOf(): (committedText: string) => string | null {
   assert.equal(typeof VB.servedKeyringOf, "function", "scripts/verify-bell.mjs exports servedKeyringOf");
@@ -112,8 +120,9 @@ test("bell_served_sync_sets_its_manifest_entry_only", () => {
 });
 
 // killer: scripts/verify-bell.mjs:258 ROR "committedText !== canonical(kr)" -> "committedText === canonical(kr)"
+// killer: apps/site/lib/bell-method.ts:79 CONST ".map((r) => r.code);" -> ".map((r) => r.code).slice(1);"
 test("bell_served_first_record_and_latest_publication_pinned", () => {
-  const d = loadBellServed(ROOT, RESIDUAL_CODES);
+  const d = loadBellServed(ROOT, BELL_RESIDUAL_CODES_LISTED);
   assert.equal(d.host, BELL_HOST);
   assert.equal(d.host, "https://bell.monarkgate.tech");
   assert.deepEqual(d.first_record, PINNED_FIRST);
@@ -289,7 +298,7 @@ test("bell_served_loader_is_fail_closed", () => {
       writeFileSync(join(tmp, MANIFEST_REL), JSON.stringify({ algorithm: "sha256", files }));
     };
     put(good, true);
-    assert.deepEqual(loadBellServed(tmp, RESIDUAL_CODES).first_record, PINNED_FIRST, "control: an intact copy loads");
+    assert.deepEqual(loadBellServed(tmp, BELL_RESIDUAL_CODES_LISTED).first_record, PINNED_FIRST, "control: an intact copy loads");
     writeFileSync(join(tmp, BELL_SERVED_REL), good.replace(PINNED_FIRST.published_at, "2026-09-23T21:35:53.438Z"));
     assert.throws(() => loadBellServed(tmp), /sha256 mismatch/, "a tampered file with the old manifest hash throws");
     put(good, false);
@@ -314,7 +323,7 @@ test("bell_served_loader_is_fail_closed", () => {
     const { no_adv: _dropped, ...fewer } = run0.residuals;
     void _dropped;
     put(withRun({ ...run0, residuals: fewer }), true);
-    assert.throws(() => loadBellServed(tmp, RESIDUAL_CODES), /closed list/, "a run that does not count every residual code throws");
+    assert.throws(() => loadBellServed(tmp, BELL_RESIDUAL_CODES_LISTED), /closed list/, "a run that does not count every residual code throws");
     put(JSON.stringify({ ...d, extra: 1 }), true);
     assert.throws(() => loadBellServed(tmp), /exactly/, "an extra top-level key throws");
     // lines[] (v4): each mutant is hashed into the manifest, so only the loader's own checks refuse it (L-2..L-8; L-1 is in the build test).
@@ -479,10 +488,12 @@ test("bell_served_build_is_fail_closed", () => {
   assert.throws(() => buildBellServed({ ...f.input, whitelist: wl }, CHAIN), /does not know: cash_cross/, "a served key outside the closed list is refused, never carried");
 });
 
+// killer: apps/bell/scripts/bell-validate.mjs:31 CONST "abstain: S, corporate_action: S }" -> "abstain: S }"
 test("bell_served_projection_matches_the_publisher_closed_list", () => {
   const keys = (name: string): string[] => Object.keys(WHITELIST[name] ?? {}).sort();
-  assert.deepEqual([...BELL_SESSION_KEYS].sort(), keys("gap"), "session rows carry every key of the served gap object");
-  assert.deepEqual([...BELL_VOLUME_KEYS, ...BELL_VOLUME_DROPPED].sort(), keys("volume"), "volume entries = the served volume object minus the ratio value");
+  for (const [k, ks] of Object.entries(DJ7_KEYS)) for (const kk of ks) assert.ok(Object.hasOwn(WHITELIST[k] ?? {}, kk), `WHITELIST.${k} carries ${kk} (non-vacuity)`);
+  assert.deepEqual([...BELL_SESSION_KEYS, ...(DJ7_KEYS.gap ?? [])].sort(), keys("gap"), "session rows carry every key of the served gap object but the DJ-7 mark (frozen)");
+  assert.deepEqual([...BELL_VOLUME_KEYS, ...BELL_VOLUME_DROPPED, ...(DJ7_KEYS.volume ?? [])].sort(), keys("volume"), "volume entries = the served volume object minus the ratio value and the DJ-7 mark (frozen)");
   assert.deepEqual([...BELL_VOLUME_DROPPED], ["vol_ratio"]);
   assert.deepEqual([...BELL_SUPPLY_KEYS].sort(), keys("supply"));
   assert.deepEqual([...BELL_WRAPPER_KEYS].sort(), keys("wrapper"));
@@ -490,9 +501,9 @@ test("bell_served_projection_matches_the_publisher_closed_list", () => {
   assert.deepEqual([...BELL_RECORD_KEYS].sort(), keys("record"));
   assert.ok(BELL_POR_KEYS.every((k) => keys("por").includes(k)), "reserves keys copied are served keys");
   for (const k of ["method", "note", "statement"]) assert.ok(!(BELL_POR_KEYS as readonly string[]).includes(k), `the reserves ${k} is never copied`);
-  const d = loadBellServed(ROOT, RESIDUAL_CODES);
-  assert.deepEqual(d.served_schema.objects, JSON.parse(JSON.stringify(WHITELIST)) as unknown, "the served schema block = WHITELIST");
-  for (const r of d.head.runs) assert.deepEqual(Object.keys(r.residuals).sort(), [...RESIDUAL_CODES].sort(), "each run counts exactly the collector's residual codes");
+  const d = loadBellServed(ROOT, BELL_RESIDUAL_CODES_LISTED);
+  assert.deepEqual(d.served_schema.objects, withoutDj7(WHITELIST), "the committed served schema block = WHITELIST minus the DJ-7 keys (frozen until the launch)");
+  for (const r of d.head.runs) assert.deepEqual(Object.keys(r.residuals).sort(), [...BELL_RESIDUAL_CODES_LISTED].sort(), "each committed run counts exactly the page's list (C1-8)");
   // Thresholds derive from the exceed<k> keys (METHOD-THRESHOLDS-1): mutant = drop exceed2, the two-percent threshold goes.
   assert.deepEqual(thresholdsOf(keys("gap")), [1, 2, 5]);
   assert.deepEqual(thresholdsOf(keys("gap").filter((k) => k !== "exceed2")), [1, 5]);
@@ -561,7 +572,7 @@ test("bell_served_session_rows_pair_by_index — two same-named sessions on two 
     const body = JSON.stringify({ ...d, head: { ...d.head, runs: [run] } }, null, 2) + "\n";
     writeFileSync(join(tmp, BELL_SERVED_REL), body);
     writeFileSync(join(tmp, MANIFEST_REL), JSON.stringify({ algorithm: "sha256", files: { [BELL_SERVED_REL]: sha(body) } }));
-    const loaded = loadBellServed(tmp, RESIDUAL_CODES).head.runs[0];
+    const loaded = loadBellServed(tmp, BELL_RESIDUAL_CODES_LISTED).head.runs[0];
     assert.ok(loaded !== undefined);
     const rows = sessionRowsOf(loaded);
     assert.deepEqual(rows.map((r) => [r.session.session, r.session.n, r.volume.session_date_et]), [["after", gap.n, vol.session_date_et], ["after", 1, "2026-09-15"]], "each row keeps the date of its own group");

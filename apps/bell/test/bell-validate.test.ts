@@ -25,7 +25,7 @@ const isCode = (code: string) => (e: unknown): boolean => e instanceof V.BellPub
 // constant is the line_hash MEASURED on the base 971eda88, before the extraction (publishToDir of bell-publish.mjs at that commit,
 // same bundle, clock and key; measured twice, two temporary directories, same value). The publication is made inside
 // doesNotThrow, so a refusal changed into a throw is an assertion too. Every publisher test file passes unchanged.
-const BASE_LINE_HASH = "c66c8f3d64c5ba0218d4f4cb53261425378dc0b9b9fec294c8fd8f087ce3ad88";
+const BASE_LINE_HASH = "932bc3126fb98596e80f3bfaf189cbb1894557f2af5378d716789ba2bf28c872"; // re-pinned at BELL-JUSTESSE-1 lot 1a-ii: two more residual counters (was c66c8f3d…)
 // killer: apps/bell/scripts/bell-validate.mjs:77 ROR "!== undefined).map" -> "=== undefined).map"
 test("bell_publish_inbox_mode_is_unchanged", async () => {
   const base = tmp("bv-inbox-"), state = join(base, "state");
