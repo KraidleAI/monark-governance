@@ -222,7 +222,7 @@ export function reconcile(s: Signals): { readonly windows: Window[]; readonly pr
     }
     const topSec = top.effectiveTimeUtc === null ? undefined : secOf(top.effectiveTimeUtc);
     const tRef = step?.tSec ?? topSec ?? e.timesSec[e.timesSec.length - 1];
-    if (tRef === undefined) continue; // no instant in any version and no step: the event cannot be placed (RENDU 1a-i, item formed)
+    if (tRef === undefined) continue; // no instant in any version and no step: the event cannot be placed (item BELL-CA-UNDATED-EVENT-1)
     const tSec = step === undefined ? Infinity : step.tSec;
     const kE = changesBits && oldN !== null && newN !== null ? newN / oldN : null, k = step?.k ?? kE;
     const date = dateOf(tRef);
@@ -234,7 +234,7 @@ export function reconcile(s: Signals): { readonly windows: Window[]; readonly pr
       if (step !== undefined && topSec !== undefined && topSec !== step.tSec) windows.push({ kind: "event", ds, tSec: topSec, issuerSec: e.timesSec, mark });
     };
     if (top.caType === "CashDividend") {
-      const ex = s.dividends.map((v) => v.ex_dividend_date).filter((d) => d <= date).sort().at(-1);
+      const ex = s.dividends.map((v) => v.ex_dividend_date).filter((d) => dCandidates(tRef).includes(d)).sort().at(-1);
       twin(ex === undefined ? candidates(tRef) : [ex], step !== undefined && Math.abs(step.k - 1) < DIVIDEND_MARK_BOUND && pending === 0);
       continue;
     }
@@ -248,8 +248,8 @@ export function reconcile(s: Signals): { readonly windows: Window[]; readonly pr
     if (changesBits) {
       const d = m?.execution_date ?? adr?.dReadET ?? null;
       if (d !== null) twin(withD(d), false);
-      else { candidates(tRef); windows.push({ kind: "open", fromMs: openStartMs(topSec ?? tRef) }); }
-    } else if (adr === undefined) { candidates(tRef); windows.push({ kind: "open", fromMs: openStartMs(topSec ?? tRef) }); }
+      else { candidates(tRef); windows.push({ kind: "open", fromMs: Math.min(openStartMs(tRef), openStartMs(topSec ?? tRef)) }); }
+    } else if (adr === undefined) { candidates(tRef); windows.push({ kind: "open", fromMs: Math.min(openStartMs(tRef), openStartMs(topSec ?? tRef)) }); }
   }
   for (const m of s.splits) {
     if (usedSplits.has(m)) continue;

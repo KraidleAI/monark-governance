@@ -303,3 +303,50 @@ test("bell_ca_unread_issuer_abstains_without_lift", () => {
     assert.deepEqual([fills.map(o.gap), fills.map(o.volume)], [[P, A, A, A], [P, A, A, A]], "every group anchored on or after prevTradingDay(D) abstains, gap and volume");
   }
 });
+
+// ---- Fold of the first review (REVUE-1a-i, M-1 and M-2; tests 18 to 21 of the lot, written by the reviewer, renamed here) -------------
+// M-1: the ex date of a dividend is the one of M that falls among dCandidates(T); without one, the candidates (DJ-3). All M records below
+// are CONSTRUCTED; the SPYx nodes and trajectory are the real fixtures.
+const SPY = { symbol: "SPYx", issuerNodes: nodes("SPYx-history.json"), trajectory: trajectoryOf("rebase-SPYx.json") };
+/** A CONSTRUCTED dividend activated at 00:00 EDT of its ex date, Monday 2026-03-16 (04:00 UTC): T falls in the night anchored on Friday 03-13. */
+function exDayDividend(n: string): CA.Signals {
+  const T = sec("2026-03-16T04:00:00Z");
+  return signals({ symbol: "DVx", nowSec: T + 30 * 86_400, dividends: [{ ex_dividend_date: "2025-12-15" }, { ex_dividend_date: "2026-03-16" }],
+    issuerNodes: [{ eventId: "d1v-ex-0001", version: 1, caType: "CashDividend", effectiveTimeUtc: "2026-03-16T04:00:00.000Z", multiplierOld: "1", multiplierNew: n, status: "Initial" }],
+    trajectory: built([["1", n, T]]) });
+}
+
+// killer: apps/bell/src/corporate-actions.ts:237 CONST "dCandidates(tRef).includes(d)" -> "true"
+test("bell_ca_dividend_ex_absent_at_m_never_takes_an_older_one", () => {
+  // Test 18. M knows one SPY ex date, 2025-12-15 (the dividend executed 2026-01-30); the dividends executed 2026-05-01 and 2026-06-18
+  // have no record at M. The regular of 2026-03-02 lies after the first step and before the others: no dividend acts on it.
+  const fill = et(2026, 3, 2, 10, 0);
+  assert.equal(outcomes(signals({ ...SPY, dividends: [] }), [fill]).gap(fill), P, "without M: candidates around T, the session publishes");
+  assert.equal(outcomes(signals({ ...SPY, dividends: [{ ex_dividend_date: "2025-12-15" }] }), [fill]).gap(fill), P, "an older ex date is never the D of a later dividend");
+});
+
+// killer: apps/bell/src/corporate-actions.ts:237 CONST "dCandidates(tRef).includes(d)" -> "d <= date"
+test("bell_ca_dividend_ex_on_the_day_after_the_anchor_of_t", () => {
+  // Test 19. M carries the ex date 2026-03-16 and an older one; T is anchored on the Friday before.
+  const s = exDayDividend("1.002");
+  assert.deepEqual([et(2026, 2, 2, 10, 0), et(2026, 3, 16, 10, 0)].map(outcomes(s, [et(2026, 2, 2, 10, 0), et(2026, 3, 16, 10, 0)]).gap), [P, M],
+    "February publishes; the regular of the ex date (old reference, new token) carries the mark");
+});
+
+// killer: apps/bell/src/corporate-actions.ts:237 CONST "dCandidates(tRef).includes(d)" -> "d <= date"
+test("bell_ca_dividend_ex_beyond_half_percent_never_publishes_the_ex_day", () => {
+  // Test 20. The same dividend at k = 1.01, beyond DJ-3's 0.005: the regular of the ex date mixes units and abstains, with M and without.
+  const s = exDayDividend("1.01"), fill = et(2026, 3, 16, 10, 0);
+  assert.equal(outcomes(s, [fill]).gap(fill), A, "old reference close, new token, beyond the mark bound: abstain");
+  assert.equal(outcomes({ ...s, dividends: [] }, [fill]).gap(fill), A, "without M (candidates), the same session abstains");
+});
+
+// killer: apps/bell/src/corporate-actions.ts:251 CONST "Math.min(openStartMs(tRef), openStartMs(topSec ?? tRef))" -> "openStartMs(topSec ?? tRef)"
+test("bell_ca_open_abstention_starts_from_the_candidates_of_t_c", () => {
+  // Test 21 (M-2). HONx SpinOff ca3da1bc (real E, T_E 2026-06-29 23:55 UTC, k != 1, no D); C CONSTRUCTED from the issuer's multipliers but
+  // five days earlier, 2026-06-24 23:55 UTC (a disagreement on T). The open abstention starts from the earlier of the two starts.
+  const fill = et(2026, 6, 25, 10, 0);
+  const o = outcomes(signals({ symbol: "HONx", issuerNodes: HON_SO, trajectory: built([["0.5120473566533945", "0.9990655067370947", sec("2026-06-24T23:55:00Z")]]) }), [fill]);
+  assert.deepEqual(o.provenance.corporate_action_disagreements, ["HONx:2026-06-24:T"], "the disagreement on T is written");
+  assert.equal(o.gap(fill), A, "new token after T_C, k != 1 without D: abstain");
+});
