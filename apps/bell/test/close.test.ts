@@ -205,7 +205,7 @@ test("bell_cash_cross_refuses_bar_of_another_date", async () => {
   // ET, not UTC: 2026-09-07 02:00Z is 2026-09-06 22:00 ET (its UTC date is the requested day, its ET date is not).
   notMade(await run([{ c: 123.45, t: Date.UTC(2026, 8, 7, 2, 0, 0) }]), "the bar is dated in ET, never by its UTC date");
   notMade(await run([{ c: 123.45 }]), "an undated bar proves no date");
-  for (const t of [8.64e15 + 1, -1e20, Number.NaN]) notMade(await run([{ c: 123.45, t }]), `a t outside the Date range (${String(t)}) proves no date, never a transport fault`);
+  for (const t of [8.64e15 + 1, -1e20, Number.NaN, Infinity, -Infinity]) notMade(await run([{ c: 123.45, t }]), `a t outside the Date range (${String(t)}) proves no date, never a transport fault`);
   notMade(await run([]), "no bar: the cross did not take place");
   // control: the bar dated the requested day is the one kept, wherever it sits in the results.
   const ok = await run([{ c: 123.46, t: midnightET(4) }, { c: 123.45, t: midnightET(7) }]);
