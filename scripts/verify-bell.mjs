@@ -253,9 +253,9 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import
  *  anything else (two such entries, one not last, a malformed keyring) gives null, and an entry with a status or a valid_from_seq is a
  *  served entry. Check 3 never reads it: between (R2) and (R5) it stays red, declared. Read by test/bell-served.test.ts. */
 export function servedKeyringOf(committedText) {
-  let kr = null;
-  try { kr = JSON.parse(committedText); } catch { return null; }
-  if (typeof committedText !== "string" || trustOf(kr) === null || committedText !== canonical(kr) + "\n") return null;
+  if (typeof committedText !== "string") return null; // the type first, before any parse
+  let kr = null; try { kr = JSON.parse(committedText); } catch { return null; }
+  if (trustOf(kr) === null || committedText !== canonical(kr) + "\n") return null;
   const bare = (k) => Object.keys(k).sort().join(" ") === "jwk key_id";
   const keys = bare(kr.keys[kr.keys.length - 1]) ? kr.keys.slice(0, -1) : kr.keys;
   return keys.length === 0 || keys.some(bare) ? null : canonical({ ...kr, keys }) + "\n";

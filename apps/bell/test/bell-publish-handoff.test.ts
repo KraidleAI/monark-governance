@@ -503,6 +503,27 @@ test("bell_publish_lock_names_its_holder_and_unlock_frees_only_a_dead_one", asyn
     assert.throws(() => call(b), (e: unknown) => isCode("lock_held")(e) && (e as P.BellPublishError).detail === "publish.lock: another writer holds the state (running)");
     const u = unlock();
     assert.deepEqual([u.code, u.out, u.err, readFileSync(lock, "utf8")], [1, "", "bell/publish: lock_held: publish.lock: running\n", held], "a live holder is never freed");
+    // m-1 of the review of lot 5a (D-SW1, the Dojo's locked()): every mode that writes --state takes publish.lock like --handoff, so while a live
+    // holder keeps it each one is refused lock_held, the holder's state named, and the state and the inbox stay as they were, byte for byte. All
+    // a mode reads before the lock is in place: the keys (the fixture key and a second one, test only) and a line cosigned on the head (read-only).
+    // killer: apps/bell/scripts/bell-publish.mjs:494 CONST "mine = takeLock(lock);" -> "mine = \"\";"
+    const K2 = createPrivateKey({ key: Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"),
+      createHash("sha256").update("monark bell handoff fixture key 2, test only").digest()]), format: "der", type: "pkcs8" });
+    const creds = tmp("bell-handoff-creds-"), inbox = tmp("bell-handoff-inbox-"), linePath = join(tmp("bell-handoff-line-"), "line.json"), real = process.env.CREDENTIALS_DIRECTORY;
+    writeFileSync(join(creds, "bell-signing-key"), KEY.export({ type: "pkcs8", format: "pem" }));
+    writeFileSync(join(creds, "bell-signing-key-new"), K2.export({ type: "pkcs8", format: "pem" }));
+    writeFileSync(linePath, canonical(P.rotateCosign({ stateDir: b.state, oldKey: KEY, line: P.rotateDraft({ stateDir: b.state, newKey: K2, clock: b.clock }) })) + "\n");
+    writeRun(join(inbox, unit(2)), 2, 367n);
+    const writers = [["--inbox", inbox], ["--rotate"], ["--rotate", "--broken"], ["--revoke", keyringOf(KEY, 1).keys[0]?.key_id ?? "", "--from-seq", "1"],
+      ["--rotate-commit", "--line", linePath]].map((a) => [...a, "--state", b.state]);
+    const before = [tree(b.state), tree(inbox)];
+    let refused: unknown[] = [];
+    try { process.env.CREDENTIALS_DIRECTORY = creds; refused = writers.map((a) => { const r = io(() => P.runCli(a)); return [a.join(" "), r.code, r.out, r.err]; }); } finally {
+      if (real === undefined) delete process.env.CREDENTIALS_DIRECTORY; else process.env.CREDENTIALS_DIRECTORY = real; rmSync(creds, { recursive: true, force: true });
+    }
+    assert.deepEqual(refused, writers.map((a) => [a.join(" "), 1, "", "bell/publish: lock_held: publish.lock: another writer holds the state (running)\n"]),
+      "--inbox, --rotate, --rotate --broken, --revoke and --rotate-commit: each refused, the live holder named");
+    assert.deepEqual([tree(b.state), tree(inbox)], before, "nothing written by a refused writer: the state (the holder's lock included) and the inbox, byte for byte");
   } finally { child.kill(); }
   await exited;
   assert.throws(() => call(b), (e: unknown) => isCode("lock_held")(e) && (e as P.BellPublishError).detail === "publish.lock: another writer holds the state (not running: --unlock releases it)");

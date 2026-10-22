@@ -4,11 +4,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, sign as edSign, verify as edVerify } from "node:crypto";
 import { canonical as digestCanonical, assertNoClose } from "../src/digest.ts";
 import { canonical, CLOSE_KEY, assertNoCloseLike, signLine, verifyLine, keyIdOf, keyringOf, lineHash, GENESIS } from "../scripts/bell-chain.mjs";
+import { BELL_TREE_PATHS } from "../../../scripts/verify-bell.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const src = (rel: string): string => readFileSync(join(HERE, rel), "utf8");
@@ -115,4 +116,10 @@ test("bell_scripts_import_allowlist_no_network", () => {
   const cal = src("../src/sessions.ts");
   assert.deepEqual(cal.split("\n").filter((l) => /^\s*import\b|^\s*export\b.*\bfrom\s*["'`]/.test(l)), [], "sessions.ts: no import statement, no re-export");
   for (const re of FORBIDDEN) assert.equal(re.test(cal), false, `sessions.ts: forbidden network or dynamic-load token ${String(re)}`);
+  // The closure of the publisher's tree over its parent imports too (nit-3 of the review of lot 5a): each relative import of the three scripts,
+  // resolved from apps/bell/scripts/, is a file of BELL_TREE_PATHS (scripts/verify-bell.mjs), ../src/sessions.ts of bell-validate.mjs included.
+  const rel = ["bell-chain.mjs", "bell-publish.mjs", "bell-validate.mjs"].flatMap((f) => [...src(`../scripts/${f}`).matchAll(/\b(?:from|import)\s*["'`](\.[^"'`]+)["'`]/g)]
+    .map((m) => posix.join("apps/bell/scripts", m[1] ?? "")));
+  assert.deepEqual([rel.includes("apps/bell/src/sessions.ts"), BELL_TREE_PATHS.includes("apps/bell/src/sessions.ts"), rel.filter((p) => !BELL_TREE_PATHS.includes(p))], [true, true, []],
+    "bell-validate.mjs imports ../src/sessions.ts, which is in BELL_TREE_PATHS, and no relative import of the publisher leaves that tree");
 });

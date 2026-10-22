@@ -57,7 +57,7 @@ const io = (text: string): string => { const p = join(tmp("rot2-io-"), "line.jso
 const lastLine = (s: string): Obj => JSON.parse(readFileSync(join(s, "timeline.jsonl"), "utf8").trimEnd().split("\n").pop() ?? "null") as Obj;
 const refusal = (field: string): string => `bell/publish: rotation_line_mismatch: ${field}: the line does not follow the head of this state or its signatures\n`;
 
-// killer: apps/bell/scripts/bell-publish.mjs:563 CONST "keyLoader()(\"bell-signing-key-new\")" -> "keyLoader()(\"bell-signing-key\")"
+// killer: apps/bell/scripts/bell-publish.mjs:571 CONST "keyLoader()(\"bell-signing-key-new\")" -> "keyLoader()(\"bell-signing-key\")"
 test("bell_rotation_two_step_signs_without_moving_keys", () => {
   const a = seeded(), b = tmp("rot2-b-"), c = tmp("rot2-c-");
   cpSync(a, b, { recursive: true });
