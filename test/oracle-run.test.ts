@@ -405,7 +405,7 @@ test("oracle_lock_alive_reads_a_zombie_as_dead — a waiter that has exited but 
 // head's dropProblems (every judgement a problem) and changes scripts/lot-size-integration.mjs, which the second merge added as the
 // oracle's. The single mode stays as it was: r25 red over the whole range.
 // --range: each commit against its first parent, under its own bound and its own P4, the switch of the test counts read in its own ci.yml
-// and dropProblems in its own scripts: the merges are judged by the rules they ran under, never by the head's; each step says whether its
+// and dropProblems in its own scripts: the merges are judged by the rules they ran under (r25's refusals and attributes stay the oracle's); each step says whether its
 // lot-size-integration.mjs is the oracle's; the G7 record of the first merge cited, not one of another role or of a dirty tree; the
 // whole-tree gates get HEAD^1 as ORACLE_BASE; the range from the third merge is green; a base off the first-parent chain and an empty range
 // are red, named; the D4 key carries `range` under --range only; refusals.
@@ -426,7 +426,8 @@ test("oracle_range_mode_judges_each_first_parent_merge_under_its_own_bound", () 
   const ci = join(fx.repo, ".github", "workflows", "ci.yml"), at = (): string => git(fx.repo, "rev-parse", "HEAD");
   const file = (f: string, v: unknown): void => { writeFileSync(join(fx.repo, f), typeof v === "string" ? v : `${JSON.stringify(v)}\n`); };
   const names = (n: string[]): void => { file("test/test-counts.json", { "a.test.ts": n.length }); file("test/test-names.json", { "a.test.ts": n }); };
-  const check = "      - run: node scripts/test-count-check.mjs\n", lsi = join("scripts", "lot-size-integration.mjs"), host = (f: string): string => readFileSync(join(ROOT, "scripts", f), "utf8");
+  const check = "      - run: npm run extra && node scripts/test-count-check.mjs\n", lsi = join("scripts", "lot-size-integration.mjs"), host = (f: string): string => readFileSync(join(ROOT, "scripts", f), "utf8");
+  // killer: scripts/oracle/run.mjs:214 CONST ".split(/\\s+&&\\s+/)" -> ".split(/\\u0000/)"
   mkdirSync(join(fx.repo, "scripts"));
   mkdirSync(join(fx.repo, "test"));
   for (const f of ["test-count-check.mjs", "test-count-floor.mjs"]) copyFileSync(join(ROOT, "scripts", f), join(fx.repo, "scripts", f));

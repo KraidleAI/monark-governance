@@ -179,7 +179,7 @@ export function childEnv(tmp, deny = DENY) { return { ...Object.fromEntries(Obje
  * on the trunk itself) is judged against its first parent, as its own pull request was, by its own rules: r25 by r25.mjs under the bound,
  * the pathspecs and the metric of ITS OWN ci.yml (`git show <commit>:.github/workflows/ci.yml`), read in a no-checkout worktree of the
  * clone whose HEAD is that commit (r25.mjs reads objects only, before anything is written there), with no proof (a pull request's
- * integration proof is not replayed: mode "unproven"); r25's refusals are those of the oracle's scripts/lot-size-integration.mjs, as in
+ * integration proof is not replayed: mode "unproven"); r25's refusals and attributes are the oracle's scripts/lot-size-integration.mjs, as in
  * the single mode, and the step says in `r25.module` and its line whether the commit's file holds the same bytes ("same", the comparison
  * of integration(), r25.mjs:44, on the blob: eol=lf makes it the checkout's bytes), others ("differs": the oracle's refusals judged it) or
  * none ("absent"); and, when ITS OWN ci.yml runs scripts/test-count-check.mjs (its run: commands derived by runsOf as l.120-128 derive the
