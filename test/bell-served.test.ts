@@ -284,6 +284,7 @@ test("bell_served_data_carries_no_market_value", () => {
   for (const label of servedProvenanceLabels) assert.ok(PROVIDER_FORMS.some((re) => re.test(label)), `the scan catches ${label}`);
 });
 
+// killer: apps/site/lib/bell-method.ts:79 CONST ".map((r) => r.code);" -> ".map((r) => r.code).slice(1);"
 test("bell_served_loader_is_fail_closed", () => {
   const tmp = mkdtempSync(join(tmpdir(), "bell-served-"));
   try {
@@ -546,6 +547,7 @@ test("bell_pages_render_served_values_never_typed", () => {
   assert.ok(!/one percent and five percent/.test(method), "the two typed thresholds are gone (METHOD-THRESHOLDS-1)");
 });
 
+// killer: apps/site/lib/bell-method.ts:79 CONST ".map((r) => r.code);" -> ".map((r) => r.code).slice(1);"
 test("bell_served_session_rows_pair_by_index — two same-named sessions on two dates keep their own dates", () => {
   type Row = Record<string, unknown>;
   type File = Record<string, unknown> & { head: Record<string, unknown> & { runs: Array<Row & { window: { from_utc_ms: number; to_utc_ms: number }; records: Row[]; sessions: Row[]; volume: Array<Row & { window: { from_utc_ms: number; to_utc_ms: number } }> }> } };

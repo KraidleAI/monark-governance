@@ -1,7 +1,7 @@
 // MONARK Bell -- T-1b S-2 oracle (ADR-T1b-backend v2 D4, D5, D7, "Constantes"; checkpoint-1 C-4, C-7). The publisher refuses BY
 // NAME, with the state directory byte-identical, every bundle outside C-in-1..10; its whitelist is DERIVED from the collector's
 // types and accepts every real shape. Inputs = REAL outputs of runMain (offline, --out outside the repo, precedent
-// collect.test.ts:680-744) or of collect(), each refusal mutating ONE field. No network; the key is generated in memory.
+// collect.test.ts bell_close_databento_replays_synthetic_fixture) or of collect(), each refusal mutating ONE field. No network; the key is generated in memory.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
@@ -157,7 +157,7 @@ test("bell_publish_refuses_url_or_key_shaped_string", () => {
   for (const re of KEY_SHAPES.slice(1)) assert.ok(guard.includes(`re: /${re.source}/`), `${re.source}: a verbatim copy of test/no-secret-in-repo.test.ts`);
 });
 
-// ---- C-in-6: the run timeline re-chains from GENESIS (collect.ts:86-96) and its symbols are the state's ----
+// ---- C-in-6: the run timeline re-chains from GENESIS (collect.ts chainTimeline) and its symbols are the state's ----
 test("bell_publish_refuses_broken_run_timeline", () => {
   const three = chainTimeline([{ symbol: "A" }, { symbol: "B" }, { symbol: "C" }]);
   assert.equal(rechainRunTimeline(three).ok, true, "the collector's own chain re-derives");
@@ -226,7 +226,7 @@ test("bell_publish_whitelist_equals_collector_types", () => {
     halt_census: ["total", "empty_resume"], window: ["from_utc_ms", "to_utc_ms"], adv_period: ["year", "month"], // collect.ts:277, :225, :304
     digest: ["schema", "gaps", "halt_census", "residuals", "volume", "supply", "por", "wrapper"], // digest.ts:103 + collect.ts:279-281
     state: ["schema", "bell_sha", "window", "residuals", "digest", "halt_deltas"], // collect.ts:303-305
-    record: ["symbol", "chain", "n_fills", "sessions", "quorum_coverage", "prev_line_hash"], // collect.ts:90, :254-255
+    record: ["symbol", "chain", "n_fills", "sessions", "quorum_coverage", "prev_line_hash"], // collect.ts chainTimeline and the timeline record of collect()
     provenance: ["bellSha", "generatedAt", "sources", "providers"], sources: ["generated_at", "cash_request_digest", "cash_cross_mismatch_days", "cash_cross_unavailable_days", // digest.ts:108, collect.ts:294-299
       "d_candidates", "corporate_action_disagreements", "issuer_time_without_step", "multiplier_bits_mismatch", "corporate_action_late"], // G0 DJ-7 (BELL-JUSTESSE-1)
     providers: ["providers", "quorum_required", "providers_distinct", "faults"], fault: ["provider", "status"], // collect.ts:300-301, quorum.ts:80

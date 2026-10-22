@@ -44,7 +44,7 @@ export const WHITELIST = deepFreeze({
   halt_census: { total: S, empty_resume: S }, // collect.ts:277
   digest: { schema: S, gaps: ["gap"], halt_census: "halt_census", residuals: "residuals", volume: ["volume"], supply: ["supply"], por: ["por"], wrapper: ["wrapper"] }, // digest.ts:103 + collect.ts:279-281
   state: { schema: S, bell_sha: S, window: "window", residuals: "residuals", digest: "digest", halt_deltas: ["halt_deltas"] }, // collect.ts:303-305
-  record: { symbol: S, chain: S, n_fills: S, sessions: S, quorum_coverage: S, prev_line_hash: S }, // collect.ts:90, :254-255 (declared addition)
+  record: { symbol: S, chain: S, n_fills: S, sessions: S, quorum_coverage: S, prev_line_hash: S }, // collect.ts chainTimeline and the timeline record of collect() (declared addition)
   provenance: { bellSha: S, generatedAt: S, sources: "sources", providers: "providers" }, // the SERVED projection (digest.ts:108)
   sources: { generated_at: S, cash_request_digest: S, cash_cross_mismatch_days: SA, cash_cross_unavailable_days: SA, d_candidates: SA, corporate_action_disagreements: SA, issuer_time_without_step: SA, multiplier_bits_mismatch: SA, corporate_action_late: SA }, // collect.ts:294-299; DJ-7 (corporate_action_late: lot 1b-ii)
   providers: { providers: SA, quorum_required: S, providers_distinct: S, faults: ["fault"] }, // collect.ts:300-301

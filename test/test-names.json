@@ -175,6 +175,7 @@
   "bell_c5_coverage_projection_over_threshold_top20",
   "bell_ca_collect_passes_issuer_of_symbol_ondo_unread",
   "bell_ca_collect_passes_issuer_of_symbol_xstocks_read",
+  "bell_ca_dividend_mark_lands_on_its_own_group",
   "bell_ca_issuer_never_written_by_hand",
   "bell_ca_pinned_sha_recovered_by_substitution",
   "bell_ca_undated_issuer_event_abstains_every_session",

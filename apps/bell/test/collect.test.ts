@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, writeFileSync, mkdtempSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
@@ -944,7 +945,14 @@ test("bell_ca_issuer_never_written_by_hand", () => {
 // ---- BELL-CA-UNDATED-EVENT-1 (decision 2, 13:1x UTC): an event of E with no instant and no paired step is never ignored ----
 // killer: apps/bell/src/collect.ts:950 CONST "undated ? UNDATED_BOTH" -> "false ? UNDATED_BOTH"
 // killer: apps/bell/src/collect.ts:931 CONST "!used.has(p) && p.newBits" -> "p.newBits"
+// killer: apps/bell/src/corporate-actions.ts:211 CONST "continue;" -> "{ continue; }"
 test("bell_ca_undated_issuer_event_abstains_every_session", () => {
+  // Review nit-1: undatedEventsOf (collect.ts) replays the pairing of reconcile, corporate-actions.ts l.200-225 (the unread-issuer branch,
+  // then the pairing and the "cannot be placed" exit). Its first change reds here, so the copy is re-read the day the rule moves
+  // (item BELL-CA-UNDATED-IN-RULE-1), whatever lot opens it.
+  const CA_SRC = readFileSync(join(HERE, "..", "src", "corporate-actions.ts"), "utf8").replace(/\r\n/g, "\n").split("\n");
+  assert.equal(createHash("sha256").update(CA_SRC.slice(199, 225).join("\n")).digest("hex"), "e9dd3151fd721ba0a178529849cc77a1588f884d548ae9a9fc38bce7811741bd",
+    "corporate-actions.ts l.200-225 changed: re-read undatedEventsOf (collect.ts) against it, then re-pin");
   const U = "corporate_action_undated", CA = "corporate_action_in_window";
   const undated = caRun(caSymbol("TSLAx", { issuerNodes: [caNode("e-undated", null)] })).d;
   assert.deepEqual(caGapAbstain(undated), [U, U, U, U], "no instant, no step: every group of the run abstains, under its own code");
@@ -955,4 +963,27 @@ test("bell_ca_undated_issuer_event_abstains_every_session", () => {
   assert.ok(paired.residuals[CA]! > 0, "control: the placed event abstains under DJ-1");
   const consumed = caRun(caSymbol("TSLAx", { issuerNodes: [caNode("e-dated", new Date(CA_T_SEC * 1000).toISOString()), caNode("e-undated", null)], trajectory: CA_STEP_TRAJECTORY })).d;
   assert.deepEqual(caGapAbstain(consumed), [U, U, U, U], "the one step is paired by the dated event first: the undated twin has none left, and is not ignored");
+});
+
+// ---- Review m-2 (G0 DJ-3): the cash-dividend mark lands on the entry of its own group, across the paths of the gap loop ----------
+// A CashDividend of E paired with its step (k = 1.0039 < 1 + 0.005), T = 2026-06-12 13:30 UTC, D among {06-11, 06-12, 06-15}. Six groups
+// over three paths (published, cash_cross_mismatch, no_close_ref), each recognised by its own VWAP. Marked under DJ-1 by hand: after 06-11
+// (reference 06-11 >= D 06-11, token old), after 06-12 (reference 06-12), regular 06-12 (contains T), regular 06-15 (reference 06-12);
+// not marked: after 06-10 (reference 06-10) and regular 06-10 (reference 06-09). Synthetic fills and closes (G0 C-9).
+// killer: apps/bell/src/collect.ts:211 CONST "caOf(sortedGroups[i]!)" -> "caOf(sortedGroups[sortedGroups.length - 1 - i]!)"
+test("bell_ca_dividend_mark_lands_on_its_own_group", () => {
+  const trajectory: MultiplierEvent[] = [
+    { kind: "initialize", multiplier: "1", multiplierBitsHex: f64BitsHexLE(1), effectiveTimestampSec: 0, blockTimeSec: CA_T_SEC - 86_400, slot: 1, instructionIndex: 0, signature: "dv-i" },
+    { kind: "update", multiplier: "1.0039", multiplierBitsHex: f64BitsHexLE(1.0039), effectiveTimestampSec: CA_T_SEC, blockTimeSec: CA_T_SEC - 3600, slot: 2, instructionIndex: 0, signature: "dv-u" }];
+  const node = { eventId: "div", version: 1, caType: "CashDividend", effectiveTimeUtc: new Date(CA_T_SEC * 1000).toISOString(), multiplierOld: "1", multiplierNew: "1.0039", status: "Initial" };
+  const times = [Date.UTC(2026, 5, 10, 21), Date.UTC(2026, 5, 10, 15), Date.UTC(2026, 5, 11, 21), Date.UTC(2026, 5, 12, 21), Date.UTC(2026, 5, 12, 14), Date.UTC(2026, 5, 15, 15)];
+  const s: SymbolInput = { symbol: "TSLAx", chain: "solana", baseDec: 8, quoteDec: 6, fillsResidues: [], advDailyVolumes: [],
+    fills: times.map((t, i) => ({ signature: `dv${String(i)}`, blockTimeUtcMs: t, baseDelta: 100_000_000n, quoteDelta: -BigInt(300 + 10 * i) * 1_000_000n })),
+    closeRefBySession: { "2026-06-09": 300, "2026-06-10": 300, "2026-06-11": 300 }, crossBySession: { "2026-06-11": "mismatch" }, corporateActions: { issuerNodes: [node], trajectory } };
+  const { d } = caRun(s);
+  assert.deepEqual(d.gaps.map((g) => [Number(g.vwap), g.abstain ?? "published", g.corporate_action ?? null]), [
+    [300, "published", null], [320, "cash_cross_mismatch", "cash_dividend"], [330, "no_close_ref", "cash_dividend"], // after 06-10, 06-11, 06-12
+    [310, "published", null], [340, "cash_cross_mismatch", "cash_dividend"], [350, "no_close_ref", "cash_dividend"]], // regular 06-10, 06-12, 06-15
+  "each entry carries the mark of its own group, whatever its path");
+  assert.deepEqual(d.residuals.corporate_action_in_window, 0, "a mark, never an abstention, under 0.005");
 });
