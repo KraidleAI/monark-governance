@@ -14,6 +14,9 @@
  *     1b-iii and now iterates the unified ROOTS list. Allowlist = apps/bell/src/close.ts (the single cash module holding
  *     both the paid GET and the key read, C-6; retraction trigger = "G0 of the Bell cash course", R-1).
  *   - scripts/census/u4-*.mjs (the course scripts) is a root too (grep FOLDED here from guard-scripts-u4.test.ts).
+ *   - apps/koyomi/src/** (allowlist EMPTY: the label reader reaches Databento and Massive only through the close.ts seams) and
+ *     apps/koyomi/ops/*.mjs (allowlist = apps/koyomi/ops/koyomi-stamp.mjs of lot A1-e, the public keyless GET of commit.jsonl and
+ *     of the OTS calendars) enter at KOYOMI-A A1-a (plan A1 r2, test 60); both roots also refuse the bare paid-key name.
  * KEY form is an ACCESS (dot, optional-chain dot, bracket, optional-chain bracket, template-literal bracket, `in`,
  * destructuring, Reflect.get, Object.hasOwn - C-R-b4). In the PACKAGES/BELL scopes the bare name is NOT refused (it
  * appears in comments: rpc.ts:8, universe.ts:322) and elsewhere, and would red by construction; on the SENTINEL + u4 scopes the bare
@@ -134,12 +137,29 @@ function scanWith(files: ReadonlyArray<[string, string]>, allow: ReadonlySet<str
   }
   return hits;
 }
+// KOYOMI-A A1-a (plan A1 r2, test 60, C-4 of its control): Koyomi's two roots. Both scan NET + the full KEY list + the bare key
+// name (no Koyomi file names a paid key; the calibration inventory hands the whole env to readCashKeys of close.ts). The ops entry
+// koyomi-stamp.mjs is written by lot A1-e: until it exists, its per-entry non-vacuity check waits for it (test 60).
+const KOYOMI_SRC_ALLOW = new Map<string, string>();
+const KOYOMI_OPS_ALLOW = new Map<string, string>([["apps/koyomi/ops/koyomi-stamp.mjs", "lot A1-e: the public keyless GET of commit.jsonl and of the OTS calendars, never a paid key"]]);
+function koyomiSrcFiles(): Array<[string, string]> {
+  const out: Array<[string, string]> = [];
+  tsFiles(join(REPO, "apps/koyomi/src"), "apps/koyomi/src", out);
+  return out;
+}
+function koyomiOpsFiles(): Array<[string, string]> {
+  const dir = join(REPO, "apps/koyomi/ops");
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter((n) => n.endsWith(".mjs")).sort().map((n): [string, string] => [join(dir, n), `apps/koyomi/ops/${n}`]);
+}
 interface Root { name: string; scope: () => Array<[string, string]>; allow: Map<string, string>; hits: () => string[]; }
 const ROOTS: readonly Root[] = [
   { name: "packages/*/src", scope: () => scopeFiles("packages"), allow: new Map([["packages/rpc-guard/src/transport.ts", "the private default transport (sole key reader + fetch site)"]]), hits: () => scan(scopeFiles("packages"), new Set(["packages/rpc-guard/src/transport.ts"])) },
   { name: "apps/bell/src", scope: () => scopeFiles("apps"), allow: BELL_ALLOW, hits: () => scan(scopeFiles("apps"), new Set(BELL_ALLOW.keys())) },
   { name: "apps/sentinel/src", scope: sentinelScope, allow: SENTINEL_ALLOW, hits: () => scan(sentinelScope(), new Set(SENTINEL_ALLOW.keys()), true) },
   { name: "scripts/census/u4-*.mjs", scope: u4Files, allow: U4_ALLOW, hits: () => scanWith(u4Files(), new Set(U4_ALLOW.keys()), NET, U4_KEY, U4_KEYNAME_RE) },
+  { name: "apps/koyomi/src", scope: koyomiSrcFiles, allow: KOYOMI_SRC_ALLOW, hits: () => scan(koyomiSrcFiles(), new Set(KOYOMI_SRC_ALLOW.keys()), true) },
+  { name: "apps/koyomi/ops/*.mjs", scope: koyomiOpsFiles, allow: KOYOMI_OPS_ALLOW, hits: () => scan(koyomiOpsFiles(), new Set(KOYOMI_OPS_ALLOW.keys()), true) },
 ];
 
 test("rpc_guard_package_src_clean_and_allowlist_load_bearing", () => {
@@ -250,7 +270,28 @@ test("fetch_only_inside_client", () => {
   assert.deepEqual(hits, [], `a forbidden network/paid-key pattern exists outside the guard/allowlist (unified roots list):\n${hits.join("\n")}`);
 });
 
-// The header comment of this file (its "appears in comments" sentence, l.18-19) cites the lines of the Bell sources that hold
+// KOYOMI-A A1-a, test 60 (plan A1 r2 section 4, C-4 of its control): Koyomi's src and ops are roots of this scanner. The two roots are
+// named in ROOTS and scan the files of the lot; the src allowlist is empty, the ops allowlist names koyomi-stamp.mjs alone (its
+// non-vacuity is checked once lot A1-e writes it); both roots are clean. Killers named by the plan: a root removed from ROOTS (a
+// test-file edit, red on the first assertion, checked by hand in the A1-a report), or a fetch( / a paid-key read added to
+// label-read.ts or to calib-inventory.mjs (the killer line below, and its twin on calib-inventory.mjs checked by hand).
+// killer: apps/koyomi/src/label-read.ts:49 CONST "await deps.databentoGet(" -> "await fetch("
+test("koyomi_src_is_a_root_of_the_paid_fetch_scanner", () => {
+  const src = ROOTS.find((r) => r.name === "apps/koyomi/src"), ops = ROOTS.find((r) => r.name === "apps/koyomi/ops/*.mjs");
+  assert.ok(src !== undefined && ops !== undefined, "Koyomi's two roots are in ROOTS");
+  assert.ok(src.scope().some(([, rel]) => rel === "apps/koyomi/src/label-read.ts"), "the label reader is scanned (apps/koyomi/src)");
+  assert.ok(ops.scope().some(([, rel]) => rel === "apps/koyomi/ops/calib-inventory.mjs"), "the calibration inventory is scanned (apps/koyomi/ops/*.mjs)");
+  assert.deepEqual([[...src.allow.keys()], [...ops.allow.keys()]], [[], ["apps/koyomi/ops/koyomi-stamp.mjs"]], "src allowlist empty; ops allowlist = koyomi-stamp.mjs alone");
+  assert.deepEqual([...src.hits(), ...ops.hits()], [], "a fetch(, a network module or a paid-key read (any form, the bare name included) in Koyomi's src or ops");
+  for (const [path, trigger] of ops.allow) {
+    if (!existsSync(join(REPO, path))) continue; // lot A1-e writes it; from then on the entry must be in scope and non-vacant
+    const only: Array<[string, string]> = ops.scope().filter(([, rel]) => rel === path);
+    assert.equal(only.length, 1, `ops allowlist entry '${path}' (${trigger}) is not in scope (double guard)`);
+    assert.ok(scan(only, new Set(), true).length >= 1, `ops allowlist entry '${path}' is VACANT (0 hit): drop it (${trigger})`);
+  }
+});
+
+// The header comment of this file (its "appears in comments" sentence, l.21-22) cites the lines of the Bell sources that hold
 // a bare paid-key name: the reason the bare name is NOT refused on the PACKAGES/BELL scopes. A citation goes stale when the
 // sources move (at d65f31d1 the sentence cited rpc.ts:5-8 and universe.ts:43 while the names sat on rpc.ts:8 and
 // universe.ts:322). Each cited line is reread here and must hold a name of KEY_NAMES (KEY_BARE is built from it). Shape held:
