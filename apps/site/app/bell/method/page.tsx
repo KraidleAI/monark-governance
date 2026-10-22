@@ -11,7 +11,7 @@ import {
   BELL_RESIDUALS_VOLUME,
   BELL_RESIDUALS_HALTS_RESERVES,
   BELL_RESIDUALS_UPCOMING,
-  BELL_RESIDUAL_CODES_LISTED,
+  BELL_RESIDUAL_CODES_LISTED, assertServedResidualsListed,
   BELL_PUBLIC_REPO_URL,
   BELL_VOL_RATIO_FORMULA_DISPLAY,
   type BellResidual,
@@ -103,8 +103,8 @@ export default function BellMethodPage() {
   const hasVolume = runs.some((r) => r.volume.length > 0);
   const periods = [...new Set(runs.flatMap((r) => r.volume.map((v) => `${String(v.adv_period.year)}-${String(v.adv_period.month).padStart(2, "0")}: ${String(v.n_bars)} daily bars for ${String(v.n_trading_days)} trading days`)))];
   const residualSum = runs.reduce((a, r) => a + Object.values(r.residuals).reduce((x, y) => x + y, 0), 0);
-  const listed = new Set(BELL_RESIDUAL_CODES_LISTED);
-  for (const run of runs) for (const code of Object.keys(run.residuals)) if (!listed.has(code)) throw new Error(`bell method page: served residual ${code} is not in the page's list`);
+  // The build guard (lib/bell-method.ts): a served run counting a code this page does not list fails the build.
+  assertServedResidualsListed(runs);
   const key = served.keyring.keys.find((k) => k.key_id === head.key_id);
   const pubs = loadPublications(served.lines), anchorState = publicationAnchorState(served.head, served.lines, pubs.bound), keyed = pubs.bound[pubs.bound.length - 1];
   const [prefixKey, lineKey] = (keyed?.entries ?? []).map((e) => e.relpath).filter((r) => r.startsWith("timeline.jsonl#"));

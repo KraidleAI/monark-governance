@@ -28,14 +28,14 @@ const S = "scalar", SA = "scalar[]";
  *  fixture), with the shape of each value: S scalar, SA array of scalars, "<name>" object, ["<name>"] array of objects. */
 export const WHITELIST = deepFreeze({
   gap: { symbol: S, session: S, regime: S, vwap: S, volumeBase: S, n: S, cash_cross: S, gT: S, exceed1: S, exceed2: S, exceed5: S, // digest.ts:66-97
-    multiplierUsed: S, rebase_residuals: SA, earliest_publish_utc: S, abstain: S },
+    multiplierUsed: S, rebase_residuals: SA, earliest_publish_utc: S, abstain: S, corporate_action: S }, // corporate_action: G0 DJ-7 of BELL-JUSTESSE-1
   residuals: Object.fromEntries(["resume_time_missing", "resume_date_gt_halt_date", "no_fill_in_window", "reason_unknown", "block_ts_vs_submission", // residuals.ts:14-55
     "no_close_ref", "por_unavailable", "por_stale", "no_wrapper", "multiplier_unit", "no_quorum", "quorum_sampled", "rebase_unverified",
-    "authority_scan_mono_operator", "set_authority_unscanned", "cash_cross_mismatch", "cash_cross_unavailable", "no_adv", "no_multiplier"].map((c) => [c, S])),
+    "authority_scan_mono_operator", "set_authority_unscanned", "cash_cross_mismatch", "cash_cross_unavailable", "no_adv", "no_multiplier", "corporate_action_in_window", "corporate_action_undated"].map((c) => [c, S])),
   window: { from_utc_ms: S, to_utc_ms: S }, // collect.ts:225, :304
   adv_period: { year: S, month: S }, // collect.ts:225
   volume: { symbol: S, session: S, regime: S, session_date_et: S, window: "window", adv_period: "adv_period", n: S, n_bars: S, n_trading_days: S, // collect.ts:224-233
-    formula: S, abstain: SA, vol_ratio: S, multiplier_unit: S },
+    formula: S, abstain: SA, vol_ratio: S, multiplier_unit: S, corporate_action: S },
   supply: { symbol: S, supply: S, decimals: S, multiplier: S, paused: S, permanent_delegate: S }, // collect.ts:241-242
   por: { symbol: S, kind: S, method: S, note: S, age_sec: S, statement: S }, // collect.ts:245-247 (three forms)
   wrapper: { symbol: S, contracts: SA, residue: S }, // collect.ts:250
@@ -44,9 +44,9 @@ export const WHITELIST = deepFreeze({
   halt_census: { total: S, empty_resume: S }, // collect.ts:277
   digest: { schema: S, gaps: ["gap"], halt_census: "halt_census", residuals: "residuals", volume: ["volume"], supply: ["supply"], por: ["por"], wrapper: ["wrapper"] }, // digest.ts:103 + collect.ts:279-281
   state: { schema: S, bell_sha: S, window: "window", residuals: "residuals", digest: "digest", halt_deltas: ["halt_deltas"] }, // collect.ts:303-305
-  record: { symbol: S, chain: S, n_fills: S, sessions: S, quorum_coverage: S, prev_line_hash: S }, // collect.ts:90, :254-255 (declared addition)
+  record: { symbol: S, chain: S, n_fills: S, sessions: S, quorum_coverage: S, prev_line_hash: S }, // collect.ts chainTimeline and the timeline record of collect() (declared addition)
   provenance: { bellSha: S, generatedAt: S, sources: "sources", providers: "providers" }, // the SERVED projection (digest.ts:108)
-  sources: { generated_at: S, cash_request_digest: S, cash_cross_mismatch_days: SA, cash_cross_unavailable_days: SA }, // collect.ts:294-299
+  sources: { generated_at: S, cash_request_digest: S, cash_cross_mismatch_days: SA, cash_cross_unavailable_days: SA, d_candidates: SA, corporate_action_disagreements: SA, issuer_time_without_step: SA, multiplier_bits_mismatch: SA, corporate_action_late: SA }, // collect.ts:294-299; DJ-7 (corporate_action_late: lot 1b-ii)
   providers: { providers: SA, quorum_required: S, providers_distinct: S, faults: ["fault"] }, // collect.ts:300-301
   fault: { provider: S, status: S }, // quorum.ts:80
 });

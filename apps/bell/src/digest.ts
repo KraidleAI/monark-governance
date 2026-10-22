@@ -67,6 +67,7 @@ interface GapEntryBase {
   readonly symbol: string; readonly session: string; readonly regime: string | null;
   readonly vwap: string; readonly volumeBase: string; readonly n: number;
   readonly cash_cross?: CashCross; // -b3b C-9: present only when the reference close went through the cross-check
+  readonly corporate_action?: "cash_dividend"; // BELL-JUSTESSE-1 G0 DJ-3: the descriptive mark of a cash dividend under 0.005 (no abstention)
 }
 /** A gap entry WITH volume: carries g_t and the threshold-exceedance counts. `multiplierUsed` is present ONLY on
  *  a rebase-aware session (D1-quater C-7 — m applied per fill, VWAP_share = Σ|q|/Σ(|b|·m)); absent on the m=1
@@ -93,7 +94,7 @@ export interface GapEntryFilled extends GapEntryBase {
  *  first-hand vwap, never a fabricated / silently rescaled gap. The digest accepts any; `abstain` is not a
  *  close-like key. */
 export interface GapEntryAbstained extends GapEntryBase {
-  readonly abstain: "no_fill_in_window" | "no_close_ref" | "rebase_unverified" | "cash_cross_mismatch";
+  readonly abstain: "no_fill_in_window" | "no_close_ref" | "rebase_unverified" | "cash_cross_mismatch" | "corporate_action_in_window" | "corporate_action_undated";
 }
 export type GapEntry = GapEntryFilled | GapEntryAbstained;
 /** Build the (timestamp-free) digest body. Entries are sorted for determinism; no close field exists. */

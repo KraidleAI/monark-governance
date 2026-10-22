@@ -24,7 +24,8 @@ import { newResidualCounts, RESIDUAL_CODES, type Residual, type ResidualCounts }
 import { poolVolumeBase, advPeriodOf, advPeriodsForFills, advRangePath, barDateET, periodAdv, periodBounds, sessionShareVolume,
   volumeRatio, VOL_RATIO_FORMULA, ADV_SOURCE, type AdvDailyBar, type AdvPeriod } from "./volume.ts";
 import { readMintToken2022, porStatus, wrapperStatus, rebaseForMint, rebaseGateFromTrajectory, type MintReadout, type RebaseGate } from "./supply.ts";
-import { multiplierAtMs, replayTriplet, decodeStateConfig, type MultiplierEvent } from "./rebase-trajectory.ts";
+import { multiplierAtMs, replayTriplet, decodeStateConfig, f64BitsHexLE, f64FromBitsHexLE, type MultiplierEvent } from "./rebase-trajectory.ts";
+import { judgeFills, issuerOf, issuerReadOf, issuerEvents, stepsOf, groupKey, MARK, BITS_FALLBACK_REL, type Signals, type CaProvenance, type SessionGroup, type Step } from "./corporate-actions.ts";
 import { runRebaseScanCli, scaledUiConfigBytes } from "./rebase-scan.ts";
 import { runRebaseProduceCli } from "./rebase-produce.ts";
 import { runRebaseCrosscheckCli, runDensityProbeCli, readPriorCalls, readPriorByMethod, WORST_CASE_CREDITS_PER_CALL, CREDITS_PER_GTFA, CREDITS_PER_GET_TX } from "./rebase-crosscheck.ts";
@@ -55,6 +56,7 @@ export interface SymbolInput {
   readonly mint?: MintReadout; // Token-2022 readout (iv)
   readonly porRelayed?: { readonly value: string; readonly updatedAtSec: number };
   readonly rebase?: RebaseGate; // C-6: pool-window multiplier gate (absent = not a founding window, no gate)
+  readonly corporateActions?: CaSignals; // BELL-JUSTESSE-1 lot 1a-ii: M, E, C and dated ADR lines (fed by lots 1b-i, 1b-ii); absent = none read
 }
 export interface CollectInput {
   readonly symbols: readonly SymbolInput[];
@@ -130,12 +132,13 @@ export function collect(input: CollectInput): CollectResult {
   const porEntries: Json[] = [];
   const wrapperEntries: Json[] = [];
   const timelineRecords: Json[] = [];
+  const caLines: CaProvenance[] = []; // BELL-JUSTESSE-1 lot 1a-ii: the provenance lines of the corporate-action rule (G0 DJ-2), every symbol
 
   for (const s of input.symbols) {
     for (const r of s.fillsResidues) bump(r);
+    const caOf = caVerdictsOf(s, input.nowSec, caLines); // G0 DJ-1, DJ-10 and BELL-CA-UNDATED-EVENT-1: the verdict of each session group
 
-    // (i) session gap per session group. Groups are built from the fills, so each has >= 1 fill; a symbol
-    // with no fills (and no no_quorum reason) is a no_fill_in_window abstention for the whole window.
+    // (i) session gap per session group. Groups are built from the fills, so each has >= 1 fill; a symbol with no fills (and no no_quorum reason) is a no_fill_in_window abstention for the whole window.
     const groups = new Map<string, { session: SessionLabel; regime: string | null; anchor: string; fills: SwapFill[] }>();
     for (const f of s.fills) {
       const cls = classifySession(f.blockTimeUtcMs);
@@ -157,12 +160,12 @@ export function collect(input: CollectInput): CollectResult {
           volumeBase: volumeBaseDecimal(g.fills, s.baseDec), n: g.fills.length, abstain: "rebase_unverified" });
         continue;
       }
-      // C-7: the reference close is keyed by the session's reference-close DAY (off-hours/after = the anchor day;
-      // pre/regular = the prior trading day, avoiding a same-day look-ahead) — never one /prev applied to all.
+      const caGap = caOf(g).gap; // G0 DJ-1 (lot 1a-ii): after rebase_unverified (the whole window), before the cash cross and the close: a unit mismatch is named first
+      if (caGap === "corporate_action_in_window" || caGap === "corporate_action_undated") { bump(caGap); symGaps.push({ symbol: s.symbol, session: g.session, regime: g.regime, vwap: vwapDecimal(g.fills, s.baseDec, s.quoteDec), volumeBase: volumeBaseDecimal(g.fills, s.baseDec), n: g.fills.length, abstain: caGap }); continue; }
+      // C-7: the reference close is keyed by the session's reference-close DAY (off-hours/after = the anchor day; pre/regular = the prior trading day, avoiding a same-day look-ahead) — never one /prev applied to all.
       const refDate = refCloseDateOf(g.session, g.anchor);
-      // -b3b (C-1/C-5/C-9): the Databento close was cross-checked against Massive per reference-close day. A MISMATCH
-      // abstains the session with a NAMED residual (never an average, never a silent pick) — checked BEFORE the close
-      // lookup so it is distinct from no_close_ref. matched / unavailable carry a per-session marker on the g_t.
+      // -b3b (C-1/C-5/C-9): the Databento close was cross-checked against Massive per reference-close day. A MISMATCH abstains the session with a NAMED residual
+      // (never an average, never a silent pick) — checked BEFORE the close lookup so it is distinct from no_close_ref. matched / unavailable carry a per-session marker on the g_t.
       const cross = s.crossBySession?.[refDate];
       if (cross === "mismatch") {
         bump("cash_cross_mismatch");
@@ -192,9 +195,8 @@ export function collect(input: CollectInput): CollectResult {
         else { const mc = Number(rb.multiplier); mAt = () => mc; }
         const rgap = sessionGapRebase(g.fills, close, s.baseDec, s.quoteDec, mAt);
         if ("abstain" in rgap) { bump(rgap.abstain); symGaps.push({ symbol: s.symbol, session: g.session, regime: g.regime, vwap: rgap.vwap, volumeBase: rgap.volumeBase, n: rgap.n, abstain: rgap.abstain }); continue; }
-        // C-10 (Q3): count each gate residual PER published trajectory_known session (calque rebase_unverified) + list
-        // them on the gap under `rebase_residuals` (hors CLOSE_KEY). PINNED_BELL_SHA is untouched: replay fixtures pass
-        // rebase:undefined (never this branch) and a []-residual gate adds no key (gated on .length).
+        // C-10 (Q3): count each gate residual PER published trajectory_known session (calque rebase_unverified) + list them on the gap under `rebase_residuals`
+        // (hors CLOSE_KEY). PINNED_BELL_SHA is untouched: replay fixtures pass rebase:undefined (never this branch) and a []-residual gate adds no key (gated on .length).
         for (const r of gateResiduals) bump(r);
         symGaps.push({ symbol: s.symbol, session: g.session, regime: g.regime, vwap: rgap.vwap, gT: rgap.gT, volumeBase: rgap.volumeBase, n: rgap.n, multiplierUsed: rgap.multiplierUsed,
           exceed1: exceeds(rgap.gT, 1) ? 1 : 0, exceed2: exceeds(rgap.gT, 2) ? 1 : 0, exceed5: exceeds(rgap.gT, 5) ? 1 : 0, earliest_publish_utc: epu,
@@ -206,26 +208,24 @@ export function collect(input: CollectInput): CollectResult {
       symGaps.push({ symbol: s.symbol, session: g.session, regime: g.regime, vwap: gap.vwap, gT: gap.gT, volumeBase: gap.volumeBase, n: gap.n,
         exceed1: exceeds(gap.gT, 1) ? 1 : 0, exceed2: exceeds(gap.gT, 2) ? 1 : 0, exceed5: exceeds(gap.gT, 5) ? 1 : 0, earliest_publish_utc: epu, ...xmark });
     }
-    gapEntries.push(...symGaps);
+    gapEntries.push(...symGaps.map((e, i): GapEntry => (caOf(sortedGroups[i]!).gap === MARK ? { ...e, corporate_action: MARK } : e))); // G0 DJ-3: one entry per group, in order
 
-    // (iii) BELL-ADV-1 (I-v3-1, I-G2-1, I-G2-3): ONE volume entry per session group (the same groups as the gaps).
-    // vol_ratio = the session's share volume (multiplier in effect at each fill) / the ADV of the calendar month before
-    // the session's ET trading day (volume.ts). Ratio only, the ADV is never carried (C-6). Each missing input is NAMED
-    // on the entry and COUNTED: no established multiplier => no_multiplier (never "1"); bars not covering exactly the
-    // month's trading days => no_adv (never a partial average). `window` = first/last fill of the session (a fact of the
-    // fills, hashed; the collection bounds live in state.window).
+    // (iii) BELL-ADV-1 (I-v3-1, I-G2-1, I-G2-3): ONE volume entry per session group (the same groups as the gaps). vol_ratio = the session's share volume
+    // (multiplier in effect at each fill) / the ADV of the calendar month before the session's ET trading day (volume.ts). Ratio only, the ADV is never carried
+    // (C-6). Each missing input is NAMED on the entry and COUNTED: no established multiplier => no_multiplier (never "1"); bars not covering exactly the month's
+    // trading days => no_adv (never a partial average). `window` = first/last fill of the session (a fact of the fills, hashed; the bounds live in state.window).
     const mAt = ratioMultiplierOf(s);
     for (const g of sortedGroups) {
-      const period = advPeriodOf(g.anchor);
+      const period = advPeriodOf(g.anchor), caVol = caOf(g).volume, caAbstain: Residual[] = caVol === "corporate_action_in_window" || caVol === "corporate_action_undated" ? [caVol] : [];
       const advR = periodAdv(s.advDailyVolumes, period);
       const sh = mAt === null ? null : sessionShareVolume(g.fills, s.baseDec, mAt);
       let from = Infinity, to = -Infinity;
       for (const f of g.fills) { from = Math.min(from, f.blockTimeUtcMs); to = Math.max(to, f.blockTimeUtcMs); }
       const entry: { [k: string]: Json } = { symbol: s.symbol, session: g.session, regime: g.regime, session_date_et: g.anchor,
         window: { from_utc_ms: from, to_utc_ms: to }, adv_period: { year: period.year, month: period.month }, n: g.fills.length,
-        n_bars: advR.nBars, n_trading_days: advR.nTradingDays, formula: VOL_RATIO_FORMULA };
-      if (sh === null || "abstain" in advR) {
-        const abstain: Residual[] = [...(sh === null ? ["no_multiplier" as const] : []), ...("abstain" in advR ? ["no_adv" as const] : [])];
+        n_bars: advR.nBars, n_trading_days: advR.nTradingDays, formula: VOL_RATIO_FORMULA, ...(caVol === MARK ? { corporate_action: MARK } : {}) };
+      if (sh === null || "abstain" in advR || caAbstain.length > 0) {
+        const abstain: Residual[] = [...caAbstain, ...(sh === null ? ["no_multiplier" as const] : []), ...("abstain" in advR ? ["no_adv" as const] : [])];
         for (const r of abstain) bump(r);
         volumeEntries.push({ ...entry, abstain });
         continue;
@@ -290,13 +290,13 @@ export function collect(input: CollectInput): CollectResult {
   // the close-guard (assertNoClose over the provenance) does not fire on the `close`-containing key.
   // -b3b: cash_request_digest (C-1/C-7, a hex sha — not close-like, passes the guard) + the cross-check day detail
   // (string "UNDERLYING:refDate" lists) travel in the provenance envelope, NOT the hashed digest. The per-session
-  // COUNTS live in `residuals` (single counter source); these arrays are traceability detail only.
+  // COUNTS live in `residuals` (single counter source); these arrays are traceability detail only (DJ-2's lines too).
   const sources: Json = { generated_at: input.generatedAt,
     ...(input.closeSource !== undefined ? { close_source: input.closeSource } : {}),
     ...(input.advSource !== undefined ? { adv_source: input.advSource } : {}),
     ...(input.cashRequestDigest !== undefined ? { cash_request_digest: input.cashRequestDigest } : {}),
     ...(input.cashCrossMismatchDays && input.cashCrossMismatchDays.length ? { cash_cross_mismatch_days: [...input.cashCrossMismatchDays] } : {}),
-    ...(input.cashCrossUnavailableDays && input.cashCrossUnavailableDays.length ? { cash_cross_unavailable_days: [...input.cashCrossUnavailableDays] } : {}) };
+    ...(input.cashCrossUnavailableDays && input.cashCrossUnavailableDays.length ? { cash_cross_unavailable_days: [...input.cashCrossUnavailableDays] } : {}), ...caSourcesOf(caLines) };
   const prov = makeProvenance(digest, sources,
     { providers, quorum_required: 2, providers_distinct: providersDistinct, faults }, input.generatedAt);
 
@@ -907,6 +907,57 @@ async function main(): Promise<void> {
  *  no url or key can leak from a transport fault. */
 export function fatalMessage(e: unknown): string {
   return e instanceof Error && e.message.startsWith("bell/collect:") ? e.message : `FATAL ${e instanceof Error ? statusOf(e) : "error"}`;
+}
+
+// ---- BELL-JUSTESSE-1 lot 1a-ii (G0 DJ-1, DJ-7, DJ-10): the corporate-action rule of corporate-actions.ts, wired into collect() ----------
+/** The signals of one symbol as its readers hand them (M: lot 1b-i; E and C: lot 1b-ii; dated ADR lines). Absent = nothing read yet: the
+ *  rule places no window (runMain feeds none until 1b). Neither the issuer nor the clock is an input: collect() derives them. */
+export type CaSignals = Partial<Omit<Signals, "symbol" | "issuer" | "nowSec">>;
+type CaVerdict = { readonly gap: string; readonly volume: string };
+const PUBLISH_BOTH: CaVerdict = { gap: "publish", volume: "publish" };
+const UNDATED_BOTH: CaVerdict = { gap: "corporate_action_undated", volume: "corporate_action_undated" };
+
+/** BELL-CA-UNDATED-EVENT-1 (decision of 2026-10-22 13:1x UTC): the events of E that reconcile cannot place, no instant in any version and no
+ *  paired step (corporate-actions.ts l.200-225, where such an event is skipped). Its pairing is replayed step for step: events in the order
+ *  of issuerEvents, nothing paired for an issuer not read, Cancelled never paired, the bits of the new multiplier then the relative 1e-9,
+ *  each step paired once. (STATUSES_THAT_LIFT, empty there, lifts nothing.) Item BELL-CA-UNDATED-IN-RULE-1 moves this into reconcile when
+ *  the first lot opens corporate-actions.ts l.194-262 or l.171. */
+function undatedEventsOf(sig: Signals): string[] {
+  const steps = stepsOf(sig.trajectory), used = new Set<Step>(), read = issuerReadOf(sig.issuer), out: string[] = [];
+  for (const e of issuerEvents(sig.issuerNodes)) {
+    const oldN = e.top.multiplierOld === null ? null : Number(e.top.multiplierOld), newN = e.top.multiplierNew === null ? null : Number(e.top.multiplierNew);
+    let step: Step | undefined;
+    if (read && e.top.status !== "Cancelled" && oldN !== null && newN !== null && f64BitsHexLE(oldN) !== f64BitsHexLE(newN)) {
+      step = steps.find((p) => !used.has(p) && p.newBits === f64BitsHexLE(newN))
+        ?? steps.find((p) => !used.has(p) && Math.abs(f64FromBitsHexLE(p.newBits) - newN) / Math.abs(newN) <= BITS_FALLBACK_REL);
+      if (step !== undefined) used.add(step);
+    }
+    if (step === undefined && e.timesSec.length === 0) out.push(e.eventId);
+  }
+  return out;
+}
+
+/** The verdict of each session group of one symbol (grouped as collect() groups, keyed by groupKey), its provenance lines pushed to
+ *  `lines`. The issuer is the symbol's (issuerOf), never a free value. An undated event abstains every group of the symbol, gap and
+ *  volume, before any window: it is unplaced, so no window can say which groups it spares. */
+function caVerdictsOf(s: SymbolInput, nowSec: number, lines: CaProvenance[]): (g: SessionGroup) => CaVerdict {
+  const ca = s.corporateActions ?? {};
+  const sig: Signals = { splits: ca.splits ?? [], dividends: ca.dividends ?? [], issuerNodes: ca.issuerNodes ?? [], trajectory: ca.trajectory ?? [],
+    adrLines: ca.adrLines ?? [], symbol: s.symbol, issuer: issuerOf(s.symbol), nowSec };
+  const { verdicts, provenance } = judgeFills(sig, s.fills.map((f) => f.blockTimeUtcMs));
+  lines.push(provenance);
+  const undated = undatedEventsOf(sig).length > 0;
+  return (g) => (undated ? UNDATED_BOTH : verdicts[groupKey(g)] ?? PUBLISH_BOTH);
+}
+
+/** The provenance lines of every symbol (G0 DJ-2, DJ-7), each list sorted and without duplicates, present only when not empty. */
+function caSourcesOf(lines: readonly CaProvenance[]): { [k: string]: Json } {
+  const out: { [k: string]: Json } = {};
+  for (const k of ["d_candidates", "corporate_action_disagreements", "issuer_time_without_step", "multiplier_bits_mismatch"] as const) {
+    const v = [...new Set(lines.flatMap((l) => l[k]))].sort();
+    if (v.length > 0) out[k] = v;
+  }
+  return out;
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {

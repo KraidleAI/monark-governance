@@ -5,7 +5,8 @@
 // in the public export), so they are restated here AND pinned to the collector source by the root test
 // test/bell-method.test.ts `bell_method_facts_match_collector`: the bounds are replayed through the collector's own
 // classifySession() at the minute they claim, the calendar sets and the decimals are compared for equality, and
-// the residual list must cover the collector's closed list exactly, and a code still marked upcoming must NOT be in the
+// the residual list is included in the collector's closed list, which holds exactly the listed codes plus the two
+// corporate-action codes (no gloss published before the launch), and a code still marked upcoming must NOT be in the
 // collector's closed list (a code that reached the collector is listed as served). A drift in either place reds that test
 // — never a silent divergence between the page and the code.
 // Pure data: no React/Next import, self-contained (shared by the page and the root test program).
@@ -76,6 +77,13 @@ export const BELL_RESIDUALS_UPCOMING: readonly BellResidual[] = [];
 
 /** Every served code the page lists, in page order (the closed list the loader checks each run's counters against). */
 export const BELL_RESIDUAL_CODES_LISTED: readonly string[] = [...BELL_RESIDUALS_SESSIONS, ...BELL_RESIDUALS_VOLUME, ...BELL_RESIDUALS_HALTS_RESERVES].map((r) => r.code);
+
+/** The build guard of /bell/method (test bell_method_page_refuses_unlisted_served_code of test/bell-method.test.ts): a served run that counts a residual
+ *  code the page does not list throws, so the build fails, never a code shown without its gloss. Extracted from the page, which calls it. */
+export function assertServedResidualsListed(runs: ReadonlyArray<{ readonly residuals: Readonly<Record<string, number>> }>, listed: readonly string[] = BELL_RESIDUAL_CODES_LISTED): void {
+  const set = new Set(listed);
+  for (const run of runs) for (const code of Object.keys(run.residuals)) if (!set.has(code)) throw new Error(`bell method page: served residual ${code} is not in the page's list`);
+}
 
 /** How the pages word each served proof-of-reserves status, keyed on the collector's status kinds (supply.ts PoRStatus): what
  *  Bell did, never a statement about an issuer's reserves. "unavailable" is emitted when no relayed reserve value exists, and
