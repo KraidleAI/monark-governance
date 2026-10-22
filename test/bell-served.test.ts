@@ -53,6 +53,7 @@ import {
 import { canonical, keyringOf, lineHash, signLine, trustOf, walkTimeline, GENESIS } from "../apps/bell/scripts/bell-chain.mjs";
 import { WHITELIST } from "../apps/bell/scripts/bell-publish.mjs";
 import { BELL_ROOT_REDIRECT } from "../scripts/verify-bell.mjs";
+import * as VB from "../scripts/verify-bell.mjs";
 import { RESIDUAL_CODES } from "../apps/bell/src/residuals.ts";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -62,6 +63,17 @@ const sha = (s: string | Uint8Array): string => createHash("sha256").update(s).d
 const shaLf = (rel: string): string => sha(Buffer.from(readFileSync(join(ROOT, rel), "utf8").replace(/\r\n/g, "\n"), "utf8"));
 const readJson = <T>(rel: string): T => JSON.parse(readFileSync(join(ROOT, rel), "utf8")) as T;
 const CHAIN = { walkTimeline, trustOf, lineHash };
+/** servedKeyringOf of scripts/verify-bell.mjs (the R2-R5 window, PLAN-P5 C-7), checked to exist first: at the base a named red, never a TypeError. */
+function servedKeyringOf(): (committedText: string) => string | null {
+  assert.equal(typeof VB.servedKeyringOf, "function", "scripts/verify-bell.mjs exports servedKeyringOf");
+  return VB.servedKeyringOf;
+}
+/** The served keyring the committed one stands for: itself, or itself less the ONE {key_id, jwk} entry that (R2) appends (RUNBOOK "Key incidents"). */
+function servedOfCommitted(): string {
+  const s = servedKeyringOf()(readFileSync(join(ROOT, "apps/bell/keys/bell-keyring.json"), "utf8"));
+  assert.ok(s !== null, "the committed keyring is the served one, or the served one plus one {key_id, jwk} entry, nothing else");
+  return s;
+}
 
 // Pins: written by scripts/sync-bell-served.mjs from the served host at 2026-09-24T02:00:59Z (read_at in the file); the first
 // line's facts re-hashed independently by the reader-side verifier (bell-verify.mjs, lines 1, head_seq 1) before this lot.
@@ -99,6 +111,7 @@ test("bell_served_sync_sets_its_manifest_entry_only", () => {
   assert.match(sync, /writeFileSync\(join\(ROOT, OUT_REL\), text\);\n\s+writeFileSync\(join\(ROOT, MANIFEST_REL\), manifest\);/, "and writes it with the file");
 });
 
+// killer: scripts/verify-bell.mjs:258 ROR "committedText !== canonical(kr)" -> "committedText === canonical(kr)"
 test("bell_served_first_record_and_latest_publication_pinned", () => {
   const d = loadBellServed(ROOT, RESIDUAL_CODES);
   assert.equal(d.host, BELL_HOST);
@@ -125,12 +138,13 @@ test("bell_served_first_record_and_latest_publication_pinned", () => {
     "5fbb856db73eed59b95524f4ab508e311f56f5989c463d5c57eba8e781ce270b",
     "5fde676ec83b66c7c8ca6c93cb86985c4d37da3f8af1a6a1fd47698e171c1663",
   ], "three runs at the head: TSLAx W3, AAPLx W3, SPYx W4 (never a single instrument, investor rule)");
-  const keyring = readJson<{ keys: Array<{ key_id: string; status: string; valid_from_seq: number }> }>("apps/bell/keys/bell-keyring.json");
-  assert.deepEqual(d.keyring.keys, keyring.keys.map((k) => ({ key_id: k.key_id, status: k.status, valid_from_seq: k.valid_from_seq })), "key statuses = the committed keyring");
+  const keyring = JSON.parse(servedOfCommitted()) as { keys: Array<{ key_id: string; status: string; valid_from_seq: number }> };
+  assert.deepEqual(d.keyring.keys, keyring.keys.map((k) => ({ key_id: k.key_id, status: k.status, valid_from_seq: k.valid_from_seq })), "key statuses = the committed keyring, less (R2)'s one entry");
   assert.ok(keyring.keys.some((k) => k.key_id === d.head.key_id), "the latest line's key_id is in the committed keyring (trust root, C-9)");
   assert.ok(Date.parse(d.read_at) >= Date.parse(d.head.published_at), "read after publication");
 });
 
+// killer: scripts/verify-bell.mjs:258 ROR "committedText !== canonical(kr)" -> "committedText === canonical(kr)"
 test("bell_served_data_matches_deploy_ca", () => {
   const d = loadBellServed(ROOT);
   const ca = readJson<{ url: string; checked_at: string; keyring_sha256: string; bodies_sha256: Record<string, string>; checks: Array<{ name: string; ok: boolean; detail: string }>; tls: { authorized: boolean } }>("docs/deploy-CA-bell.json");
@@ -141,13 +155,57 @@ test("bell_served_data_matches_deploy_ca", () => {
   assert.equal(d.bodies_sha256.state, ca.bodies_sha256["/state.json"], "state body read by the site data = state checked by the deploy CA");
   assert.equal(d.bodies_sha256.provenance, ca.bodies_sha256["/provenance.json"], "provenance body read by the site data = provenance checked by the deploy CA");
   assert.equal(d.bodies_sha256.pubkey, ca.keyring_sha256);
-  assert.equal(d.bodies_sha256.pubkey, sha(readFileSync(join(ROOT, "apps/bell/keys/bell-keyring.json"))), "served key set = committed keyring bytes");
+  assert.equal(d.bodies_sha256.pubkey, sha(servedOfCommitted()), "served key set = committed keyring bytes, less (R2)'s one entry");
   // The counts the page renders are the committed deploy check's own, recomputed here.
   assert.deepEqual(d.deploy_check, { checked_at: ca.checked_at, checks_total: ca.checks.length, checks_passed: ca.checks.filter((c) => c.ok).length, tls_authorized: ca.tls.authorized });
   // The /bell sentence "its root redirects to this page" is backed by the deploy check's root control.
   assert.equal(BELL_ROOT_REDIRECT, "https://monarkgate.tech/bell");
   assert.ok(ca.checks.some((c) => c.ok && c.detail.includes(`root_location=${BELL_ROOT_REDIRECT}`)), "the committed deploy check saw the root redirect to /bell");
   assert.match(readFileSync(join(ROOT, PAGES[0] ?? ""), "utf8"), /its root redirects to this page/);
+});
+
+// The R2-R5 window of a rotation (PLAN-P5 C-7; RUNBOOK "Key incidents", (R2) to (R5)): the two tests above compare the served keyring to the
+// committed one through servedKeyringOf, which passes the committed keyring as it is, or with ONE last {key_id, jwk} entry, the form the
+// RUNBOOK's (R2) command appends (run here as written, on a copy of the committed keyring); two such entries, an entry with a status or a
+// valid_from_seq, an entry not last, a served key absent or bytes not canonical are red (null, or a text that is not the served one).
+// killer: scripts/verify-bell.mjs:260 CONST "bare(kr.keys[kr.keys.length - 1]) ? kr.keys.slice(0, -1) : kr.keys" -> "kr.keys"
+test("bell_served_tests_accept_one_statusless_committed_key_and_nothing_else", () => {
+  const of = servedKeyringOf(), served = readFileSync(join(ROOT, "apps/bell/keys/bell-keyring.json"), "utf8");
+  const kr = JSON.parse(served) as { schema: string; keys: Array<Record<string, unknown>> };
+  const fresh = (): { key_id: string; jwk: { kty: "OKP"; crv: "Ed25519"; x: string } } => {
+    const k = keyringOf(generateKeyPairSync("ed25519").publicKey, 1).keys[0];
+    assert.ok(k !== undefined);
+    return { key_id: k.key_id, jwk: k.jwk };
+  };
+  const [e1, e2] = [fresh(), fresh()];
+  const text = (keys: Array<Record<string, unknown>>): string => canonical({ ...kr, keys }) + "\n";
+  assert.equal(of(served), served, "the committed keyring as it is: the served one");
+  assert.equal(of(text([...kr.keys, e1])), served, "plus one {key_id, jwk} entry, last: the served one");
+  // The RUNBOOK's (R2) command, as written, on a copy of the committed keyring and of the chain module: its bytes pass.
+  const js = /node --input-type=module -e "([^"]+)" -- '<x new>' '<key_id new>'/.exec(readFileSync(join(ROOT, "docs/RUNBOOK-bell.md"), "utf8"))?.[1];
+  assert.ok(js !== undefined, "the (R2) command is in the RUNBOOK");
+  const cwd = mkdtempSync(join(tmpdir(), "bell-r2-"));
+  try {
+    mkdirSync(join(cwd, "apps", "bell", "keys"), { recursive: true });
+    mkdirSync(join(cwd, "apps", "bell", "scripts"), { recursive: true });
+    writeFileSync(join(cwd, "apps", "bell", "keys", "bell-keyring.json"), served);
+    writeFileSync(join(cwd, "apps", "bell", "scripts", "bell-chain.mjs"), readFileSync(join(ROOT, "apps", "bell", "scripts", "bell-chain.mjs")));
+    const r2 = execFileSync(process.execPath, ["--input-type=module", "-e", js, "--", e1.jwk.x, e1.key_id], { cwd, encoding: "utf8" });
+    assert.equal(r2, text([...kr.keys, e1]), "(R2) appends {key_id, jwk} last, in canonical form");
+    assert.equal(of(r2), served, "(R2)'s bytes stand for the served keyring");
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+  const red: Array<[string, string, string | null]> = [
+    ["two entries", text([...kr.keys, e1, e2]), null],
+    ["an entry with a status", text([...kr.keys, { ...e1, status: "active" }]), text([...kr.keys, { ...e1, status: "active" }])],
+    ["an entry with a valid_from_seq", text([...kr.keys, { ...e1, valid_from_seq: 3 }]), text([...kr.keys, { ...e1, valid_from_seq: 3 }])],
+    ["the entry not last", text([e1, ...kr.keys]), null],
+    ["a served key absent", text([e1]), null],
+    ["bytes not canonical", `${JSON.stringify(kr, null, 1)}\n`, null],
+  ];
+  for (const [name, t, want] of red) {
+    assert.equal(of(t), want, name);
+    assert.notEqual(of(t), served, `${name}: red in the two tests above`);
+  }
 });
 
 test("bell_served_collector_revision_is_a_collector_commit", () => {

@@ -66,7 +66,9 @@
   "bell_publish_handoff_takes_at_most_n_bundles_per_call",
   "bell_publish_handoff_takes_the_highest_unrefused_revision",
   "bell_publish_handoff_waits_on_a_unit_without_candidate",
+  "bell_publish_lock_names_its_holder_and_unlock_frees_only_a_dead_one",
   "bell_publish_lock_refuses_a_second_writer",
+  "bell_publish_refuses_an_abstention_served_before_its_gate",
   "bell_publish_refuses_clock_unsynced"
  ],
  "apps/bell/test/bell-publish-validate.test.ts": [
@@ -88,6 +90,11 @@
   "bell_retry_nonjson_200_is_retried_then_succeeds_and_is_metered",
   "bell_retry_nonjson_transient_matrix_200_5xx_429_and_fatal_4xx",
   "bell_retry_statusof_nonjson_labels_non_json_status_not_http"
+ ],
+ "apps/bell/test/bell-rotation-two-step.test.ts": [
+  "bell_rotation_two_step_refuses_a_mismatched_line",
+  "bell_rotation_two_step_signs_without_moving_keys",
+  "bell_rotation_two_step_verifies_with_the_committed_keyring"
  ],
  "apps/bell/test/bell-served-e2e.test.ts": [
   "bell_cash_fault_label_publishes_through_real_publisher",
@@ -153,6 +160,7 @@
   "bell_checks_refuse_adv_period_across_the_sip_switch_without_ruling"
  ],
  "apps/bell/test/close.test.ts": [
+  "bell_cash_cross_refuses_bar_of_another_date",
   "bell_cash_cross_scaled_integer_equality",
   "bell_cash_keyless_emits_no_request",
   "bell_cash_labels_are_generic",
@@ -2054,7 +2062,8 @@
   "bell_served_loader_is_fail_closed",
   "bell_served_projection_matches_the_publisher_closed_list",
   "bell_served_session_rows_pair_by_index — two same-named sessions on two dates keep their own dates",
-  "bell_served_sync_sets_its_manifest_entry_only"
+  "bell_served_sync_sets_its_manifest_entry_only",
+  "bell_served_tests_accept_one_statusless_committed_key_and_nothing_else"
  ],
  "test/byo-demo-probe.test.ts": [
   "demo_md_cites_the_current_byo_trace_digest",
@@ -3059,6 +3068,7 @@
   "oracle_modified_tree_is_replayed_on_its_content — same key, dirty tree: never served, the clone carries the untracked file; the record and owner.txt name the frozen dirty tree (M6, M7, X8, X9)",
   "oracle_r25_integration_reads_the_declared_proof - --r25-proof: the tree's module runs on the declared proof (here a written PR: the count of today), the record names the mode and the proof sha256, the D4 key changes with the proof; no flag: unproven, r25_proof null; a missing file: refusal (ADR-M003 D9 nonies, T-11)",
   "oracle_r25_over_the_ci_bound_is_red — insertions + deletions against VIBEGATES_PR_LIMIT 5, equality green (-gt): 3 + 2 = 5 green, 3 + 3 = 6 red, 15 + 3 red (3 committed + 2 tracked-dirty + 10 untracked); same R25_DIFF_RE as test 38 (M11, M13, X6, X7)",
+  "oracle_range_mode_judges_each_first_parent_merge_under_its_own_bound",
   "oracle_reads_the_tests_of_test_main — the tests field comes from the suite's gate as the real tree names it, npm run test:main, which gets the oracle's base as ORACLE_BASE over the host's (TEST-COUNT-FLOOR-1, Q-9 and Q-4 (a))",
   "oracle_record_not_written_is_a_refusal — a gate turns the record path into a directory (BRK) => exit 2, no oracle-result line, no record (C-G2-7)",
   "oracle_red_same_key_record_is_never_served — decision 267 (c): a suite refused by C-V-4, or a red base, is replayed with a mention, never served (X4)",

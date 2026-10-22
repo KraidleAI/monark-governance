@@ -53,7 +53,7 @@ export async function runMainInto(out: string, work: string, over: { databentoGe
   const databentoGet: DatabentoGet = () => Promise.resolve([{ hd: { ts_event: String(BigInt(Date.UTC(2026, 8, 18)) * 1_000_000n) }, close: "364000000000" }]);
   const aug: Array<{ t: number; v: number }> = [];
   for (let d = 1; d <= 31; d++) { const t = Date.UTC(2026, 7, d, 16), w = new Date(t).getUTCDay(); if (w !== 0 && w !== 6) aug.push({ t, v: 1_000_000 }); }
-  const polygonGet: PolygonGet = (path) => Promise.resolve(/\/range\/1\/day\/(\d{4}-\d{2}-\d{2})\/\1\?/.test(path) ? { results: [{ c: 364 }] }
+  const polygonGet: PolygonGet = (path) => Promise.resolve(/\/range\/1\/day\/(\d{4}-\d{2}-\d{2})\/\1\?/.test(path) ? { results: [{ c: 364, t: Date.parse(`${path.slice(path.indexOf("/day/") + 5, path.indexOf("/day/") + 15)}T16:00:00Z`) }] }
     : path.includes("/2026-08-01/2026-08-31?") ? { results: aug } : { results: [] });
   const traj = join(work, "traj.json"); // outside the bundle (a bundle holds runMain's run directories only)
   writeFileSync(traj, JSON.stringify({ TSLAx: { scanComplete: true, scanMethod: "authority", events: [

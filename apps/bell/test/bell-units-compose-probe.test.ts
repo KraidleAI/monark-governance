@@ -70,7 +70,7 @@ function cash(url: URL): unknown {
   }
   const r = /\/range\/1\/day\/(\d{4})-(\d{2})-(\d{2})\/(\d{4}-\d{2}-\d{2})\?/.exec(url.pathname + url.search);
   if (r === null) throw new Error(`unexpected ${url.pathname}`);
-  if (`${r[1] ?? ""}-${r[2] ?? ""}-${r[3] ?? ""}` === r[4]) return { results: [{ c: CLOSE.decimal }] };
+  if (`${r[1] ?? ""}-${r[2] ?? ""}-${r[3] ?? ""}` === r[4]) return { results: [{ c: CLOSE.decimal, t: Date.parse(`${r[4]}T16:00:00Z`) }] };
   const p: AdvPeriod = { year: Number(r[1]), month: Number(r[2]) };
   return { results: (tradingDaysOf(p) ?? []).map((d) => ({ t: Date.parse(`${d}T16:00:00Z`), v: 1_000_000 })) };
 }
