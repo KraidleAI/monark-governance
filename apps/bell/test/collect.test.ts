@@ -677,6 +677,7 @@ test("bell_halt_delta_brackets_real_fills_integration", () => {
 
 // ---- L-1 (C-2): runMain composes the WHOLE pipeline offline (read fills -> Databento close cross-check ->
 // ---- collect -> write state/provenance), asserted on the PRODUCED artifacts (never a regex on the source) ----
+// killer: apps/bell/src/close.ts:189 ROR "dbnScaled === scaledFromDecimal" -> "dbnScaled !== scaledFromDecimal"
 test("bell_close_databento_replays_synthetic_fixture", async () => {
   const btMs = Date.UTC(2026, 8, 19, 13, 31, 4), btSec = Math.floor(btMs / 1000); // Sat 2026-09-19 => weekend, ref close 2026-09-18
   const pool = POOLS.find((p) => p.baseSymbol === "TSLAx" && p.chain === "solana")!;
@@ -703,7 +704,7 @@ test("bell_close_databento_replays_synthetic_fixture", async () => {
   // to) is the close cross; a month range is the ADV leg (here an UNDATED bar, no `t` => the month is incomplete => no_adv).
   const polyPaths: string[] = [];
   const isCrossPath = (p: string): boolean => /\/range\/1\/day\/(\d{4}-\d{2}-\d{2})\/\1\?/.test(p);
-  const polygonGet: PolygonGet = (path) => { polyPaths.push(path); return Promise.resolve(isCrossPath(path) ? { results: [{ c: 364 }] } : { results: [{ v: 1_000_000, c: 364 }] }); };
+  const polygonGet: PolygonGet = (path) => { polyPaths.push(path); return Promise.resolve(isCrossPath(path) ? { results: [{ c: 364, t: Date.parse(`${path.slice(path.indexOf("/day/") + 5, path.indexOf("/day/") + 15)}T16:00:00Z`) }] } : { results: [{ v: 1_000_000, c: 364 }] }); };
   // a scanned trajectory (constant m=1) so the gate is `constant` and collect() computes g_t (else it abstains).
   const outDir = mkdtempSync(join(tmpdir(), "bell-runmain-"));
   const trajPath = join(outDir, "traj.json");
