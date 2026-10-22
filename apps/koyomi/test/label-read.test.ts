@@ -13,7 +13,7 @@ import type { TransportFault } from "../../bell/src/quorum.ts";
 import { labelsFromRecords, readDatabentoLabels } from "../src/label-read.ts";
 
 const ns = (iso: string): string => String(BigInt(Date.parse(iso)) * 1_000_000n);
-// One record per line (Databento encoding=json NDJSON). The five dates carry the five ways a date is keyed (ts_event as a nanosecond
+// One record per line (Databento encoding=json NDJSON). The five dates carry the four ways a date is keyed (ts_event as a nanosecond
 // string, hd.ts_event, a JSON number, an ISO string) and the four states of a field (present, absent, UNDEF_PRICE, shape rejected);
 // the last three lines repeat a date, as close.ts reads repeats: an empty close (2026-09-14) and an UNDEF_PRICE close (2026-09-16) never
 // erase the close read before them, a close of refused shape (2026-09-15) does (close.ts keeps it, then refuses its shape).
@@ -28,6 +28,12 @@ const BODY = [
   `{"ts_event":"${ns("2026-09-16T00:00:00Z")}","close":"9223372036854775807","symbol":"TSLA"}`,
 ].join("\n") + "\n";
 const BODY_SHA256 = "7d9f939233a36373591c69b8585e254797eb9b863c5b4e22ad7d2674ea10aef5";
+// A second body, kept apart from the pinned one (review m-3): one date carries two VALID closes and two valid opens in a row, so the
+// rule "the last valid value of a date replaces the earlier one" (close.ts keeps the last valid close) is replayed against Bell.
+const BODY_LAST = [
+  `{"ts_event":"${ns("2026-09-21T00:00:00Z")}","open":"4044444100000","close":"4040404100000","symbol":"TSLA"}`,
+  `{"ts_event":"${ns("2026-09-21T00:00:00Z")}","open":"4055555300000","close":"4050505300000","symbol":"TSLA"}`,
+].join("\n") + "\n";
 const DATES = ["2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17", "2026-09-18"];
 // The Massive daily bar of each date: `t` = 00:00 New York time of that date, `c` equal to the Databento close (synthetic).
 const MASSIVE_C: Record<string, number> = { "2026-09-14": 4004.4007, "2026-09-16": 4027.3331 };
@@ -68,4 +74,10 @@ test("koyomi_label_reader_close_equals_bell_reader", async () => {
   assert.deepEqual(DATES.map((d) => [koyomi[d]?.open_state, koyomi[d]?.open ?? null]), [
     ["present", 4_012_345_900_000n], ["present", 4_021_111_300_000n], ["undef", null], ["absent", null], ["rejected", null]]);
   assert.deepEqual(DATES.map((d) => koyomi[d]?.close_state), ["present", "rejected", "present", "undef", "rejected"]);
+  // Two valid values on one date: the last one, for the open as for the close, and the close equals Bell's (review m-3).
+  // killer: apps/koyomi/src/label-read.ts:26 CONST "next.state === \"present\" || " -> ""
+  const last = labelsFromRecords(parseDatabentoJson(BODY_LAST))["2026-09-21"];
+  const bellLast = await readReferenceCloses({ TSLA: ["2026-09-21"] }, { databentoGet: () => Promise.resolve(parseDatabentoJson(BODY_LAST)), polygonGet: () => Promise.resolve({ results: [] }), databentoKey: "k", polygonKey: "", faults: [] });
+  assert.deepEqual([last?.open, last?.close], [4_055_555_300_000n, 4_050_505_300_000n], "the last valid open and close of the date");
+  assert.equal(Number(String(last?.close)) / 1e9, bellLast.closeByUnderlying.TSLA?.["2026-09-21"], "Bell keeps the same close");
 });
