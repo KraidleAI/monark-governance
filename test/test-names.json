@@ -262,6 +262,11 @@
   "bell_eth_course_refuses_keyless_labels_in_operators",
   "bell_universe_429_streak_stops_fail_closed"
  ],
+ "apps/bell/test/measure-cash-pairs.test.ts": [
+  "bell_measure_cash_pairs_cost_first",
+  "bell_measure_cash_pairs_prints_counts_only",
+  "bell_measure_cash_pairs_sign_median_and_course_paths"
+ ],
  "apps/bell/test/plan.test.ts": [
   "bell_plan_emits_at_most_one_unit_per_tick",
   "bell_plan_refuses_calendar_exhausted_on_next_trading_day",
