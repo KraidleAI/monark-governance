@@ -43,8 +43,11 @@ const http = (n: number): Error => new Error(`HTTP ${String(n)}`); // the plain 
 type Call = { side: "databento" | "massive"; path: string; key: string };
 /** Faults: massive(path, attempt) fails one attempt of one request; databento(n) fails the n-th paid series. */
 type Faults = { massive?: (path: string, attempt: number) => Error | undefined; databento?: (series: number) => Error | undefined };
-function seams(cost: () => unknown = () => COST, faults: Faults = {}): { deps: Deps; calls: Call[]; out: string[]; err: string[] } {
+/** Data: the symbol the fixture is served for (TSLA by default), or the paid records of each symbol (malformed bodies). */
+type Data = { sym?: string; records?: (sym: string) => readonly unknown[] };
+function seams(cost: () => unknown = () => COST, faults: Faults = {}, data: Data = {}): { deps: Deps; calls: Call[]; out: string[]; err: string[] } {
   const calls: Call[] = [], out: string[] = [], err: string[] = [], attempts = new Map<string, number>();
+  const sym = data.sym ?? "TSLA", march = advRangePath(sym, { year: 2025, month: 3 });
   let series = 0;
   const deps: Deps = {
     databentoGet: (path, key) => {
@@ -53,7 +56,8 @@ function seams(cost: () => unknown = () => COST, faults: Faults = {}): { deps: D
       series += 1;
       const f = faults.databento?.(series);
       if (f) return Promise.reject(f);
-      return Promise.resolve(new URLSearchParams(path.split("?")[1]).get("symbols") === "TSLA" ? DATABENTO : []);
+      const s = new URLSearchParams(path.split("?")[1]).get("symbols") ?? "";
+      return Promise.resolve(data.records ? data.records(s) : s === sym ? DATABENTO : []);
     },
     polygonGet: (path, key) => {
       calls.push({ side: "massive", path, key });
@@ -61,7 +65,7 @@ function seams(cost: () => unknown = () => COST, faults: Faults = {}): { deps: D
       attempts.set(path, a);
       const f = faults.massive?.(path, a);
       if (f) return Promise.reject(f);
-      return Promise.resolve(path === TSLA_MARCH ? { results: MASSIVE } : {});
+      return Promise.resolve(path === march ? { results: MASSIVE } : {});
     },
     env: ENV, out: (l) => out.push(l), err: (l) => err.push(l), head: HEAD, sleep: () => Promise.resolve() };
   return { deps, calls, out, err };
@@ -71,6 +75,15 @@ const tokens = (l: string): Array<[string, string]> => l.split(" ").map((t) => {
 const ZERO = { read_massive: "0", read_databento: "0", paired: "0", equal: "0", massive_gt: "0", massive_lt: "0", over_1bp: "0", over_10bp: "0",
   over_100bp: "0", over_500bp: "0", median_rel: "none", max_rel: "none", only_massive: "0", only_databento: "0", off_calendar_massive: "0",
   off_calendar_databento: "0", dup_massive: "0", dup_databento: "0", unread_massive: "0", unread_databento: "0" };
+/** The two lines of the symbol the fixture is served for (test 34 derives each count by hand in its messages). */
+const FIXTURE_VOLUME = { ...ZERO, read_massive: "8", read_databento: "8", paired: "6", equal: "1", massive_gt: "3", massive_lt: "2",
+  over_1bp: "4", over_10bp: "3", over_100bp: "2", over_500bp: "1", median_rel: "1.1000e-3", max_rel: "1.0000e-1", only_massive: "2", only_databento: "2",
+  off_calendar_massive: "1", dup_massive: "1" };
+const FIXTURE_CLOSE = { ...ZERO, read_massive: "8", read_databento: "7", paired: "5", equal: "1", massive_gt: "3", massive_lt: "1",
+  over_1bp: "3", over_10bp: "1", over_100bp: "1", over_500bp: "1", median_rel: "2.5000e-4", max_rel: "6.0000e-2", only_massive: "3", only_databento: "2",
+  off_calendar_massive: "1", dup_massive: "1", unread_databento: "1", "differ_1e-9": "4" };
+const pairOf = (lines: readonly string[], pair: string, sym: string): Record<string, string> =>
+  Object.fromEntries(tokens(lines.find((l) => l.startsWith(`pair=${pair} symbol=${sym} `)) ?? "").slice(2));
 /** The printed method line (pinned by test 34): every reading of the counts, and where the script follows the course or departs from it. */
 const METHOD = "method=v1 rel=abs(massive-databento)/databento over=strict median=middle_or_mean_of_two equal_close=same_at_1e-9_as_c14 "
   + "bars=month_requests_as_the_adv_leg c14_bars=one_day_requests_not_read_here outside_month=dropped_as_the_adv_leg "
@@ -105,8 +118,8 @@ test("bell_measure_cash_pairs_prints_counts_only", async () => {
   const src = readFileSync(SCRIPT, "utf8");
   assert.ok(!/\bfetch\s*\(/.test(src) && !/\benv\.[A-Z_]*KEY/.test(src), "the script never calls fetch nor reads a key itself");
   assert.match(src, /^import \{[^}]*\bdatabentoGet\b[^}]*\bpolygonGet\b[^}]*\breadCashKeys\b[^}]*\} from "\.\.\/src\/close\.ts";$/m, "the GET seams and the key reader of close.ts");
-  // killer: apps/bell/ops/measure-cash-pairs.mjs:146 CONST "status=${statusOf(e)" -> "key=${polygonKey} status=${statusOf(e)"
-  // killer: apps/bell/ops/measure-cash-pairs.mjs:154 CONST "status=${statusOf(e)" -> "key=${databentoKey} status=${statusOf(e)"
+  // killer: apps/bell/ops/measure-cash-pairs.mjs:152 CONST "status=${statusOf(e)" -> "key=${polygonKey} status=${statusOf(e)"
+  // killer: apps/bell/ops/measure-cash-pairs.mjs:160 CONST "status=${statusOf(e)" -> "key=${databentoKey} status=${statusOf(e)"
   for (const [f, stop] of [[seams(undefined, { massive: (p) => (p === TSLA_MARCH ? http(429) : undefined) }), "stop fault side=massive symbol=TSLA month=2025-03 status=HTTP_429"],
     [seams(undefined, { databento: (n) => (n === 3 ? http(503) : undefined) }), "stop fault side=databento symbol=SPY status=HTTP_503"]] as const) {
     assert.equal(await M.measure(RUN, f.deps), 4, stop);
@@ -115,19 +128,20 @@ test("bell_measure_cash_pairs_prints_counts_only", async () => {
     const t = [...f.out, ...f.err].join("\n");
     assert.ok(!t.includes(DK) && !t.includes(PK), `no key printed on a fault (${stop})`);
   }
-  // killer: apps/bell/ops/measure-cash-pairs.mjs:164 CONST "|API_KEY|_KEY$|TOKEN|SECRET" -> ""
-  assert.deepEqual(M.gitEnv({ PATH: "p", GIT_DIR: "g", DATABENTO_API_KEY: DK, POLYGON_API_KEY: PK, HELIUS_API_KEY: "h", BELL_SOLANA_RPC: "r" }), { PATH: "p" },
+  // killer: apps/bell/ops/measure-cash-pairs.mjs:172 CONST "|API_KEY|_KEY$|TOKEN|SECRET" -> ""
+  // killer: apps/bell/ops/measure-cash-pairs.mjs:172 CONST "|_URL$" -> ""
+  assert.deepEqual(M.gitEnv({ PATH: "p", GIT_DIR: "g", DATABENTO_API_KEY: DK, POLYGON_API_KEY: PK, HELIUS_API_KEY: "h", BELL_SOLANA_RPC: "r", HELIUS_RPC_URL: "u" }), { PATH: "p" },
     "git rev-parse runs without the caller's GIT_* variables and without any key");
 });
 
-// killer: apps/bell/ops/measure-cash-pairs.mjs:137 CONST "Number(confirm) !== cost" -> "Number(confirm) < cost"
+// killer: apps/bell/ops/measure-cash-pairs.mjs:143 CONST "Number(confirm) !== cost" -> "Number(confirm) < cost"
 test("bell_measure_cash_pairs_cost_first", async () => {
   const cost = databentoCostPath(M.SYMBOLS, "2025-01-01", "2026-10-01");
   const c = seams();
   assert.equal(await M.measure(["--cost"], c.deps), 0);
   assert.deepEqual(c.calls, [{ side: "databento", path: cost, key: DK }], "--cost asks the price and nothing else");
   assert.deepEqual(c.out.slice(1), ["cost_usd=0.42"]);
-  // killer: apps/bell/ops/measure-cash-pairs.mjs:137 CONST "confirm === undefined || !CONFIRM_FORM.test(confirm) || Number(confirm) !== cost" -> "false"
+  // killer: apps/bell/ops/measure-cash-pairs.mjs:143 CONST "confirm === undefined || !CONFIRM_FORM.test(confirm) || Number(confirm) !== cost" -> "false"
   for (const argv of [["--run"], ["--run", "--confirm-cost-usd", "0.41"], ["--run", "--confirm-cost-usd", "0.43"], ["--run", "--confirm-cost-usd", "0.50"],
     ["--run", "--confirm-cost-usd"], ["--run", "--confirm-cost-usd", ""]]) {
     const r = seams();
@@ -136,23 +150,26 @@ test("bell_measure_cash_pairs_cost_first", async () => {
     assert.deepEqual(r.out.slice(1), ["cost_usd=0.42"]);
     assert.match(r.err.join("\n"), /^stop cost_unconfirmed /m);
   }
-  // killer: apps/bell/ops/measure-cash-pairs.mjs:137 CONST "!CONFIRM_FORM.test(confirm) || " -> ""
+  // killer: apps/bell/ops/measure-cash-pairs.mjs:143 CONST "!CONFIRM_FORM.test(confirm) || " -> ""
   for (const [price, confirm, code] of [[0, "", 3], [0, "0x0", 3], [0, " 0", 3], [0, "0", 0], [1e-7, "1e-7", 0], [COST, "0.420", 0]] as Array<[number, string, number]>) {
     const r = seams(() => price);
     assert.equal(await M.measure(["--run", "--confirm-cost-usd", confirm], r.deps), code, `price ${String(price)}, confirmation "${confirm}": the price as --cost prints it, in decimal form`);
   }
+  // killer: apps/bell/ops/measure-cash-pairs.mjs:139 CONST "catch (e) { partial(); " -> "catch (e) { "
+  // killer: apps/bell/ops/measure-cash-pairs.mjs:140 CONST "{ partial(); " -> "{ "
   for (const [what, f] of [["a failed cost query", () => { throw new Error("HTTP 503"); }], ["no number", () => "0.42"]] as Array<[string, () => unknown]>) {
     const r = seams(f);
     assert.equal(await M.measure(RUN, r.deps), 3, what);
     assert.deepEqual(r.calls.map((x) => x.path), [cost], `${what}: no series`);
     assert.match(r.err.join("\n"), /^stop cost_unavailable/m, what);
+    assert.deepEqual(r.out.slice(1), ["partial=yes paid_series_asked=0 paid_series_received=0 requests_massive=0 retries_massive=0"], `${what}: the progress at zero, as at every fault exit`);
   }
   for (const env of [{ POLYGON_API_KEY: PK }, { DATABENTO_API_KEY: DK }]) {
     const r = seams();
     assert.equal(await M.measure(RUN, { ...r.deps, env }), 2);
     assert.deepEqual(r.calls, [], "a missing key: nothing is sent");
   }
-  // killer: apps/bell/ops/measure-cash-pairs.mjs:132 CONST "costPath()" -> "databentoCostPath(SYMBOLS, WINDOW.start, WINDOW.last)"
+  // killer: apps/bell/ops/measure-cash-pairs.mjs:138 CONST "costPath()" -> "databentoCostPath(SYMBOLS, WINDOW.start, WINDOW.last)"
   const g = seams();
   assert.equal(await M.measure(RUN, g.deps), 0);
   assert.deepEqual(g.calls[0], { side: "databento", path: cost, key: DK }, "the price first");
@@ -164,35 +181,49 @@ test("bell_measure_cash_pairs_cost_first", async () => {
     assert.ok(cs.has(sq.get("symbols") ?? "") && (sq.get("start") ?? "") >= (cq.get("start") ?? "~") && (sq.get("end") ?? "~") <= (cq.get("end") ?? ""), `inside the priced request: ${x.path}`);
   }
   assert.equal(g.calls.filter((x) => x.side === "massive").length, 84);
-  // killer: apps/bell/ops/measure-cash-pairs.mjs:146 CONST "return 4; }" -> "continue; }"
+  // killer: apps/bell/ops/measure-cash-pairs.mjs:152 CONST "return 4; }" -> "continue; }"
   const fm = seams(undefined, { massive: (p) => (p === TSLA_MARCH ? http(429) : undefined) });
   assert.equal(await M.measure(RUN, fm.deps), 4, "a Massive fault left after the course's four tries stops the measure");
   assert.equal(fm.calls.filter((x) => x.path === TSLA_MARCH).length, 4, "withRetry: four tries of a 429");
   assert.deepEqual(fm.calls.filter((x) => x.side === "databento").map((x) => x.path), [cost], "no paid series after a Massive fault");
   assert.deepEqual(fm.out.slice(3), ["partial=yes paid_series_asked=0 paid_series_received=0 requests_massive=66 retries_massive=3"], "the progress, in counts; no pair line");
-  // killer: apps/bell/ops/measure-cash-pairs.mjs:154 CONST "return 4; }" -> "records[sym] = []; continue; }"
+  // killer: apps/bell/ops/measure-cash-pairs.mjs:160 CONST "return 4; }" -> "records[sym] = []; continue; }"
   const fd = seams(undefined, { databento: (n) => (n === 3 ? http(429) : undefined) });
   assert.equal(await M.measure(RUN, fd.deps), 4, "a Databento fault stops the measure");
   assert.equal(fd.calls.filter((x) => x.side === "databento").length, 4, "the price and three series: no fourth series after the fault");
   assert.equal(fd.out[3], "partial=yes paid_series_asked=3 paid_series_received=2 requests_massive=84 retries_massive=0", "the paid series asked, never lost in silence");
   assert.deepEqual(fd.out.slice(4).map((l) => l.split(" ").slice(0, 2).join(" ")), ["pair=volume symbol=AAPL", "pair=volume symbol=NVDA", "pair=close symbol=AAPL", "pair=close symbol=NVDA"],
     "the counts of the series already paid are printed");
+  // killer: apps/bell/ops/measure-cash-pairs.mjs:133 CONST "pairLines(Object.keys(records), bars, records)" -> "pairLines(Object.keys(records), Object.fromEntries(SYMBOLS.map((s) => [s, []])), records)"
+  const fa = seams(undefined, { databento: (n) => (n === 4 ? http(503) : undefined) }, { sym: "AAPL" }); // the fixture served for AAPL, read first
+  assert.equal(await M.measure(RUN, fa.deps), 4);
+  assert.equal(fa.out[3], "partial=yes paid_series_asked=4 paid_series_received=3 requests_massive=84 retries_massive=0");
+  assert.deepEqual([pairOf(fa.out, "volume", "AAPL"), pairOf(fa.out, "close", "AAPL")], [FIXTURE_VOLUME, FIXTURE_CLOSE], "a partial pair line counts both sides, whole");
+  assert.equal(fa.out.length, 10, "header, cost, method, progress, then the volume and close lines of AAPL, NVDA and SPY");
+  // killer: apps/bell/ops/measure-cash-pairs.mjs:163 CONST "catch (e) { computeFault(e); return 4; }" -> "catch (e) { throw e; }"
+  for (const [what, records, error] of [["a null record", [null], "TypeError"], ["a ts_event outside the Date range", [{ hd: { ts_event: 1e30 }, volume: "1", close: "1000000000000" }], "RangeError"]] as Array<[string, unknown[], string]>) {
+    const r = seams(undefined, {}, { records: (s) => (s === "TSLA" ? records : DATABENTO) });
+    const code = await M.measure(RUN, r.deps).catch((e: unknown) => `a rejection (${e instanceof Error ? e.name : "non-error"})`);
+    assert.equal(code, 4, `${what}: a fault after the paid series exits 4, never by a rejection`);
+    assert.deepEqual(r.out.slice(3), ["partial=yes paid_series_asked=4 paid_series_received=4 requests_massive=84 retries_massive=0"], `${what}: the progress, never lost in silence`);
+    assert.deepEqual(r.err, [`stop fault side=compute error=${error}`], `${what}: the error type only, never a value nor a key`);
+  }
 });
 
-// killer: apps/bell/ops/measure-cash-pairs.mjs:145 CONST "advRangePath(sym, p)" -> "advRangePath(sym, p).replace(\"adjusted=false\", \"adjusted=true\")"
+// killer: apps/bell/ops/measure-cash-pairs.mjs:151 CONST "advRangePath(sym, p)" -> "advRangePath(sym, p).replace(\"adjusted=false\", \"adjusted=true\")"
 test("bell_measure_cash_pairs_sign_median_and_course_paths", async () => {
   const s = seams(undefined, { massive: (p, a) => (p === TSLA_MARCH && a === 1 ? http(429) : undefined) }); // one 429, then the answer
   assert.equal(await M.measure(RUN, s.deps), 0, s.err.join("\n"));
   assert.deepEqual(M.SYMBOLS, ["AAPL", "NVDA", "SPY", "TSLA"], "the four underlyings of Bell's pools");
   const months = Array.from({ length: 21 }, (_, i) => ({ year: 2025 + Math.floor(i / 12), month: (i % 12) + 1 }));
-  // killer: apps/bell/ops/measure-cash-pairs.mjs:145 CONST "await withRetry(() => deps.polygonGet(advRangePath(sym, p), polygonKey), retry)" -> "await deps.polygonGet(advRangePath(sym, p), polygonKey)"
+  // killer: apps/bell/ops/measure-cash-pairs.mjs:151 CONST "await withRetry(() => deps.polygonGet(advRangePath(sym, p), polygonKey), retry)" -> "await deps.polygonGet(advRangePath(sym, p), polygonKey)"
   assert.deepEqual(s.calls.filter((c) => c.side === "massive").map((c) => c.path), M.SYMBOLS.flatMap((u) => months.map((p) => advRangePath(u, p))).flatMap((p) => (p === TSLA_MARCH ? [p, p] : [p])),
     "the course's request, retried once after a 429 as the course retries it (withRetry)");
   assert.deepEqual(s.calls.filter((c) => c.side === "databento").slice(1).map((c) => c.path), M.SYMBOLS.map((u) => databentoGetRangePath(u, "2025-01-01", "2026-10-01")));
   let td = 0;
   for (let ms = Date.parse("2025-01-01T00:00:00Z"); ms <= Date.parse("2026-09-30T00:00:00Z"); ms += 86_400_000) if (isTradingDay(new Date(ms).toISOString().slice(0, 10))) td += 1;
   assert.equal(s.out[2], METHOD, "the method line says each reading and each departure from the course");
-  // killer: apps/bell/ops/measure-cash-pairs.mjs:149 CONST "d < first || d > last" -> "false"
+  // killer: apps/bell/ops/measure-cash-pairs.mjs:155 CONST "d < first || d > last" -> "false"
   assert.equal(s.out[3], `confirmed=yes trading_days=${String(td)} requests_massive=84 retries_massive=1 requests_databento=4 empty_months_massive=83 outside_month_massive=1`);
   const got = (pair: string, sym: string): Record<string, string> => Object.fromEntries(tokens(s.out.find((l) => l.startsWith(`pair=${pair} symbol=${sym} `)) ?? "").slice(2));
   // killer: apps/bell/ops/measure-cash-pairs.mjs:67 ROR "r > t" -> "r >= t"

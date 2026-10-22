@@ -88,6 +88,7 @@ const dbnClose = (r) => { const s = typeof r.close === "string" ? r.close.trim()
 const massiveClose = (b) => { const c = finite(b.c); if (c === undefined) return undefined; try { return scaledFromDecimal(String(c)); } catch { return undefined; } };
 const massiveDate = (b) => (finite(b.t) === undefined ? undefined : barDateET(b.t));
 const line = (o) => Object.entries(o).map(([k, v]) => `${k}=${String(v)}`).join(" ");
+const errName = (e) => (e instanceof Error && /^[A-Za-z]+$/.test(e.name) ? e.name : "error"); // the type of an error, never its message
 /** The confirmation is the price as --cost prints it (String of a number: decimal, or exponent form for a tiny price); never "" nor hex. */
 export const CONFIRM_FORM = /^\d+(\.\d+)?(e[+-]?\d+)?$/;
 /** The method line, printed before the counts: each reading, and where the script follows the course or departs from it. */
@@ -111,7 +112,7 @@ function pairLines(syms, bars, records) {
 }
 
 /** The measure. deps: { databentoGet, polygonGet, env, out, err, head, sleep? }. Returns the exit code: 0 done; 2 usage or a missing key;
- *  3 price unread or not confirmed (no series asked); 4 a fault on a series (stopped: the progress line and the counts of the series
+ *  3 price unread or not confirmed (no series asked); 4 a fault on a series, or on the counts of the paid series (stopped: the progress line and the counts of the series
  *  already paid are printed first, never a raw value nor a key). The Massive reads go through withRetry, as the ADV leg reads them
  *  (collect.ts advBarsFor); the paid Databento series are never retried, as the close leg never retries them (BELL-MEASURE-MASSIVE-PACE-1). */
 export async function measure(argv, deps) {
@@ -123,11 +124,16 @@ export async function measure(argv, deps) {
   if (mode === "run" && !polygonKey) { deps.err("stop no_massive_key (the session sets none; nothing is sent)"); return 2; }
   deps.out(line({ "measure-cash-pairs": "v1", mode, head: deps.head ?? "unknown", symbols: SYMBOLS.join(","), window: `${WINDOW.start}..${WINDOW.last}`, months: MONTHS.length }));
   const n = { asked: 0, received: 0, massive: 0, retries: 0 }, bars = Object.fromEntries(SYMBOLS.map((s) => [s, []])), records = {};
-  /** On any fault exit: the progress in counts, then the pair counts of every symbol whose paid series was received (nothing paid is lost in silence). */
+  /** On any fault exit: the progress in counts, then the pair counts of every symbol whose paid series was received (nothing paid is lost in
+   *  silence). A paid record the counts cannot read (a malformed body) never escapes: the fault names the error type only, never a value. */
+  const progress = () => line({ partial: "yes", paid_series_asked: n.asked, paid_series_received: n.received, requests_massive: n.massive, retries_massive: n.retries });
   const partial = () => {
-    deps.out(line({ partial: "yes", paid_series_asked: n.asked, paid_series_received: n.received, requests_massive: n.massive, retries_massive: n.retries }));
-    for (const l of pairLines(Object.keys(records), bars, records)) deps.out(l);
+    deps.out(progress());
+    let ls = [];
+    try { ls = pairLines(Object.keys(records), bars, records); } catch (e) { deps.err(`fault side=compute error=${errName(e)} (the pair lines of the series received are not computed)`); }
+    for (const l of ls) deps.out(l);
   };
+  const computeFault = (e) => { deps.out(progress()); deps.err(`stop fault side=compute error=${errName(e)}`); };
   let cost = NaN;
   try { const v = await deps.databentoGet(costPath(), databentoKey); cost = v.length === 1 && typeof v[0] === "number" ? v[0] : NaN; }
   catch (e) { partial(); deps.err(`stop cost_unavailable status=${statusOf(e).replace(/\s+/g, "_")}`); return 3; }
@@ -153,9 +159,11 @@ export async function measure(argv, deps) {
     try { n.asked += 1; records[sym] = await deps.databentoGet(databentoGetRangePath(sym, WINDOW.start, WINDOW.endExclusive), databentoKey); n.received += 1; }
     catch (e) { partial(); deps.err(`stop fault side=databento symbol=${sym} status=${statusOf(e).replace(/\s+/g, "_")}`); return 4; }
   }
+  let lines;
+  try { lines = pairLines(SYMBOLS, bars, records); } catch (e) { computeFault(e); return 4; }
   const td = MONTHS.reduce((k, p) => k + (tradingDaysOf(p)?.length ?? 0), 0);
   deps.out(line({ confirmed: "yes", trading_days: td, requests_massive: n.massive, retries_massive: n.retries, requests_databento: n.asked, empty_months_massive: emptyMonths, outside_month_massive: outside }));
-  for (const l of pairLines(SYMBOLS, bars, records)) deps.out(l);
+  for (const l of lines) deps.out(l);
   return 0;
 }
 
