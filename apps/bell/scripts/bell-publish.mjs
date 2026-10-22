@@ -8,12 +8,12 @@
 // below; --handoff-start <D> --handoff <dir> --status <dir> poses its start mark), and --inbox <dir> --state <dir> (ADR D10, lot a: ONE bundle);
 // the private key is read ONLY from $CREDENTIALS_DIRECTORY/bell-signing-key (systemd LoadCredential, PKCS#8 PEM). S-6 operator modes (ADR D9): --generate-key <new file> (prints the public part only); --rotate --state <dir> [--broken]
 // (old key bell-signing-key, new key bell-signing-key-new, both from $CREDENTIALS_DIRECTORY; --broken = old key lost);
-// --revoke <key_id> --from-seq <n> --state <dir> (signed by the active key bell-signing-key).
+// --revoke <key_id> --from-seq <n> --state <dir> (signed by the active key bell-signing-key); the rotation in two steps, one key or none per run (--rotate-draft, --rotate-cosign, --rotate-commit) and --unlock --state <dir>, below.
 import { openSync, readSync, writeSync, fsyncSync, closeSync, renameSync, mkdirSync, existsSync, readFileSync, readdirSync, linkSync, unlinkSync } from "node:fs";
 import { join, dirname, basename, isAbsolute } from "node:path";
 import { createPrivateKey, generateKeyPairSync } from "node:crypto";
 import { pathToFileURL } from "node:url";
-import { GENESIS, canonical, sha256Hex, lineHash, signLine, keyIdOf, keyringOf, trustOf, walkTimeline, deriveKeyring } from "./bell-chain.mjs";
+import { GENESIS, canonical, sha256Hex, lineHash, signLine, keyIdOf, keyringOf, trustOf, walkTimeline, deriveKeyring, verifyLine, publicKeyOfJwk } from "./bell-chain.mjs";
 import { BOUNDS, BellPublishError, validateBundle, UNIT_NAME, manifestOf } from "./bell-validate.mjs";
 export { REFUSAL_CODES, BellPublishError, BOUNDS, WHITELIST, NOT_SERVED, KEY_SHAPES } from "./bell-validate.mjs";
 
@@ -181,9 +181,9 @@ function publishOne({ stateDir, privateKey, t, B, D, locate, guard }) {
   return done("published", line);
 }
 
-/** Publish the ONE pending bundle of `inboxDir` into `stateDir` (ADR D8), or refuse by name with nothing written.
+/** Publish the ONE pending bundle of `inboxDir` into `stateDir` (ADR D8), or refuse by name with nothing written; under publish.lock (locked).
  *  Contract of ADR D12 (named parameters; the keyring derives from privateKey and the state). */
-export function publishToDir({ inboxDir, stateDir, privateKey, clock, bounds = {}, fs: D = DURABLE_FS }) {
+export function publishToDir({ inboxDir, stateDir, privateKey, clock, bounds = {}, fs: D = DURABLE_FS }) { return locked(stateDir, () => {
   const t = clock(); // C-3: the ONE clock read of a publication; the envelopes and the line carry the same published_at
   const B = { ...BOUNDS, ...bounds };
   const locate = () => {
@@ -199,12 +199,12 @@ export function publishToDir({ inboxDir, stateDir, privateKey, clock, bounds = {
   D.renameSync(r.bdir, dst); D.fsyncDir(dir); D.fsyncDir(inboxDir);
   const l = r.line;
   return { status: r.status, seq: l.seq, published_at: l.published_at, state_sha256: l.state_sha256, provenance_sha256: l.provenance_sha256, line_hash: lineHash(l) };
-}
+}); }
 
 /** S-6 key rotation (ADR D9): one key_rotation line. Cross-signed: `oldKey` is the active key (sig) and `newKey` signs the same
  *  bytes (sig_new). Key LOST: `oldKey` null => continuity "broken", signed by `newKey` alone; a reader accepts it only if the
- *  new key is in the keyring it supplies (C-9) and reports the break. The new key signs every later line. */
-export function rotateKey({ stateDir, oldKey = null, newKey, clock, fs: D = DURABLE_FS }) {
+ *  new key is in the keyring it supplies (C-9) and reports the break. The new key signs every later line. Under publish.lock (locked). */
+export function rotateKey({ stateDir, oldKey = null, newKey, clock, fs: D = DURABLE_FS }) { return locked(stateDir, () => {
   const t = clock(), st = openState(stateDir, BOUNDS, D, oldKey);
   if (st.lines.length === 0) refuse("no_timeline", "a rotation needs a committed timeline (the first key comes with the first publication)");
   const nk = keyringOf(newKey, 1).keys[0];
@@ -215,10 +215,10 @@ export function rotateKey({ stateDir, oldKey = null, newKey, clock, fs: D = DURA
   line.sig = signLine(line, oldKey ?? newKey);
   commitLine(stateDir, st, st.genesis, line, [], D);
   return keyLineResult("rotated", line);
-}
+}); }
 /** S-6 compromise (ADR D9): one key_revocation line signed by the ACTIVE key. Every line signed by `revokedKeyId` at a seq >=
- *  `revokedFromSeq` is void for a reader. Only a former key (rotated away or lost) can be revoked. */
-export function revokeKey({ stateDir, key, revokedKeyId, revokedFromSeq, clock, fs: D = DURABLE_FS }) {
+ *  `revokedFromSeq` is void for a reader. Only a former key (rotated away or lost) can be revoked. Under publish.lock (locked). */
+export function revokeKey({ stateDir, key, revokedKeyId, revokedFromSeq, clock, fs: D = DURABLE_FS }) { return locked(stateDir, () => {
   const t = clock(), st = openState(stateDir, BOUNDS, D, key);
   if (st.lines.length === 0) refuse("no_timeline", "a revocation needs a committed timeline");
   const k = st.keyring.keys.find((x) => x.key_id === revokedKeyId);
@@ -228,7 +228,7 @@ export function revokeKey({ stateDir, key, revokedKeyId, revokedFromSeq, clock, 
   line.sig = signLine(line, key);
   commitLine(stateDir, st, st.genesis, line, [], D);
   return keyLineResult("revoked", line);
-}
+}); }
 /** S-6 --generate-key (ADR D9): a NEW Ed25519 key as PKCS#8 PEM, created 0600 and never over an existing file (flag "wx"),
  *  durable (fsync of the file and its directory). Returns the PUBLIC part only ({key_id, jwk}); `d` is never returned. */
 export function generateKey(path, D = DURABLE_FS) {
@@ -351,12 +351,12 @@ export function publishHandoff({ handoffDir, stateDir, statusDir, privateKey, cl
   exit = (code) => process.exit(code) }) {
   if (!clockSynced()) refuse("clock_unsynced", "the host clock is not synchronized");
   const key = typeof privateKey === "function" ? privateKey() : privateKey, lock = join(stateDir, "publish.lock");
-  let held = false;
-  const release = () => { if (held) { held = false; unlinkSync(lock); } };
+  let held = false, mine = "";
+  const release = () => { if (held) { held = false; releaseLock(lock, mine); } };
   const onTerm = () => { try { release(); process.stderr.write("bell/publish: sigterm: publish.lock released\n"); } finally { exit(1); } };
   process.on("SIGTERM", onTerm);
   try {
-    try { closeSync(openSync(lock, "wx")); held = true; } catch (e) { if (e?.code === "EEXIST") refuse("lock_held", "publish.lock: another writer holds the state"); throw e; }
+    mine = takeLock(lock); held = true; // held: refused lock_held by takeLock, the holder's state named (the single form of every mode that writes --state)
     const start = readStart(statusDir) ?? refuse("handoff_start_missing", "status/start: no start mark (the act --handoff-start poses it)");
     const t = clock(), B = { ...BOUNDS, ...bounds }, entries = readdirSync(handoffDir, { withFileTypes: true }); // the ONE clock read of the call
     const { manifests, mismatched } = manifestsOf(handoffDir, entries, start), choice = chooseHandoff({ names: entries.map((e) => e.name), manifests, published: readStatus(statusDir, "published.jsonl"),
@@ -381,6 +381,129 @@ export function publishHandoff({ handoffDir, stateDir, statusDir, privateKey, cl
     const status = choice.awaiting !== null ? "awaiting_unit" : out.length > 0 ? "published" : "nothing_to_publish";
     return { status, published: out, ...(choice.awaiting !== null ? { awaiting_unit: `unit-${choice.awaiting}` } : {}) };
   } finally { release(); process.off("SIGTERM", onTerm); }
+}
+
+// ---- The rotation in two steps (G0 BELL-COLLECT-TIMER-1 DC-8 (a), Q-6; PLAN-P5 C5-4): the key_rotation line of rotateKey, built once and
+// signed in three runs that each load one key or none, so no private key leaves its host and only the line's public bytes travel:
+// --rotate-draft (the new host, the new key bell-signing-key-new: the line on the head of its state, signed sig_new), --rotate-cosign (the
+// former host, the old key bell-signing-key: the line checked against its own head and sig_new, then signed sig), --rotate-commit (the new
+// host, no key: the line checked against its head and both signatures, then committed by commitLine). The draft and the cosign read the
+// state (inspect) and write nothing; every refusal of a line is rotation_line_mismatch, its detail naming the field, nothing written.
+const ROTATION_FIELDS = ["kind", "key_id", "new_key", "new_key_id", "prev_line_hash", "published_at", "schema", "seq"];
+const isIso = (s) => typeof s === "string" && Number.isFinite(Date.parse(s)) && new Date(Date.parse(s)).toISOString() === s;
+/** The read-only head of a state for the rotation: its committed lines (a torn tail is not one) and its derived keyring; never repaired here. */
+function rotationHead(stateDir) {
+  const st = inspect(stateDir, BOUNDS);
+  if (st.lines.length === 0) refuse("no_timeline", "a rotation needs a committed timeline (the first key comes with the first publication)");
+  return st;
+}
+/** The checks every form after the draft makes on the line: its fields (the draft's, plus `sigs`), its place on this state's head (seq,
+ *  prev_line_hash, key_id the active key, published_at an ISO instant not before the head's), its new key, then sig_new and, with "sig", sig. */
+function checkRotationLine(st, line, sigs) {
+  const bad = (field) => refuse("rotation_line_mismatch", `${field}: the line does not follow the head of this state or its signatures`);
+  if (line === null || typeof line !== "object" || Array.isArray(line) || Object.keys(line).sort().join(" ") !== [...ROTATION_FIELDS, ...sigs].sort().join(" ")) bad("fields");
+  const tail = st.lines[st.lines.length - 1], active = st.keyring.keys.find((k) => k.status === "active");
+  if (line.schema !== "bell-timeline-v1" || line.kind !== "key_rotation") bad("kind");
+  if (line.seq !== st.lines.length + 1) bad("seq");
+  if (line.prev_line_hash !== lineHash(tail)) bad("prev_line_hash");
+  if (line.key_id !== active.key_id) bad("key_id");
+  if (!isIso(line.published_at) || line.published_at < tail.published_at) bad("published_at");
+  let nk = null;
+  try { nk = keyringOf(publicKeyOfJwk(line.new_key), 1).keys[0]; } catch { nk = null; }
+  if (nk === null || canonical(nk.jwk) !== canonical(line.new_key) || nk.key_id !== line.new_key_id) bad("new_key");
+  if (st.keyring.keys.some((k) => k.key_id === nk.key_id)) refuse("key_already_in_keyring", "the new key is already in the state keyring");
+  if (!verifyLine({ ...line, sig: line.sig_new }, publicKeyOfJwk(line.new_key))) bad("sig_new");
+  if (sigs.includes("sig") && !verifyLine(line, publicKeyOfJwk(active.jwk))) bad("sig");
+}
+/** --rotate-draft: the key_rotation line on the head of `stateDir` (rotateKey's fields and instant), signed sig_new by `newKey`; writes nothing. */
+export function rotateDraft({ stateDir, newKey, clock }) {
+  const t = clock(), st = rotationHead(stateDir);
+  const nk = keyringOf(newKey, 1).keys[0];
+  if (st.keyring.keys.some((k) => k.key_id === nk.key_id)) refuse("key_already_in_keyring", "the new key is already in the state keyring");
+  const line = { ...lineHead(st, "key_rotation", t), key_id: activeKeyId(st.keyring), new_key: nk.jwk, new_key_id: nk.key_id };
+  line.sig_new = signLine(line, newKey); // the signed bytes exclude sig and sig_new: the old key signs the same bytes at the cosign
+  return line;
+}
+/** --rotate-cosign: the drafted `line` checked against the head of `stateDir` and its sig_new, then signed sig by `oldKey`, the active key; writes nothing. */
+export function rotateCosign({ stateDir, oldKey, line }) {
+  const st = rotationHead(stateDir);
+  if (activeKeyId(st.keyring) !== keyIdOf(oldKey)) refuse("signing_key_not_in_keyring", "the loaded key is not the active key of the state keyring");
+  checkRotationLine(st, line, ["sig_new"]);
+  return { ...line, sig: signLine(line, oldKey) };
+}
+/** --rotate-commit: the cosigned `line` checked (head and both signatures) before any write, then, under publish.lock (locked), the start-up repairs and commitLine; no key. */
+export function rotateCommit({ stateDir, line, fs: D = DURABLE_FS }) {
+  checkRotationLine(rotationHead(stateDir), line, ["sig_new", "sig"]); // read-only (inspect): before the lock
+  return locked(stateDir, () => { const st = openState(stateDir, BOUNDS, D, null);
+    checkRotationLine(st, line, ["sig_new", "sig"]); // again under the lock: the head a writer may have moved meanwhile
+    commitLine(stateDir, st, st.genesis, line, [], D);
+    return keyLineResult("rotated", line); });
+}
+/** The --line file of the cosign and the commit: at most MAX_LINE_BYTES, exactly one canonical line and its LF (an octet changed, or spaces, refused). */
+function readRotationLine(path) {
+  const max = BOUNDS.MAX_LINE_BYTES, buf = Buffer.alloc(max + 1), fd = openSync(path, "r");
+  let n = 0;
+  try { for (let r; n <= max && (r = readSync(fd, buf, n, max + 1 - n, null)) > 0;) n += r; } finally { closeSync(fd); }
+  if (n > max) refuse("line_too_large", "--line");
+  const text = buf.subarray(0, n).toString("utf8");
+  let line = null;
+  try { line = JSON.parse(text); } catch { line = null; }
+  if (line === null || typeof line !== "object" || text !== canonical(line) + "\n") refuse("rotation_line_mismatch", "bytes: --line holds no canonical line with its final newline");
+  return line;
+}
+
+// ---- The holder of publish.lock and its release (BELL-PUBLISH-LOCK-RELEASE-1; PLAN-P5 C5-6; calque of the Dojo's single writer, D-SW2 and
+// D-SW3 of docs/G0-lot-single-writer.md): the lock holds the record {pid, boot_id, taken_at} of the call that took it, written whole and
+// synced under that call's own name, then hard-linked to publish.lock (link(2) fails EEXIST when the lock exists: the lock never exists
+// without its record); --unlock frees only a dead holder, never a live or unreadable one (never an automatic theft, rpc-guard lock.ts C-9).
+/** The boot of this host (the kernel's random boot_id), or null where it cannot be read (not Linux): a holder of another boot is dead. */
+function bootId() {
+  try { const s = readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim(); return /^[0-9a-f-]{36}$/.test(s) ? s : null; } catch { return null; }
+}
+/** Signal 0 tests a pid of this host: delivered, or any error but ESRCH (EPERM: another user's process), it reads running (fail-closed). */
+const running = (pid) => { try { return process.kill(pid, 0); } catch (e) { return e?.code !== "ESRCH"; } };
+/** The record of a lock, or null when unreadable (empty, torn, foreign, absent): such a holder is never freed by --unlock. */
+function holderOf(lock) {
+  let o = null;
+  try { o = JSON.parse(readFileSync(lock, "utf8")); } catch { return null; }
+  return Number.isInteger(o?.pid) && o.pid > 0 && (o.boot_id === null || typeof o.boot_id === "string") && isIso(o.taken_at) ? o : null;
+}
+/** The verdict on a holder, PURE: unreadable; dead ("not running") when it took the lock in another boot, or when its pid no longer runs in
+ *  this one (a boot that cannot be read on either side: the pid alone); else running. A pid reused in the same boot reads running: refused. */
+export function holderVerdict(o, boot, isRunning) {
+  if (o === null) return "owner unreadable";
+  return (o.boot_id !== null && boot !== null && o.boot_id !== boot) || !isRunning(o.pid) ? "not running: --unlock releases it" : "running";
+}
+/** Takes publish.lock for this call: the record under publish.lock.<pid>, synced, then linked to the lock (EEXIST: refused lock_held, the holder's state named), the temporary name
+ *  removed in every case, the directory synced (a failed sync removes the lock: never held without it). Returns the record's text, which the
+ *  release compares before removing the lock. Real node:fs, never the `fs` seam of the call: the seam is the publication's (its writes). */
+function takeLock(lock) {
+  const mine = JSON.stringify({ pid: process.pid, boot_id: bootId(), taken_at: new Date().toISOString() }) + "\n", tmp = `${lock}.${String(process.pid)}`, fd = openSync(tmp, "w");
+  try { writeSync(fd, mine); fsyncSync(fd); } finally { closeSync(fd); }
+  try { linkSync(tmp, lock); } catch (e) { if (e?.code === "EEXIST") refuse("lock_held", `publish.lock: another writer holds the state (${holderVerdict(holderOf(lock), bootId(), running)})`); throw e; } finally { unlinkSync(tmp); }
+  try { DURABLE_FS.fsyncDir(dirname(lock)); } catch (e) { unlinkSync(lock); throw e; }
+  return mine;
+}
+/** The release: the lock is removed only while it holds THIS call's record (a lock freed and taken again since is another's). */
+function releaseLock(lock, mine) { if (existsSync(lock) && readFileSync(lock, "utf8") === mine) unlinkSync(lock); }
+/** One writer at a time (D-SW1 of the Dojo, its locked(), dojo-publish.mjs:408-412): `f`, every write of a mode that writes --state, runs under
+ *  publish.lock, taken OUTSIDE the try it guards (a call refused lock_held releases nothing) and released by its finally. --inbox (publishToDir),
+ *  --rotate with or without --broken (rotateKey), --revoke (revokeKey) and --rotate-commit (rotateCommit) take it here; --handoff takes it itself,
+ *  by the same takeLock, under its SIGTERM listener (publishHandoff). --generate-key, --rotate-draft, --rotate-cosign and --unlock write no state. */
+function locked(stateDir, f) {
+  const lock = join(stateDir, "publish.lock"), mine = takeLock(lock);
+  try { return f(); } finally { releaseLock(lock, mine); }
+}
+/** --unlock: a lock whose holder is dead is removed and its record returned; the next call repairs the state (openState). A live or
+ *  unreadable holder is refused lock_held, nothing written; no lock: not_locked. It reads no key. */
+export function unlockState(stateDir, D = DURABLE_FS) {
+  const lock = join(stateDir, "publish.lock");
+  if (!existsSync(lock)) return { status: "not_locked" };
+  const o = holderOf(lock), v = holderVerdict(o, bootId(), running);
+  if (o === null || v !== "not running: --unlock releases it") refuse("lock_held", `publish.lock: ${v}`);
+  unlinkSync(lock);
+  D.fsyncDir(stateDir);
+  return { status: "unlocked", pid: o.pid, boot_id: o.boot_id, taken_at: o.taken_at };
 }
 
 /** The key loader of the CLI: $CREDENTIALS_DIRECTORY must be an absolute path, then each named key is read from it. */
@@ -424,10 +547,42 @@ function handoffCli(argv, deps) {
     return 1;
   }
 }
+/** The forms of the rotation in two steps and of the lock's release, closed: the mode once, then each of its options once with a value; else null. */
+const KEY_ACTS = Object.freeze({ "--rotate-draft": ["--state"], "--rotate-cosign": ["--line", "--state"], "--rotate-commit": ["--line", "--state"], "--unlock": ["--state"] });
+function keyActForm(argv) {
+  const at = argv.findIndex((a) => Object.hasOwn(KEY_ACTS, a)), mode = argv[at], rest = argv.filter((_, i) => i !== at), v = {};
+  if (argv.filter((a) => Object.hasOwn(KEY_ACTS, a)).length !== 1) return null;
+  for (let i = 0; i < rest.length; i += 2) {
+    const k = rest[i], x = rest[i + 1];
+    if (!KEY_ACTS[mode].includes(k) || Object.hasOwn(v, k) || x === undefined || x === "" || x.startsWith("--")) return null;
+    v[k] = x;
+  }
+  return Object.keys(v).length === KEY_ACTS[mode].length ? { mode, stateDir: v["--state"], linePath: v["--line"] } : null;
+}
+/** Their CLI: exit 0 with one line on stdout (the draft's and the cosign's: the canonical line itself, for the next run; the commit's: the
+ *  JSON result), 1 with `bell/publish: <code>: <detail>` on stderr, 64 on usage. Each form loads its one key, or none (the commit, --unlock). */
+function keyActCli(argv, deps) {
+  const f = keyActForm(argv);
+  if (f === null) {
+    process.stderr.write("bell/publish: usage: --rotate-draft --state <dir> | --rotate-cosign --line <file> --state <dir> | --rotate-commit --line <file> --state <dir> | --unlock --state <dir>\n");
+    return 64;
+  }
+  try {
+    const out = f.mode === "--rotate-draft" ? canonical(rotateDraft({ stateDir: f.stateDir, newKey: keyLoader()("bell-signing-key-new"), clock: deps.clock ?? (() => Date.now()) }))
+      : f.mode === "--rotate-cosign" ? canonical(rotateCosign({ stateDir: f.stateDir, oldKey: keyLoader()("bell-signing-key"), line: readRotationLine(f.linePath) }))
+        : JSON.stringify(f.mode === "--unlock" ? unlockState(f.stateDir) : rotateCommit({ stateDir: f.stateDir, line: readRotationLine(f.linePath) }));
+    process.stdout.write(out + "\n");
+    return 0;
+  } catch (e) {
+    process.stderr.write(`bell/publish: ${e instanceof BellPublishError ? `${e.code}: ${e.detail}` : `fatal: ${String(e?.code ?? e?.name ?? "error")}`}\n`);
+    return 1;
+  }
+}
 
 /** CLI: exit 0 with one JSON summary line on stdout, or exit 1 with `bell/publish: <code>: <detail>` on stderr. An argv with --handoff or
  *  --handoff-start and none of the four other mode options takes the --handoff forms (handoffCli; `deps.clockSynced` the probe, `deps.clock` the clock, PLAN-P3 C3-11). */
 export function runCli(argv, deps = {}) {
+  if (Object.keys(KEY_ACTS).some((k) => argv.includes(k))) return keyActCli(argv, deps); // the rotation in two steps (C5-4), --unlock (C5-6)
   if ((argv.includes("--handoff") || argv.includes("--handoff-start")) && !["--inbox", "--generate-key", "--rotate", "--revoke"].some((k) => argv.includes(k))) return handoffCli(argv, deps);
   const arg = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : undefined; };
   const inboxDir = arg("--inbox"), stateDir = arg("--state"), genPath = arg("--generate-key"), revoke = arg("--revoke");
