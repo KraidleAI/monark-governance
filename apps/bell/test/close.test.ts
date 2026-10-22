@@ -78,10 +78,11 @@ test("bell_databento_json_parse_and_bar_date", () => {
 // ---- L-2: the cross-check seam — matched publishes, mismatch abstains, unavailable single-sources ----
 // SYNTHETIC throughout: close 123.45 (=scaled "123450000000") on 2026-09-07 (a holiday, outside the 5 raw days) —
 // declared, verified absent from the real closes (C-V-1, PLI §2 bis); the mismatch decimal 123.46 is synthetic too.
+// killer: apps/bell/src/close.ts:189 ROR "dbnScaled === scaledFromDecimal" -> "dbnScaled !== scaledFromDecimal"
 test("bell_read_reference_closes_cross_matched_mismatch_unavailable", async () => {
   const day = "2026-09-07";
   const dbn: DatabentoGet = () => Promise.resolve([{ hd: { ts_event: nsOf(day) }, close: "123450000000" }]);
-  const massive = (c: number): PolygonGet => () => Promise.resolve({ results: [{ c }] });
+  const massive = (c: number): PolygonGet => () => Promise.resolve({ results: [{ c, t: etWallClockToUtcMs(2026, 9, 7, 0, 0, 0) }] }); // dated the day (DJ-4)
   const deps = (get: PolygonGet, key: string, faults: TransportFault[]): Parameters<typeof readReferenceCloses>[1] =>
     ({ databentoGet: dbn, polygonGet: get, databentoKey: "k", polygonKey: key, faults });
 
@@ -177,4 +178,40 @@ test("bell_cash_labels_are_generic", async () => {
   assert.equal(x.cash_request_digest, cashRequestDigest([ // the requests actually emitted carry the generic labels
     { provider: "cash-close", dataset: "EQUS.SUMMARY", schema: "ohlcv-1d", stype_in: "raw_symbol", symbols: ["TSLA"], start: day, end: "2026-09-08" },
     { provider: "cash-crosscheck", symbols: ["TSLA"], start: day, end: day }]));
+});
+
+// ---- DJ-4 (BELL-JUSTESSE-1, lot 1c, test 11): the cross keeps ONLY the Massive bar dated the requested day ----
+// A daily bar is dated by the ET date of its `t` (barDateET, as the ADV leg dates it). A bar of another day, an undated bar or
+// no bar => the cross did NOT take place: `unavailable` + the fault {cash-crosscheck, bar_date} (C09 refuses), the Databento
+// close still carried (interim Q3(ii) (a)), never `mismatch` (no value disagreement), never the first element taken blind.
+// SYNTHETIC throughout (close 123.45 on 2026-09-07, see above; 123.46 synthetic too); `t` = midnight ET of the bar's day.
+// killer: apps/bell/src/close.ts:184 CONST "?.find((b) => typeof b.t === \"number\" && Number.isFinite(b.t) && barDateET(b.t) === date)" -> "?.[0]"
+test("bell_cash_cross_refuses_bar_of_another_date", async () => {
+  const day = "2026-09-07", rec = { hd: { ts_event: nsOf(day) }, close: "123450000000" };
+  const midnightET = (d: number): number => etWallClockToUtcMs(2026, 9, d, 0, 0, 0);
+  const run = async (bars: Array<{ c?: number; t?: number }> | Error): Promise<{ r: Awaited<ReturnType<typeof readReferenceCloses>>; faults: TransportFault[] }> => {
+    const faults: TransportFault[] = [];
+    const polygonGet: PolygonGet = () => (bars instanceof Error ? Promise.reject(bars) : Promise.resolve({ results: bars }));
+    return { r: await readReferenceCloses({ TSLA: [day] }, { databentoGet: () => Promise.resolve([rec]), polygonGet, databentoKey: "k", polygonKey: "p", faults }), faults };
+  };
+  const notMade = (o: Awaited<ReturnType<typeof run>>, why: string): void => {
+    assert.deepEqual([o.r.crossByUnderlying.TSLA?.[day], o.r.closeByUnderlying.TSLA?.[day], o.r.cash_cross_unavailable_days, o.r.cash_cross_mismatch_days, o.faults],
+      ["unavailable", 123.45, [`TSLA:${day}`], [], [{ provider: "cash-crosscheck", status: "bar_date" }]], why);
+  };
+  // a bar of the PREVIOUS day carrying the SAME value: taken blind it would read `matched`.
+  notMade(await run([{ c: 123.45, t: midnightET(4) }]), "a bar of another day: the cross did not take place");
+  // the same, with a DIFFERENT value: taken blind it would read `mismatch` (a value disagreement that never was).
+  notMade(await run([{ c: 123.46, t: midnightET(4) }]), "another day's bar is never a mismatch");
+  // ET, not UTC: 2026-09-07 02:00Z is 2026-09-06 22:00 ET (its UTC date is the requested day, its ET date is not).
+  notMade(await run([{ c: 123.45, t: Date.UTC(2026, 8, 7, 2, 0, 0) }]), "the bar is dated in ET, never by its UTC date");
+  notMade(await run([{ c: 123.45 }]), "an undated bar proves no date");
+  notMade(await run([]), "no bar: the cross did not take place");
+  // control: the bar dated the requested day is the one kept, wherever it sits in the results.
+  const ok = await run([{ c: 123.46, t: midnightET(4) }, { c: 123.45, t: midnightET(7) }]);
+  assert.deepEqual([ok.r.crossByUnderlying.TSLA?.[day], ok.r.closeByUnderlying.TSLA?.[day], ok.faults], ["matched", 123.45, []], "the dated bar is kept, not the first");
+  const mm = await run([{ c: 123.45, t: midnightET(4) }, { c: 123.46, t: midnightET(7) }]);
+  assert.deepEqual([mm.r.crossByUnderlying.TSLA?.[day], mm.r.cash_cross_mismatch_days, mm.faults], ["mismatch", [`TSLA:${day}`], []], "a real disagreement on the dated bar stays a mismatch");
+  // a transport fault keeps its own status alone (no bar_date added on top).
+  const tf = await run(new Error("HTTP 503"));
+  assert.deepEqual([tf.r.crossByUnderlying.TSLA?.[day], tf.faults], ["unavailable", [{ provider: "cash-crosscheck", status: "HTTP 503" }]]);
 });

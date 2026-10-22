@@ -153,6 +153,7 @@
   "bell_checks_refuse_adv_period_across_the_sip_switch_without_ruling"
  ],
  "apps/bell/test/close.test.ts": [
+  "bell_cash_cross_refuses_bar_of_another_date",
   "bell_cash_cross_scaled_integer_equality",
   "bell_cash_keyless_emits_no_request",
   "bell_cash_labels_are_generic",

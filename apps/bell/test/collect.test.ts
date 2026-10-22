@@ -703,7 +703,7 @@ test("bell_close_databento_replays_synthetic_fixture", async () => {
   // to) is the close cross; a month range is the ADV leg (here an UNDATED bar, no `t` => the month is incomplete => no_adv).
   const polyPaths: string[] = [];
   const isCrossPath = (p: string): boolean => /\/range\/1\/day\/(\d{4}-\d{2}-\d{2})\/\1\?/.test(p);
-  const polygonGet: PolygonGet = (path) => { polyPaths.push(path); return Promise.resolve(isCrossPath(path) ? { results: [{ c: 364 }] } : { results: [{ v: 1_000_000, c: 364 }] }); };
+  const polygonGet: PolygonGet = (path) => { polyPaths.push(path); return Promise.resolve(isCrossPath(path) ? { results: [{ c: 364, t: Date.parse(`${path.slice(path.indexOf("/day/") + 5, path.indexOf("/day/") + 15)}T16:00:00Z`) }] } : { results: [{ v: 1_000_000, c: 364 }] }); };
   // a scanned trajectory (constant m=1) so the gate is `constant` and collect() computes g_t (else it abstains).
   const outDir = mkdtempSync(join(tmpdir(), "bell-runmain-"));
   const trajPath = join(outDir, "traj.json");

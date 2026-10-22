@@ -16,8 +16,8 @@
 import { createHash } from "node:crypto";
 import { canonical } from "./digest.ts";
 import type { CashCross } from "./digest.ts";
-import type { TransportFault } from "./quorum.ts";
-import { statusOf } from "./quorum.ts";
+import { statusOf, type TransportFault } from "./quorum.ts";
+import { barDateET } from "./volume.ts";
 
 export const EQUS_DATASET = "EQUS.SUMMARY";
 export const OHLCV_SCHEMA = "ohlcv-1d";
@@ -34,7 +34,7 @@ export const ADV_BARS_LABEL = "adv-bars"; // the daily share-volume bars of fact
 
 /** Massive/Polygon GET seam (moved here from collect.ts so both the ADV leg and the cross leg share one type). `t` =
  *  "The Unix millisecond timestamp for the start of the aggregate window" (Massive Custom Bars docs, [lu] 2026-09-23);
- *  the ADV leg dates each daily bar by it (BELL-ADV-1). */
+ *  the ADV leg (BELL-ADV-1) and the cross leg (DJ-4) date each daily bar by it, through barDateET (volume.ts). */
 export type PolygonGet = (pathAndQuery: string, apiKey: string) => Promise<{ results?: Array<{ v?: number; c?: number; t?: number }> }>;
 /** One Databento ohlcv-1d record (only the fields we read). `close` is the scaled-int STRING (encoding=json). */
 export interface DatabentoOhlcvRecord { readonly hd?: { ts_event?: string | number }; readonly ts_event?: string | number; readonly close?: string; readonly symbol?: string }
@@ -145,10 +145,10 @@ export interface ReferenceCloses {
 
 /** The L-1/L-2 seam: read the EQUS.SUMMARY close per reference-close day (one range GET per underlying), cross-check
  *  each against Massive range/1/day (adjusted=false) on the SCALED INTEGER (C-5). matched => publish; mismatch =>
- *  NO close returned (the session abstains cash_cross_mismatch downstream); unavailable (no Polygon key / transport)
- *  => publish the Databento close with a cash_cross_unavailable marker (interim Q3(ii) (a)). Never an average, never
- *  a silent pick. The close is never returned as a string, only as the number g_t consumes; the digest guard keeps
- *  it out of every output. */
+ *  NO close returned (the session abstains cash_cross_mismatch downstream); unavailable (no Polygon key / transport /
+ *  no Massive bar dated that day, fault bar_date, DJ-4) => publish the Databento close with a cash_cross_unavailable
+ *  marker (interim Q3(ii) (a)). Never an average, never a silent pick. The close is never returned as a string, only
+ *  as the number g_t consumes; the digest guard keeps it out of every output. */
 export async function readReferenceCloses(datesByUnderlying: Readonly<Record<string, readonly string[]>>, deps: ReadClosesDeps): Promise<ReferenceCloses> {
   const closeByUnderlying: Record<string, Record<string, number>> = {};
   const crossByUnderlying: Record<string, Record<string, CashCross>> = {};
@@ -176,8 +176,15 @@ export async function readReferenceCloses(datesByUnderlying: Readonly<Record<str
       if (!deps.polygonKey) { closeByUnderlying[underlying][date] = dbnClose; crossByUnderlying[underlying][date] = "unavailable"; cash_cross_unavailable_days.push(`${underlying}:${date}`); continue; }
       requests.push({ provider: CASH_CROSS_LABEL, symbols: [underlying], start: date, end: date });
       let massiveC: number | undefined;
-      try { massiveC = (await deps.polygonGet(`/v2/aggs/ticker/${underlying}/range/1/day/${date}/${date}?adjusted=false`, deps.polygonKey)).results?.[0]?.c; }
-      catch (e) { deps.faults.push({ provider: CASH_CROSS_LABEL, status: statusOf(e) }); }
+      try {
+        // DJ-4 (BELL-JUSTESSE-1, lot 1c): only the bar whose barDateET(t) IS `date` is compared. A bar of another day, an undated
+        // bar or none => the cross did not take place: unavailable + the named fault bar_date (C09 refuses), never mismatch (no
+        // value disagreement), never the first element taken blind. A transport fault keeps its own status (catch below).
+        const res = await deps.polygonGet(`/v2/aggs/ticker/${underlying}/range/1/day/${date}/${date}?adjusted=false`, deps.polygonKey);
+        const bar = res.results?.find((b) => typeof b.t === "number" && Number.isFinite(b.t) && barDateET(b.t) === date);
+        if (bar === undefined) deps.faults.push({ provider: CASH_CROSS_LABEL, status: "bar_date" });
+        massiveC = bar?.c;
+      } catch (e) { deps.faults.push({ provider: CASH_CROSS_LABEL, status: statusOf(e) }); }
       if (typeof massiveC !== "number") { closeByUnderlying[underlying][date] = dbnClose; crossByUnderlying[underlying][date] = "unavailable"; cash_cross_unavailable_days.push(`${underlying}:${date}`); continue; }
       if (dbnScaled === scaledFromDecimal(String(massiveC))) { closeByUnderlying[underlying][date] = dbnClose; crossByUnderlying[underlying][date] = "matched"; }
       else { crossByUnderlying[underlying][date] = "mismatch"; cash_cross_mismatch_days.push(`${underlying}:${date}`); }
