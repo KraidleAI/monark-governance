@@ -41,29 +41,37 @@ export function refusalText(e) {
   return `${e instanceof Error ? e.name : typeof e} (message withheld: it may quote a provider's answer)`;
 }
 
-/** The schema of a private calibration entry, read by the freeze of lot A1-c (plan A1, dated line of 08:1x UTC on review m-5). `g` is
- *  null, or the token gap as the integer at 1e-9 written as a string of digits (exact, like Databento's 64-bit fields); `g_state` is a
- *  closed list: `pending` (not computed yet, the only state this lot writes), `computed`, or one of the five abstention codes Bell
- *  passes through (G0 DK-8; the closed list of lot A1-b-i, apps/koyomi/src/abstain.ts, holds them). Lot A1-g fills g in a new folder. */
+/** The schema of a private calibration entry, read by the freeze of lot A1-c (plan A1, dated lines of 08:1x and 13:0x UTC on the review
+ *  and its verification). `g` is null, or Bell's gT string as it is: a signed decimal with exactly G_DECIMALS decimals (the committed
+ *  GAP_PRECISION of apps/bell/src/gap.ts, which writes gT by toFixed), never rounded nor rescaled, so the calibrated g and the live
+ *  g_log are the same string to the byte; `g_state` is a closed list: `pending` (not computed yet, the only state this lot writes),
+ *  `computed`, or one of the five abstention codes Bell passes through (G0 DK-8; the closed list of lot A1-b-i holds them). Lot A1-g
+ *  fills g in a new folder. checkEntry is also the one writer of the key order: every entry leaves it in the order of the schema. */
 export const ENTRY_SCHEMA = "koyomi-calib-entry-v1";
 export const G_STATES = Object.freeze(["pending", "computed", "no_fill_in_window", "no_close_ref", "cash_cross_mismatch", "rebase_unverified", "corporate_action_in_window"]);
-const ENTRY_KEYS = "schema,symbol,cell,d,d_next,open_present,close_present,cross,g,g_state";
+export const G_DECIMALS = 10;
+const G_FORM = new RegExp(`^-?\\d+\\.\\d{${String(G_DECIMALS)}}$`);
+const ENTRY_KEYS = ["schema", "symbol", "cell", "d", "d_next", "open_present", "close_present", "cross", "g", "g_state"];
 const CROSS = ["matched", "mismatch", "unavailable", "none"];
-/** The row itself, or a refusal: a row outside the schema is never written. */
+/** The row in the key order of the schema, or a refusal: a row outside the schema is never written. */
 export function checkEntry(row) {
   const bad = (what) => new Refusal(`calibration entry: ${what}`);
-  if (Object.keys(row).join(",") !== ENTRY_KEYS) throw bad("keys outside the schema");
+  if (Object.keys(row).length !== ENTRY_KEYS.length || !ENTRY_KEYS.every((k) => Object.hasOwn(row, k))) throw bad("keys outside the schema");
   if (row.schema !== ENTRY_SCHEMA || typeof row.symbol !== "string" || (row.cell !== "night" && row.cell !== "weekend")) throw bad("schema, symbol or cell");
   if (!DATE.test(row.d) || !DATE.test(row.d_next) || typeof row.open_present !== "boolean" || typeof row.close_present !== "boolean" || !CROSS.includes(row.cross)) throw bad("dates, flags or cross");
   if (!G_STATES.includes(row.g_state)) throw bad("g_state outside the closed list");
-  if (row.g_state === "computed" ? !(typeof row.g === "string" && /^-?\d{1,19}$/.test(row.g)) : row.g !== null) throw bad("g is the integer at 1e-9 as a string when computed, null otherwise");
-  return row;
+  if (row.g_state === "computed" ? !(typeof row.g === "string" && G_FORM.test(row.g)) : row.g !== null) throw bad("g is Bell's gT string when computed, null otherwise");
+  return Object.fromEntries(ENTRY_KEYS.map((k) => [k, row[k]]));
 }
-/** The price request alone, through the close.ts seam: a transport fault keeps its HTTP status, any other failure is the fixed shape
- *  refusal (a body that is not JSON would otherwise quote itself in the error of the parser). */
+/** The price request alone, through the close.ts seam, refused in three ways and never with a fragment of the answer: a bare HTTP
+ *  status of close.ts; a body the parser refuses (its error would quote the body), the fixed shape refusal; any other fault (no
+ *  answer: transport, DNS), its type alone. */
 async function priceBody(deps, path, key) {
   try { return await deps.databentoGet(path, key); }
-  catch (e) { throw new Refusal(e instanceof Error && HTTP_STATUS.test(e.message) ? `metadata.get_cost failed: ${e.message}` : COST_SHAPE); }
+  catch (e) {
+    if (!(e instanceof SyntaxError) && !(e instanceof Error && HTTP_STATUS.test(e.message))) throw new Refusal(`metadata.get_cost failed: ${e instanceof Error ? e.name : typeof e}`);
+    throw new Refusal(e instanceof Error && HTTP_STATUS.test(e.message) ? `metadata.get_cost failed: ${e.message}` : COST_SHAPE);
+  }
 }
 
 /** Parse the command line. Refuses an unknown argument without echoing it (a pasted secret never reaches the output). */
@@ -157,7 +165,7 @@ export async function runInventory(argv, deps) {
     catch { seriesFailed += 1; } // a failed series counts once: readReferenceCloses records its fault on the same memoized request (review n-2)
     const ref = await readReferenceCloses({ [sym]: days }, { databentoGet: dbnOnce, polygonGet: polyCounted, databentoKey, polygonKey, faults });
     const cross = ref.crossByUnderlying[sym] ?? {};
-    const rows = pairs.map(({ d, next, cell }) => ({ schema: ENTRY_SCHEMA, symbol: sym, cell, d, d_next: next,
+    const rows = pairs.map(({ d, next, cell }) => ({ symbol: sym, schema: ENTRY_SCHEMA, cell, d, d_next: next,
       open_present: labels[next]?.open_state === "present", close_present: labels[d]?.close_state === "present",
       cross: cross[d] ?? "none", g: null, g_state: "pending" })).map(checkEntry);
     const bytes = rows.map((x) => JSON.stringify(x)).join("\n") + "\n";

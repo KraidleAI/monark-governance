@@ -13,13 +13,14 @@ import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { KEY_SHAPES } from "../../bell/scripts/bell-publish.mjs";
 import { parseDatabentoJson, type DatabentoGet, type PolygonGet } from "../../bell/src/close.ts";
 import { etWallClockToUtcMs } from "../../bell/src/sessions.ts";
+import { GAP_PRECISION } from "../../bell/src/gap.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url)), OPS = join(HERE, "..", "ops"), INVENTORY = join(OPS, "calib-inventory.mjs");
 const REPO = join(HERE, "..", "..", "..");
 interface Deps { databentoGet: DatabentoGet; polygonGet: PolygonGet; env: NodeJS.ProcessEnv; nowMs: number; out: (line: string) => void }
 type Row = Record<string, unknown>;
 const inv = (await import(pathToFileURL(INVENTORY).href)) as { runInventory: (argv: readonly string[], deps: Deps) => Promise<void>;
-  refusalText: (e: unknown) => string; checkEntry: (row: Row) => Row; G_STATES: readonly string[] };
+  refusalText: (e: unknown) => string; checkEntry: (row: Row) => Row; G_STATES: readonly string[]; G_DECIMALS: number };
 
 // ---- The fixture: four underlyings over a hand calendar, the weekdays of [2025-07-01, 2025-08-29) without the full closure of
 // 2025-07-04 (42 days, written here without sessions.ts). Test 1 reads the whole window, across the 2025-08-26 of NE-2; test 2 reads
@@ -74,7 +75,7 @@ const STUB = [
   "globalThis.fetch = async (url, init) => {",
   "  const u = new URL(String(url));",
   "  appendFileSync(process.env.STUB_LOG, JSON.stringify({ url: String(url), host: u.host, path: u.pathname, auth: init?.headers?.Authorization ?? null }) + String.fromCharCode(10));",
-  '  if (u.host === "hist.databento.com" && u.pathname === "/v0/metadata.get_cost") return new Response(fx.cost);',
+  '  if (u.host === "hist.databento.com" && u.pathname === "/v0/metadata.get_cost") return new Response(fx.cost, { status: fx.costStatus ?? 200 });',
   '  if (u.host === "hist.databento.com" && u.pathname === "/v0/timeseries.get_range") return new Response(fx.dbn[u.searchParams.get("symbols")] ?? "");',
   '  const p = u.pathname.split("/");',
   '  if (u.host === "api.polygon.io" && p[1] === "v2" && p[2] === "aggs") return new Response(JSON.stringify(fx.massive[p[4]]?.[p[8]] ?? { results: [] }));',
@@ -82,15 +83,15 @@ const STUB = [
   "};",
 ].join("\n");
 
-// killer: apps/koyomi/ops/calib-inventory.mjs:120 CONST "String(r.length)" -> "String(r.length / 4)"
+// killer: apps/koyomi/ops/calib-inventory.mjs:128 CONST "String(r.length)" -> "String(r.length / 4)"
 test("koyomi_calib_inventory_prints_counts_only", () => {
   const dir = mkdtempSync(join(tmpdir(), "koyomi-inv-1-"));
   try {
     const stub = join(dir, "stub-fetch.mjs"), log = join(dir, "requests.jsonl");
     writeFileSync(stub, STUB);
-    const child = (cost: string, entries: string): SpawnSyncReturns<string> => {
+    const child = (cost: string, entries: string, costStatus = 200): SpawnSyncReturns<string> => {
       const fixture = join(dir, `fixture-${String(Math.random()).slice(2)}.json`);
-      writeFileSync(fixture, JSON.stringify({ cost, dbn: DBN, massive: MASSIVE }));
+      writeFileSync(fixture, JSON.stringify({ cost, costStatus, dbn: DBN, massive: MASSIVE }));
       writeFileSync(log, "");
       return spawnSync(process.execPath, ["--import", pathToFileURL(stub).href, INVENTORY, "--run", "--entries", entries, "--max-cost-usd", "1", ...ARGS(END1)],
         { encoding: "utf8", env: { ...process.env, ...KEYS(), STUB_FIXTURE: fixture, STUB_LOG: log } });
@@ -130,19 +131,33 @@ test("koyomi_calib_inventory_prints_counts_only", () => {
     assert.ok(reqs.every((q) => q.host === "hist.databento.com" || q.host === "api.polygon.io"), "only Databento and Massive are asked");
     assert.ok(reqs.every((q) => q.auth !== null), "every request carries its key in the header");
     // A provider body that is not one number: stderr names the refusal in a fixed form, never a fragment of that body (review m-4).
-    // killer: apps/koyomi/ops/calib-inventory.mjs:66 CONST ": COST_SHAPE); }" -> ": e.message); }"
+    // killer: apps/koyomi/ops/calib-inventory.mjs:73 CONST ": COST_SHAPE);" -> ": e.message);"
     const bad = child("<html>BODY-OF-THE-PROVIDER</html>", join(dir, "entries-bad"));
     assert.deepEqual([bad.status, bad.stderr], [1, "koyomi/calib-inventory: refused: metadata.get_cost did not answer one number (shape refused)\n"]);
     assert.ok(!bad.stdout.includes("BODY") && !bad.stdout.includes("cost_usd"), "nothing of the body in stdout, and no price line");
-    // The schema of an entry (review m-5): g is null or the integer at 1e-9 as a string, g_state a closed list (pending, computed and
-    // the five abstention codes Bell passes through, DK-8); a row outside it is refused before it is written.
+    // A price request answered by an HTTP status: the bare status, said as such (verification nit-2).
+    // killer: apps/koyomi/ops/calib-inventory.mjs:73 CONST "`metadata.get_cost failed: ${e.message}`" -> "COST_SHAPE"
+    const down = child("", join(dir, "entries-down"), 503);
+    assert.deepEqual([down.status, down.stderr], [1, "koyomi/calib-inventory: refused: metadata.get_cost failed: HTTP 503\n"]);
+    // The schema of an entry (review m-5, verification m-A): g is null, or Bell's gT string as it is (a signed decimal with exactly
+    // GAP_PRECISION decimals, apps/bell/src/gap.ts); g_state is a closed list (pending, computed and the five abstention codes Bell passes
+    // through, DK-8); a row outside it is refused before it is written, and a valid row comes back in the one key order of the schema.
     assert.deepEqual(inv.G_STATES, ["pending", "computed", "no_fill_in_window", "no_close_ref", "cash_cross_mismatch", "rebase_unverified", "corporate_action_in_window"]);
-    const ok = JSON.parse(tsla[0] ?? "{}") as Row;
+    // killer: apps/koyomi/ops/calib-inventory.mjs:52 CONST "G_DECIMALS = 10" -> "G_DECIMALS = 9"
+    assert.equal(inv.G_DECIMALS, GAP_PRECISION, "g carries Bell's decimals");
+    const ok = JSON.parse(tsla[0] ?? "{}") as Row, keysOf = Object.keys(ok);
     assert.deepEqual(inv.checkEntry(ok), ok);
-    assert.doesNotThrow(() => inv.checkEntry({ ...ok, g: "-1234567", g_state: "computed" }));
-    // killer: apps/koyomi/ops/calib-inventory.mjs:59 CONST "row.g !== null" -> "false"
-    for (const wrong of [{ ...ok, g: "12" }, { ...ok, g: 12, g_state: "computed" }, { ...ok, g: "1.5", g_state: "computed" }, { ...ok, g_state: "to_recompute" },
-      { ...ok, g_state: "no_close_ref", g: "7" }, { ...ok, extra: true }]) assert.throws(() => inv.checkEntry(wrong), /calibration entry/, JSON.stringify(wrong));
+    for (const gT of ["0.0123456789", "-0.0123456789", "-0.0000000000", "12.3456789012"]) assert.doesNotThrow(() => inv.checkEntry({ ...ok, g: gT, g_state: "computed" }), gT);
+    // killer: apps/koyomi/ops/calib-inventory.mjs:64 CONST "Object.fromEntries(ENTRY_KEYS.map((k) => [k, row[k]]))" -> "row"
+    const { symbol, ...rest } = ok;
+    assert.deepEqual(Object.keys(inv.checkEntry({ ...rest, symbol })), keysOf, "a row in another key order comes back in the order of the schema");
+    // One refused row per branch (verification nit-1): keys, cell, dates, flags, cross, g_state, g outside computed, g malformed.
+    // killer: apps/koyomi/ops/calib-inventory.mjs:61 CONST "!DATE.test(row.d) || " -> ""
+    for (const wrong of [{ ...ok, extra: true }, rest, { ...ok, schema: "koyomi-calib-entry-v2" }, { ...ok, cell: "holiday" }, { ...ok, d: "2025-7-1" },
+      { ...ok, d_next: "20250702" }, { ...ok, open_present: "true" }, { ...ok, close_present: null }, { ...ok, cross: "maybe" }, { ...ok, g_state: "to_recompute" },
+      { ...ok, g: "0.0123456789" }, { ...ok, g_state: "no_close_ref", g: "0.0123456789" }, { ...ok, g_state: "computed" },
+      ...["12", "0.012345678", "0.01234567890", "1e-3", "+0.0123456789", ".0123456789"].map((g) => ({ ...ok, g, g_state: "computed" })),
+      { ...ok, g: 0.0123456789, g_state: "computed" }]) assert.throws(() => inv.checkEntry(wrong), /calibration entry/, JSON.stringify(wrong));
     // No committed file of the lot carries a credential shape: the shapes of the Bell publisher and the two ops-only shapes of
     // apps/bell/test/bell-ops.test.ts l.33 (a key in a query string, a Basic credential) (review n-6).
     const shapes = [...KEY_SHAPES.slice(1), /[?&](?:api[-_]?key|apikey|key|token)=[^&\s"'$]{12,}/i, /\bBasic\s+[A-Za-z0-9+/]{16,}={0,2}/];
@@ -153,13 +168,13 @@ test("koyomi_calib_inventory_prints_counts_only", () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-// killer: apps/koyomi/ops/calib-inventory.mjs:146 CONST "costUsd > a.maxCost" -> "false"
+// killer: apps/koyomi/ops/calib-inventory.mjs:154 CONST "costUsd > a.maxCost" -> "false"
 test("koyomi_calib_inventory_cost_first", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "koyomi-inv-2-")), inRepo = join(REPO, "apps", "koyomi", "never-written-entries");
+  const dir = mkdtempSync(join(tmpdir(), "koyomi-inv-2-")), inRepo = join(REPO, "never-written-entries");
   const realFetch = globalThis.fetch, fetched: string[] = [];
   globalThis.fetch = (input) => { fetched.push(typeof input === "string" ? input : input instanceof URL ? input.href : input.url); return Promise.reject(new Error("no network in this test")); };
   try {
-    const run = async (argv: readonly string[], opt: { env?: NodeJS.ProcessEnv; failSeries?: boolean } = {}): Promise<{ events: Array<{ kind: string; sym: string; out: number }>;
+    const run = async (argv: readonly string[], opt: { env?: NodeJS.ProcessEnv; failSeries?: boolean; costFault?: Error } = {}): Promise<{ events: Array<{ kind: string; sym: string; out: number }>;
       out: string[]; reads: string[]; error: string | null; thrown: unknown }> => {
       const events: Array<{ kind: string; sym: string; out: number }> = [], out: string[] = [], reads: string[] = [];
       const env = new Proxy(opt.env ?? KEYS(), { get: (t, k) => { reads.push(String(k)); return t[String(k)]; } });
@@ -167,6 +182,7 @@ test("koyomi_calib_inventory_cost_first", async () => {
         const cost = path.startsWith("/v0/metadata.get_cost?");
         events.push({ kind: cost ? "cost" : "series", sym: cost ? "" : pathSym(path), out: out.length });
         if (!cost && opt.failSeries === true) return Promise.reject(new Error("HTTP 503"));
+        if (cost && opt.costFault !== undefined) return Promise.reject(opt.costFault);
         return Promise.resolve(cost ? parseDatabentoJson(COST) : parseDatabentoJson(DBN[pathSym(path)] ?? ""));
       };
       const polygonGet: PolygonGet = (path) => { events.push({ kind: "massive", sym: pathSym(path), out: out.length }); return Promise.resolve(MASSIVE[pathSym(path)]?.[pathDay(path)] ?? { results: [] }); };
@@ -200,26 +216,26 @@ test("koyomi_calib_inventory_cost_first", async () => {
       assert.ok(b.error !== null && b.events.length === 0, `refused before any request: ${bad.join(" ")}`);
     }
     // Each refusal of the inventory, before any request and with nothing written (review m-2).
-    // killer: apps/koyomi/ops/calib-inventory.mjs:135 CONST "!databentoKey" -> "false"
+    // killer: apps/koyomi/ops/calib-inventory.mjs:143 CONST "!databentoKey" -> "false"
     const noKey = await run(["--cost", ...ARGS(END2)], { env: { POLYGON_API_KEY: fake("plk") } });
     assert.ok(/Databento key is absent/.test(noKey.error ?? "") && noKey.events.length === 0, "no Databento key: refused, no keyless request");
-    // killer: apps/koyomi/ops/calib-inventory.mjs:130 CONST "assertOutsideRepo(a.entries, " -> "void (a.entries, "
+    // killer: apps/koyomi/ops/calib-inventory.mjs:138 CONST "assertOutsideRepo(a.entries, " -> "void (a.entries, "
     const under = await run(["--run", "--entries", inRepo, "--max-cost-usd", "1", ...ARGS(END2)]);
     assert.ok(/under the repository/.test(under.error ?? "") && under.events.length === 0 && !existsSync(inRepo), "--entries under the repository: refused, nothing created");
-    // killer: apps/koyomi/ops/calib-inventory.mjs:132 CONST "readdirSync(a.entries).length > 0" -> "false"
+    // killer: apps/koyomi/ops/calib-inventory.mjs:140 CONST "readdirSync(a.entries).length > 0" -> "false"
     const full = join(dir, "full");
     mkdirSync(full);
     writeFileSync(join(full, "keep.txt"), "kept");
     const notEmpty = await run(["--run", "--entries", full, "--max-cost-usd", "1", ...ARGS(END2)]);
     assert.ok(/not empty/.test(notEmpty.error ?? "") && notEmpty.events.length === 0, "--entries not empty: refused");
     assert.deepEqual([readdirSync(full), readFileSync(join(full, "keep.txt"), "utf8")], [["keep.txt"], "kept"], "the folder is left as it was");
-    // killer: apps/koyomi/ops/calib-inventory.mjs:89 CONST "a.mode === \"cost\" && (a.entries" -> "false && (a.entries"
+    // killer: apps/koyomi/ops/calib-inventory.mjs:97 CONST "a.mode === \"cost\" && (a.entries" -> "false && (a.entries"
     for (const extra of [["--entries", join(dir, "e3")], ["--max-cost-usd", "1"]]) {
       const b = await run(["--cost", ...extra, ...ARGS(END2)]);
       assert.ok(/--cost takes neither/.test(b.error ?? "") && b.events.length === 0 && !existsSync(join(dir, "e3")), `--cost with ${extra[0] ?? ""}: refused`);
     }
     // Every series in fault (review n-2): one fault per series, the counts printed, no manifest, and the course ends refused.
-    // killer: apps/koyomi/ops/calib-inventory.mjs:172 CONST "seriesFailed > 0" -> "false"
+    // killer: apps/koyomi/ops/calib-inventory.mjs:180 CONST "seriesFailed > 0" -> "false"
     const down = await run(["--run", "--entries", join(dir, "e4"), "--max-cost-usd", "1", ...ARGS(END2)], { failSeries: true });
     assert.match(down.error ?? "", /^4 of 4 Databento series failed: no manifest written/);
     assert.equal(down.out.at(-1), "databento_series=4 massive_requests=0 faults=4");
@@ -228,6 +244,13 @@ test("koyomi_calib_inventory_cost_first", async () => {
     // killer: apps/koyomi/ops/calib-inventory.mjs:41 CONST "e instanceof Error ? e.name : typeof e" -> "e instanceof Error ? e.message : typeof e"
     assert.deepEqual([inv.refusalText(new SyntaxError('Unexpected token \'<\', "<html>BODY"... is not valid JSON')), inv.refusalText(new Error("HTTP 503")), inv.refusalText("text")],
       ["SyntaxError (message withheld: it may quote a provider's answer)", "HTTP 503", "string (message withheld: it may quote a provider's answer)"]);
+    // The price request in fault, three ways (verification nit-2): a bare HTTP status, a body the parser refuses, any other fault (its
+    // type alone); never a fragment of the answer, and no series after it.
+    // killer: apps/koyomi/ops/calib-inventory.mjs:72 CONST "failed: ${e instanceof Error ? e.name : typeof e}" -> "failed: ${e instanceof Error ? e.message : typeof e}"
+    const priceFaults = await Promise.all([new Error("HTTP 503"), new SyntaxError('Unexpected token \'<\', "<html>LEAK"... is not valid JSON'), new TypeError("fetch failed LEAK")]
+      .map((costFault) => run(["--cost", ...ARGS(END2)], { costFault })));
+    assert.deepEqual(priceFaults.map((x) => [x.error, x.events.map((e) => e.kind)]), [["metadata.get_cost failed: HTTP 503", ["cost"]],
+      ["metadata.get_cost did not answer one number (shape refused)", ["cost"]], ["metadata.get_cost failed: TypeError", ["cost"]]]);
     // No Helius in this lot: its key is never read, nothing reaches the network outside the two seams.
     for (const x of [c, r, over, down]) assert.ok(!x.reads.some((k) => /HELIUS/.test(k)), "the Helius key is never read");
     assert.deepEqual(fetched, [], "no direct fetch");
