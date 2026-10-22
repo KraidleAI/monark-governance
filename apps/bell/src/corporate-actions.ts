@@ -249,7 +249,7 @@ export function reconcile(s: Signals): { readonly windows: Window[]; readonly pr
       const d = m?.execution_date ?? adr?.dReadET ?? null;
       if (d !== null) twin(withD(d), false);
       else { candidates(tRef); windows.push({ kind: "open", fromMs: Math.min(openStartMs(tRef), openStartMs(topSec ?? tRef)) }); }
-    } else if (adr === undefined) { candidates(tRef); windows.push({ kind: "open", fromMs: Math.min(openStartMs(tRef), openStartMs(topSec ?? tRef)) }); }
+    } else if (adr === undefined) { candidates(tRef); windows.push({ kind: "open", fromMs: Math.min(openStartMs(tRef), openStartMs(topSec ?? tRef)) }); } // equivalent to openStartMs(topSec ?? tRef) today: no C step pairs with an unchanged-bits event; its killer comes with item BELL-CA-K1-LIFT-1
   }
   for (const m of s.splits) {
     if (usedSplits.has(m)) continue;
