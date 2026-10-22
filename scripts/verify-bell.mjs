@@ -29,7 +29,7 @@ import { request as httpsRequest } from "node:https";
 import { connect as tlsConnect } from "node:tls";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { canonical } from "../apps/bell/scripts/bell-chain.mjs";
+import { canonical, trustOf } from "../apps/bell/scripts/bell-chain.mjs";
 
 const REPO = fileURLToPath(new URL("..", import.meta.url));
 export const CHECK_NAMES = Object.freeze(["c01_state_json", "c02_timeline_jsonl", "c03_pubkey_equals_committed_keyring", "c04_provenance_json",
@@ -37,7 +37,7 @@ export const CHECK_NAMES = Object.freeze(["c01_state_json", "c02_timeline_jsonl"
   "c10_no_private_material_served", "c11_loaded_config_equals_g7", "c12_probe_untouched"]);
 /** The dedicated tree holds ONLY what the unit runs (ADR D1): its ExecStart script and that script's local imports. The RUNBOOK's
  *  git archive lists exactly these paths (pinned by test/verify-bell.test.ts). */
-export const BELL_TREE_PATHS = Object.freeze(["apps/bell/scripts/bell-chain.mjs", "apps/bell/scripts/bell-publish.mjs", "apps/bell/scripts/bell-validate.mjs"]);
+export const BELL_TREE_PATHS = Object.freeze(["apps/bell/scripts/bell-chain.mjs", "apps/bell/scripts/bell-publish.mjs", "apps/bell/scripts/bell-validate.mjs", "apps/bell/src/sessions.ts"]);
 export const UNIT_NAME = "monark-bell-publish.service";
 export const UNIT_INSTALLED = `/etc/systemd/system/${UNIT_NAME}`;
 export const CADDY_DEDICATED = "/etc/caddy/monark-bell.caddyfile";
@@ -245,4 +245,18 @@ async function main() {
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
   main().then((c) => { process.exitCode = c; }, (e) => { process.stderr.write(`verify-bell crashed: ${String(e?.message ?? e)}\n`); process.exitCode = 1; });
+}
+
+/** The R2-R5 window of a key rotation (RUNBOOK "Key incidents", (R2) to (R5), item KEYRING-COMMIT-AFTER-KEY-LINE-1; PLAN-P5 C-7): the
+ *  served keyring a committed keyring stands for, as its exact text. The committed keyring (its canonical bytes and a final LF, a valid
+ *  bell-keyring-v1) is the served one, or the served one plus ONE last entry of the form (R2) appends, {key_id, jwk} and nothing else;
+ *  anything else (two such entries, one not last, a malformed keyring) gives null, and an entry with a status or a valid_from_seq is a
+ *  served entry. Check 3 never reads it: between (R2) and (R5) it stays red, declared. Read by test/bell-served.test.ts. */
+export function servedKeyringOf(committedText) {
+  let kr = null;
+  try { kr = JSON.parse(committedText); } catch { return null; }
+  if (typeof committedText !== "string" || trustOf(kr) === null || committedText !== canonical(kr) + "\n") return null;
+  const bare = (k) => Object.keys(k).sort().join(" ") === "jwk key_id";
+  const keys = bare(kr.keys[kr.keys.length - 1]) ? kr.keys.slice(0, -1) : kr.keys;
+  return keys.length === 0 || keys.some(bare) ? null : canonical({ ...kr, keys }) + "\n";
 }

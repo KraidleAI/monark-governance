@@ -66,7 +66,9 @@
   "bell_publish_handoff_takes_at_most_n_bundles_per_call",
   "bell_publish_handoff_takes_the_highest_unrefused_revision",
   "bell_publish_handoff_waits_on_a_unit_without_candidate",
+  "bell_publish_lock_names_its_holder_and_unlock_frees_only_a_dead_one",
   "bell_publish_lock_refuses_a_second_writer",
+  "bell_publish_refuses_an_abstention_served_before_its_gate",
   "bell_publish_refuses_clock_unsynced"
  ],
  "apps/bell/test/bell-publish-validate.test.ts": [
@@ -88,6 +90,11 @@
   "bell_retry_nonjson_200_is_retried_then_succeeds_and_is_metered",
   "bell_retry_nonjson_transient_matrix_200_5xx_429_and_fatal_4xx",
   "bell_retry_statusof_nonjson_labels_non_json_status_not_http"
+ ],
+ "apps/bell/test/bell-rotation-two-step.test.ts": [
+  "bell_rotation_two_step_refuses_a_mismatched_line",
+  "bell_rotation_two_step_signs_without_moving_keys",
+  "bell_rotation_two_step_verifies_with_the_committed_keyring"
  ],
  "apps/bell/test/bell-served-e2e.test.ts": [
   "bell_cash_fault_label_publishes_through_real_publisher",
@@ -2031,7 +2038,8 @@
   "bell_served_loader_is_fail_closed",
   "bell_served_projection_matches_the_publisher_closed_list",
   "bell_served_session_rows_pair_by_index — two same-named sessions on two dates keep their own dates",
-  "bell_served_sync_sets_its_manifest_entry_only"
+  "bell_served_sync_sets_its_manifest_entry_only",
+  "bell_served_tests_accept_one_statusless_committed_key_and_nothing_else"
  ],
  "test/byo-demo-probe.test.ts": [
   "demo_md_cites_the_current_byo_trace_digest",

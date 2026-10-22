@@ -94,12 +94,15 @@ test("bell_chain_ed25519_rfc8032_kat", async (t) => {
 
 // ---- S-1 (d) + B-5: the publication scripts import Node built-ins only (allowlist), no network or dynamic loading ----
 // Per-file allowlists (the collection timer, lot 2a-i, ruling of 2026-10-14): bell-chain.mjs imports node: built-ins only; bell-publish.mjs adds
-// ./bell-chain.mjs and ./bell-validate.mjs; bell-validate.mjs imports exactly node:fs, node:path and ./bell-chain.mjs, never the publisher.
+// ./bell-chain.mjs and ./bell-validate.mjs; bell-validate.mjs imports exactly node:fs, node:path, ./bell-chain.mjs and, since lot 5a (PXB-1, PLAN-P5
+// C5-5), the calendar ../src/sessions.ts, never the publisher; sessions.ts, in the publisher tree since then, imports nothing.
 // killer: apps/bell/scripts/bell-validate.mjs:6 CONST "\"node:path\";" -> "\"node:path\"; import { pathToFileURL } from \"node:url\";"
 test("bell_scripts_import_allowlist_no_network", () => {
   const NODE = ["node:crypto", "node:fs", "node:path", "node:url"];
   const ALLOW: Record<string, Set<string>> = { "bell-chain.mjs": new Set(NODE), "bell-publish.mjs": new Set([...NODE, "./bell-chain.mjs", "./bell-validate.mjs"]),
-    "bell-validate.mjs": new Set(["node:fs", "node:path", "./bell-chain.mjs"]) };
+    "bell-validate.mjs": new Set(["node:fs", "node:path", "./bell-chain.mjs", "../src/sessions.ts"]) };
+  const FORBIDDEN = [/node:https?\b/, /node:net\b/, /node:tls\b/, /node:dns\b/, /node:http2\b/, /node:dgram\b/, /child_process/, /\bfetch\s*\(/,
+    /\bimport\s*\(/, /\brequire\s*\(/, /createRequire/, /\bundici\b/, /\bWebSocket\b/];
   for (const f of ["bell-chain.mjs", "bell-publish.mjs", "bell-validate.mjs"]) {
     assert.ok(existsSync(join(HERE, `../scripts/${f}`)), `${f}: the publication script exists`);
     const text = src(`../scripts/${f}`), allow = ALLOW[f] ?? new Set<string>();
@@ -107,9 +110,9 @@ test("bell_scripts_import_allowlist_no_network", () => {
     assert.ok(specs.length >= 1, `${f}: its imports are parsed (non-vacuity)`);
     for (const s of specs) assert.ok(allow.has(s), `${f}: import '${s}' is outside the allowlist`);
     if (f === "bell-validate.mjs") assert.deepEqual([...new Set(specs)].sort(), [...allow].sort(), `${f}: imports exactly ${[...allow].join(", ")}`);
-    for (const re of [/node:https?\b/, /node:net\b/, /node:tls\b/, /node:dns\b/, /node:http2\b/, /node:dgram\b/, /child_process/, /\bfetch\s*\(/,
-      /\bimport\s*\(/, /\brequire\s*\(/, /createRequire/, /\bundici\b/, /\bWebSocket\b/]) {
-      assert.equal(re.test(text), false, `${f}: forbidden network or dynamic-load token ${String(re)}`);
-    }
+    for (const re of FORBIDDEN) assert.equal(re.test(text), false, `${f}: forbidden network or dynamic-load token ${String(re)}`);
   }
+  const cal = src("../src/sessions.ts");
+  assert.deepEqual(cal.split("\n").filter((l) => /^\s*import\b|^\s*export\b.*\bfrom\s*["'`]/.test(l)), [], "sessions.ts: no import statement, no re-export");
+  for (const re of FORBIDDEN) assert.equal(re.test(cal), false, `sessions.ts: forbidden network or dynamic-load token ${String(re)}`);
 });

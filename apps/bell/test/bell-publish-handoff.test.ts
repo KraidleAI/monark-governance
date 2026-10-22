@@ -10,16 +10,18 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { appendFileSync, chmodSync, closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createRequire, syncBuiltinESMExports } from "node:module";
 import { createHash, createPrivateKey } from "node:crypto";
 import * as P from "../scripts/bell-publish.mjs";
-import { manifestOf } from "../scripts/bell-validate.mjs";
-import { keyringOf, sha256Hex } from "../scripts/bell-chain.mjs";
+import { BOUNDS, manifestOf, validateBundle } from "../scripts/bell-validate.mjs";
+import { canonical, keyringOf, sha256Hex } from "../scripts/bell-chain.mjs";
 import { dirSource, verifyServed } from "../scripts/bell-verify.mjs";
 import { collect } from "../src/collect.ts";
 import { tickMain } from "../src/tick.ts";
 import { readStatus, recollectOf } from "../src/handoff-status.ts";
+import { earliestPublishUtc, refCloseDateOf, type SessionLabel } from "../src/sessions.ts";
+import { once } from "node:events";
 import { ATTEMPT_BUDGET } from "../../../scripts/bell-deploy.mjs";
 import { REPO, T_PUBLISH, tmp } from "./helpers/bell-served.ts";
 
@@ -204,7 +206,7 @@ test("bell_publish_handoff_never_writes_the_handoff_dir", () => {
   assert.deepEqual(tree(b.handoff), before, "a publication and a refusal leave the handoff directory as it was, byte for byte");
 });
 
-// killer: apps/bell/scripts/bell-publish.mjs:359 CONST "openSync(lock, \"wx\")" -> "openSync(lock, \"w\")"
+// killer: apps/bell/scripts/bell-publish.mjs:483 CONST "linkSync(tmp, lock)" -> "renameSync(tmp, lock)"
 test("bell_publish_lock_refuses_a_second_writer", () => {
   api();
   const b = box(0), lock = join(b.state, "publish.lock");
@@ -428,4 +430,95 @@ test("bell_publish_handoff_skips_an_entry_purged_after_the_listing", () => {
   // killer: apps/bell/scripts/bell-publish.mjs:291 CONST "err?.code === \"ENOENT\"" -> "false"
   const man = raced((b) => { rmSync(join(b.handoff, `${unit(0)}.manifest`)); }); // the only manifest of unit 0 gone, its directory left
   assert.deepEqual([man.r, existsSync(join(man.b.status, "refused.jsonl")), timeline(man.b).length], [unit1, false, 2], "the same fate");
+});
+
+// PXB-1 BELL-ABSTAIN-GATE-1, prevention (i) (PLAN-P4 l.387-393; PLAN-P5 C5-5, lot 5a): the publisher refuses an abstention no_close_ref served
+// before its gate, the earliest publication instant of its reference close (earliestPublishUtc(refCloseDateOf(session, the session date of
+// its volume entry)), the collector's calendar sessions.ts), as C-in-5 refuses a g_t before its gate. The validation that refuses it is the
+// shared one (validateRun: the tick's and the publisher's): the bundle is recorded refused and nothing is published; at its gate the same
+// bundle is published. A no_close_ref that no proven join of gaps and volume entries can date is refused at any instant (fail-closed). The
+// fixture's runs abstain no_close_ref (collect() is given no close); the base published them at any instant (the publisher dated no abstention).
+// killer: apps/bell/scripts/bell-validate.mjs:202 CONST "if (!(gate <= t)) refuse(" -> "if (false) refuse("
+test("bell_publish_refuses_an_abstention_served_before_its_gate", () => {
+  api();
+  const b = box(0), refused = join(b.status, "refused.jsonl");
+  deposit(b.handoff, unit(0), 0);
+  const st = JSON.parse(readFileSync(join(b.handoff, unit(0), "TSLAx", "state.json"), "utf8")) as { digest: { gaps: Obj[]; volume: Obj[] } };
+  const key = (e: Obj): string => `${String(e.symbol)}|${String(e.session)}|${typeof e.regime === "string" ? e.regime : "null"}`, seen = new Map<string, number>();
+  const gates = st.digest.gaps.map((g) => { // the k-th gap of a bucket and the k-th volume entry of the same bucket: its session date
+    const k = seen.get(key(g)) ?? 0, v = st.digest.volume.filter((x) => key(x) === key(g))[k];
+    seen.set(key(g), k + 1);
+    return g.abstain === "no_close_ref" && v !== undefined ? earliestPublishUtc(refCloseDateOf(g.session as SessionLabel, String(v.session_date_et))) : -Infinity;
+  });
+  const gate = Math.max(...gates), first = gates.indexOf(gate);
+  assert.ok(Number.isFinite(gate) && gate < T_PUBLISH, "non-vacuity: the fixture's run abstains no_close_ref on a dated session");
+  const before = tree(b.handoff);
+  assert.throws(() => call(b, { clock: () => gate - 1 }), (e: unknown) => isCode("session_not_yet_publishable")(e)
+    && (e as P.BellPublishError).detail === `$.runs[0].state.digest.gaps[${String(first)}].abstain: no_close_ref served before its gate`, "one millisecond before its gate: refused");
+  assert.deepEqual([timeline(b).length, readJsonl(refused).map((r) => [r.bundle, r.code])], [0, [[unit(0), "session_not_yet_publishable"]]], "recorded refused, nothing published");
+  assert.deepEqual(tree(b.handoff), before, "the handoff directory as it was");
+  assert.throws(() => validateBundle(join(b.handoff, unit(0)), BOUNDS, gate - 1), isCode("session_not_yet_publishable"), "the tick's validation refuses it too: the same function");
+  const at = box(0);
+  deposit(at.handoff, unit(0), 0);
+  assert.deepEqual(call(at, { clock: () => gate }).published, [{ bundle: unit(0), seq: 1 }], "at its gate, the same bundle is published");
+  // Fail-closed: the volume entries removed and bell_sha sealed again, no join dates the abstention: refused a day after its gate.
+  const reseal = (d: string): void => {
+    const sp = join(d, "TSLAx", "state.json"), pp = join(d, "TSLAx", "provenance.json"), s = JSON.parse(readFileSync(sp, "utf8")) as Obj, p = JSON.parse(readFileSync(pp, "utf8")) as Obj;
+    const dg = s.digest as Obj;
+    dg.volume = [];
+    s.bell_sha = sha256Hex(canonical(dg));
+    p.bellSha = s.bell_sha;
+    writeFileSync(sp, JSON.stringify(s, null, 2));
+    writeFileSync(pp, JSON.stringify(p, null, 2));
+  };
+  const noJoin = box(0);
+  deposit(noJoin.handoff, unit(0), 0, 365n, reseal);
+  assert.throws(() => call(noJoin, { clock: () => gate + DAY_MS }), (e: unknown) => isCode("session_not_yet_publishable")(e)
+    && (e as P.BellPublishError).detail === "$.runs[0].state.digest: an abstention no_close_ref and no proven join of gaps and volume entries to date it", "no join, no date: refused");
+});
+
+// BELL-PUBLISH-LOCK-RELEASE-1 (PLAN-P5 C5-6, lot 5a; calque of the Dojo's D-SW2 and D-SW3): publish.lock names its holder {pid, boot_id,
+// taken_at}, whole as soon as the lock exists; a second writer is refused with the holder's state; --unlock (no key) frees a dead holder and
+// returns its record, refuses a live or an unreadable one with nothing written, and says not_locked when there is no lock. A holder of another
+// boot is dead even while a process of its pid runs (holderVerdict; the kernel's boot_id, null where it cannot be read: the pid alone).
+// killer: apps/bell/scripts/bell-publish.mjs:475 CONST "|| !isRunning(o.pid) ?" -> "|| false ?"
+test("bell_publish_lock_names_its_holder_and_unlock_frees_only_a_dead_one", async () => {
+  api();
+  const b = box(0), lock = join(b.state, "publish.lock"), unlock = (): ReturnType<typeof io> => io(() => P.runCli(["--unlock", "--state", b.state]));
+  const json = (s: unknown): Obj | null => { try { return JSON.parse(String(s)) as Obj; } catch { return null; } };
+  deposit(b.handoff, unit(0), 0);
+  let during: unknown = null;
+  const fs: P.DurableFs = { ...P.DURABLE_FS, writeSync: (fd, data) => { during ??= existsSync(lock) ? readFileSync(lock, "utf8") : "absent"; P.DURABLE_FS.writeSync(fd, data); } };
+  assert.equal(call(b, { fs }).status, "published");
+  const rec = json(during);
+  assert.ok(rec !== null, `during the call the lock holds a record: ${String(during)}`);
+  assert.deepEqual([Object.keys(rec).sort(), rec.pid, rec.boot_id === null || typeof rec.boot_id === "string", new Date(String(rec.taken_at)).toISOString() === rec.taken_at],
+    [["boot_id", "pid", "taken_at"], process.pid, true, true], "{pid, boot_id, taken_at}: this process, its boot, an ISO instant");
+  assert.equal(existsSync(lock), false, "released by the finally of the call");
+  deposit(b.handoff, unit(1), 1);
+  const child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 120000)"], { stdio: "ignore" }), exited = once(child, "exit");
+  const held = JSON.stringify({ pid: child.pid, boot_id: rec.boot_id, taken_at: new Date().toISOString() }) + "\n";
+  try {
+    writeFileSync(lock, held); // a live holder of this boot
+    assert.throws(() => call(b), (e: unknown) => isCode("lock_held")(e) && (e as P.BellPublishError).detail === "publish.lock: another writer holds the state (running)");
+    const u = unlock();
+    assert.deepEqual([u.code, u.out, u.err, readFileSync(lock, "utf8")], [1, "", "bell/publish: lock_held: publish.lock: running\n", held], "a live holder is never freed");
+  } finally { child.kill(); }
+  await exited;
+  assert.throws(() => call(b), (e: unknown) => isCode("lock_held")(e) && (e as P.BellPublishError).detail === "publish.lock: another writer holds the state (not running: --unlock releases it)");
+  const freed = unlock();
+  assert.deepEqual([freed.code, json(freed.out), freed.err, existsSync(lock)], [0, { status: "unlocked", ...json(held) }, "", false], "a dead holder is freed, its record returned");
+  assert.deepEqual(call(b).published, [{ bundle: unit(1), seq: 2 }], "the next call takes the lock again and publishes");
+  writeFileSync(lock, "another writer\n");
+  const unread = unlock();
+  assert.deepEqual([unread.code, unread.out, unread.err, readFileSync(lock, "utf8")], [1, "", "bell/publish: lock_held: publish.lock: owner unreadable\n", "another writer\n"]);
+  rmSync(lock);
+  const none = unlock();
+  assert.deepEqual([none.code, none.out, none.err], [0, "{\"status\":\"not_locked\"}\n", ""]);
+  const verdict = (P as unknown as Obj).holderVerdict as (o: Obj | null, boot: string | null, isRunning: (pid: number) => boolean) => string;
+  assert.equal(typeof verdict, "function", "bell-publish.mjs exports holderVerdict");
+  const B1 = "11111111-1111-4111-8111-111111111111", B2 = "22222222-2222-4222-8222-222222222222", me = { pid: process.pid, boot_id: B1, taken_at: new Date().toISOString() };
+  assert.deepEqual([verdict(me, B2, () => true), verdict(me, B1, () => true), verdict(me, B1, () => false), verdict(me, null, () => true), verdict({ ...me, boot_id: null }, B2, () => true), verdict(null, B1, () => false)],
+    ["not running: --unlock releases it", "running", "not running: --unlock releases it", "running", "running", "owner unreadable"],
+    "another boot: dead even while its pid runs; the same boot, or a boot unread on either side: the pid; no record: unreadable");
 });
