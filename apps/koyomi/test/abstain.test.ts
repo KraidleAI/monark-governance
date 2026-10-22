@@ -38,3 +38,19 @@ test("koyomi_abstain_closed_list", () => {
     assert.doesNotMatch(src, /classifySession|sessionDateET|SessionLabel/, `${name}.ts reads no session state`);
   }
 });
+
+// killer: apps/koyomi/ops/calib-inventory.mjs:51 CONST "\"rebase_unverified\"" -> "\"rebase_unverifed\""
+test("koyomi_abstain_codes_bind_g_states", async () => {
+  // n-3 of the fold verification of A1-a: G_STATES of the calibration inventory (lot A1-a) writes by hand the five codes Bell passes
+  // through. Bound here to the closed list: G_STATES is `pending` and `computed`, then ABSTAIN_CODES[2..6] in the order of DK-8, and
+  // neither of the first two is a code. The script runs its main only when launched (calib-inventory.mjs:196-197), never on import.
+  const inv = (await import(new URL("../ops/calib-inventory.mjs", import.meta.url).href)) as { G_STATES: readonly string[] };
+  const states = inv.G_STATES;
+  assert.equal(Array.isArray(states), true, "calib-inventory.mjs exports G_STATES");
+  assert.ok(Object.isFrozen(states), "G_STATES cannot grow at run time");
+  const bell = A.ABSTAIN_CODES.slice(2, 7);
+  assert.deepEqual(bell, ["no_fill_in_window", "no_close_ref", "cash_cross_mismatch", "rebase_unverified", "corporate_action_in_window"]);
+  assert.deepEqual([...states], ["pending", "computed", ...bell], "G_STATES = the two computation states, then Bell's five codes of DK-8");
+  assert.deepEqual(states.slice(0, 2).map((s) => A.isAbstainCode(s)), [false, false], "pending and computed are never abstention codes");
+  assert.deepEqual(states.filter((s) => A.isAbstainCode(s)), bell, "the abstention codes of G_STATES are Bell's five, no other");
+});
