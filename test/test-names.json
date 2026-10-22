@@ -1104,6 +1104,25 @@
   "usde_pre_registered_stats_reproduce (n=613, q̂ support 61, q99 support 6, non-degenerate)",
   "usde_series_fixture_is_sha_pinned (the recorder's exact input)"
  ],
+ "apps/koyomi/test/abstain.test.ts": [
+  "koyomi_abstain_closed_list",
+  "koyomi_abstain_codes_bind_g_states"
+ ],
+ "apps/koyomi/test/calib-inventory.test.ts": [
+  "koyomi_calib_inventory_cost_first",
+  "koyomi_calib_inventory_prints_counts_only"
+ ],
+ "apps/koyomi/test/cut.test.ts": [
+  "koyomi_cut_after_window_bounds",
+  "koyomi_cut_sunday_17h_new_york_dst"
+ ],
+ "apps/koyomi/test/label-read.test.ts": [
+  "koyomi_label_reader_close_equals_bell_reader"
+ ],
+ "apps/koyomi/test/slots.test.ts": [
+  "koyomi_slots_night_monday_to_thursday_next_trading",
+  "koyomi_slots_sunday_holiday_and_straddle"
+ ],
  "apps/sentinel/test/pool-rpc-1a.test.ts": [
   "pool_rpc_1a_ca1_public_endpoints_membership — llamarpc AND blastapi removed, pocket added, 7 hosts, ≥ 2 distinct providers (CA-1; M-1/M-2/M-8)",
   "pool_rpc_1a_ca2_pocket_operator_identity — providerOf pocket.network; operatorOf(pocket) == operatorOf(nodies) == 'pocket'; others untouched (CA-2; M-3)",
@@ -3548,6 +3567,7 @@
   "collect_ts_clean_of_paid_key_reads",
   "ethereum_ts_clean_of_fetch_and_keys",
   "fetch_only_inside_client",
+  "koyomi_src_is_a_root_of_the_paid_fetch_scanner",
   "rpc_guard_package_src_clean_and_allowlist_load_bearing",
   "rpc_guard_scanner_comment_cites_lines_that_hold_a_bare_key_name",
   "sentinel_src_clean_and_allowlist_load_bearing",
