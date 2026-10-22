@@ -20,8 +20,8 @@ key, unit, Caddy, HTTPS) need gates G-a, G-c, G-d only. Steps 9-13 (first public
 missing at 23:00Z, the host goes online serving 404s and the publication waits (never a publication without its pieces).
 
 **Committed files this runbook installs** (all read from the G7 commit, never from a working tree):
-- `apps/bell/scripts/bell-publish.mjs` + `apps/bell/scripts/bell-chain.mjs` + `apps/bell/scripts/bell-validate.mjs` -> `/opt/monark-bell/`
-  (the ONLY three files of the tree: what the unit runs, ADR D1; the CA's `BELL_TREE_PATHS`);
+- `apps/bell/scripts/bell-publish.mjs` + `apps/bell/scripts/bell-chain.mjs` + `apps/bell/scripts/bell-validate.mjs` + `apps/bell/src/sessions.ts` -> `/opt/monark-bell/`
+  (the ONLY four files of the tree: what the unit runs, ADR D1; the CA's `BELL_TREE_PATHS`);
 - `deploy/monark-bell-publish.service` -> `/etc/systemd/system/monark-bell-publish.service`;
 - in part 5 only (section 14): the collection's tree, `BELL_COLLECT_TREE_PATHS` of `scripts/bell-deploy.mjs` -> `/opt/monark-bell-collect/`,
   and `deploy/monark-bell-collect.service`, `deploy/monark-bell-collect.timer` -> `/etc/systemd/system/`;
@@ -96,21 +96,21 @@ Expected: `exit=0`; 3 lines or more (`/etc/monark/probe.env`, `./DEPLOYED-SHA`, 
 
 ## 2. The tree at G7 (gate G-a)
 
-Write the G7 merge SHA once (40 hex), then ship EXACTLY the three files the unit runs:
+Write the G7 merge SHA once (40 hex), then ship EXACTLY the four files the unit runs:
 
 ```bash
 git -C /f/Monark rev-parse --verify '<G7 merge commit>^{commit}' > /f/tmp/bell-dn/G7.txt && cat /f/tmp/bell-dn/G7.txt
 ```
 
 ```bash
-G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark archive --format=tar.gz "$G7" apps/bell/scripts/bell-chain.mjs apps/bell/scripts/bell-publish.mjs apps/bell/scripts/bell-validate.mjs | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'install -d -m 0755 -o root -g root /opt/monark-bell && tar xzf - -C /opt/monark-bell --no-same-owner --no-same-permissions && chown -R root:root /opt/monark-bell && find /opt/monark-bell -type d -exec chmod 0755 {} + && find /opt/monark-bell -type f -exec chmod 0644 {} + && cd /opt/monark-bell && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum'
+G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark archive --format=tar.gz "$G7" apps/bell/scripts/bell-chain.mjs apps/bell/scripts/bell-publish.mjs apps/bell/scripts/bell-validate.mjs apps/bell/src/sessions.ts | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'install -d -m 0755 -o root -g root /opt/monark-bell && tar xzf - -C /opt/monark-bell --no-same-owner --no-same-permissions && chown -R root:root /opt/monark-bell && find /opt/monark-bell -type d -exec chmod 0755 {} + && find /opt/monark-bell -type f -exec chmod 0644 {} + && cd /opt/monark-bell && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum'
 ```
 
 ```bash
-G7=$(cat /f/tmp/bell-dn/G7.txt) && for p in apps/bell/scripts/bell-chain.mjs apps/bell/scripts/bell-publish.mjs apps/bell/scripts/bell-validate.mjs; do echo "$(git -C /f/Monark cat-file blob "$G7:$p" | sha256sum | cut -c1-64)  ./$p"; done
+G7=$(cat /f/tmp/bell-dn/G7.txt) && for p in apps/bell/scripts/bell-chain.mjs apps/bell/scripts/bell-publish.mjs apps/bell/scripts/bell-validate.mjs apps/bell/src/sessions.ts; do echo "$(git -C /f/Monark cat-file blob "$G7:$p" | sha256sum | cut -c1-64)  ./$p"; done
 ```
 
-Expected: the remote listing has exactly three lines and each digest equals the local `git cat-file blob` digest (`.gitattributes`
+Expected: the remote listing has exactly four lines and each digest equals the local `git cat-file blob` digest (`.gitattributes`
 pins `eol=lf`, so `git archive` and `cat-file` carry the same bytes). No `npm` on this host: built-ins only (ADR D3).
 Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -rf /opt/monark-bell'`.
 
@@ -238,7 +238,7 @@ byte-identical at both G7s (measured for this lot: `git diff --stat 496a5a8 d7c6
 Caddyfile is empty; of these four installed files, the lot changes only the Caddyfile):
 
 ```bash
-{ [ -e /f/tmp/bell-dn/G7-1.txt ] || cp /f/tmp/bell-dn/G7.txt /f/tmp/bell-dn/G7-1.txt; } && git -C /f/Monark rev-parse --verify '<G7 merge commit of the lot>^{commit}' > /f/tmp/bell-dn/G7.txt && git -C /f/Monark diff --quiet "$(cat /f/tmp/bell-dn/G7-1.txt)" "$(cat /f/tmp/bell-dn/G7.txt)" -- apps/bell/scripts/bell-chain.mjs apps/bell/scripts/bell-publish.mjs apps/bell/scripts/bell-validate.mjs deploy/monark-bell-publish.service; echo same_tree_and_unit=$?; cat /f/tmp/bell-dn/G7.txt
+{ [ -e /f/tmp/bell-dn/G7-1.txt ] || cp /f/tmp/bell-dn/G7.txt /f/tmp/bell-dn/G7-1.txt; } && git -C /f/Monark rev-parse --verify '<G7 merge commit of the lot>^{commit}' > /f/tmp/bell-dn/G7.txt && git -C /f/Monark diff --quiet "$(cat /f/tmp/bell-dn/G7-1.txt)" "$(cat /f/tmp/bell-dn/G7.txt)" -- apps/bell/scripts/bell-chain.mjs apps/bell/scripts/bell-publish.mjs apps/bell/scripts/bell-validate.mjs apps/bell/src/sessions.ts deploy/monark-bell-publish.service; echo same_tree_and_unit=$?; cat /f/tmp/bell-dn/G7.txt
 ```
 
 Expected: `same_tree_and_unit=0` and the new SHA (else **STOP**: steps 2 and 6 are replayed at the new G7 first, or CA check 11
@@ -702,8 +702,8 @@ replaced (l.330-344); a wrong mark is a **STOP** and an escalation to the orches
 run (`<cycle>/<op>.lock` under the ledger, `{pid, iso}`); its SIGTERM handler releases them (`bell/tick: refused sigterm: stopped, the
 run's locks released`, or `…the release of the run's locks threw: unlock them by act`), but a SIGKILL, the OOM killer or a power cut
 leaves them, and a lock left STAYS held: only the served, ledgered `unlock` releases it (`packages/rpc-guard/src/lock.ts:4-6`). The
-publisher takes `publish.lock` in `/var/lib/monark-bell` at each `--handoff` call and releases it in its `finally`
-(taken at `apps/bell/scripts/bell-publish.mjs:359`, released by `release`, `:355`, in the `finally` of `:383`); a SIGKILL, the OOM killer or a power cut leaves it. It is an empty file (no owner
+publisher takes `publish.lock` in `/var/lib/monark-bell` at each `--handoff` call (and, since the fold of lot 5a, at each `--inbox`, `--rotate`, `--revoke` and `--rotate-commit`) and releases it in its `finally`
+(for `--handoff`, taken at `apps/bell/scripts/bell-publish.mjs:359`, released by `release`, `:355`, in the `finally` of `:383`; for the four other modes, by `locked()`, `:493-496`); a SIGKILL, the OOM killer or a power cut leaves it. It is an empty file (no owner
 record), and the publisher has no served release of it: item **BELL-PUBLISH-LOCK-RELEASE-1** (formed 2026-10-15 19:2x UTC, review of lot 3c, m-3). Limit: the act below judges the lock by the stop predicate of the two units alone, so a live writer outside them would not be seen. Construction: the calque of the Dōjō's single-writer lot (`docs/G0-lot-single-writer.md`: D-SW2, the owner record `{pid, mode, taken_at}` written and fsynced; D-SW3, a served `--unlock <state>` that frees the lock only if its pid no longer runs and refuses a live or unreadable owner; tests T-SW1, T-SW2; the operator's use, `docs/RUNBOOK-dojo.md` section 19) carried to `apps/bell/scripts/bell-publish.mjs`, then (3) below rewritten for that form and `bell_runbook_unlocks_as_the_unit_user_never_root` amended.
 Price, a declared estimate: about 210 lines of one lot under the CI's R-25 measure, the Dōjō's landing measured (`git diff --shortstat d8495082^1 d8495082` with the CI's pathspecs: 163 insertions, 37 deletions, its own lot `3b91aa37` 138 and 14) plus about 10 for the test of this section; the RUNBOOK's lines are out of that measure. Owner: MONARK. Trigger: before the publication is activated (lot 5b, step 11), at the latest in the plan of part 5. Until then its removal by the unit's user, both units stopped, is the
 act. (1) The state, the timer stopped first (read-only; a lock file holds `{pid, iso}`, no secret):
@@ -895,7 +895,7 @@ write, a register row beyond `lines[]` or not bound to its line); the storefront
   credentials (the old key signs `sig`, the new key `sig_new`):
   `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemctl is-active monark-bell-publish.service | grep -qx -e inactive -e failed && systemd-run --wait --pipe --collect --uid=bell --gid=bell -p SupplementaryGroups=bell-handoff -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p "ReadWritePaths=/var/lib/monark-bell /var/lib/monark-bell-status" -p "InaccessiblePaths=/var/lib/monark-bell-collect /etc/monark/bell-collect" -p PrivateNetwork=yes -p UMask=0022 -p LoadCredential=bell-signing-key:/etc/monark/bell/signing-key.pem -p LoadCredential=bell-signing-key-new:/etc/monark/bell/signing-key-new.pem /usr/bin/env node /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --rotate --state /var/lib/monark-bell'`
   -> one JSON line with `"status":"rotated"`; this transient form is not yet run on the host: a property that `systemd-run`
-  refuses must fail before the job starts (read its error, nothing is written);
+  refuses must fail before the job starts (read its error, nothing is written); a refusal `bell/publish: lock_held: publish.lock: another writer holds the state (…)`, nothing written, is lifted by `--unlock --state /var/lib/monark-bell` in the same job form without its two `LoadCredential=` (no key; it frees only a holder that no longer runs or took the lock in another boot; `(running)`: STOP, escalation), then (R3) again;
   (R4) the new key becomes the unit's key: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemctl is-active monark-bell-publish.service | grep -qx -e inactive -e failed && shred -u /etc/monark/bell/signing-key.pem && mv /etc/monark/bell/signing-key-new.pem /etc/monark/bell/signing-key.pem && stat -c "%a %U:%G" /etc/monark/bell/signing-key.pem'` -> `600 root:root`;
   (R5) verification: commit the served `/bell/pubkey.json` bytes as `apps/bell/keys/bell-keyring.json` (the derived keyring:
   statuses), then step 11 (CA 12/12), `/bell/method` cites the new key, JOURNAL entry, then step 13 (the timeline copy) and
@@ -907,7 +907,7 @@ write, a register row beyond `lines[]` or not bound to its line); the storefront
   `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl start monark-bell-collect.timer && systemctl is-active monark-bell-collect.timer'` -> `active`.
   A loss: (R1), (R2), then (R3) with `--rotate --broken` and only the `bell-signing-key-new` credential, then (R4) without
   `shred` (the old file is gone: `mv /etc/monark/bell/signing-key-new.pem` onto the unit's path, then `stat`), then (R5); a
-  revocation (`--revoke <key_id> --from-seq <n>`, signed by the active key `bell-signing-key`, one credential) skips (R1), (R2) and (R4).
+  revocation (`--revoke <key_id> --from-seq <n>`, signed by the active key `bell-signing-key`, one credential) skips (R1), (R2) and (R4). A refusal `lock_held` of `--rotate --broken` or of `--revoke` is lifted by `--unlock` as in (R3), which frees only a holder that no longer runs.
 - **Compromise**: `key_revocation` line signed by the new key; lines of the revoked key at `seq >= revoked_from_seq` are invalid;
   announced out of band (committed keyring, `/bell/method`, JOURNAL). Residual: the window before detection.
 - **Loss**: `key_rotation` with `continuity:"broken"`, accepted by verifiers ONLY because the new key is in the committed keyring
@@ -1102,3 +1102,5 @@ signer), and keeps no line from it on (fail-closed: the probe never trusts a ser
 played (part 5), points 1 to 3 of section 13 bis (the manifest, the stamp, the durable copy) pass to the probe for every new line, on the
 former host; the operator keeps (5) of this section and points 4 to 6 of section 13 bis. Until then, section 13 bis stays the act in force,
 line by line, and no automatic publication precedes it (G0 DC-10).
+
+**Dated line, 2026-10-22 02:5x UTC (lot 5a of part 5, G0 BELL-COLLECT-TIMER-1; PLAN-P5 C5-4, C5-5, C5-6, C-7):** (1) the publisher's tree has four files: `apps/bell/src/sessions.ts`, the calendar that `apps/bell/scripts/bell-validate.mjs` now imports to refuse an abstention `no_close_ref` served before its gate (PXB-1, prevention (i): `session_not_yet_publishable`, the gap named), joins `BELL_TREE_PATHS`; the list at the top, step 2 (archive, digests, four lines) and the REPLACE replay of step 7 name it, each edited in place. The host already deployed keeps its tree at its deployed SHA and its CA runs with `scripts/verify-bell.mjs` read at that SHA. (2) The rotation in two steps exists in the publisher: `--rotate-draft --state <dir>` (the new key, credential `bell-signing-key-new`: prints the line, signed `sig_new`, writes nothing), `--rotate-cosign --line <file> --state <dir>` (the old key, credential `bell-signing-key`: checks the line against its own head and `sig_new`, prints it signed `sig`, writes nothing), `--rotate-commit --line <file> --state <dir>` (no key: checks both signatures and the head, commits); any line that does not follow the head is refused `rotation_line_mismatch`, its field named, nothing written. It is played at the launch (LA-5); its section in the new host's form is lot 5b's; (R0) to (R6) above stay the acts of an incident. (3) `publish.lock` holds the record of its holder, `{pid, boot_id, taken_at}`, and the publisher serves `--unlock --state <dir>` (no key), which frees only a holder that no longer runs or took the lock in another boot, and refuses a live or unreadable one; a refused writer's detail ends with the holder's state in parentheses. Section 17 (3) stays the act in force until lot 5b rewrites it for `--unlock` (item BELL-PUBLISH-LOCK-RELEASE-1, its test `bell_runbook_unlocks_as_the_unit_user_never_root`). (4) Between (R2) and (R5) the two served-data tests of the site accept the committed keyring as the served one plus ONE last entry `{key_id, jwk}`, the form (R2) appends, and nothing else (`servedKeyringOf` of `scripts/verify-bell.mjs`); check 3 stays red in that window, as declared above. **Dated line, 2026-10-22 04:2x UTC (fold of the review of lot 5a, m-1; D-SW1 of the Dōjō):** every mode that writes the state takes `publish.lock` like `--handoff`: `--inbox`, `--rotate` with or without `--broken`, `--revoke` and `--rotate-commit` (`--generate-key`, `--rotate-draft`, `--rotate-cosign` and `--unlock` write no state); a refusal `lock_held` of any of them, the rotation in two steps included, names the holder's state, writes nothing, and is lifted by `--unlock --state <dir>`, which frees only a holder that no longer runs.
