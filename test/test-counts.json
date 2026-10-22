@@ -18,6 +18,7 @@
  "apps/bell/test/checks.test.ts": 5,
  "apps/bell/test/close.test.ts": 8,
  "apps/bell/test/collect.test.ts": 35,
+ "apps/bell/test/corporate-actions.test.ts": 21,
  "apps/bell/test/discover.test.ts": 8,
  "apps/bell/test/eth-leg-budgeted.test.ts": 4,
  "apps/bell/test/guard-collect-1bii.test.ts": 8,
