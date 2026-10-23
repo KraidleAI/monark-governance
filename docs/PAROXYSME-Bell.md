@@ -115,6 +115,9 @@
   le registre du 27/09), `N-nn` (nouvelles) ; `BLT-nn` numéroterait une limite trouvée à la tête (§5 : aucune). Ce sont des numéros de
   ligne de registre, jamais des items, et aucune n'apparaît dans un champ « item ». L'inventaire écrit L-04 et L-05 sur une seule rangée
   de sa table (l.82) : ce sont deux identifiants, donc deux entrées.
+  `VSP-nn` numérote une limite laissée par la vérification sur place (§9, phase 0 du nouveau plan de Bell) : c'est un numéro de ligne
+  de registre, jamais un item, et aucune n'entre dans les comptes du §8 (motif `^- \*\*[LN]-[0-9][0-9]\*\*`). Ses sources sont des
+  pièces internes hors du tronc, citées avec leur empreinte au pli, comme CC et PLAN (§8).
 - **Champs** : limite (25 mots au plus) ; source (fichier et ligne à `87b821b0`) ; touche (texte public que la limite qualifie) ; nature ;
   item ; porteur ; déclencheur ; état ; suite.
 - **Natures** (celles de l'inventaire) : T théorie · M mesure · D donnée · P dépendance · Dr droit · C capacité ; « texte » : une phrase
@@ -966,52 +969,158 @@ de MONARK, lus chacun à son commit (`git show <commit>:<f> | wc -l`, puis `| sh
 
 ## 9. Limites laissées par la vérification sur place (phase 0 du nouveau plan, 2026-10-23)
 
-**Pli de la phase 0 (MONARK, 2026-10-23 11:3x UTC).** Le nouveau plan de Bell (pièce interne, `PLAN-BELL-NOUVEAU-2026-10-23.md`, §4, étape 3)
-verse ici les lignes « formé » ou « item formé » du registre des écarts de la campagne de vérification sur place, au dernier verdict de chaque
-écart, et les items qu'il a formés. Chaque entrée nomme sa limite, son item, son porteur et son déclencheur. 20 entrées, toutes ouvertes ; elles
-n'entrent pas dans les comptes du §8, qui gardent leur motif `^- \*\*[LN]-[0-9][0-9]\*\*`. Aucun fait servi ne change.
+**Pli de la phase 0 (MONARK, 11:3x UTC ; v2 au pli des G2 de la phase 0, 12:2x UTC).** Le nouveau plan de Bell (pièce interne, PLAN-B
+§4, étape 3) verse ici les lignes « formé » ou « item formé » du registre des écarts de la campagne de vérification sur place, au dernier
+verdict de chaque écart, les items que le plan a formés et les pistes sans G0 de LIMITES. Chaque entrée suit la forme du §0 (quatre lignes
+logiques ; limite, source, touche, nature ; item, porteur, déclencheur ; état, suite). 23 entrées, toutes ouvertes ; la v1 en avait 20,
+dont VSP-20 scindée ici en VSP-20 à VSP-23 (G2-C n°10). Aucun fait servi ne change. Sources, hors du tronc, empreintes au pli :
+RES = `VERIF-SUR-PLACE/ecarts/resolus.tsv` (`932a77b8…`, 750 lignes) ; LIM = `VERIF-SUR-PLACE/LIMITES-verif-sur-place.md` (`3edeaa27…`) ;
+LIM-v2 = sa section de la phase 0 réécrite (`BELL/nouveau-bell/phase0/fold/LIMITES-PHASE0-v2.md`) ; NOUV =
+`VERIF-SUR-PLACE/ecarts/ECARTS-NOUVEAUX.md` (`e98687fb…`) ; PLAN-B = `BELL/nouveau-bell/PLAN-BELL-NOUVEAU-2026-10-23.md` (`56efd36e…`) ;
+ACTES = `VERIF-SUR-PLACE/ACTES-FONDATEUR-verif-sur-place.md` (`85e5b2d3…`) ; G0-CT, G0-J, G0-K, G0-CA = G0 COLLECT-TIMER, JUSTESSE,
+KOYOMI-A, CARNET (`a5434ea9…`, `a2c9c520…`, `223911da…`, `3913b43d…`). « Phase produit » : la phase ouverte au go du fondateur pour
+les campagnes (LIM l.56 ; ACTES l.28) ; elle n'est plus un déclencheur : chaque entrée nomme la partie qui consomme.
 
-- **VSP-01** · « Recoupement du volume de la Tape C : résiduel accepté. » · item : RECH-VSP-1, le fichier anonyme CTA.Summary.EODSUM
-  (gratuit), Tape C à lire · porteur : MONARK · déclencheur : la partie collecte du chantier BELL-SAUTS-1 · état : ouvert
-- **VSP-02** · « Date d'un communiqué prise à sa source sans horodatage de première main. » · item : RECH-VSP-2, dater le communiqué par sa
-  source horodatée et le recouper avec l'acceptation du 8-K · porteur : MONARK · déclencheur : le lot CARNET qui lit les communiqués · état : ouvert
-- **VSP-03** · « Huit papiers du lot 7 nommés, non relus. » · item : LECT-VSP-1 · porteur : MONARK (lecteurs) · déclencheur : la reprise de
-  KOYOMI-A · état : ouvert
-- **VSP-04** · « Émetteurs hors de l'univers de Bell : Reality, tStocks de ST0x, Securitize, Figure, STOKR, Centrifuge, Superstate, Dinari
-  sur Avalanche et HyperEVM. » · item : reprise des émetteurs, une piste par émetteur au registre des écarts · porteur : MONARK ; l'entrée
-  d'un émetteur dans l'univers est une décision du fondateur · déclencheur : le chantier BELL-CONFORMITE-1, partie 1 · état : ouvert
-- **VSP-05** · « Pistes d'autres pièces relevées pendant la campagne : preuve de réserves d'Ethena (Narabi), places HIP-3 et liquidations de
-  Hyperliquid (Ukemi), Data API de CoinDesk (Shōgen). » · item : reprise du chantier de chaque pièce · porteur : MONARK · déclencheur : la
-  reprise du chantier de la pièce · état : ouvert
-- **VSP-06** · « Volume consolidé du plan UTP pour la Tape C, non lu. » · item : CAMP-VSP-4 · porteur : MONARK · déclencheur : la phase
-  produit du plan · état : ouvert
-- **VSP-07** · « StonkFun : 29 actifs hors des 83 mints ; taux de conversion d'un jeton chez Backpack. » · item : CAMP-VSP-2, procédures
-  formées · porteur : MONARK · déclencheur : la phase produit du plan · état : ouvert
-- **VSP-08** · « Littérature des écarts de réouverture et cadre de l'acheteur, à lire. » · item : LECT-VSP-3 (procurement formé si SSRN ne
-  sert pas) et LECT-VSP-4 · porteur : MONARK (lecteurs) · déclencheur : l'ADR de BELL-SAUTS-1 · état : ouvert
-- **VSP-09** · « Sortie de `caddy validate`, et Caddy face à un abandon et au port 80, non lus. » · item : LECT-VSP-5, documentation et code
-  de Caddy lus avant AF-L4 · porteur : MONARK · déclencheur : AF-L4 de la séquence de lancement · état : ouvert
-- **VSP-10** · « X Layer et Monad ne servent les journaux que sur 100 blocs par appel. » · item : INFRA-INDEXEUR-1, offres d'indexeur ou
-  d'opérateur à lire et à comparer · porteur : MONARK ; l'abonnement est au fondateur · déclencheur : la partie collecte qui lit ces chaînes
-  · état : ouvert
-- **VSP-11** · « Pools v4 d'Ondo : journaux non servis sans RPC payant. » · item : E-NOUVEAUX-6-V4 · porteur : MONARK ; le RPC payant est au
-  fondateur (offres lues, C-15) · déclencheur : la partie collecte · état : ouvert
-- **VSP-12** · « Le compteur des quatre couches ne compte pas les mesures. » · item : OUTIL-TEMOINS-1 · porteur : MONARK · déclencheur : la
-  prochaine pièce de mesures · état : ouvert
-- **VSP-13** · « Heure et fuseau des remises à zéro des cycles de Chainstack et de Helius, affichés nulle part. » · item : E-NOUVEAUX-79,
-  lecture par les API d'usage ; à défaut, question au support · porteur : MONARK ; un message au support est au fondateur · déclencheur : le
-  lot du minuteur qui calcule les cycles · état : ouvert
-- **VSP-14** · « Accès de Bell à sa source d'agrégats du 19 au 22 octobre, non lu. » · item : E-NOUVEAUX-77, lecture des réponses de la
-  source sur cette fenêtre · porteur : MONARK · déclencheur : le prochain lot de JUSTESSE · état : ouvert
-- **VSP-15** · « Sauvegardes automatiques actives sur l'ancien hôte, qui porte Dōjō. » · item : E-NOUVEAUX-78 · porteur : le fondateur
-  (réglage de son compte) · déclencheur : la séquence de lancement, et le renouvellement de l'hôte · état : ouvert
-- **VSP-16** · « Nœuds de lecture de Base, BNB, Robinhood et Solana sans consommation depuis le 19 octobre. » · item : E-NOUVEAUX-80, lire
-  quel collecteur appelle quel nœud · porteur : MONARK · déclencheur : la partie collecte · état : ouvert
-- **VSP-17** · « Vingt dividendes de bStocks à comparer à leur jour ex. » · item : E-NOUVEAUX-42, procédure formée · porteur : MONARK ·
-  déclencheur : le chantier BELL-CONFORMITE-1, partie 2 · état : ouvert
-- **VSP-18** · « Seize lignes de G0 marquées d'une lecture antérieure à la règle des quatre couches. » · item : RELECT-4C-1, relire ces
-  lectures aux quatre couches · porteur : MONARK · déclencheur : la G2 de la phase 0, puis la reprise de chaque chantier · état : ouvert
-- **VSP-19** · « Huit citations des tables d'écarts introuvables après ré-ancrage. » · item : CITATIONS-REANCRAGE-1 · porteur : MONARK ·
-  déclencheur : la G2 de la phase 0 · état : ouvert
-- **VSP-20** · « Douze pistes partielles sans G0 propriétaire. » · item : la section de la phase 0 du registre des limites de la campagne ·
-  porteur : MONARK · déclencheur : le chantier qui consomme chaque pièce · état : ouvert
+- **VSP-01** · « La clé de recoupement de la clôture est sous des conditions d'usage personnel : résiduel accepté. »
+  source : RES l.264 (E-COLLECT-TIMER-75) ; LIM l.7-19 (RECH-VSP-1) ; G0-CT l.389 · touche : METHOD l.132-133, PAGE l.533 (« read
+    under their own licence », mots « consolidated volume ») · nature : Dr/D
+  item : RECH-VSP-1 (LIM l.7-19) : (1) le fichier quotidien anonyme du plan CTA, Tapes A et B (V-61) ; (2) Tape C, le fichier du plan
+    UTP, non établi (VSP-06) ; (3) à défaut, le palier commercial de la source actuelle · porteur : MONARK (lectures) ; la décision : le
+    fondateur, par MONARK (LIM l.19) · déclencheur : la décision à l'amendement du G0 COLLECT-TIMER (phase 0), puis le plan de P1 de
+    BELL-COLLECT-TIMER-1, lot 1a « licences et sources » (G0-CT l.636)
+  état : ouvert · suite : libellé corrigé : la v1 écrivait « recoupement du volume » ; RECH-VSP-1 vise la clôture (LIM l.12). La partie
+    collecte de BELL-SAUTS-1 citée par la v1 n'existe pas (PLAN-B l.148 : P1 registre, P2 distribution, P3 fichier).
+- **VSP-02** · « L'heure d'acceptation d'un 8-K n'est pas l'heure du communiqué de résultats. »
+  source : RES l.265 (E-CARNET-26) ; LIM l.21-30 (RECH-VSP-2) ; G0-CA l.222, l.602 (L-3) · touche : aucun texte public (« 8-K »,
+    « earnings » : 0) · nature : D
+  item : RECH-VSP-2 (LIM l.21-30), dater chaque communiqué par sa source horodatée de première main et le recouper avec l'acceptation du
+    8-K « Item 2.02 » · porteur : MONARK ; le contact EDGAR (D-3) : le fondateur, par MONARK (ACTES l.23) · déclencheur : le plan de P2
+    de BELL-CARNET-1 (G0-CA l.501), ou le premier écart observé entre communiqué et 8-K sur un titre couvert (G0-CA l.602)
+  état : ouvert · suite : la décision suit l'amendement du G0 CARNET, par le fondateur (LIM l.30).
+- **VSP-03** · « Huit papiers du lot 7 nommés, non relus par MONARK. »
+  source : RES l.282 (E-KOYOMI-A-C2) ; LIM l.36-47 (LECT-VSP-1) ; G0-K l.46 · touche : aucun texte public (« Bettels », « Wiecki »,
+    « Harvey », « Prado » : 0) · nature : T
+  item : LECT-VSP-1 (LIM l.36-47) · porteur : MONARK (lecteurs) · déclencheur : avant le plan de la partie de KOYOMI-A qui consomme ces
+    passages (LIM l.46-47) ; au plus tôt la partie A1, dont le pré-enregistrement est horodaté avant le 2026-11-30 (G0-K l.423)
+  état : ouvert · suite : la v1 écrivait « la reprise de KOYOMI-A » ; la partie est nommée.
+- **VSP-04** · « Émetteurs hors de l'univers de Bell : Reality, ST0x, Securitize, Figure, STOKR, Centrifuge, Superstate, Dinari hors de ses
+  réseaux lus. »
+  source : RES l.318, l.320-326, l.328-329 (E-NOUVEAUX-13, -15 à -21, -23, -24) ; LIM l.145-147 · touche : aucun texte public
+    (« Securitize », « Centrifuge », « Superstate », « Dinari », « STOKR » : 0) · nature : D
+  item : reprise des émetteurs, une piste par émetteur au registre des écarts (LIM l.145-147) · porteur : MONARK ; l'entrée d'un
+    émetteur dans l'univers : le fondateur, par MONARK · déclencheur : la décision du fondateur d'entrer un émetteur dans l'univers
+    (LIM l.147) ; au plus tôt le plan de BELL-CONFORMITE-1 P1, qui fixe les émetteurs de la table (PLAN-B l.150)
+  état : ouvert · suite : aucune.
+- **VSP-05** · « Pistes d'autres pièces relevées pendant la campagne : Narabi, Ukemi, Shōgen. »
+  source : RES l.330-333 (E-NOUVEAUX-25 à -28) ; LIM l.138-144 · touche : aucun texte public (« Ethena », « HIP-3 », « CoinDesk » : 0)
+    · nature : D
+  item : reprise du chantier de chaque pièce (LIM l.138-144) · porteur : MONARK · déclencheur : la reprise du chantier nommé, dont les
+    affirmations sont recensées et lues aux quatre couches avant tout lot (LIM l.138-139)
+  état : ouvert · suite : aucune.
+- **VSP-06** · « Volume consolidé du plan UTP pour la Tape C, non lu. »
+  source : RES l.336 (E-NOUVEAUX-32) ; LIM l.113-124 (CAMP-VSP-4) · touche : PAGE l.533 et METHOD l.132-133 (« Tapes A, B and C »,
+    « consolidated volume ») · nature : D
+  item : CAMP-VSP-4, procédure formée et non tentée (LIM l.122-124) · porteur : MONARK · déclencheur : avant le plan du lot 1e de
+    BELL-JUSTESSE-1, la décision du volume (G0-J l.276), qui porte les titres de la Tape C
+  état : ouvert · suite : la v1 écrivait « la phase produit du plan » ; la phase produit est ouverte (en-tête) et le lot consommateur nommé.
+- **VSP-07** · « StonkFun : 29 actifs hors des 83 mints ; taux de conversion d'un jeton chez Backpack. »
+  source : RES l.341 (E-NOUVEAUX-44), l.348 (E-NOUVEAUX-70) ; LIM l.91-93 (CAMP-VSP-2) · touche : aucun texte public (« StonkFun »,
+    « Backpack » : 0) · nature : D
+  item : CAMP-VSP-2, procédures formées (LIM l.91-93) · porteur : MONARK · déclencheur : E-NOUVEAUX-44, le plan de BELL-CONFORMITE-1
+    P1 (liste depuis les registres) ; E-NOUVEAUX-70, le plan de BELL-CONFORMITE-1 P2 (opérations sur titres) (PLAN-B l.150)
+  état : ouvert · suite : la v1 écrivait « la phase produit du plan ».
+- **VSP-08** · « Littérature des écarts de réouverture et cadre de l'acheteur d'un flux, à lire. »
+  source : RES l.344-345 (E-NOUVEAUX-49, -50) ; LIM l.158-167 (LECT-VSP-3, LECT-VSP-4) · touche : aucun texte public (« Monday gap » :
+    0) · nature : T
+  item : LECT-VSP-3 (procurement formé si SSRN ne sert pas sans compte) et LECT-VSP-4 · porteur : MONARK (lecteurs) · déclencheur :
+    l'ADR de BELL-SAUTS-1 (PLAN-B l.148)
+  état : ouvert · suite : aucune.
+- **VSP-09** · « Sortie de `caddy validate`, et Caddy face à un abandon et au port 80, non lus. »
+  source : RES l.378, l.380 (E-LAUNCH-C1, E-LAUNCH-36) ; LIM l.169-176 (LECT-VSP-5) · touche : aucun texte servi (les mentions de
+    Caddy sous `apps/site` sont des commentaires de code, sans phrase sur `caddy validate`) · nature : P
+  item : LECT-VSP-5, documentation et code de Caddy lus · porteur : MONARK · déclencheur : avant AF-L4 de la séquence de lancement
+  état : ouvert · suite : les cinq lignes du G0 LAUNCH s'amendent ensemble (LIM l.171-173).
+- **VSP-10** · « X Layer et Monad ne servent les journaux que sur 100 blocs par appel. »
+  source : PLAN-B l.154-155, l.198 (INFRA-INDEXEUR-1) ; fait C-18 · touche : aucun texte public (« X Layer », « Monad » : 0) · nature : C
+  item : INFRA-INDEXEUR-1, au moins quatre offres d'indexeur ou d'opérateur lues aux quatre couches · porteur : MONARK ; l'abonnement :
+    le fondateur, par MONARK · déclencheur : le plan de BELL-CONFORMITE-1 P1, qui fixe les réseaux lus (PLAN-B l.150)
+  état : ouvert · suite : aucune partie existante ne lit aujourd'hui les transferts de xStocks hors de Solana (PLAN-B l.146-151 ;
+    parties de BELL-COLLECT-TIMER-1, G0-CT l.629-866) ; si P1 ne les lit pas, l'item suit la première partie qui les ajoute.
+- **VSP-11** · « Pools v4 d'Ondo : journaux non servis sans RPC payant. »
+  source : LIM l.72, l.95 (E-NOUVEAUX-6-V4) · touche : aucun texte public (« Ondo » : 0) · nature : C
+  item : E-NOUVEAUX-6-V4 · porteur : MONARK ; le RPC payant : le fondateur, par MONARK (offres lues, C-15) · déclencheur : le choix du
+    RPC payant par le fondateur (LIM l.95 ; ACTES, rubrique Ch), puis le plan de P2 de BELL-COLLECT-TIMER-1, le pas de collecte, qui
+    possède le choix des pools (PLAN-B l.99) [proposé : le plan ne nomme pas la partie]
+  état : ouvert · suite : la v1 écrivait « la partie collecte ».
+- **VSP-12** · « Le compteur des quatre couches ne compte pas les mesures à titre suffixé. »
+  source : PLAN-B l.198 (OUTIL-TEMOINS-1) · touche : aucun texte public · nature : C
+  item : OUTIL-TEMOINS-1 · porteur : MONARK · déclencheur : la pièce de la mesure M-4c (Jio, après le 2026-10-28 ; PLAN-B l.148, l.190)
+  état : ouvert · suite : la v1 écrivait « la prochaine pièce de mesures » ; la pièce est nommée.
+- **VSP-13** · « Heure et fuseau des remises à zéro des cycles des deux opérateurs RPC, affichés nulle part. »
+  source : NOUV l.90 (E-NOUVEAUX-79) ; RES l.413, l.416, l.420 (E-COLLECT-TIMER-64, -123, -C3) · touche : aucun texte public
+    (« Helius », « Chainstack » : 0 sous `apps/site/app` et `apps/site/lib`) · nature : D
+  item : E-NOUVEAUX-79, lecture par les API d'usage, avec la clé, hors du dépôt public ; à défaut, question au support · porteur :
+    MONARK ; le message au support : le fondateur, par MONARK · déclencheur : le plan de P1 de BELL-COLLECT-TIMER-1, lot 1b (LSP-1,
+    G0-CT l.637), consommé par le lot 2b (ancrages date, heure, fuseau, G0-CT l.32, l.700) ; au plus tard avant la prochaine remise à zéro
+  état : ouvert · suite : d'ici là `cycleOf` garde le bornage de M-4 (NOUV l.90).
+- **VSP-14** · « Accès de Bell à sa source d'agrégats du 19 au 22 octobre, non lu. »
+  source : NOUV l.88 (E-NOUVEAUX-77) · touche : aucun texte public · nature : D
+  item : E-NOUVEAUX-77, lecture des réponses de la source sur cette fenêtre, là où vit la collecte · porteur : MONARK ; le lieu de la
+    lecture, avec le fondateur · déclencheur : le plan du lot 1b de BELL-JUSTESSE-1, prochain lot de sa partie 1 (G0-J l.268, l.274 ;
+    1c, 1a et 1d fusionnés)
+  état : ouvert · suite : la v1 écrivait « le prochain lot de JUSTESSE » ; le lot est nommé.
+- **VSP-15** · « Réglages de compte de l'ancien hôte, qui porte Dōjō, à décider avant la séquence de lancement. »
+  source : NOUV l.89 (E-NOUVEAUX-78) · touche : aucun texte public · nature : C
+  item : E-NOUVEAUX-78 · porteur : le fondateur, par MONARK (réglage de son compte) · déclencheur : la séquence de lancement
+    (BELL-LAUNCH-SEQUENCE-1), et au plus tard le prochain renouvellement de l'hôte
+  état : ouvert · suite : la posture de l'hôte n'est pas décrite ici, le dépôt étant public (V-56 ; D-1).
+- **VSP-16** · « Nœuds de lecture de quatre réseaux sans consommation depuis le début du cycle. »
+  source : NOUV l.91 (E-NOUVEAUX-80) ; RES l.415 (E-COLLECT-TIMER-68) · touche : aucun texte public · nature : D
+  item : E-NOUVEAUX-80, lire quel collecteur appelle quel nœud ; la part de chaque consommateur tenue par construction (parts fixes
+    déclarées, grand livre partagé, G0-CT l.369) · porteur : MONARK ; le lieu de la lecture, avec le fondateur · déclencheur : le plan de
+    P1 de BELL-COLLECT-TIMER-1, lot 1b, déclaration des parts fixes par usage et par compte (G0-CT l.637)
+  état : ouvert · suite : la v1 écrivait « la partie collecte ».
+- **VSP-17** · « Vingt dividendes de bStocks à comparer à leur jour ex. »
+  source : RES l.288 (E-NOUVEAUX-42) ; LIM l.92-93 (CAMP-VSP-2) · touche : aucun texte public (« bStocks », « dividend » : 0) · nature : D
+  item : E-NOUVEAUX-42, procédure formée · porteur : MONARK ; le contact EDGAR : le fondateur, par MONARK (D-3) · déclencheur : le plan
+    de BELL-CONFORMITE-1 P2 (PLAN-B l.150), ou plus tôt la lecture des 20 dividendes (PLAN-B l.177)
+  état : ouvert · suite : aucune.
+- **VSP-18** · « Seize lignes de G0 marquées d'une lecture antérieure à la règle des quatre couches. »
+  source : `BELL/nouveau-bell/phase0/RESIDU-LINT-phase0.md` (`a1f8d60c…`, l.3, classe « lecture hors des quatre couches » : 16) ;
+    lectures hors campagne de JUSTESSE (FOLD-B, E-JUSTESSE-36, -50) · touche : aucun texte public · nature : M
+  item : RELECT-4C-1, relire ces lectures aux quatre couches · porteur : MONARK · déclencheur : le plan de la prochaine partie de chaque
+    chantier dont un G0 porte une de ces lignes (pour JUSTESSE : le lot 1b)
+  état : ouvert · suite : la G2 de la phase 0, premier déclencheur de la v1, est faite (G2-PHASE0-A, -B, -C, 2026-10-23).
+- **VSP-19** · « Huit citations des tables d'écarts introuvables après ré-ancrage ; trois ré-ancrées sur le mauvais fait. »
+  source : `BELL/nouveau-bell/phase0/citations-ko-apres-reancrage.txt` (`e0c8203d…`, 8 lignes) ; G2-PHASE0-C n°7, n°8 · touche : aucun
+    texte public · nature : M
+  item : CITATIONS-REANCRAGE-1 : recaler chaque citation sur le texte corrigé de son fait, et relire le verdict de l'écart contre la
+    lecture corrigée · porteur : MONARK · déclencheur : le G7 de la phase 0 (PLAN-B l.138-139)
+  état : ouvert · suite : la G2 de la phase 0, déclencheur de la v1, est faite ; elle a élargi l'item (G2-C n°8).
+- **VSP-20** · « Trois pistes de registre des émetteurs restent partielles : nom de QQQB, deux contrats hors liste de bStocks, émetteur
+  d'un jeton chez Backpack. »
+  source : RES l.299 (E-NOUVEAUX-63), l.294 (E-NOUVEAUX-64), l.411 (V-129) ; LIM l.191, l.190, l.197 ; LIM-v2 · touche : aucun texte
+    public (« QQQ » hors polices, « bStocks », « Backpack » : 0) · nature : D
+  item : QQQB-NAME-1, BSTOCKS-HORS-LISTE-1 (formés en LIM-v2) ; CAMP-VSP-2 pour V-129 (LIM l.81, l.90) · porteur : MONARK ·
+    déclencheur : le plan de BELL-CONFORMITE-1 P1 (PLAN-B l.150)
+  état : ouvert · suite : VSP-20 de la v1 (« douze pistes partielles sans G0 propriétaire ») est scindée en VSP-20 à VSP-23.
+- **VSP-21** · « Quatre pistes d'opérations sur titres restent partielles : mints de xStocks, jour sans livraison, réinvestissement chez
+  Backpack, régimes de Robinhood. »
+  source : RES l.290, l.293, l.300, l.302 (E-NOUVEAUX-59, -62, -69, -73) ; LIM l.188, l.189, l.192, l.193 ; LIM-v2 · touche : METHOD
+    l.568 (« your own scan of the mint's update events ») pour E-NOUVEAUX-59 ; sinon aucun (« FINRA », « Robinhood » : 0) · nature : D
+  item : XSTOCKS-MINT-HIST-1, FINRA-NONDELIVERY-1, BACKPACK-REINVEST-1, ROBINHOOD-REGIME-DIV-1 (formés en LIM-v2) · porteur : MONARK
+    (lectures) ; une question écrite à Backpack ou à Robinhood (M-1, ACTES l.203) : le fondateur, par MONARK · déclencheur : le plan
+    de BELL-CONFORMITE-1 P2 (PLAN-B l.150)
+  état : ouvert · suite : E-NOUVEAUX-42, de la même partie, est VSP-17.
+- **VSP-22** · « Pools des jetons de Coinbase, de bStocks et de ST0x : v4, jetons non émis et dates de création non lus. »
+  source : RES l.393-395 (E-NOUVEAUX-3, -4, -14) ; LIM l.194-196 ; LIM l.62-72 (CAMP-VSP-1) · touche : aucun texte public
+    (« PancakeSwap », « Uniswap », « Coinbase », « ST0x » : 0) · nature : D/C
+  item : CAMP-VSP-1 · porteur : MONARK ; le RPC payant ou l'indexeur : le fondateur, par MONARK (C-15) · déclencheur : le choix du
+    RPC payant ou de l'indexeur par le fondateur, puis le plan de P2 de BELL-COLLECT-TIMER-1, qui possède le choix des pools (PLAN-B
+    l.99) ; pour les places de BNB lisibles par appels publics, le plan de P2 seul
+  état : ouvert · suite : même partie que VSP-11.
+- **VSP-23** · « Dividende de septembre de SPYx : jour ex de l'émetteur du fonds non lu, effet chez SPYx non reporté. »
+  source : RES l.287 (E-NOUVEAUX-53) ; LIM l.186 ; LIM l.155-156 (veille formée) · touche : PAGE l.412 (SPYx, l'un des quatre jetons
+    servis) ; aucune phrase publique sur ses dividendes (« dividend » : 0) · nature : D
+  item : veille SPYx (LIM l.155-156) · porteur : MONARK · déclencheur : la relecture du multiplicateur de SPYx le 2026-10-31 (RES l.287)
+  état : ouvert · suite : le consommateur est BELL-CONFORMITE-1 P2 (PLAN-B l.150).
