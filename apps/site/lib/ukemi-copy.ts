@@ -157,8 +157,9 @@ export const COVERAGE_NOTE =
   "The strata, the coverage level and the minimum number of calibration points for a population are " +
   "written down before the run. A region is only ever emitted for a population that holds enough " +
   "calibration points; outside it the answer is under_calib, and for a stratum that is not committed the served " +
-  "answer counts no calibration point. The largest-amount stratum is expected to stay under_calib for a long " +
-  "time; the course page shows every stratum's measured count against its floor.";
+  "answer counts no calibration point. The largest-amount stratum has no committed row, so it answers under_calib; " +
+  "at this version a row for it could hold a margin of at most one base unit, as a wider band would leave the exact " +
+  "range of the arithmetic; the course page shows every stratum's measured count against its floor.";
 
 /** The course pointer on /ukemi, split around its link (digit-free, count-free and true in both registry states). */
 export const COURSE_POINTER_LEAD =

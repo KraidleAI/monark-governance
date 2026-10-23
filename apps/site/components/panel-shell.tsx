@@ -33,11 +33,11 @@ export function PanelBlock({ title, status, children }: { title: string; status:
 
 /**
  * The one BUILDING block (Shōgen, How it works): its composition does not run yet and its construction item is open in
- * the piece's register. Its pill says building in the look of the upcoming pill; only the word differs. PanelBlock keeps
+ * the piece's register. Its pill says building in its own look (c-pill--building), apart from built and upcoming. PanelBlock keeps
  * AgentStatus, so no PanelBlock can carry building. A test of the /fleet page, rendered with every panel open, reds on a second
  * building text, within the bounds its title names; a first net reds when the text of this name appears in a .ts or .tsx file
  * under app, components or lib anywhere but here and in the Shōgen panel.
  */
 export function BuildingPanelBlock({ title, status, children }: { title: string; status: BuildingStatus; children: ReactNode }) {
-  return <Block title={title} pill={<span className="c-pill c-pill--upcoming ml-auto">{status}</span>}>{children}</Block>;
+  return <Block title={title} pill={<span className="c-pill c-pill--building ml-auto">{status}</span>}>{children}</Block>;
 }
