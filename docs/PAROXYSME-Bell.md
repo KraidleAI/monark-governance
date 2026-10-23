@@ -1086,11 +1086,11 @@ les campagnes (LIM l.56 ; ACTES l.28) ; elle n'est plus un déclencheur : chaque
     de BELL-CONFORMITE-1 P2 (PLAN-B l.150), ou plus tôt la lecture des 20 dividendes (PLAN-B l.177)
   état : ouvert · suite : aucune.
 - **VSP-18** · « Des lignes de G0 marquées d'une lecture antérieure à la règle des quatre couches (compte courant au relevé du résidu). »
-  source : `BELL/nouveau-bell/phase0/RESIDU-LINT-phase0.md` (`460beea7…`, l.3, classe « lecture hors des quatre couches » ; le compte change à chaque régénération) ;
+  source : `BELL/nouveau-bell/phase0/RESIDU-LINT-phase0.md` (`e7afb2e5…` au G7 de la phase 0, l.3, classe « lecture hors des quatre couches » ; le compte change à chaque régénération) ;
     lectures hors campagne de JUSTESSE (FOLD-B, E-JUSTESSE-36, -50) · touche : aucun texte public · nature : M
   item : RELECT-4C-1 (LIMITES de la campagne, section de la phase 0), relire ces lectures aux quatre couches · porteur : MONARK ·
     déclencheur : par chantier, au plan de sa prochaine partie (pour JUSTESSE : le lot 1b) ; et avant l'envoi au fondateur d'un G0 amendé
-    qui fonde une décision sur une telle lecture
+    qui s'appuie sur une telle lecture, ou avant l'acte daté qui en dépend (AF-2, AF-A7, AF-L16), au plus tard à la reprise du chantier
   état : ouvert · suite : la G2 de la phase 0, premier déclencheur de la v1, est faite (G2-PHASE0-A, -B, -C, 2026-10-23).
 - **VSP-19** · « Huit citations des tables d'écarts introuvables après ré-ancrage ; trois ré-ancrées sur le mauvais fait. »
   source : `BELL/nouveau-bell/phase0/citations-ko-apres-reancrage.txt` (`e0c8203d…`, 8 lignes) ; G2-PHASE0-C n°7, n°8 · touche : aucun
