@@ -963,3 +963,55 @@ de MONARK, lus chacun à son commit (`git show <commit>:<f> | wc -l`, puis `| sh
 | PAROXYSME `4aff2c2`, `2026-10-14-PAROXYSME-vers-MONARK-272-vue-ots-zone.md` (N-06) | 51 | `842b96bb3ab38f2c0b72a30923e6b3a373701ac2e8ed671a7d949ef0da7a7635` |
 | MONARK `e4ee816`, `2026-10-14-MONARK-vers-PAROXYSME-274-fusionnee.md` (N-06) | 14 | `a096a310df85c01cc6214ac2e9fcc5da56385fe34f25161ea712d6b6795366ec` |
 | FAITS de MONARK, `77cee75`, `coordination/pieces/2026-10-14-faits-volume/` (L-22) | 35 | `627de8b64362a1bad71b44926473af7bf50ee106c9f1358e0843d55101cef222` |
+
+## 9. Limites laissées par la vérification sur place (phase 0 du nouveau plan, 2026-10-23)
+
+**Pli de la phase 0 (MONARK, 2026-10-23 11:3x UTC).** Le nouveau plan de Bell (pièce interne, `PLAN-BELL-NOUVEAU-2026-10-23.md`, §4, étape 3)
+verse ici les lignes « formé » ou « item formé » du registre des écarts de la campagne de vérification sur place, au dernier verdict de chaque
+écart, et les items qu'il a formés. Chaque entrée nomme sa limite, son item, son porteur et son déclencheur. 20 entrées, toutes ouvertes ; elles
+n'entrent pas dans les comptes du §8, qui gardent leur motif `^- \*\*[LN]-[0-9][0-9]\*\*`. Aucun fait servi ne change.
+
+- **VSP-01** · « Recoupement du volume de la Tape C : résiduel accepté. » · item : RECH-VSP-1, le fichier anonyme CTA.Summary.EODSUM
+  (gratuit), Tape C à lire · porteur : MONARK · déclencheur : la partie collecte du chantier BELL-SAUTS-1 · état : ouvert
+- **VSP-02** · « Date d'un communiqué prise à sa source sans horodatage de première main. » · item : RECH-VSP-2, dater le communiqué par sa
+  source horodatée et le recouper avec l'acceptation du 8-K · porteur : MONARK · déclencheur : le lot CARNET qui lit les communiqués · état : ouvert
+- **VSP-03** · « Huit papiers du lot 7 nommés, non relus. » · item : LECT-VSP-1 · porteur : MONARK (lecteurs) · déclencheur : la reprise de
+  KOYOMI-A · état : ouvert
+- **VSP-04** · « Émetteurs hors de l'univers de Bell : Reality, tStocks de ST0x, Securitize, Figure, STOKR, Centrifuge, Superstate, Dinari
+  sur Avalanche et HyperEVM. » · item : reprise des émetteurs, une piste par émetteur au registre des écarts · porteur : MONARK ; l'entrée
+  d'un émetteur dans l'univers est une décision du fondateur · déclencheur : le chantier BELL-CONFORMITE-1, partie 1 · état : ouvert
+- **VSP-05** · « Pistes d'autres pièces relevées pendant la campagne : preuve de réserves d'Ethena (Narabi), places HIP-3 et liquidations de
+  Hyperliquid (Ukemi), Data API de CoinDesk (Shōgen). » · item : reprise du chantier de chaque pièce · porteur : MONARK · déclencheur : la
+  reprise du chantier de la pièce · état : ouvert
+- **VSP-06** · « Volume consolidé du plan UTP pour la Tape C, non lu. » · item : CAMP-VSP-4 · porteur : MONARK · déclencheur : la phase
+  produit du plan · état : ouvert
+- **VSP-07** · « StonkFun : 29 actifs hors des 83 mints ; taux de conversion d'un jeton chez Backpack. » · item : CAMP-VSP-2, procédures
+  formées · porteur : MONARK · déclencheur : la phase produit du plan · état : ouvert
+- **VSP-08** · « Littérature des écarts de réouverture et cadre de l'acheteur, à lire. » · item : LECT-VSP-3 (procurement formé si SSRN ne
+  sert pas) et LECT-VSP-4 · porteur : MONARK (lecteurs) · déclencheur : l'ADR de BELL-SAUTS-1 · état : ouvert
+- **VSP-09** · « Sortie de `caddy validate`, et Caddy face à un abandon et au port 80, non lus. » · item : LECT-VSP-5, documentation et code
+  de Caddy lus avant AF-L4 · porteur : MONARK · déclencheur : AF-L4 de la séquence de lancement · état : ouvert
+- **VSP-10** · « X Layer et Monad ne servent les journaux que sur 100 blocs par appel. » · item : INFRA-INDEXEUR-1, offres d'indexeur ou
+  d'opérateur à lire et à comparer · porteur : MONARK ; l'abonnement est au fondateur · déclencheur : la partie collecte qui lit ces chaînes
+  · état : ouvert
+- **VSP-11** · « Pools v4 d'Ondo : journaux non servis sans RPC payant. » · item : E-NOUVEAUX-6-V4 · porteur : MONARK ; le RPC payant est au
+  fondateur (offres lues, C-15) · déclencheur : la partie collecte · état : ouvert
+- **VSP-12** · « Le compteur des quatre couches ne compte pas les mesures. » · item : OUTIL-TEMOINS-1 · porteur : MONARK · déclencheur : la
+  prochaine pièce de mesures · état : ouvert
+- **VSP-13** · « Heure et fuseau des remises à zéro des cycles de Chainstack et de Helius, affichés nulle part. » · item : E-NOUVEAUX-79,
+  lecture par les API d'usage ; à défaut, question au support · porteur : MONARK ; un message au support est au fondateur · déclencheur : le
+  lot du minuteur qui calcule les cycles · état : ouvert
+- **VSP-14** · « Accès de Bell à sa source d'agrégats du 19 au 22 octobre, non lu. » · item : E-NOUVEAUX-77, lecture des réponses de la
+  source sur cette fenêtre · porteur : MONARK · déclencheur : le prochain lot de JUSTESSE · état : ouvert
+- **VSP-15** · « Sauvegardes automatiques actives sur l'ancien hôte, qui porte Dōjō. » · item : E-NOUVEAUX-78 · porteur : le fondateur
+  (réglage de son compte) · déclencheur : la séquence de lancement, et le renouvellement de l'hôte · état : ouvert
+- **VSP-16** · « Nœuds de lecture de Base, BNB, Robinhood et Solana sans consommation depuis le 19 octobre. » · item : E-NOUVEAUX-80, lire
+  quel collecteur appelle quel nœud · porteur : MONARK · déclencheur : la partie collecte · état : ouvert
+- **VSP-17** · « Vingt dividendes de bStocks à comparer à leur jour ex. » · item : E-NOUVEAUX-42, procédure formée · porteur : MONARK ·
+  déclencheur : le chantier BELL-CONFORMITE-1, partie 2 · état : ouvert
+- **VSP-18** · « Seize lignes de G0 marquées d'une lecture antérieure à la règle des quatre couches. » · item : RELECT-4C-1, relire ces
+  lectures aux quatre couches · porteur : MONARK · déclencheur : la G2 de la phase 0, puis la reprise de chaque chantier · état : ouvert
+- **VSP-19** · « Huit citations des tables d'écarts introuvables après ré-ancrage. » · item : CITATIONS-REANCRAGE-1 · porteur : MONARK ·
+  déclencheur : la G2 de la phase 0 · état : ouvert
+- **VSP-20** · « Douze pistes partielles sans G0 propriétaire. » · item : la section de la phase 0 du registre des limites de la campagne ·
+  porteur : MONARK · déclencheur : le chantier qui consomme chaque pièce · état : ouvert
