@@ -1050,7 +1050,7 @@ les campagnes (LIM l.56 ; ACTES l.28) ; elle n'est plus un déclencheur : chaque
   source : LIM l.72, l.95 (E-NOUVEAUX-6-V4) · touche : aucun texte public (« Ondo » : 0) · nature : C
   item : E-NOUVEAUX-6-V4 · porteur : MONARK ; le RPC payant : le fondateur, par MONARK (offres lues, C-15) · déclencheur : le choix du
     RPC payant par le fondateur (LIM l.95 ; ACTES, rubrique Ch), puis le plan de P2 de BELL-COLLECT-TIMER-1, le pas de collecte, qui
-    possède le choix des pools (PLAN-B l.99) [proposé : le plan ne nomme pas la partie]
+    possède le choix des pools (PLAN-B l.99) (partie P2, définie au G0 BELL-COLLECT-TIMER-1 l.662)
   état : ouvert · suite : la v1 écrivait « la partie collecte ».
 - **VSP-12** · « Le compteur des quatre couches ne compte pas les mesures à titre suffixé. »
   source : PLAN-B l.198 (OUTIL-TEMOINS-1) · touche : aucun texte public · nature : C
@@ -1085,18 +1085,20 @@ les campagnes (LIM l.56 ; ACTES l.28) ; elle n'est plus un déclencheur : chaque
   item : E-NOUVEAUX-42, procédure formée · porteur : MONARK ; le contact EDGAR : le fondateur, par MONARK (D-3) · déclencheur : le plan
     de BELL-CONFORMITE-1 P2 (PLAN-B l.150), ou plus tôt la lecture des 20 dividendes (PLAN-B l.177)
   état : ouvert · suite : aucune.
-- **VSP-18** · « Seize lignes de G0 marquées d'une lecture antérieure à la règle des quatre couches. »
-  source : `BELL/nouveau-bell/phase0/RESIDU-LINT-phase0.md` (`a1f8d60c…`, l.3, classe « lecture hors des quatre couches » : 16) ;
+- **VSP-18** · « Des lignes de G0 marquées d'une lecture antérieure à la règle des quatre couches (compte courant au relevé du résidu). »
+  source : `BELL/nouveau-bell/phase0/RESIDU-LINT-phase0.md` (`a1f8d60c…`, l.3, classe « lecture hors des quatre couches » ; le compte change à chaque régénération) ;
     lectures hors campagne de JUSTESSE (FOLD-B, E-JUSTESSE-36, -50) · touche : aucun texte public · nature : M
-  item : RELECT-4C-1, relire ces lectures aux quatre couches · porteur : MONARK · déclencheur : le plan de la prochaine partie de chaque
-    chantier dont un G0 porte une de ces lignes (pour JUSTESSE : le lot 1b)
+  item : RELECT-4C-1 (LIMITES de la campagne, section de la phase 0), relire ces lectures aux quatre couches · porteur : MONARK ·
+    déclencheur : par chantier, au plan de sa prochaine partie (pour JUSTESSE : le lot 1b) ; et avant l'envoi au fondateur d'un G0 amendé
+    qui fonde une décision sur une telle lecture
   état : ouvert · suite : la G2 de la phase 0, premier déclencheur de la v1, est faite (G2-PHASE0-A, -B, -C, 2026-10-23).
 - **VSP-19** · « Huit citations des tables d'écarts introuvables après ré-ancrage ; trois ré-ancrées sur le mauvais fait. »
   source : `BELL/nouveau-bell/phase0/citations-ko-apres-reancrage.txt` (`e0c8203d…`, 8 lignes) ; G2-PHASE0-C n°7, n°8 · touche : aucun
     texte public · nature : M
   item : CITATIONS-REANCRAGE-1 : recaler chaque citation sur le texte corrigé de son fait, et relire le verdict de l'écart contre la
     lecture corrigée · porteur : MONARK · déclencheur : le G7 de la phase 0 (PLAN-B l.138-139)
-  état : ouvert · suite : la G2 de la phase 0, déclencheur de la v1, est faite ; elle a élargi l'item (G2-C n°8).
+  état : clos (preuve : `verifie-citations.mjs` sur les tables de citations, 1 842 vérifiées, 0 manquée, 2026-10-23) · suite : la G2 de la
+    phase 0 a élargi l'item (G2-C n°8) ; le pli l'a soldé (REANCRAGE-FIX, chaque verdict relu).
 - **VSP-20** · « Trois pistes de registre des émetteurs restent partielles : nom de QQQB, deux contrats hors liste de bStocks, émetteur
   d'un jeton chez Backpack. »
   source : RES l.299 (E-NOUVEAUX-63), l.294 (E-NOUVEAUX-64), l.411 (V-129) ; LIM l.191, l.190, l.197 ; LIM-v2 · touche : aucun texte
@@ -1124,3 +1126,13 @@ les campagnes (LIM l.56 ; ACTES l.28) ; elle n'est plus un déclencheur : chaque
     servis) ; aucune phrase publique sur ses dividendes (« dividend » : 0) · nature : D
   item : veille SPYx (LIM l.155-156) · porteur : MONARK · déclencheur : la relecture du multiplicateur de SPYx le 2026-10-31 (RES l.287)
   état : ouvert · suite : le consommateur est BELL-CONFORMITE-1 P2 (PLAN-B l.150).
+- **VSP-24** · « Zoneless ne décrit aucune clé restreinte : la parade « clé restreinte » du risque de paiement tombe. »
+  source : RES (E-ACCESS-46, dernière ligne) ; LIM (item ACCESS-PARADE-CLE-1) ; V-37 l.788-790 · touche : aucun texte public · nature : P
+  item : ACCESS-PARADE-CLE-1, écrire la parade de remplacement, chaque mesure lue aux quatre couches dans la documentation de Zoneless ·
+    porteur : MONARK · déclencheur : le plan de la partie d'ACCESS qui branche le paiement
+  état : ouvert · suite : formé au pli de la G2 de la phase 0 (G2-PHASE0-PLI N7).
+- **VSP-25** · « La version du tableau des décisions du fondateur qu'épingle le G0 du minuteur n'existe plus en local. »
+  source : G0 BELL-COLLECT-TIMER-1 l.1079 ; LIM (item COLLECT-TIMER-PIN-1) · touche : aucun texte public · nature : M
+  item : COLLECT-TIMER-PIN-1, relire dans la version courante que les décisions citées sont inchangées, puis l'épingler · porteur :
+    MONARK · déclencheur : le plan de la prochaine partie de BELL-COLLECT-TIMER-1
+  état : ouvert · suite : relevé par la seconde G2 de la phase 0 (G2-PHASE0-PLI, question 6).
