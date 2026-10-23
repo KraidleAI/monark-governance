@@ -972,8 +972,8 @@ de MONARK, lus chacun à son commit (`git show <commit>:<f> | wc -l`, puis `| sh
 **Pli de la phase 0 (MONARK, 11:3x UTC ; v2 au pli des G2 de la phase 0, 12:2x UTC).** Le nouveau plan de Bell (pièce interne, PLAN-B
 §4, étape 3) verse ici les lignes « formé » ou « item formé » du registre des écarts de la campagne de vérification sur place, au dernier
 verdict de chaque écart, les items que le plan a formés et les pistes sans G0 de LIMITES. Chaque entrée suit la forme du §0 (quatre lignes
-logiques ; limite, source, touche, nature ; item, porteur, déclencheur ; état, suite). 23 entrées, toutes ouvertes ; la v1 en avait 20,
-dont VSP-20 scindée ici en VSP-20 à VSP-23 (G2-C n°10). Aucun fait servi ne change. Sources, hors du tronc, empreintes au pli :
+logiques ; limite, source, touche, nature ; item, porteur, déclencheur ; état, suite). 25 entrées : 24 ouvertes, 1 close (VSP-19) ; la v1 en avait 20,
+dont VSP-20 scindée ici en VSP-20 à VSP-23 (G2-C n°10) ; VSP-24 et VSP-25 viennent du second tour. Aucun fait servi ne change. Sources, hors du tronc, empreintes au pli :
 RES = `VERIF-SUR-PLACE/ecarts/resolus.tsv` (`932a77b8…`, 750 lignes) ; LIM = `VERIF-SUR-PLACE/LIMITES-verif-sur-place.md` (`3edeaa27…`) ;
 LIM-v2 = sa section de la phase 0 réécrite (`BELL/nouveau-bell/phase0/fold/LIMITES-PHASE0-v2.md`) ; NOUV =
 `VERIF-SUR-PLACE/ecarts/ECARTS-NOUVEAUX.md` (`e98687fb…`) ; PLAN-B = `BELL/nouveau-bell/PLAN-BELL-NOUVEAU-2026-10-23.md` (`56efd36e…`) ;
@@ -1086,7 +1086,7 @@ les campagnes (LIM l.56 ; ACTES l.28) ; elle n'est plus un déclencheur : chaque
     de BELL-CONFORMITE-1 P2 (PLAN-B l.150), ou plus tôt la lecture des 20 dividendes (PLAN-B l.177)
   état : ouvert · suite : aucune.
 - **VSP-18** · « Des lignes de G0 marquées d'une lecture antérieure à la règle des quatre couches (compte courant au relevé du résidu). »
-  source : `BELL/nouveau-bell/phase0/RESIDU-LINT-phase0.md` (`a1f8d60c…`, l.3, classe « lecture hors des quatre couches » ; le compte change à chaque régénération) ;
+  source : `BELL/nouveau-bell/phase0/RESIDU-LINT-phase0.md` (`460beea7…`, l.3, classe « lecture hors des quatre couches » ; le compte change à chaque régénération) ;
     lectures hors campagne de JUSTESSE (FOLD-B, E-JUSTESSE-36, -50) · touche : aucun texte public · nature : M
   item : RELECT-4C-1 (LIMITES de la campagne, section de la phase 0), relire ces lectures aux quatre couches · porteur : MONARK ·
     déclencheur : par chantier, au plan de sa prochaine partie (pour JUSTESSE : le lot 1b) ; et avant l'envoi au fondateur d'un G0 amendé
@@ -1129,7 +1129,7 @@ les campagnes (LIM l.56 ; ACTES l.28) ; elle n'est plus un déclencheur : chaque
 - **VSP-24** · « Zoneless ne décrit aucune clé restreinte : la parade « clé restreinte » du risque de paiement tombe. »
   source : RES (E-ACCESS-46, dernière ligne) ; LIM (item ACCESS-PARADE-CLE-1) ; V-37 l.788-790 · touche : aucun texte public · nature : P
   item : ACCESS-PARADE-CLE-1, écrire la parade de remplacement, chaque mesure lue aux quatre couches dans la documentation de Zoneless ·
-    porteur : MONARK · déclencheur : le plan de la partie d'ACCESS qui branche le paiement
+    porteur : MONARK · coût : 0 $ · déclencheur : le plan de la partie d'ACCESS qui branche le paiement (G0 BELL-ACCESS-1, §4)
   état : ouvert · suite : formé au pli de la G2 de la phase 0 (G2-PHASE0-PLI N7).
 - **VSP-25** · « La version du tableau des décisions du fondateur qu'épingle le G0 du minuteur n'existe plus en local. »
   source : G0 BELL-COLLECT-TIMER-1 l.1079 ; LIM (item COLLECT-TIMER-PIN-1) · touche : aucun texte public · nature : M
