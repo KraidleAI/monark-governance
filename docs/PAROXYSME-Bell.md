@@ -119,7 +119,7 @@
   de registre, jamais un item, et aucune n'entre dans les comptes du §8 (motif `^- \*\*[LN]-[0-9][0-9]\*\*`). Ses sources sont des
   pièces internes hors du tronc, citées avec leur empreinte au pli, comme CC et PLAN (§8).
 - **Champs** : limite (25 mots au plus) ; source (fichier et ligne à `87b821b0`) ; touche (texte public que la limite qualifie) ; nature ;
-  item ; porteur ; déclencheur ; état ; suite.
+  item ; porteur ; coût (au §9, quand l'item a un prix, depuis VSP-24) ; déclencheur ; état ; suite.
 - **Natures** (celles de l'inventaire) : T théorie · M mesure · D donnée · P dépendance · Dr droit · C capacité ; « texte » : une phrase
   publique.
 - **Item, porteur, déclencheur** (règles acceptées par MONARK, message `07d99e2` de la boîte, qui répond à `d4b3d07`) :
@@ -179,6 +179,8 @@
 - Toutes les entrées ouvertes des §2 et §3 portent un item, un porteur et un déclencheur atteignable (§5 : aucune entrée ; L-23, L-25,
   L-39 : point précédent). Les huit limites que l'inventaire disait sans aucun item (N-01, N-02, N-07, N-08, N-09, N-10, N-11, L-36) en
   reçoivent un ici, par leur chantier, par l'item que MONARK a formé à ETAT pour N-01, ou par le versement pour N-11, close (§4).
+- Les 33 entrées ouvertes du §9 portent chacune un item, un porteur et un déclencheur (relevé par script au pli de la G2 des archives
+  S3, 2026-10-24 ; les neuf entrées de ce pli, VSP-26 à VSP-34, relues par cette G2).
 - Hors des entrées de ce registre : ETAT compte parmi les limites sans item les étapes M2, M3, M4, M6, M9, M10 et M11 de la tâche 2
   bis, à former dans O-1 à O-4 par PAROXYSME (ETAT l.294-295 à `565c7065`) ; ce pli n'en fait pas d'entrée. M6, phrases de collecte
   au présent (`RELEVE-Bell.md` l.65-66), n'est pas retirée par O-1 : elle devient un engagement de O-3 (MSG8 l.22-23) ; M9 est sur
@@ -969,23 +971,26 @@ de MONARK, lus chacun à son commit (`git show <commit>:<f> | wc -l`, puis `| sh
 
 ## 9. Limites laissées par la vérification sur place (phase 0 du nouveau plan, 2026-10-23)
 
-**Pli de la phase 0 (MONARK, 11:3x UTC ; v2 au pli des G2 de la phase 0, 12:2x UTC).** Le nouveau plan de Bell (pièce interne, PLAN-B
-§4, étape 3) verse ici les lignes « formé » ou « item formé » du registre des écarts de la campagne de vérification sur place, au dernier
-verdict de chaque écart, les items que le plan a formés et les pistes sans G0 de LIMITES. Chaque entrée suit la forme du §0 (quatre lignes
-logiques ; limite, source, touche, nature ; item, porteur, déclencheur ; état, suite). 25 entrées : 24 ouvertes, 1 close (VSP-19) ; la v1 en avait 20,
-dont VSP-20 scindée ici en VSP-20 à VSP-23 (G2-C n°10) ; VSP-24 et VSP-25 viennent du second tour. Aucun fait servi ne change. Sources, hors du tronc, empreintes au pli :
+**Pli de la phase 0 (MONARK, 11:3x UTC ; v2 au pli des G2 de la phase 0, 12:2x UTC ; pli des archives S3, 2026-10-24 01:0x UTC, et de
+sa G2, 01:1x UTC).** Le nouveau plan de Bell (pièce interne, PLAN-B §4, étape 3) verse ici les lignes « formé » ou « item formé » du
+registre des écarts de la campagne de vérification sur place, au dernier verdict de chaque écart, les items que le plan a formés et les
+pistes sans G0 de LIMITES. Chaque entrée suit la forme du §0 (quatre lignes logiques ; limite, source, touche, nature ; item, porteur,
+déclencheur ; état, suite). 34 entrées : 33 ouvertes, 1 close (VSP-19) ; la v1 en avait 20, dont VSP-20 scindée ici en VSP-20 à VSP-23
+(G2-C n°10) ; VSP-24 et VSP-25 viennent du second tour ; VSP-26 à VSP-34, des archives S3 de Hyperliquid et de Hydromancer lues le
+2026-10-23 et le 2026-10-24 (pli des archives S3). Aucun fait servi ne change. Sources, hors du tronc, empreintes au pli :
 RES = `VERIF-SUR-PLACE/ecarts/resolus.tsv` (`932a77b8…`, 750 lignes) ; LIM = `VERIF-SUR-PLACE/LIMITES-verif-sur-place.md` (`3edeaa27…`) ;
 LIM-v2 = sa section de la phase 0 réécrite (`BELL/nouveau-bell/phase0/fold/LIMITES-PHASE0-v2.md`) ; NOUV =
 `VERIF-SUR-PLACE/ecarts/ECARTS-NOUVEAUX.md` (`e98687fb…`) ; PLAN-B = `BELL/nouveau-bell/PLAN-BELL-NOUVEAU-2026-10-23.md` (`56efd36e…`) ;
 ACTES = `VERIF-SUR-PLACE/ACTES-FONDATEUR-verif-sur-place.md` (`85e5b2d3…`) ; G0-CT, G0-J, G0-K, G0-CA = G0 COLLECT-TIMER, JUSTESSE,
-KOYOMI-A, CARNET (`a5434ea9…`, `a2c9c520…`, `223911da…`, `3913b43d…`). « Phase produit » : la phase ouverte au go du fondateur pour
+KOYOMI-A, CARNET (`a5434ea9…`, `a2c9c520…`, `223911da…`, `3913b43d…`) ; FAITS-S3 = `VERIF-SUR-PLACE/produits/FAITS-s3-sur-place-2026-10-23.md`
+(`872b2614…`) ; PROC = `VERIF-SUR-PLACE/PROCUREMENTS-verif-sur-place.md` (`c3ff25ea…`). « Phase produit » : la phase ouverte au go du fondateur pour
 les campagnes (LIM l.56 ; ACTES l.28) ; elle n'est plus un déclencheur : chaque entrée nomme la partie qui consomme.
 
 - **VSP-01** · « La clé de recoupement de la clôture est sous des conditions d'usage personnel : résiduel accepté. »
   source : RES l.264 (E-COLLECT-TIMER-75) ; LIM l.7-19 (RECH-VSP-1) ; G0-CT l.389 · touche : METHOD l.132-133, PAGE l.533 (« read
     under their own licence », mots « consolidated volume ») · nature : Dr/D
   item : RECH-VSP-1 (LIM l.7-19) : (1) le fichier quotidien anonyme du plan CTA, Tapes A et B (V-61) ; (2) Tape C, le fichier du plan
-    UTP, non établi (VSP-06) ; (3) à défaut, le palier commercial de la source actuelle · porteur : MONARK (lectures) ; la décision : le
+    UTP, non établi (CAMP-VSP-4) ; (3) à défaut, le palier commercial de la source actuelle · porteur : MONARK (lectures) ; la décision : le
     fondateur, par MONARK (LIM l.19) · déclencheur : la décision à l'amendement du G0 COLLECT-TIMER (phase 0), puis le plan de P1 de
     BELL-COLLECT-TIMER-1, lot 1a « licences et sources » (G0-CT l.636)
   état : ouvert · suite : libellé corrigé : la v1 écrivait « recoupement du volume » ; RECH-VSP-1 vise la clôture (LIM l.12). La partie
@@ -1086,7 +1091,8 @@ les campagnes (LIM l.56 ; ACTES l.28) ; elle n'est plus un déclencheur : chaque
     de BELL-CONFORMITE-1 P2 (PLAN-B l.150), ou plus tôt la lecture des 20 dividendes (PLAN-B l.177)
   état : ouvert · suite : aucune.
 - **VSP-18** · « Des lignes de G0 marquées d'une lecture antérieure à la règle des quatre couches (compte courant au relevé du résidu). »
-  source : `BELL/nouveau-bell/phase0/RESIDU-LINT-phase0.md` (`e7afb2e5…` au G7 de la phase 0, l.3, classe « lecture hors des quatre couches » ; le compte change à chaque régénération) ;
+  source : `BELL/nouveau-bell/phase0/RESIDU-LINT-phase0.md` (`e7afb2e5…` au G7 de la phase 0, l.3, classe « lecture hors des quatre
+    couches » ; le compte change à chaque régénération) ;
     lectures hors campagne de JUSTESSE (FOLD-B, E-JUSTESSE-36, -50) · touche : aucun texte public · nature : M
   item : RELECT-4C-1 (LIMITES de la campagne, section de la phase 0), relire ces lectures aux quatre couches · porteur : MONARK ·
     déclencheur : par chantier, au plan de sa prochaine partie (pour JUSTESSE : le lot 1b) ; et avant l'envoi au fondateur d'un G0 amendé
@@ -1136,3 +1142,71 @@ les campagnes (LIM l.56 ; ACTES l.28) ; elle n'est plus un déclencheur : chaque
   item : COLLECT-TIMER-PIN-1, relire dans la version courante que les décisions citées sont inchangées, puis l'épingler · porteur :
     MONARK · déclencheur : le plan de la prochaine partie de BELL-COLLECT-TIMER-1
   état : ouvert · suite : relevé par la seconde G2 de la phase 0 (G2-PHASE0-PLI, question 6).
+- **VSP-26** · « Huit chemins physiques du lecteur Parquet de MONARK sont écrits mais non éprouvés ; sa garde les refuse. »
+  source : FAITS-S3 l.271 (P-196), l.440 (S3-VSP-1b (a)) · touche : aucun texte public (« Hydromancer », « parquet » : 0) ·
+    nature : C
+  item : S3-VSP-1b (a), un oracle par chemin, du type de ceux de P-196, sur le fichier qui le demande · porteur : MONARK · coût :
+    aucune lecture de plus que ce fichier · déclencheur : le premier fichier à lire qui en porte un, que la garde nomme (instantanés en
+    DOUBLE, VSP-32 ; carnet en ZSTD, VSP-27)
+  état : ouvert · suite : le décodage silencieux sur ces chemins est fermé par la garde, sauf appel avec `opts.nonEprouve` ; épreuve de
+    la garde : 8 contrôles sur 8, dont cinq mutations refusées, sur quatre des huit chemins (GZIP, FLOAT, page d'index,
+    PLAIN_DICTIONARY) ; ZSTD, pages sans compression, pages v2 et DOUBLE ne sont pas mutés (FAITS-S3 l.275-284).
+- **VSP-27** · « Le lecteur Parquet ne lit ni schéma imbriqué ni colonne REPEATED : le carnet de Hydromancer reste illisible. »
+  source : FAITS-S3 l.249 (P-196), l.418, l.440 (S3-VSP-1b (b)) · touche : aucun texte public (« order book » : 0) ·
+    nature : C
+  item : S3-VSP-1b (b), écrire les niveaux de répétition et un oracle du type de P-196, sur un fichier du carnet, avec S3-VSP-1b (c) pour
+    `block_number` (UINT_64) et `n` (UINT_32) · porteur : MONARK · coût : un fichier du carnet (celui de `ZM` du 2026-10-22 : 0,1 Mo,
+    1 440 lignes) · déclencheur : la première mesure de Bell sur le carnet
+  état : ouvert · suite : le carnet est aussi en ZSTD (VSP-26) ; éprouver ZSTD seul ne suffit pas.
+- **VSP-28** · « Types logiques non gardés : UINT_32 et UINT_64 rendus signés, DECIMAL en octets bruts, BYTE_ARRAY toujours en UTF-8. »
+  source : FAITS-S3 l.249 (P-196), l.440 (S3-VSP-1b (c)) · touche : aucun texte public · nature : C
+  item : S3-VSP-1b (c), une garde des types logiques dans le lecteur (refus d'un type logique que l'appelant ne déclare pas convertir,
+    BYTE_ARRAY sans annotation UTF8 compris), éprouvée par mutation, puis le rejeu de P-196 à P-198 depuis les copies · porteur :
+    MONARK · coût : aucune lecture S3 · déclencheur : la prochaine mesure qui lit une colonne de type logique qu'aucun appelant éprouvé
+    ne convertit encore
+  état : ouvert · suite : les colonnes lues sont converties par leurs appelants, sans garde ; les 304 colonnes BYTE_ARRAY des 24 copies
+    sont annotées UTF8 (FAITS-S3 l.255-262).
+- **VSP-29** · « Choix du décodeur sans recherche documentée ; aucun second décodeur indépendant. »
+  source : FAITS-S3 l.243 (P-196), l.453 (S3-VSP-1c) · touche : aucun texte public · nature : M
+  item : S3-VSP-1c, lire aux quatre couches les sources de référence du format et les bibliothèques candidates, puis une bibliothèque
+    choisie sur pièces, installée en local sous F:, qui relit les colonnes de P-196 à P-198 depuis les copies ; sa sortie, comparée à
+    celle du décodeur de MONARK, ajoute un oracle aux colonnes sans clé du nœud en face · porteur : MONARK ; le téléchargement du
+    paquet : le fondateur, par MONARK · coût : un paquet (nom, version et taille lus avant la demande) ; aucune lecture S3 ·
+    déclencheur : avant la première mesure de Bell publiée sur une colonne sans clé du nœud en face, ou avec S3-VSP-1b (b)
+  état : ouvert · suite : la sortie du décodeur de MONARK est éprouvée fill par fill contre le nœud (P-197).
+- **VSP-30** · « La concordance des deux accès aux fills de trade[XYZ] n'est faite que sur 19 jours des 375. »
+  source : FAITS-S3 l.306 (P-197), l.374, l.461 (S3-VSP-2b) · touche : aucun texte public (« Hyperliquid » : 0) · nature : M
+  item : S3-VSP-2b : (a) la période entière, 302,33 Gio ; (b) l'audit de chaque jour qu'une mesure publiée de Bell utilise · porteur :
+    MONARK ; la dépense de (a) : le fondateur, par MONARK · coût : (a) environ 23,07 USD dans un mois sans autre lecture, au moins
+    24,78 USD en octobre 2026 ; (b) de 0,29 à 1,57 Gio par jour sur les 19 jours lus, quelques dizaines de jours par mois dans les
+    100 Gio gratuits · déclencheur : le plan de S1b-i de BELL-SAUTS-1, avant toute mesure de Bell publiée à partir de ces fills
+  état : ouvert · suite : (a) se propose avec VSP-31.
+- **VSP-31** · « Réglages du compte de lecture des archives S3, à décider par le fondateur ; détail hors du dépôt public. »
+  source : FAITS-S3 l.471-474 (S3-VSP-4) · touche : aucun texte public · nature : P
+  item : S3-VSP-4 · porteur : le fondateur, par MONARK · déclencheur : MONARK les repropose avant tout téléchargement en masse, dont
+    S3-VSP-2b (a)
+  état : ouvert · suite : la posture du compte n'est pas décrite ici, le dépôt étant public (comme VSP-15) ; la décision du fondateur
+    du 2026-10-23 est consignée hors du tronc.
+- **VSP-32** · « Open interest des marchés xyz : aucun champ dans `asset_ctxs` ni dans les instantanés de Hydromancer ; à recalculer par somme des tailles. »
+  source : FAITS-S3 l.184, l.424, l.475-477 (S3-VSP-5) · touche : aucun texte public (« open interest » : 0) · nature : D
+  item : S3-VSP-5, la requête « Open interest by market » de la documentation, adaptée à `by_dex/xyz/` et aux tailles, avec l'oracle
+    longues égales courtes · porteur : MONARK · coût : un fichier pour l'épreuve, 1,15 Gio pour la période · déclencheur : PR-VSP-14
+    (plan de S1b-i de BELL-SAUTS-1)
+  état : ouvert · suite : demande VSP-26 (DOUBLE) et VSP-28 (`leverage`, UINT_32) ; plage absente du 2025-10-25 au 2025-12-14.
+- **VSP-33** · « Les deux accès aux fills sont un seul flux : une erreur du flux commun n'est pas recoupée. »
+  source : FAITS-S3 l.306 (P-197), l.370-371, l.407 (P-198), l.481 (S3-VSP-6) · touche : aucun texte public · nature : D
+  item : S3-VSP-6, une captation des transactions de `xyz` par une autre voie, lue aux quatre couches avant usage, comparée au nœud et à
+    Hydromancer sur une fenêtre · porteur : MONARK · coût : à chiffrer après cette lecture, plus les heures du nœud de la fenêtre (au
+    plus 1,57 Gio par jour sur les 19 jours lus) · déclencheur : le plan de S1b-i de BELL-SAUTS-1, avant toute mesure de Bell publiée à
+    partir de ces fills
+  état : ouvert · suite : aucune.
+- **VSP-34** · « Marque et oracle des marchés xyz absents d'`asset_ctxs` et des instantanés de Hydromancer. »
+  source : FAITS-S3 l.424 ; PROC l.123-129 (PR-VSP-14) · touche : aucun texte public · nature : D
+  item : PR-VSP-14, conditionnel (usage prévu : NE-S4 de BELL-SAUTS-1) · porteur : MONARK ; l'acte qui en naîtrait (abonnement, coût
+    de sortie) : le fondateur, par MONARK · coût : la voie `setOracle` lit de 104,02 à 256,90 Gio par jour complet sur les 12 jours
+    mesurés (PROC l.125-126 ; FAITS-S3 l.206-208), dans le compartiment des fills (FAITS-S3 l.98-99), à 0,114 USD le Gio au-delà des
+    100 Gio gratuits du mois (FAITS-S3 l.203-204) ; le prix des deux autres voies n'est pas lu, l'acte est expliqué au fondateur au
+    déclencheur (PROC l.129) · déclencheur : le plan de S1b-i de BELL-SAUTS-1, avec les volumes mesurés
+  état : ouvert · suite : voies lues en PROC l.124-127 : 0xArchive Build, l'API de Hydromancer, les `setOracle` de `replica_cmds` ;
+    NE-S4 est tranché en v6 du G0 de BELL-SAUTS-1 (`10fcaaed…`, l.430-433 : « Jamais la marque comme R », faute d'historique), où
+    PR-VSP-7 portait « seulement s'il retient l'historique » (l.80-81) : le plan de S1b-i dit si l'usage tient.
