@@ -179,8 +179,8 @@
 - Toutes les entrées ouvertes des §2 et §3 portent un item, un porteur et un déclencheur atteignable (§5 : aucune entrée ; L-23, L-25,
   L-39 : point précédent). Les huit limites que l'inventaire disait sans aucun item (N-01, N-02, N-07, N-08, N-09, N-10, N-11, L-36) en
   reçoivent un ici, par leur chantier, par l'item que MONARK a formé à ETAT pour N-01, ou par le versement pour N-11, close (§4).
-- Les 33 entrées ouvertes du §9 portent chacune un item, un porteur et un déclencheur (relevé par script au pli de la G2 des archives
-  S3, 2026-10-24 ; les neuf entrées de ce pli, VSP-26 à VSP-34, relues par cette G2).
+- Les 32 entrées ouvertes du §9 portent chacune un item, un porteur et un déclencheur (relevé par script au pli de la G2 des archives
+  S3, 2026-10-24, puis au règlement de VSP-25, close le même jour ; les neuf entrées de ce pli, VSP-26 à VSP-34, relues par cette G2).
 - Hors des entrées de ce registre : ETAT compte parmi les limites sans item les étapes M2, M3, M4, M6, M9, M10 et M11 de la tâche 2
   bis, à former dans O-1 à O-4 par PAROXYSME (ETAT l.294-295 à `565c7065`) ; ce pli n'en fait pas d'entrée. M6, phrases de collecte
   au présent (`RELEVE-Bell.md` l.65-66), n'est pas retirée par O-1 : elle devient un engagement de O-3 (MSG8 l.22-23) ; M9 est sur
@@ -975,14 +975,18 @@ de MONARK, lus chacun à son commit (`git show <commit>:<f> | wc -l`, puis `| sh
 sa G2, 01:1x UTC).** Le nouveau plan de Bell (pièce interne, PLAN-B §4, étape 3) verse ici les lignes « formé » ou « item formé » du
 registre des écarts de la campagne de vérification sur place, au dernier verdict de chaque écart, les items que le plan a formés et les
 pistes sans G0 de LIMITES. Chaque entrée suit la forme du §0 (quatre lignes logiques ; limite, source, touche, nature ; item, porteur,
-déclencheur ; état, suite). 34 entrées : 33 ouvertes, 1 close (VSP-19) ; la v1 en avait 20, dont VSP-20 scindée ici en VSP-20 à VSP-23
+déclencheur ; état, suite). 34 entrées : 32 ouvertes, 2 closes (VSP-19, VSP-25) ; la v1 en avait 20, dont VSP-20 scindée ici en VSP-20 à VSP-23
 (G2-C n°10) ; VSP-24 et VSP-25 viennent du second tour ; VSP-26 à VSP-34, des archives S3 de Hyperliquid et de Hydromancer lues le
 2026-10-23 et le 2026-10-24 (pli des archives S3). Aucun fait servi ne change. Sources, hors du tronc, empreintes au pli :
 RES = `VERIF-SUR-PLACE/ecarts/resolus.tsv` (`932a77b8…`, 750 lignes) ; LIM = `VERIF-SUR-PLACE/LIMITES-verif-sur-place.md` (`3edeaa27…`) ;
 LIM-v2 = sa section de la phase 0 réécrite (`BELL/nouveau-bell/phase0/fold/LIMITES-PHASE0-v2.md`) ; NOUV =
 `VERIF-SUR-PLACE/ecarts/ECARTS-NOUVEAUX.md` (`e98687fb…`) ; PLAN-B = `BELL/nouveau-bell/PLAN-BELL-NOUVEAU-2026-10-23.md` (`56efd36e…`) ;
 ACTES = `VERIF-SUR-PLACE/ACTES-FONDATEUR-verif-sur-place.md` (`85e5b2d3…`) ; G0-CT, G0-J, G0-K, G0-CA = G0 COLLECT-TIMER, JUSTESSE,
-KOYOMI-A, CARNET (`a5434ea9…`, `a2c9c520…`, `223911da…`, `3913b43d…`) ; FAITS-S3 = `VERIF-SUR-PLACE/produits/FAITS-s3-sur-place-2026-10-23.md`
+KOYOMI-A, CARNET, versions régénérées le 2026-10-24 à 03:2x UTC (`00b57290…`, `33b3d006…`, `3f1cbb64…`, `bdc886c7…`, chacune figée à
+côté de son G0) ; les versions que le pli a lues (`a5434ea9…`, `a2c9c520…`, `223911da…`, `3913b43d…`), retrouvées dans le bac de la
+G2-C, sont figées à côté de leur G0 ; chaque ligne de G0-CT, G0-J, G0-K ou G0-CA citée ici, en forme courte ou longue
+(« G0 BELL-COLLECT-TIMER-1 l.N »), est une ligne du corps, égale, marques ôtées, à la copie d'origine de la phase 0 et à la version du pli (259 sur 259,
+`VERIF-SUR-PLACE/essais/verifie-lignes-g0-registre.mjs`) ; FAITS-S3 = `VERIF-SUR-PLACE/produits/FAITS-s3-sur-place-2026-10-23.md`
 (`872b2614…`) ; PROC = `VERIF-SUR-PLACE/PROCUREMENTS-verif-sur-place.md` (`c3ff25ea…`). « Phase produit » : la phase ouverte au go du fondateur pour
 les campagnes (LIM l.56 ; ACTES l.28) ; elle n'est plus un déclencheur : chaque entrée nomme la partie qui consomme.
 
@@ -1141,7 +1145,11 @@ les campagnes (LIM l.56 ; ACTES l.28) ; elle n'est plus un déclencheur : chaque
   source : G0 BELL-COLLECT-TIMER-1 l.1079 ; LIM (item COLLECT-TIMER-PIN-1) · touche : aucun texte public · nature : M
   item : COLLECT-TIMER-PIN-1, relire dans la version courante que les décisions citées sont inchangées, puis l'épingler · porteur :
     MONARK · déclencheur : le plan de la prochaine partie de BELL-COLLECT-TIMER-1
-  état : ouvert · suite : relevé par la seconde G2 de la phase 0 (G2-PHASE0-PLI, question 6).
+  état : clos (preuve : essai T-10 v2, `VERIF-SUR-PLACE/essais/epingle-decisions-minuteur.mjs`, 22 contrôles sur 22, 2026-10-24) ·
+    suite : relevé par la seconde G2 de la phase 0 (G2-PHASE0-PLI, question 6) ; réglé à l'arrêt du 2026-10-24 : le G0 épingle la
+    version courante du tableau (`27263757…`, copie figée) et le commit `a4d3f440` du tronc (G0-CT l.1067, l.1079, l.1081) ; la v2 de
+    l'essai contrôle aussi l.13, que la v1 ne voyait pas (revue du règlement) ; la version du tableau relevée par la v5 (`2486cc4d…`)
+    reste perdue.
 - **VSP-26** · « Huit chemins physiques du lecteur Parquet de MONARK sont écrits mais non éprouvés ; sa garde les refuse. »
   source : FAITS-S3 l.271 (P-196), l.440 (S3-VSP-1b (a)) · touche : aucun texte public (« Hydromancer », « parquet » : 0) ·
     nature : C
