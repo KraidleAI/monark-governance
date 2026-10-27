@@ -1100,8 +1100,14 @@ les campagnes (LIM l.56 ; ACTES l.28) ; elle n'est plus un déclencheur : chaque
     lectures hors campagne de JUSTESSE (FOLD-B, E-JUSTESSE-36, -50) · touche : aucun texte public · nature : M
   item : RELECT-4C-1 (LIMITES de la campagne, section de la phase 0), relire ces lectures aux quatre couches · porteur : MONARK ·
     déclencheur : par chantier, au plan de sa prochaine partie (pour JUSTESSE : le lot 1b) ; et avant l'envoi au fondateur d'un G0 amendé
-    qui s'appuie sur une telle lecture, ou avant l'acte daté qui en dépend (AF-2, AF-A7, AF-L16), au plus tard à la reprise du chantier
-  état : ouvert · suite : la G2 de la phase 0, premier déclencheur de la v1, est faite (G2-PHASE0-A, -B, -C, 2026-10-23).
+    qui s'appuie sur une telle lecture, ou avant l'acte daté qui en dépend (AF-2, AF-A7, AF-L16) ; chaque lecture se fait à son usage
+    (décision du fondateur, choix « Déclencheurs + script », 2026-10-24, confirmée le 2026-10-27 ; selon la lecture de MONARK, la
+    clause « au plus tard à la reprise du chantier » est levée)
+  état : ouvert · suite : la G2 de la phase 0, premier déclencheur de la v1, est faite (G2-PHASE0-A, -B, -C, 2026-10-23) ; les
+    relectures faites le 2026-10-24 sont versées le 2026-10-27 (25 rangées de `resolus.tsv`, l.891 à 915, `92196016…` : les 18 du
+    versement, dont 16 s'appuient sur des relectures du 2026-10-24, 4 corrections de sa revue et 3 précisions de sa seconde revue) : 32 rangées des tableaux
+    d'amendement restent marquées « hors des quatre couches » (JUSTESSE 11, COLLECT-TIMER 12, KOYOMI-A 8, LEGAL-COMMERCE 1), et la
+    classe du résidu est à 0 depuis la régénération du 2026-10-24 à 04:5x UTC.
 - **VSP-19** · « Huit citations des tables d'écarts introuvables après ré-ancrage ; trois ré-ancrées sur le mauvais fait. »
   source : `BELL/nouveau-bell/phase0/citations-ko-apres-reancrage.txt` (`e0c8203d…`, 8 lignes) ; G2-PHASE0-C n°7, n°8 · touche : aucun
     texte public · nature : M
