@@ -3727,6 +3727,9 @@
   "site_renders_only_committed_data (b) — no rendered numeric literal under apps/site (test 44)",
   "site_renders_only_committed_data — wiring.note is digit-free for every built agent (ADR-EC E6)"
  ],
+ "test/site-security-floor.test.ts": [
+  "site_next_is_at_or_past_the_fixed_release — next and @next/mdx are pinned to one exact release at or past 16.4.3, and the lockfile resolves the same"
+ ],
  "test/site-send-guard.test.ts": [
   "site_send_allowed_after_promotion_and_check_unaffected",
   "site_send_refused_while_a_pending_snapshot_exists"
