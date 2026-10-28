@@ -2769,6 +2769,19 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     de D-10 recodé, et rétablit la fonction en fin de test. Un octet de moins est refusé `disk_space`, sans rien écrire. Le produit ne
     change pas, et son refus reste épinglé seul par `dojo_history_disk_rpc_error_and_faulted_body_paths`. Preuve : sous un hôte simulé
     à 946 Mo libres, le test est rouge à la base (`disk_space`) et vert après le lot.
+  - SITE-NEXT-REDEPLOY-1 (G2 m-3 de #341, MONARK, 2026-10-28) : le correctif `next` et `@next/mdx` 16.4.3 est au tronc (#341, fusion
+    `f6a3b25a`, `docs/G7-lot-site-next-16-4-3.md`). La vitrine servie tourne par `next start` sur le serveur et ne change qu'au
+    redéploiement, acte du fondateur (`docs/RUNBOOK-vitrine.md` l.3-5 et l.13-20). La version que sert le serveur n'est pas lue par
+    MONARK. Porteur : le fondateur ; preuve de clôture : la version de `next` lue sur le serveur après le redéploiement. Déclencheur :
+    la fusion de #341 ; état : ouvert.
+  - DOJO-NEXT-E0-REPLAY-1 (G2 m-2 de #341, MONARK, 2026-10-28 ; registre du Dōjō, DJ-L117) : à la montée en 16.4.3, le job `g3-site` de
+    #341 (run 40773586871) a rejoué `next build` et `scripts/assert-fleet-html.mjs`, verts, `/dojo` en état E1. L'état E0 (aucun record
+    servi, la branche `notFound()`) n'est pas rejoué : la page lit sa racine dans `MONARK_DOJO_LOCAL_BUILD_ROOT`
+    (`apps/site/app/dojo/page.tsx` l.65-70), mais `assert-fleet-html.mjs` lit la sienne à une place fixe (l.27) et `/token` ne lit pas
+    cette variable ; MONARK ne fabrique pas d'arbre sans le record (règle des données du site). Construction : la même racine passée à
+    `assert-fleet-html.mjs` et à `/token`, puis un build et le contrôle sur une racine sans record ; environ 20 lignes et un build.
+    Porteur : MONARK. Déclencheur : le prochain lot qui touche `scripts/assert-fleet-html.mjs` ou la page `/dojo`, au plus tard avant
+    tout retrait du record servi (DJ-L193) ; état : ouvert.
 
 ## Ce qui reste pour la page
 
