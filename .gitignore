@@ -37,3 +37,6 @@ run-log.json
 
 # TEST-COUNT-FLOOR-1: the per-file test counts that test:main writes by its reporter (scripts/test-counts-reporter.mjs); write reads them; never committed
 /test-counts.out.json
+
+# Genkan: the Lean build tree of the kernel (the built executable, fetched packages), build output, never committed
+apps/genkan/kernel/.lake/

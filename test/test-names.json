@@ -722,6 +722,13 @@
   "dojo_verify_url_equals_dir_on_the_same_tree",
   "dojo_verify_url_transport_is_the_bell_policy"
  ],
+ "apps/genkan/test/export.test.ts": [
+  "export_omits_lake_build"
+ ],
+ "apps/genkan/test/scripts.test.ts": [
+  "lake_wrapper_refuses_elan_home_on_c",
+  "lake_wrapper_runs_pinned_lake"
+ ],
  "apps/harness/test/attest.test.ts": [
   "attest_label_off_frozen_contract",
   "attest_makes_no_probative_claim",

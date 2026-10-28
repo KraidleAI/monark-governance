@@ -205,16 +205,18 @@ test("g3_site_build_run_line_is_pinned — the g3-site build `run:` line == SITE
   assert.ok(block.some((l) => /^\s*run:\s*node scripts\/assert-fleet-html\.mjs\s*$/.test(l)), "g3-site must run `node scripts/assert-fleet-html.mjs` (O-2 step)");
 });
 
+// killer: scripts/export-public.mjs:56 CONST ", \"apps/genkan/scripts\"]" -> "]"
 test("derived_workflow_run_paths_are_exported — every scripts/enforcement path a DERIVED run: cites is in collectFiles().kept (C-6)", () => {
   const derived = derivePublicWorkflow(read(CI_WORKFLOW_PATH));
   const cited = new Set<string>();
   for (const l of derived.split(/\r?\n/)) {
     if (!/^\s*run:/.test(l)) continue;
-    for (const m of l.matchAll(/(?:scripts|enforcement)\/[\w./-]+\.(?:mjs|cjs|js|sh)\b/g)) cited.add(m[0]);
+    for (const m of l.matchAll(/(?<![\w./-])(?:[\w.-]+\/)*(?:scripts|enforcement)\/[\w./-]+\.(?:mjs|cjs|js|sh)\b/g)) cited.add(m[0]);
   }
   // Non-vacuity: the derived workflow cites at least the g1 enforcement script and the g3-site O-2 script.
   assert.ok(cited.has("enforcement/lint-model-pinning.sh"), "sanity: derived g1 must cite enforcement/lint-model-pinning.sh");
   assert.ok(cited.has("scripts/assert-fleet-html.mjs"), "sanity: derived g3-site must cite scripts/assert-fleet-html.mjs");
+  assert.ok(cited.has("apps/genkan/scripts/lake.mjs"), "a nested scripts path is cited whole: derived g3-genkan must cite apps/genkan/scripts/lake.mjs");
   const kept = new Set(collectFiles(ROOT).kept.map((f) => f.rel));
   const notExported = [...cited].filter((p) => !kept.has(p));
   assert.deepEqual(notExported, [], `a DERIVED run: cites a path absent from the public export (mutant: drop it from WHITELIST_FILES): ${notExported.join(", ")}`);
