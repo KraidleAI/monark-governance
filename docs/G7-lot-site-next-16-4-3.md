@@ -35,6 +35,8 @@
 
 ## Ce qui reste
 
-- **SITE-NEXT-REDEPLOY-1** : la vitrine servie (`next start` sur le serveur) ne change qu'au redéploiement, acte du fondateur
-  (`docs/RUNBOOK-vitrine.md`). La version que sert le serveur n'est pas lue par MONARK.
+- **SITE-NEXT-REDEPLOY-1** : clos le 2026-10-28 à 23:31 UTC. La vitrine servie (`next start` sur le serveur) ne change qu'au
+  redéploiement, acte de MONARK sous le go du fondateur (`docs/RUNBOOK-vitrine.md` ; « acte du fondateur », écrit ici d'abord, était
+  faux) : l'arbre servi depuis le 2026-10-06 renvoyé avec les deux fichiers de ce lot seuls (`d85ef2c6`), `next` 16.4.3 lu sur le
+  serveur (`docs/ETAT.md`, l'item ; `docs/JOURNAL-PROVENANCE.md`, l'entrée du 2026-10-28 23:31 UTC).
 - **DOJO-NEXT-E0-REPLAY-1** : l'état E0 de `/dojo` (aucun record servi) n'est pas rejoué en 16.4.3 (registre du Dōjō, DJ-L117).

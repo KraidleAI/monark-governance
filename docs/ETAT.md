@@ -2771,9 +2771,26 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     à 946 Mo libres, le test est rouge à la base (`disk_space`) et vert après le lot.
   - SITE-NEXT-REDEPLOY-1 (G2 m-3 de #341, MONARK, 2026-10-28) : le correctif `next` et `@next/mdx` 16.4.3 est au tronc (#341, fusion
     `f6a3b25a`, `docs/G7-lot-site-next-16-4-3.md`). La vitrine servie tourne par `next start` sur le serveur et ne change qu'au
-    redéploiement, acte du fondateur (`docs/RUNBOOK-vitrine.md` l.3-5 et l.13-20). La version que sert le serveur n'est pas lue par
-    MONARK. Porteur : le fondateur ; preuve de clôture : la version de `next` lue sur le serveur après le redéploiement. Déclencheur :
-    la fusion de #341 ; état : ouvert.
+    redéploiement, acte de MONARK sous le go du fondateur (`docs/RUNBOOK-vitrine.md` l.6 et l.13-21 ; « acte du fondateur », écrit ici
+    d'abord, était faux). Porteur : MONARK ; preuve de clôture : la version de `next` lue sur le serveur après le redéploiement.
+    Déclencheur : la fusion de #341 ; état : clos le 2026-10-28 à 23:3x UTC.
+    Ligne datée MONARK 2026-10-28 23:3x UTC : go du fondateur (verbatim « tu as mon go quand tu veux. », 23:13:50 UTC), puis son choix
+    (« Correctif seul (Recommandé) », 23:21:19 UTC). Renvoyé : l'arbre servi depuis le 2026-10-06 (`db778e2e`) avec les deux fichiers de
+    #341 seuls, commit `d85ef2c6` de la branche `lot/site-served-next-16-4-3` ; le manifeste servi et celui de l'export ne diffèrent que
+    par ces deux fichiers. Bascule à 23:31:05 UTC ; lus sur le serveur : `next` 16.4.3, `monark` actif, 200 ; le texte visible de 18 pages
+    est le même avant et après. Ce renvoi, au contenu inchangé, n'est pas l'envoi du tronc. Pour celui-ci : I-G2-5 (registre Bell, L-22) a
+    sa lecture sur place faite le 2026-10-14 et sa phrase gardée, ouvert pour l'égalité chiffrée seule (BELL-SIP-VOLUME-RECONCILE-1) ;
+    DJ-L43 et DJ-L113 (registre du Dōjō) nomment « l'envoi du site » : MONARK les relit avant l'envoi du tronc. La question posée au
+    fondateur disait à tort qu'I-G2-5 attendait encore un texte corrigé (erratum au journal du fondateur, même heure). Journal :
+    `docs/JOURNAL-PROVENANCE.md`, entrée du 2026-10-28 23:31 UTC.
+  - HARNESS-MCP-REDEPLOY-1 (MONARK, 2026-10-28 23:3x UTC) : le harnais servi (`/opt/monark-harness`) tourne avec
+    `@modelcontextprotocol/server` 2.0.0 et `zod` 4.6.1, versions lues sur le serveur le 2026-10-28 à 23:28:13 UTC ; son dernier
+    déploiement journalisé est l'acte 1 de T0 (2026-10-06, `9612d4d2`). `b24927c3` (2026-10-21) les porte au tronc à 2.3.1 et 4.6.7 ; son
+    message dit que l'avis d'épuisement de la mémoire pendant la validation atteint le harnais ([2nd] : les textes des avis ne sont pas
+    lus). Les mêmes versions restent dans l'arbre de la vitrine, que `next start` ne charge pas (ni `apps/site` ni `packages/` ne les
+    importent) : elles en partent à l'envoi du tronc. Porteur : MONARK, sous le go du fondateur (`docs/RUNBOOK-harness.md`) ; preuve de
+    clôture : les deux versions lues sur le serveur après le redéploiement du harnais. Déclencheur : la lecture du 2026-10-28 ; état :
+    ouvert, go demandé au fondateur.
   - DOJO-NEXT-E0-REPLAY-1 (G2 m-2 de #341, MONARK, 2026-10-28 ; registre du Dōjō, DJ-L117) : à la montée en 16.4.3, le job `g3-site` de
     #341 (run 40773586871) a rejoué `next build` et `scripts/assert-fleet-html.mjs`, verts, `/dojo` en état E1. L'état E0 (aucun record
     servi, la branche `notFound()`) n'est pas rejoué : la page lit sa racine dans `MONARK_DOJO_LOCAL_BUILD_ROOT`
