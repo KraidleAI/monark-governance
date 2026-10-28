@@ -373,7 +373,9 @@ claude-opus-5-5
   source : PR4 l.118, l.204, l.231 ; PAGE l.24
   nature : test · item : DOJO-NEXT-NOTFOUND-1 · déclencheur : G1 de PR-4b (PR4 l.204)
   état : clos (preuve : G1 PR-4b `docs/G1-lot-dojo-pr4b.md` l.137, l.193, `0a23979a` ; branché : assert-fleet-html.mjs l.645-656) [vérifié 2026-10-02 03:32
-    UTC, FAIT-PROUVE] · suite : aucune ; rejouer build et assert-fleet-html en E0 à toute montée de Next (mesuré en 16.3.4, tête en 16.3.8) ; PR4 l.231 à dater
+    UTC, FAIT-PROUVE] · suite : aucune ; rejouer build et assert-fleet-html en E0 à toute montée de Next (mesuré en 16.3.4, tête en 16.4.3) ; PR4 l.231 à dater
+    · ligne datée 2026-10-28 (MONARK, #341, fusion `f6a3b25a`) : montée de 16.3.8 à 16.4.3 ; `next build` et assert-fleet-html rejoués verts par
+    `g3-site` (run 40773586871, job 123116936800), `/dojo` en E1 ; E0 non rejoué : item DOJO-NEXT-E0-REPLAY-1 (`docs/ETAT.md`), ouvert
 - **DJ-L118** · « Synchro : corps ni lu ni annulé sur refus ; fenêtre entre fichier et manifeste ; champs de la CA sans tests négatifs. »
   source : PR4 l.254, l.258, l.259 ; PR1B4 l.234
   nature : code · item : DOJO-SYNC-FETCH-CONVERGE-1, DOJO-SYNC-WRITE-WINDOW-1, DOJO-SYNC-CA-FIELD-NEGATIVES-1
