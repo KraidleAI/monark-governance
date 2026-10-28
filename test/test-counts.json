@@ -306,6 +306,7 @@
  "test/site-build-fleet.test.ts": 49,
  "test/site-docs.test.ts": 31,
  "test/site-honesty.test.ts": 8,
+ "test/site-security-floor.test.ts": 1,
  "test/site-send-guard.test.ts": 2,
  "test/site-ukemi.test.ts": 32,
  "test/skills.test.ts": 6,
