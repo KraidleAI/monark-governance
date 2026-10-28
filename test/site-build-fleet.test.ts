@@ -1721,25 +1721,92 @@ test("building_panel_block_is_named_only_by_its_definition_and_the_shogen_panel 
   assert.match(read("apps/site/components/panel-shell.tsx"), /export function PanelBlock\(\{ title, status, children \}: \{ title: string; status: AgentStatus; children: ReactNode \}\)/, "PanelBlock keeps the two public statuses");
 });
 
-// killer: apps/site/components/panel-shell.tsx:31 CONST "<StatusBadge status={status} className=\"ml-auto\" />" -> "<span className=\"c-pill c-pill--upcoming ml-auto\">building</span>"
+// killer: apps/site/components/panel-shell.tsx:42 CONST "c-pill c-pill--building ml-auto" -> "c-pill c-pill--upcoming ml-auto"
 test("shogen_building_pill_is_served_once_in_its_block — the /fleet page, rendered on the server with every panel open, shows the word building once, as the pill of the How it works block of the Shōgen panel; a second one reds when a file the page imports draws it, under any name, through the render prop or the function child of a dialog part, in a value or placeholder attribute, or with the word split by an empty span, b, i, em or strong tag, a comment as stripHiddenSurfaces reads one, or an invisible character; text drawn by CSS or by another attribute, a state a script reaches after the first render, a render function that reads its part's state, a prop Base UI computes from that state (aria-expanded, data-popup-open of a Trigger) or a prop Base UI computes for Portal, Backdrop or Popup, and a word split by an element with content, by another empty element or by an empty tag CSS gives a box are outside this test (Shōgen N-14; the seam is PXC-08)", async () => {
   const { html, at } = await buildingAt((await renderOpen(["fleet/page.tsx"]))["fleet/page.tsx"] ?? "");
   assert.ok(html.includes(">Honest limits<") && html.includes(">Open panel<"), "the panels render open, beside their cards (false-green guard)");
   assert.equal(at.length, 1, "the page shows building as a text or a value of its own exactly once, empty inline tags, comments and invisible characters taken out");
   const before = html.slice(0, at[0]);
-  assert.match(before, /<span class="c-pill c-pill--upcoming ml-auto">$/, "that text is the pill, in the look of the upcoming pill");
+  assert.match(before, /<span class="c-pill c-pill--building ml-auto">$/, "that text is the pill, in its own look");
   const last = (re: RegExp): string => decodeEntities([...before.matchAll(re)].at(-1)?.[1] ?? "");
   assert.equal(last(/<h3\b[^>]*>([^<]*)<\/h3>/g), "How it works", "the pill heads the How it works block");
   assert.equal(last(/<h2\b[^>]*data-slot="dialog-title"[^>]*>([^<]*)<\/h2>/g), "Shōgen", "the block is in the Shōgen panel");
 });
 
 // killer: apps/site/app/globals.css:284 CONST ".c-pill::before { content: \"\";" -> ".c-pill::before { content: \"buil\\64 ing\";"
-test("no_css_of_the_site_draws_building — no content declaration in the .css files under apps/site/app spells building, its CSS escapes decoded (the CSS of packages and the built bundle are outside this test)", () => {
+test("no_css_of_the_site_draws_building — no content declaration in the .css files under apps/site/app spells building, its CSS escapes decoded (the CSS of packages and the built bundle are outside this test)", async () => {
   const css = (readdirSync(join(ROOT, "apps", "site", "app"), { recursive: true }) as string[]).filter((f) => f.endsWith(".css")).map((f) => "apps/site/app/" + f.split("\\").join("/"));
   assert.ok(css.includes("apps/site/app/globals.css") && css.includes("apps/site/app/docs/docs.css"), "the scan reads the site's CSS (false-green guard)");
-  const unescape = (v: string): string => v.replace(/\\([0-9a-f]{1,6})\s?/gi, (_, x: string) => String.fromCodePoint(parseInt(x, 16))).replace(/\\(.)/g, "$1");
-  const drawn = css.flatMap((f) => [...read(f).matchAll(/\bcontent\s*:\s*((?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[^;}"'])*)/g)].map((m) => `${f}: ${m[1] ?? ""}`)); // a quoted value may hold ; or }
-  assert.deepEqual(drawn.filter((d) => unescape(d).replace(/[^a-z]/gi, "").toLowerCase().includes("building")), [], "no CSS content spells building");
+  // The reader O-2 runs over the built bundle, loaded here and not restated: one reader, so the site's CSS and the bundle cannot drift apart.
+  const checker = (await import("../scripts/assert-fleet-html.mjs")) as { cssContentSpelling?: (css: string, word: string, file?: string) => string[] };
+  assert.equal(typeof checker.cssContentSpelling, "function", "the site's CSS is read by the reader of O-2");
+  const drawn = css.flatMap((f) => checker.cssContentSpelling!(read(f), "building", f).map((v) => `${f}: ${v}`));
+  assert.deepEqual(drawn, [], "no CSS content spells building");
+});
+
+// killer: apps/site/app/globals.css:293 CONST "background: var(--surface); color: var(--ink2); border: 1px dashed var(--ink2);" -> "background: color-mix(in oklch, var(--ink) 8%, var(--bg)); color: var(--ink2);"
+test("building_pill_has_its_own_look — the site's CSS draws c-pill--building and its dot, each apart from its upcoming rule, with no content declaration and never the colour of built (SITE-BUILDING-PILL-ASPECT-1)", () => {
+  const css = read("apps/site/app/globals.css");
+  const rule = (sel: string): string | undefined => new RegExp("^\\s*" + sel.replace(/[\\^$.*+?()[\]{}|:-]/g, "\\$&") + "\\s*\\{([^}]*)\\}", "m").exec(css)?.[1]?.trim();
+  const [built, upcoming, upcomingDot] = [rule(".c-pill--built"), rule(".c-pill--upcoming"), rule(".c-pill--upcoming::before")];
+  const builtColour = /var\((--[\w-]+)\)/.exec(built ?? "")?.[1];
+  assert.ok(upcoming !== undefined && upcomingDot !== undefined && builtColour !== undefined, "the upcoming rules and the colour of built are found (false-green guard)");
+  const [building, buildingDot] = [rule(".c-pill--building"), rule(".c-pill--building::before")];
+  assert.ok(building !== undefined && buildingDot !== undefined, "no rule draws the building pill");
+  assert.notEqual(building, upcoming, "the building pill is drawn apart from the upcoming pill");
+  assert.notEqual(buildingDot, upcomingDot, "its dot is drawn apart from the upcoming dot");
+  for (const d of [building, buildingDot]) {
+    assert.doesNotMatch(d, /\bcontent\s*:/i, "the building rules write no content");
+    assert.ok(!d.includes(`var(${builtColour})`), `the building rules never take the colour of built (${builtColour})`);
+  }
+});
+
+// killer: scripts/assert-fleet-html.mjs:832 CONST ".toLowerCase();" -> ";"
+test("o2_reads_the_built_css_bundle_for_building — O-2 exports the reader it runs over every .css file next build ships, the CSS of the site and of the packages it imports: a content declaration or a custom property declaration that spells building, its CSS escapes decoded, in any case of its value and of its name, is found, read over the whole value and over its strings alone (a function between them may draw nothing), its name escaped, a comment before its colon or between its strings, a line continuation in its string or its string left open at the end of the text; a comment opener inside a string, an unquoted url() or an escape hides nothing, and a newline ends a string; an escape past U+10FFFF fails closed and names the file; an empty content and a variable are not, and adverse texts of 200 kB, many comments or many escapes are read in linear time (SITE-BUILDING-PILL-CSS-BUNDLE-1; the run on the built bundle is replayed from the g3-site run: lines)", async () => {
+  // Loaded here, not at the top: on a tree without the export this test reds by this assertion, not by the module load.
+  const checker = (await import("../scripts/assert-fleet-html.mjs")) as { cssContentSpelling?: (css: string, word: string, file?: string) => string[] };
+  assert.equal(typeof checker.cssContentSpelling, "function", "O-2 reads the built CSS bundle for building");
+  const spelling = checker.cssContentSpelling!;
+  assert.deepEqual(spelling('.a::before{content:"buil\\64 ing"}', "building"), ['"buil\\64 ing"'], "a spelling written with a CSS escape is found");
+  assert.deepEqual(spelling('.a::after{content:"BUILDING"}', "building"), ['"BUILDING"'], "a spelling in capitals is found");
+  // killer: scripts/assert-fleet-html.mjs:862 CONST "name?.s.toLowerCase()" -> "name?.s"
+  assert.deepEqual(spelling('.a::after{CONTENT:"building"}.b::after{Content:"building"}', "building"), ['"building"', '"building"'], "a property name in capitals is found: CSS reads it in any case");
+  // killer: scripts/assert-fleet-html.mjs:863 CONST "n2?.startsWith(\"--\")" -> "false"
+  assert.deepEqual(spelling('.a{--label:"building"}.a::before{content:var(--label)}', "building"), ['"building"'], "a custom property that spells building is found, whatever reads it");
+  // killer: scripts/assert-fleet-html.mjs:822 CONST "s += c;" -> "s += t[j + 1];"
+  assert.deepEqual(spelling('.a::before{cont\\65nt:"building"}', "building"), ['"building"'], "a property name written with a CSS escape is found");
+  // killer: scripts/assert-fleet-html.mjs:839 CONST "|| str >= d.sat" -> "|| false"
+  assert.deepEqual(spelling('.a::before{content:"buil" attr(data-none) "ding"}.b::before{content:"buil" counter(c, none) "ding"}', "building"), ['"buil" attr(data-none) "ding"', '"buil" counter(c, none) "ding"'], "two strings that spell building around a function that may draw nothing are found");
+  // killer: scripts/assert-fleet-html.mjs:844 CONST "t.startsWith(\"/*\", i)" -> "false"
+  assert.deepEqual([spelling('.a::before{content/* a */:"building"}', "building"), spelling('.b::before{content:"buil"/*"x"*/"ding"}', "building")], [['"building"'], ['"buil"/*"x"*/"ding"']], "a comment before the colon or between two strings, a quote inside it, hides nothing");
+  assert.deepEqual(spelling('.a::before{content:"buil\\\nding"}', "building"), ['"buil\\\nding"'], "a line continuation in a string is read through");
+  // killer: scripts/assert-fleet-html.mjs:821 CONST "t.startsWith(\"\\r\\n\", j + 1)" -> "false"
+  assert.deepEqual(spelling('.a::before{content:"buil\\\r\n;ding"}', "building"), ['"buil\\\r\n;ding"'], "a line continuation over a CR LF is one, and the ; after it stays in the string");
+  assert.deepEqual(spelling('.a::before{content:"building', "building"), ['"building'], "a string left open at the end of the text is read");
+  // killer: scripts/assert-fleet-html.mjs:847 CONST " && !isNl(t[k])" -> ""
+  assert.deepEqual(spelling(".a::before{content:'x\n}.b::before{content:'/* building */'}", "building"), ["'/* building */'"], "a newline no backslash escapes ends a string, as CSS reads it: the next rule is read, its string whole");
+  // killer: scripts/assert-fleet-html.mjs:852 CONST "t[j] === \"(\" && !hash && /^url$/i.test(s)" -> "false"
+  assert.deepEqual(spelling('.a{background:url(/*)}.b::before{content:"building"}/* */', "building"), ['"building"'], "a comment opener inside an unquoted url() opens no comment");
+  // killer: scripts/assert-fleet-html.mjs:811 CONST "t.startsWith(\"\\r\\n\", j + 1 + hex.length) ? 2 : " -> ""
+  // killer: scripts/assert-fleet-html.mjs:811 CONST "isWs(t[j + 1 + hex.length]) ? 1 : 0" -> "0"
+  assert.deepEqual(spelling('.a{b:u\\72 l(/*)}.c{b:u\\72\r\nl(/*)}.d::before{content:"building"}/* */', "building"), ['"building"'], "url written with an escape and the white space it takes, a space or a CR LF, is url");
+  // killer: scripts/assert-fleet-html.mjs:854 CONST "while (url && isWs(t[k])) k++;" -> ""
+  // killer: scripts/assert-fleet-html.mjs:855 CONST " || t[k] === '\"' || t[k] === \"'\"" -> ""
+  assert.deepEqual(spelling('.a{b:url( "x)")}.c::before{content/**/:"building"}', "building"), ['"building"'], "url( then white space and a quote is a function: its string is read as a string, a ) inside it ends nothing");
+  // killer: scripts/assert-fleet-html.mjs:872 CONST "c === \"#\" || c === \"@\"" -> "false"
+  assert.deepEqual(spelling('#url(.a::before{content/**/:"building"})', "building"), ['"building"'], "#url( is a hash, not a url(): the comment after it is a comment");
+  // killer: scripts/assert-fleet-html.mjs:850 CONST "isName(i) || escapes(i)" -> "isName(i)"
+  assert.deepEqual(spelling('.\\/*{}.a::before{content:"building"}/* */', "building"), ['"building"'], "an escaped slash opens no comment");
+  // killer: scripts/assert-fleet-html.mjs:813 CONST "c > 0x10ffff ?" -> "false ?"
+  assert.throws(() => spelling('.a::before{content:"\\110000"}', "building", "chunks/x.css"), { name: "Error", message: "assert-fleet-html: FAIL-CLOSED — chunks/x.css: the CSS escape \\110000 is past U+10FFFF" }, "an escape past U+10FFFF fails closed and names the file");
+  // Adverse texts: the reader of 72727449, one regular expression tried at each name, took 24 to 60 s on the four of 200 kB.
+  const adverse = [".x" + "\\61".repeat(28) + "{color:red}", ".a{content" + "/**/".repeat(10000) + " b}", ".a{" + "\\61\u00a0".repeat(24) + "}",
+    ".x" + "\\61 ".repeat(50000) + "{color:red}", ".a{" + "b:/* ".repeat(40000), ".a{" + 'b:"'.repeat(66667), "x:".repeat(100000)];
+  assert.ok(adverse.slice(3).every((a) => a.length >= 200000), "the four adverse texts of the control are of 200 kB at least (false-green guard)");
+  const t0 = performance.now();
+  assert.deepEqual(adverse.map((a) => spelling(a, "building")), adverse.map(() => []), "escapes, comments, open strings and colons that draw nothing are not declarations that spell building");
+  assert.ok(performance.now() - t0 < 500, "the seven adverse texts (840 kB in all) are read in linear time: each character a bounded number of times, no regular expression that backtracks");
+  assert.deepEqual(spelling('.c-pill::before{content:""}.b{content:var(--tw-content)}', "building"), [], "an empty content and a variable are not");
 });
 
 // Two pages render from fixtures/usde-calib-scores.json. Three conditions hold for them (decision of 2026-10-08): the render may read
