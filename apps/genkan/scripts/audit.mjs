@@ -9,6 +9,12 @@
 // inside them, the word private (a private theorem's name is mangled: no record names it, measured) and a theorem whose
 // full name is not plain (records.mjs refuses it as a root), an import other than Genkan and its plain modules; then any
 // lakefile.toml (any case), and a lakefile.lean whose sha256 (LF line ends) is not the pinned one.
+// The kernel's sources may name no effect but stdin and stdout. In every file but lakefile.lean it refuses a name whose
+// first component (read without guillemets, after a leading _root_) is IO, EIO, BaseIO, EST, ST or System, a name any of
+// whose components is timeit, allocprof, unsafeIO, unsafeEIO or unsafeBaseIO, the head println!, and a leading dot (a .
+// glued to the name after it and not glued after a term: it names a function through the expected type). Main.lean (its
+// name in any case) may write the four tokens IO, IO.getStdin, IO.getStdout and IO.FS.Stream, exactly so; there it refuses
+// open and namespace, and a main not declared `def main : IO UInt32` (a main with a binder reads the command line).
 // Words do not see every axiom (a tactic's config adds one with no word for it, measured): the records do. Read only from
 // --axioms-from (the `#print axioms` output records.mjs writes), they must name main and each theorem of
 // Genkan/Theorems.lean and Genkan/Vectors.lean (named through their namespaces), and every record must stay within
@@ -20,8 +26,8 @@
 //   node apps/genkan/scripts/audit.mjs [--kernel <dir>] [--axioms-from <file> | --source-only | --roots]
 //
 // Exit 0 with one stdout line `audit: ...` (the counts, then `(sources only)` under --source-only); 1 when anything is
-// found or refused, every finding printed on stderr as `audit: <file>:<line>: <what>`; 2 on a usage error or an
-// unreadable kernel dir or axioms file.
+// found or refused, every finding printed on stderr as `audit: <file>:<line>: <what>` (a file's by line, then by their
+// text); 2 on a usage error or an unreadable kernel dir or axioms file.
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
@@ -68,6 +74,21 @@ const DEBUG_FUNCTIONS = ["dbgTrace", "dbgTraceVal", "dbgTraceIfShared", "dbgStac
 const PANIC_FUNCTIONS = ["outOfBounds"];
 const PANIC_WORD = /panic/i;
 const PART_WORDS = new Set([...AXIOM_WORDS, ...DEBUG_FUNCTIONS, ...PANIC_FUNCTIONS]);
+// The monads of the pinned toolchain (Init/System/IO.lean l.39, l.62, l.140; ST.lean l.34, l.77) and System: a name that
+// opens with one of them reaches the world (stderr, files, processes, the clock, the environment). Refused as the first
+// component of a name, after a leading _root_; Main.lean alone may write MAIN_IO exactly so.
+const IO_HEADS = new Set("IO EIO BaseIO EST ST System".split(" "));
+const MAIN_IO = new Set("IO IO.getStdin IO.getStdout IO.FS.Stream".split(" "));
+// Init's names outside those namespaces that reach the world: timeit and allocprof read the clock and write on stderr
+// (Init/System/IO.lean l.215-220), the three unsafe ones run an action from pure code (l.188-208). Refused as any
+// component of a name, as the debugging functions are.
+const IO_WORDS = new Set("timeit allocprof unsafeIO unsafeEIO unsafeBaseIO".split(" "));
+// Init's println! writes IO.println with no IO token written; the panic rule exempts it as an interpolation head.
+const PRINTLN = "println!";
+// A leading dot is not refused when glued after a term: an identifier character, or one of these closers (a literal's
+// closing quote included). `.getStderr` against the expected type `IO _` is IO.getStderr with no IO token written.
+const TERM_ENDS = new Set([")", "]", "}", "⟩", "»", '"', "·"]);
+const MAIN_FORM = "main must be declared as def main : IO UInt32";
 // The # commands admitted: #check and #print only read the environment. #eval and #guard run code while the file is
 // elaborated (measured on #guard), #exit ends it, others wrap a command. The vector literal #v[ is a term, not a command.
 const HASH_COMMANDS = new Set(["check", "print"]);
@@ -301,6 +322,20 @@ function splitName(text) {
 /** A name component read as Lean reads it: a guillemet one as its content. */
 const unquote = (part) => (/^«.*»$/s.test(part) ? part.slice(1, -1) : part);
 
+/** Whether the character right before index i of `src` ends a term: an identifier character, or one of TERM_ENDS. */
+function endsTerm(src, i) {
+  if (i === 0) return false;
+  const low = src.charCodeAt(i - 1);
+  const c = low >= 0xdc00 && low <= 0xdfff && i >= 2 ? cp(src, i - 2) : low; // a character outside the BMP
+  return isIdRest(c) || TERM_ENDS.has(String.fromCodePoint(c));
+}
+
+/** Whether a declared name is main as Lean reads it: guillemets read as their content, a leading _root_ dropped. */
+function isMainName(text) {
+  const parts = splitName(text).map(unquote);
+  return (parts[0] === "_root_" ? parts.slice(1) : parts).join(".") === "main";
+}
+
 /** 1-based line of each index. */
 function lineIndex(src) {
   const starts = [0];
@@ -323,12 +358,19 @@ function lineIndex(src) {
 function auditFile(rel, src) {
   const { tokens, gluedAt, code } = lex(src);
   const lineOf = lineIndex(src);
-  const findings = new Set();
-  const add = (idx, what) => findings.add(`${rel}:${String(lineOf(idx))}: ${what}`);
+  const findings = new Map(); // each finding and its line: they are reported by line, then by their text
+  const add = (idx, what) => findings.set(`${rel}:${String(lineOf(idx))}: ${what}`, lineOf(idx));
+  const ioRules = rel !== "lakefile.lean"; // GENKAN-MAIN-IO-1, rules 1 to 4
+  const isMain = rel.toLowerCase() === "main.lean"; // rules 5 and 6, and the four exempt tokens
+  let mains = 0;
   for (let t = 0; t < tokens.length; t++) {
     const tok = tokens[t];
     const next = tokens[t + 1];
     if (tok.kind === "sym") {
+      // A leading dot: `.getStderr`, `x |>.succ`. After a term (`"ab".length`, `(n).succ`, `xs[0]?.getD`) it is a field.
+      if (ioRules && tok.text === "." && next?.kind === "id" && next.start === tok.start + 1 && !endsTerm(src, tok.start)) {
+        add(tok.start, `leading dot .${next.text} refused`);
+      }
       if (tok.text === "#" && next?.kind === "id" && next.start === tok.start + 1 && !HASH_COMMANDS.has(next.text)) {
         const after = tokens[t + 2];
         const vector = next.text === "v" && after?.text === "[" && after.start === next.start + 1;
@@ -344,7 +386,24 @@ function auditFile(rel, src) {
     const commandWord = prev?.kind === "sym" && prev.text === "#" && prev.start === tok.start - 1; // judged by the # rule
     const panic = parts.find((p) => p.includes("!") || PANIC_WORD.test(p));
     if (panic !== undefined && !BANG_HEADS.has(tok.text) && !commandWord) add(tok.start, `banned ${panic}`);
+    if (ioRules) {
+      // Rules 1 and 2: a name that reaches the world, one finding per token. Rule 3: println!.
+      const head = parts[0] === "_root_" ? parts[1] : parts[0];
+      const exempt = isMain && MAIN_IO.has(tok.text);
+      if ((IO_HEADS.has(head) && !exempt) || parts.some((p) => IO_WORDS.has(p))) add(tok.start, `io name ${tok.text} refused`);
+      if (tok.text === PRINTLN) add(tok.start, `io name ${PRINTLN} refused`);
+    }
+    if (isMain && tok.text === "def" && next?.kind === "id" && isMainName(next.text)) {
+      // Rule 6: the form of main, read on tokens (`:=` is two symbols, the `=` glued to the `:`).
+      mains++;
+      const [colon, io, u32, assign, eq] = tokens.slice(t + 2, t + 7);
+      const form = colon?.text === ":" && io?.kind === "id" && io.text === "IO" && u32?.kind === "id" && u32.text === "UInt32" &&
+        assign?.text === ":" && eq?.text === "=" && eq.start === assign.start + 1;
+      if (!form) add(next.start, MAIN_FORM);
+    }
     if (tok.parts !== 1) continue;
+    // Rule 5: in Main.lean, `open IO` would make getStderr name IO.getStderr, the token IO being admitted there.
+    if (isMain && (tok.text === "open" || tok.text === "namespace")) add(tok.start, `io ${tok.text} refused`);
     const word = unquote(tok.text); // Lean applies `@[«implemented_by» g]`
     if (BANNED.has(word)) add(tok.start, `banned ${word}`);
     if (word === "theorem" && !THEOREM_FILES.has(rel)) add(tok.start, "banned theorem");
@@ -353,11 +412,13 @@ function auditFile(rel, src) {
       if (!GENKAN_MODULE.test(next.text)) add(tok.start, `foreign import ${next.text}`);
     }
   }
+  if (isMain && mains === 0) add(0, MAIN_FORM); // no `def main` at all: line 1
   for (const [k, opener] of gluedAt) add(k, `glued ${opener}`);
   for (let k = code.indexOf("skipKernelTC"); k !== -1; k = code.indexOf("skipKernelTC", k + 1)) add(k, "banned skipKernelTC");
   const theorems = THEOREM_FILES.has(rel) ? theoremNames(tokens, lineOf) : [];
   for (const { name, start } of theorems) if (!NAME.test(name)) add(start, `theorem name ${name} is not plain`);
-  return { findings: [...findings], theorems: theorems.map((th) => th.name) };
+  const sorted = [...findings].sort(([x, lx], [y, ly]) => lx - ly || (x < y ? -1 : x > y ? 1 : 0)).map(([f]) => f);
+  return { findings: sorted, theorems: theorems.map((th) => th.name) };
 }
 
 /** Full names of the `theorem` declarations, through namespace, section, mutual and end, each with its keyword's index. */
