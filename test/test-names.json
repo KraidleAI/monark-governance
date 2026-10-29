@@ -1747,6 +1747,27 @@
   "s2_predictors_wired",
   "s2_report_reproducible"
  ],
+ "packages/hikae/test/suivi-detector.test.ts": [
+  "detector_alarm_sticky",
+  "detector_parity_per_path",
+  "detector_pfa_control",
+  "detector_restart_supermartingale",
+  "detector_sr_reading_expectation",
+  "detector_sr_reading_false_alarm_before_h_mc",
+  "detector_sr_reading_never_acts",
+  "detector_state_invariants_refused"
+ ],
+ "packages/hikae/test/suivi-library.test.ts": [
+  "detector_reads_only_labels",
+  "m1_bound_each_step",
+  "m1_inputs_refused",
+  "m1_reuses_imocp_step",
+  "m1_telescoping_identity",
+  "raw_rate_parity_l2_monitor",
+  "suivi_alarm_composition_precedence",
+  "suivi_in_sample_replay_library",
+  "tracker_step_size_rejects_nonpositive"
+ ],
  "packages/hikae/test/suivi-mc.test.ts": [
   "o4_dependent_negative_witness",
   "o4_dependent_null_family",
