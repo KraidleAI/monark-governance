@@ -61,6 +61,7 @@ const GENKAN_SOURCES = [
   "apps/genkan/kernel/lakefile.lean",
   "apps/genkan/kernel/Main.lean",
   "apps/genkan/scripts/lake.mjs",
+  "apps/genkan/scripts/audit.mjs",
 ];
 const LAKE_SEEDS = ["apps/genkan/kernel/.lake/build/bin/genkan-kernel", "apps/genkan/kernel/.lake/packages/x/y.lean"];
 

@@ -86,11 +86,11 @@ test("bell_handoff_permissions_on_linux", { skip: SKIP }, () => {
 // of the run (the oracle's bash on Windows, as in scripts/oracle/run.mjs), is green only when the named test passes, nothing skips and npm exits 0.
 const RUN_AS_ROOT = 'sudo env "PATH=$PATH" npm run test:handoff-perms';
 const BASH = process.platform === "win32" ? join(execFileSync("git", ["--exec-path"], { encoding: "utf8" }).trim(), "..", "..", "..", "bin", "bash.exe") : "bash";
-// killer: .github/workflows/ci.yml:400 CONST "\"$SKIP\" == \"0\"" -> "\"$SKIP\" == \"$SKIP\""
-// killer: .github/workflows/ci.yml:400 CONST "\"${STATUS:-0}\" == \"0\" && " -> ""
-// killer: .github/workflows/ci.yml:400 CONST "^[1-9][0-9]*$" -> "^[0-9]+$"
-// killer: .github/workflows/ci.yml:400 CONST " && grep -qx \"ok 1 - bell_handoff_permissions_on_linux\" handoff-perms.tap" -> ""
-// killer: .github/workflows/ci.yml:395 CONST "sudo env \"PATH=$PATH\" " -> ""
+// killer: .github/workflows/ci.yml:402 CONST "\"$SKIP\" == \"0\"" -> "\"$SKIP\" == \"$SKIP\""
+// killer: .github/workflows/ci.yml:402 CONST "\"${STATUS:-0}\" == \"0\" && " -> ""
+// killer: .github/workflows/ci.yml:402 CONST "^[1-9][0-9]*$" -> "^[0-9]+$"
+// killer: .github/workflows/ci.yml:402 CONST " && grep -qx \"ok 1 - bell_handoff_permissions_on_linux\" handoff-perms.tap" -> ""
+// killer: .github/workflows/ci.yml:397 CONST "sudo env \"PATH=$PATH\" " -> ""
 test("bell_handoff_job_is_green_only_on_a_pass_by_name_with_no_skip", () => {
   const ci = readFileSync(join(import.meta.dirname, "..", ".github", "workflows", "ci.yml"), "utf8").split(/\r?\n/), at = ci.findIndex((l) => l.trim().startsWith(RUN_AS_ROOT));
   assert.ok(at > 0 && /^\s+run: \|$/.test(ci[at - 1] ?? ""), "a run: block of the workflow opens with the run of the test as root");

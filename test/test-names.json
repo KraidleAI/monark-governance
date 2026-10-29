@@ -722,6 +722,11 @@
   "dojo_verify_url_equals_dir_on_the_same_tree",
   "dojo_verify_url_transport_is_the_bell_policy"
  ],
+ "apps/genkan/test/audit.test.ts": [
+  "audit_pins_lakefile",
+  "audit_refuses_banned_construct",
+  "audit_refuses_foreign_axiom"
+ ],
  "apps/genkan/test/export.test.ts": [
   "export_omits_lake_build"
  ],
