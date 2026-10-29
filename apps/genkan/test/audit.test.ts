@@ -1,8 +1,10 @@
 // GENKAN - the source audit of the kernel, driven as a subprocess. It lexes Lean the way the pinned toolchain does where
 // it matters (raw strings, char literals, guillemet names, interpolated strings, openers glued to code), refuses banned
-// constructs in code position, # commands other than #check and #print, foreign imports, an unpinned lakefile, and a record
-// of main or of a theorem whose axiom closure leaves {propext, Classical.choice, Quot.sound}; given records, main must have
-// one. Every case runs in a temporary tree under os.tmpdir(); axiom records come only from a file.
+// constructs in code position, # commands other than #check and #print, foreign imports, an unpinned lakefile, the word
+// private in the theorem files, and a record of main or of a theorem whose axiom closure leaves {propext, Classical.choice,
+// Quot.sound}; main and each theorem must have a record unless --source-only asks for the source rules only, and --roots
+// prints the roots whose records are asked for. Every case runs in a temporary tree under os.tmpdir(); axiom records come
+// only from a file.
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -180,7 +182,7 @@ const DEBUG_FUNCTIONS = ["dbgTrace", "dbgTraceVal", "dbgTraceIfShared", "dbgStac
 const NAMED_HEADS = ["throwNamedError", "throwNamedErrorAt", "logNamedError", "logNamedErrorAt", "logNamedWarning", "logNamedWarningAt"];
 const HASH_REFUSED = ["#guard true", "#guard_msgs in #check 1", "#reduce 1", "#exit", "#synth Inhabited Nat", "#check_failure 1", "#time #check 1", "#where"];
 
-// killer: apps/genkan/scripts/audit.mjs:190 COR "i === 0 || WHITE" -> "i === 0 && WHITE"
+// killer: apps/genkan/scripts/audit.mjs:198 COR "i === 0 || WHITE" -> "i === 0 && WHITE"
 test("audit_refuses_banned_construct", () => {
   // (1) Each finding at its exact line. The header block comment spans two lines (line numbers are kept) and the line
   // comment holds a block opener (it opens nothing). The `sorry` lines from `def q` on each defeat a naive lexer: a char
@@ -364,7 +366,7 @@ test("audit_refuses_banned_construct", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:454 ROR "sha !== LAKEFILE_SHA256" -> "sha === LAKEFILE_SHA256"
+// killer: apps/genkan/scripts/audit.mjs:468 ROR "sha !== LAKEFILE_SHA256" -> "sha === LAKEFILE_SHA256"
 test("audit_pins_lakefile", () => {
   // The real lakefile next to the scripts is the pinned one: its copy passes, with LF or CRLF line ends.
   const realPath = join(KERNEL_DIR, "lakefile.lean");
@@ -397,7 +399,9 @@ test("audit_pins_lakefile", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:352 CONST "name?.length ?? 1" -> "name?.length ?? 0"
+// killer: apps/genkan/scripts/audit.mjs:361 CONST "name?.length ?? 1" -> "name?.length ?? 0"
+// killer: apps/genkan/scripts/audit.mjs:485 CONST "if (!records.has(\"main\")) out.push(\"main: no axiom record\");" -> "if (false) out.push(\"main: no axiom record\");"
+// killer: apps/genkan/scripts/audit.mjs:483 SDL "  for (const { name } of theorems) if (!records.has(name)) out.push(`${name}: no axiom record`);" -> ""
 test("audit_refuses_foreign_axiom", () => {
   const kernel = makeKernel({
     "Genkan/Theorems.lean": ["namespace Genkan", "theorem a : True := trivial", "theorem b : True := trivial", "end Genkan", ""].join("\n"),
@@ -470,14 +474,16 @@ test("audit_refuses_foreign_axiom", () => {
   assert.equal(r6.status, 1, `a dropped record must fail the audit\n${show(r6)}`);
   assert.deepEqual(refusals(r6), ["audit: Genkan.after: no axiom record"], `the dropped record's theorem is named\n${show(r6)}`);
 
-  // (7) Without --axioms-from there are no records (Lean never runs): a declared theorem is refused, a kernel without
-  // theorems passes.
+  // (7) Bare (neither --axioms-from nor --source-only), records are required and none is given (Lean never runs): main and
+  // each declared theorem are refused for want of a record, and a kernel without theorems fails too, on main's.
   const one = makeKernel({ "Genkan/Theorems.lean": ["namespace Genkan", "theorem a : True := trivial", "end Genkan", ""].join("\n") });
   const r7 = run(AUDIT_MJS, ["--kernel", one], { ...process.env });
   assert.equal(r7.status, 1, `no records: a declared theorem must fail the audit\n${show(r7)}`);
-  assert.deepEqual(refusals(r7), ["audit: Genkan.a: no axiom record"], `the theorem without a record is named\n${show(r7)}`);
+  assert.deepEqual(refusals(r7), ["audit: Genkan.a: no axiom record", "audit: main: no axiom record"], `the theorem and main, each without a record, are named\n${show(r7)}`);
   const mainOnly = makeKernel({ "Main.lean": "def main : IO Unit := pure ()\n" });
-  assertAuditPasses(run(AUDIT_MJS, ["--kernel", mainOnly], { ...process.env }), "no records, no theorem");
+  const r7b = run(AUDIT_MJS, ["--kernel", mainOnly], { ...process.env });
+  assert.equal(r7b.status, 1, `no records, no theorem: main's missing record must fail the audit\n${show(r7b)}`);
+  assert.deepEqual(linesOf(r7b.stderr), ["audit: main: no axiom record"], `main without a record is named, and only it\n${show(r7b)}`);
 
   // (8) Usage errors exit 2: an unknown flag, a missing axioms file, a missing kernel dir.
   const rec = recordsFor(["Genkan.a"]);
@@ -500,4 +506,172 @@ test("audit_refuses_foreign_axiom", () => {
   assert.equal(r9b.status, 1, `a foreign axiom in main's record must fail the audit\n${show(r9b)}`);
   assert.deepEqual(refusals(r9b), ["audit: main: foreign axiom big2._native.decide.ax_1"], `the axiom is named\n${show(r9b)}`);
   assertAuditPasses(audit(mainOnly, axiomsFile("'main' depends on axioms: [propext, Quot.sound]\n")), "main within the admitted axioms");
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+// killer: apps/genkan/scripts/audit.mjs:417 CONST "[KERNEL_FLAG, AXIOMS_FLAG, SOURCE_FLAG, ROOTS_FLAG].includes(flag)" -> "[KERNEL_FLAG, AXIOMS_FLAG, SOURCE_FLAG].includes(flag)"
+// killer: apps/genkan/scripts/audit.mjs:420 SDL "  if (flag === SOURCE_FLAG || flag === ROOTS_FLAG) continue; // no value" -> ""
+// killer: apps/genkan/scripts/audit.mjs:426 CONST ".filter((f) => seen.has(f)).length > 1)" -> ".filter((f) => seen.has(f)).length > 2)"
+// killer: apps/genkan/scripts/audit.mjs:475 CONST "[{ module: \"Main\", name: \"main\" }, ...theorems]" -> "[...theorems]"
+// killer: apps/genkan/scripts/audit.mjs:465 CONST ".split(\"/\").join(\".\")" -> ".split(\"/\").join(\"/\")"
+// killer: apps/genkan/scripts/audit.mjs:476 SDL "  process.exit(0);" -> ""
+// killer: apps/genkan/scripts/audit.mjs:479 CONST "if (!sourceOnly) {" -> "if (true) {"
+// killer: apps/genkan/scripts/audit.mjs:493 CONST "sourceOnly ? \" (sources only)\" : \"\"" -> "\"\""
+test("audit_modes_source_only_and_roots", () => {
+  const env = { ...process.env };
+  const MAIN = "def main : IO UInt32 := pure 3\n";
+  const theorems = [
+    "namespace Genkan",
+    "theorem a : True := trivial",
+    "namespace Inner",
+    "theorem c : True := trivial",
+    "end Inner",
+    "theorem b : True := trivial",
+    "end Genkan",
+    "",
+  ].join("\n");
+  const vectors = ["namespace Genkan", "theorem v : True := trivial", "end Genkan", ""].join("\n");
+  const full = makeKernel({ "Main.lean": MAIN, "Genkan/Theorems.lean": theorems, "Genkan/Vectors.lean": vectors });
+
+  // (1) --source-only: the source rules only, no record read or required, its own success line; --kernel combines with it
+  // in either order.
+  for (const args of [["--kernel", full, "--source-only"], ["--source-only", "--kernel", full]]) {
+    const s = run(AUDIT_MJS, args, env);
+    assertAuditPasses(s, `${args.join(" ")}: a kernel with theorems and no records`);
+    assert.deepEqual(linesOf(s.stdout), ["audit: 3 Lean files, 4 theorems, no finding (sources only)"], `the success line of the sources only\n${show(s)}`);
+  }
+
+  // (2) --source-only still fails on a source finding, with the same finding line, and asks for no record.
+  const dirty = makeKernel({ "Main.lean": "def main : IO UInt32 := pure (UInt32.ofNat sorry)\n", "Genkan/Theorems.lean": theorems });
+  const s2 = run(AUDIT_MJS, ["--kernel", dirty, "--source-only"], env);
+  assert.equal(s2.status, 1, `--source-only: a source finding must fail the audit\n${show(s2)}`);
+  assert.deepEqual(linesOf(s2.stderr), ["audit: Main.lean:1: banned sorry"], `the finding, and no record asked for\n${show(s2)}`);
+  assert.deepEqual(linesOf(s2.stdout), [], `no success line\n${show(s2)}`);
+
+  // (3) Usage errors, exit 2, in their form (`audit: <msg>` then the usage line): two modes or three, in either order; a flag
+  // given twice; a word after a valueless flag, an unknown argument.
+  const rec = recordsFor(["Genkan.a", "Genkan.Inner.c", "Genkan.b", "Genkan.v"]);
+  const usage: [string, string[], string | null][] = [
+    ["--axioms-from then --source-only", ["--axioms-from", rec, "--source-only"], null],
+    ["--source-only then --axioms-from", ["--source-only", "--axioms-from", rec], null],
+    ["--axioms-from then --roots", ["--axioms-from", rec, "--roots"], null],
+    ["--roots then --axioms-from", ["--roots", "--axioms-from", rec], null],
+    ["--source-only then --roots", ["--source-only", "--roots"], null],
+    ["--roots then --source-only", ["--roots", "--source-only"], null],
+    ["the three modes", ["--axioms-from", rec, "--source-only", "--roots"], null],
+    ["--source-only twice", ["--source-only", "--source-only"], null],
+    ["--roots twice", ["--roots", "--roots"], null],
+    ["--axioms-from twice", ["--axioms-from", rec, "--axioms-from", rec], null],
+    ["--kernel twice", ["--kernel", full, "--source-only"], null],
+    ["a word after --source-only", ["--source-only", "x"], "audit: unknown argument x"],
+    ["a word after --roots", ["--roots", "x"], "audit: unknown argument x"],
+  ];
+  for (const [what, args, first] of usage) {
+    const u = run(AUDIT_MJS, ["--kernel", full, ...args], env);
+    assert.equal(u.status, 2, `${what} is a usage error\n${show(u)}`);
+    const lines = linesOf(u.stderr);
+    assert.equal(lines.length, 2, `${what}: two stderr lines, the message then the usage line\n${show(u)}`);
+    assert.ok(lines[0]!.startsWith("audit: ") && lines[1]!.startsWith("audit: usage: "), `${what}: the usage form\n${show(u)}`);
+    if (first !== null) assert.equal(lines[0], first, `${what}: the word is an unknown argument\n${show(u)}`);
+    else assert.doesNotMatch(lines[0]!, /^audit: unknown argument/, `${what}: each flag is known, the usage error is another one\n${show(u)}`);
+    if (what.endsWith("twice")) assert.match(lines[0]!, /given twice/, `${what}: the message says the flag is given twice\n${show(u)}`);
+    assert.deepEqual(linesOf(u.stdout), [], `${what}: nothing on stdout\n${show(u)}`);
+  }
+
+  // (4) Bare: records are required and none is given. A kernel without theorems fails on main's record; one with theorems
+  // names main and each of them, with the source findings.
+  const mainOnly = makeKernel({ "Main.lean": MAIN });
+  const b1 = run(AUDIT_MJS, ["--kernel", mainOnly], env);
+  assert.equal(b1.status, 1, `bare, no theorem: main's missing record must fail the audit\n${show(b1)}`);
+  assert.deepEqual(linesOf(b1.stderr), ["audit: main: no axiom record"], `main is named, and only it\n${show(b1)}`);
+  const b2 = run(AUDIT_MJS, ["--kernel", dirty], env);
+  assert.equal(b2.status, 1, `bare, theorems and a source finding: the audit fails\n${show(b2)}`);
+  assert.deepEqual(positioned(b2), ["audit: Main.lean:1: banned sorry"], `the source finding is reported\n${show(b2)}`);
+  assert.deepEqual(
+    refusals(b2),
+    ["audit: Genkan.a: no axiom record", "audit: Genkan.Inner.c: no axiom record", "audit: Genkan.b: no axiom record", "audit: main: no axiom record"].sort(),
+    `main and each theorem, each without a record\n${show(b2)}`,
+  );
+
+  // (5) --roots: `Main main` first (the walk reads Genkan/ before Main.lean), then each theorem file in walk order, each
+  // theorem in declaration order with its full name; exit 0, nothing on stderr, whatever the findings: a banned word in
+  // Main.lean, a theorem outside the theorem files (not a root), a lakefile.toml.
+  const findings = makeKernel({
+    "Main.lean": "def main : IO UInt32 := pure (UInt32.ofNat sorry)\n",
+    "Genkan/Theorems.lean": theorems,
+    "Genkan/Vectors.lean": vectors,
+    "Genkan/Judge.lean": "theorem j : True := trivial\n",
+    "lakefile.toml": 'name = "genkan"\n',
+  });
+  const ROOTS = ["Main main", "Genkan.Theorems Genkan.a", "Genkan.Theorems Genkan.Inner.c", "Genkan.Theorems Genkan.b", "Genkan.Vectors Genkan.v"];
+  const roots = (kernel: string, want: string[], what: string): void => {
+    for (const args of [["--kernel", kernel, "--roots"], ["--roots", "--kernel", kernel]]) {
+      const r = run(AUDIT_MJS, args, env);
+      assert.equal(r.status, 0, `${what}: --roots exits 0\n${show(r)}`);
+      assert.equal(String(r.stdout), want.map((l) => `${l}\n`).join(""), `${what}: the roots, one line each, in order\n${show(r)}`);
+      assert.equal(String(r.stderr), "", `${what}: nothing on stderr, no finding printed\n${show(r)}`);
+    }
+  };
+  roots(findings, ROOTS, "Main, Theorems, Vectors and findings");
+  // Non-vacuity: the same kernel holds findings the audit reports.
+  const f = run(AUDIT_MJS, ["--kernel", findings, "--source-only"], env);
+  assert.equal(f.status, 1, `the kernel of --roots holds findings\n${show(f)}`);
+  roots(makeKernel({ "Genkan/Theorems.lean": theorems, "Genkan/Vectors.lean": vectors }), ROOTS, "no Main.lean");
+  roots(makeKernel({ "Main.lean": MAIN, "Genkan/Judge.lean": "def j : Nat := 0\n" }), ["Main main"], "no theorem file");
+  roots(makeKernel({ "Genkan/Judge.lean": "def j : Nat := 0\n" }), ["Main main"], "neither Main.lean nor a theorem file");
+  const missing = run(AUDIT_MJS, ["--roots", "--kernel", join(TMP, "no-such-kernel")], env);
+  assert.equal(missing.status, 2, `--roots on an unreadable kernel dir is a usage error\n${show(missing)}`);
+
+  // (6) A protected theorem keeps its full name (measured: `#print axioms Genkan.guarded` finds it): a root, and admitted
+  // by the source rules.
+  const guarded = makeKernel({ "Genkan/Theorems.lean": ["namespace Genkan", "protected theorem guarded : True := trivial", "end Genkan", ""].join("\n") });
+  roots(guarded, ["Main main", "Genkan.Theorems Genkan.guarded"], "a protected theorem");
+  const g = run(AUDIT_MJS, ["--kernel", guarded, "--source-only"], env);
+  assertAuditPasses(g, "a protected theorem, sources only");
+  assert.deepEqual(linesOf(g.stdout), ["audit: 1 Lean files, 1 theorems, no finding (sources only)"], `the protected theorem is counted\n${show(g)}`);
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+// killer: apps/genkan/scripts/audit.mjs:331 CONST "if (word === \"private\" && THEOREM_FILES.has(rel))" -> "if (false && THEOREM_FILES.has(rel))"
+// killer: apps/genkan/scripts/audit.mjs:331 COR "word === \"private\" && THEOREM_FILES.has(rel)" -> "word === \"private\""
+test("audit_refuses_private_in_theorem_files", () => {
+  // A private theorem gets a mangled name that `#print axioms` does not find under its written one (measured): in the two
+  // theorem files the word private is refused, as a whole single-component name in code position, read through
+  // guillemets. Elsewhere, in a comment, in a string, as a part of a longer name or as a dotted component it is not;
+  // protected is admitted.
+  const theorems = [
+    "namespace Genkan",
+    "private theorem p1 : True := trivial",
+    "private nonrec theorem p2 : True := trivial",
+    "private def p3 : Nat := 0",
+    "«private» def p4 : Nat := 0",
+    "protected theorem guarded : True := trivial",
+    "-- private theorem ghost : True := trivial",
+    "/- private def ghost2 : Nat := 0 -/",
+    'def s : String := "private"',
+    "def privately : Nat := 0",
+    "def k : Nat := Foo.«private»",
+    "end Genkan",
+    "",
+  ];
+  const vectors = ["namespace Genkan", "private theorem pv : True := trivial", "end Genkan", ""];
+  const elsewhere = {
+    "Main.lean": "private def helper : Nat := 0\ndef main : IO UInt32 := pure 3\n",
+    "Genkan/Judge.lean": "private def j : Nat := 0\n",
+  };
+  const rec = recordsFor(["Genkan.p1", "Genkan.p2", "Genkan.guarded", "Genkan.pv"]);
+  const r = audit(makeKernel({ ...elsewhere, "Genkan/Theorems.lean": theorems.join("\n"), "Genkan/Vectors.lean": vectors.join("\n") }), rec);
+  assert.equal(r.status, 1, `private in a theorem file must fail the audit\n${show(r)}`);
+  const expected = [2, 3, 4, 5].map((l) => `audit: Genkan/Theorems.lean:${String(l)}: banned private`);
+  expected.push("audit: Genkan/Vectors.lean:2: banned private");
+  assert.deepEqual(positioned(r), expected.sort(), `each private of the theorem files at its line, and only those\n${show(r)}`);
+  assert.deepEqual(refusals(r), [], `every theorem has its record: the findings are the source ones\n${show(r)}`);
+
+  // Control: the same kernel without the private lines of the theorem files passes; private stays in Main.lean, in another
+  // file, in a comment and in a string.
+  const clean = theorems.filter((l) => !/^(?:private|«private»)/.test(l)).join("\n");
+  const c = audit(makeKernel({ ...elsewhere, "Genkan/Theorems.lean": clean, "Genkan/Vectors.lean": "namespace Genkan\nend Genkan\n" }), rec);
+  assertAuditPasses(c, "private outside the theorem files, in a comment and in a string; protected");
 });

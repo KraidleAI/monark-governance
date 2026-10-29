@@ -4,17 +4,21 @@
 // guillemet names, the code parts of interpolated strings), and refuses, in code position only: an opener of those glued
 // to a character (not after white space), a banned word as a whole single-component name (a guillemet name read as its
 // content), a foreign axiom or a debugging function of Init as any component of a name, a # command other than #check
-// and #print, any skipKernelTC, a theorem outside the two theorem files, an import other than Genkan and its plain
-// modules; then any lakefile.toml (any case), and a lakefile.lean whose sha256 (LF line ends) is not the pinned one.
+// and #print, any skipKernelTC, a theorem outside the two theorem files and the word private inside them (a private
+// theorem's name is mangled: no record names it, measured), an import other than Genkan and its plain modules; then any
+// lakefile.toml (any case), and a lakefile.lean whose sha256 (LF line ends) is not the pinned one.
 // Words do not see every axiom (a tactic's config adds one with no word for it, measured): the records do. Read only from
-// --axioms-from (the `#print axioms` output), they must name main and each theorem of Genkan/Theorems.lean and
-// Genkan/Vectors.lean (named through their namespaces), and every record must stay within {propext, Classical.choice,
-// Quot.sound}.
+// --axioms-from (the `#print axioms` output records.mjs writes), they must name main and each theorem of
+// Genkan/Theorems.lean and Genkan/Vectors.lean (named through their namespaces), and every record must stay within
+// {propext, Classical.choice, Quot.sound}; bare, no record is given, so main has none and the audit fails. --source-only
+// judges the sources alone (CI runs it before any Lean runs). --roots prints the roots whose records are due, one line
+// `<module> <name>` each, `Main main` first, and exits 0 whatever the sources hold.
 //
-//   node apps/genkan/scripts/audit.mjs [--kernel <dir>] [--axioms-from <file>]
+//   node apps/genkan/scripts/audit.mjs [--kernel <dir>] [--axioms-from <file> | --source-only | --roots]
 //
-// Exit 0 with one stdout line `audit: ...` (the counts); 1 when anything is found or refused, every finding printed on
-// stderr as `audit: <file>:<line>: <what>`; 2 on a usage error or an unreadable kernel dir or axioms file.
+// Exit 0 with one stdout line `audit: ...` (the counts, then `(sources only)` under --source-only); 1 when anything is
+// found or refused, every finding printed on stderr as `audit: <file>:<line>: <what>`; 2 on a usage error or an
+// unreadable kernel dir or axioms file.
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
@@ -74,12 +78,16 @@ const KEYWORDS = new Set(
 const IMPORT_WORD = "import";
 const KERNEL_FLAG = "--kernel";
 const AXIOMS_FLAG = "--axioms-from";
+const SOURCE_FLAG = "--source-only";
+const ROOTS_FLAG = "--roots";
 const CHAR_LIT = /'(?:\\(?:x[0-9a-fA-F]{2}|u\{[0-9a-fA-F]+\}|.)|[^\\'\n])'/uy;
 const UNICODE_ESCAPE = /u\{[0-9a-fA-F]+\}/y;
 const WHITE = new Set([" ", "\t", "\r", "\n"]);
 
 function usage(msg) {
-  process.stderr.write(`audit: ${msg}\naudit: usage: node apps/genkan/scripts/audit.mjs [--kernel <dir>] [--axioms-from <file>]\n`);
+  process.stderr.write(
+    `audit: ${msg}\naudit: usage: node apps/genkan/scripts/audit.mjs [--kernel <dir>] [--axioms-from <file> | --source-only | --roots]\n`,
+  );
   process.exit(2);
 }
 
@@ -320,6 +328,7 @@ function auditFile(rel, src) {
     const word = unquote(tok.text); // Lean applies `@[«implemented_by» g]`
     if (BANNED.has(word)) add(tok.start, `banned ${word}`);
     if (word === "theorem" && !THEOREM_FILES.has(rel)) add(tok.start, "banned theorem");
+    if (word === "private" && THEOREM_FILES.has(rel)) add(tok.start, "banned private");
     if (tok.text === IMPORT_WORD && rel !== "lakefile.lean" && next?.kind === "id") {
       if (!GENKAN_MODULE.test(next.text)) add(tok.start, `foreign import ${next.text}`);
     }
@@ -405,14 +414,19 @@ const seen = new Set();
 const argv = process.argv.slice(2);
 for (let k = 0; k < argv.length; k++) {
   const flag = argv[k];
-  if (flag !== KERNEL_FLAG && flag !== AXIOMS_FLAG) usage(`unknown argument ${flag}`);
+  if (![KERNEL_FLAG, AXIOMS_FLAG, SOURCE_FLAG, ROOTS_FLAG].includes(flag)) usage(`unknown argument ${flag}`);
   if (seen.has(flag)) usage(`${flag} given twice`);
   seen.add(flag);
+  if (flag === SOURCE_FLAG || flag === ROOTS_FLAG) continue; // no value
   const value = argv[++k];
   if (value === undefined || value === "") usage(`${flag} needs a value`);
   if (flag === KERNEL_FLAG) kernelDir = path.resolve(value);
   else axiomsFrom = path.resolve(value);
 }
+if ([AXIOMS_FLAG, SOURCE_FLAG, ROOTS_FLAG].filter((f) => seen.has(f)).length > 1) {
+  usage(`${AXIOMS_FLAG}, ${SOURCE_FLAG} and ${ROOTS_FLAG} exclude each other`);
+}
+const sourceOnly = seen.has(SOURCE_FLAG);
 
 const leanFiles = [];
 const tomls = [];
@@ -448,7 +462,7 @@ for (const f of leanFiles) {
   const src = orExit(() => readFileSync(f.abs, "utf8"), `kernel file ${f.rel}`);
   const r = auditFile(f.rel, src);
   out.push(...r.findings);
-  theorems.push(...r.theorems);
+  theorems.push(...r.theorems.map((name) => ({ module: f.rel.slice(0, -".lean".length).split("/").join("."), name })));
   if (f.rel === "lakefile.lean") {
     const sha = createHash("sha256").update(src.replace(/\r\n/g, "\n"), "utf8").digest("hex");
     if (sha !== LAKEFILE_SHA256) out.push(`lakefile.lean: differs from the pinned sha256 ${LAKEFILE_SHA256.slice(0, 12)}`);
@@ -456,15 +470,24 @@ for (const f of leanFiles) {
 }
 for (const rel of tomls) out.push(`${rel}: lakefile.toml refused`);
 
-const { records, refusals } = parseRecords(axiomsText);
-out.push(...refusals);
-for (const [name, axioms] of records) for (const a of axioms) if (!ADMITTED_AXIOMS.has(a)) out.push(`${name}: foreign axiom ${a}`);
-for (const name of theorems) if (!records.has(name)) out.push(`${name}: no axiom record`);
-// Given records, the program's root is among them: what main's value reaches is in its record.
-if (axiomsFrom !== undefined && !records.has("main")) out.push("main: no axiom record");
+// The roots whose records are due, for records.mjs: main, the program's root, then each theorem with its module.
+if (seen.has(ROOTS_FLAG)) {
+  process.stdout.write([{ module: "Main", name: "main" }, ...theorems].map((r) => `${r.module} ${r.name}\n`).join(""));
+  process.exit(0);
+}
+
+if (!sourceOnly) {
+  const { records, refusals } = parseRecords(axiomsText);
+  out.push(...refusals);
+  for (const [name, axioms] of records) for (const a of axioms) if (!ADMITTED_AXIOMS.has(a)) out.push(`${name}: foreign axiom ${a}`);
+  for (const { name } of theorems) if (!records.has(name)) out.push(`${name}: no axiom record`);
+  // The program's root is among the records: what main's value reaches is in its record. Bare, no record is given.
+  if (!records.has("main")) out.push("main: no axiom record");
+}
 
 if (out.length > 0) {
   for (const l of out) process.stderr.write(`audit: ${l}\n`);
   process.exit(1);
 }
-process.stdout.write(`audit: ${String(leanFiles.length)} Lean files, ${String(theorems.length)} theorems, no finding\n`);
+const counts = `${String(leanFiles.length)} Lean files, ${String(theorems.length)} theorems`;
+process.stdout.write(`audit: ${counts}, no finding${sourceOnly ? " (sources only)" : ""}\n`);
