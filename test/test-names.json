@@ -724,10 +724,14 @@
  ],
  "apps/genkan/test/audit.test.ts": [
   "audit_modes_source_only_and_roots",
+  "audit_name_rule_is_the_records_rule",
   "audit_pins_lakefile",
   "audit_refuses_banned_construct",
   "audit_refuses_foreign_axiom",
-  "audit_refuses_private_in_theorem_files"
+  "audit_refuses_panics_in_the_kernel",
+  "audit_refuses_private_in_theorem_files",
+  "audit_refuses_theorem_names_that_are_not_plain",
+  "audit_source_only_refuses_the_root_build_dir"
  ],
  "apps/genkan/test/export.test.ts": [
   "export_omits_lake_build"
