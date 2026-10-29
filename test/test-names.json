@@ -878,6 +878,14 @@
   "request_sha256_is_the_digest_of_the_received_envelope",
   "served_gate_body_validates_the_frozen_decision_schema"
  ],
+ "apps/harness/test/gate-support.test.ts": [
+  "calibration_calm_support_matches_recorder_and_provenance",
+  "committed_stable_run_entry_declares_calm_support",
+  "gate_description_states_calm_support",
+  "gate_usde_out_of_support_served_path",
+  "gate_usde_support_guard_edges",
+  "gate_usde_support_matches_adapter_stress_edge"
+ ],
  "apps/harness/test/gate.test.ts": [
   "calibration_declared_synthetic",
   "gate_attested_discordant_is_tool_error",
@@ -3465,6 +3473,20 @@
   "coinbase_candles_stops_pass_2_on_an_empty_page_that_holds_a_slot_of_its_month",
   "coinbase_candles_writes_a_page_that_serves_only_its_start_margin_and_older_candles",
   "coinbase_candles_writes_no_false_gap_under_eighteen_readings_of_eight_series"
+ ],
+ "test/record-h5-e2e-trace.test.ts": [
+  "record_h5_default_build_reproduces_the_committed_trace",
+  "record_h5_pins_its_manifest_entry",
+  "record_h5_postcondition_is_the_site_loader",
+  "record_h5_refusal_line_is_closed",
+  "record_h5_refuses_a_failed_build",
+  "record_h5_refuses_a_non_canonical_manifest",
+  "record_h5_refuses_an_unlisted_entry",
+  "record_h5_refuses_an_unreadable_manifest",
+  "record_h5_refuses_without_a_trace",
+  "record_h5_restores_on_a_failed_postcondition",
+  "record_h5_restores_on_a_failed_write",
+  "record_h5_runs_only_as_a_script"
  ],
  "test/record-usde-calib.test.ts": [
   "record q99 fail-closed — mutant n=99 => decidable (COMMITTABLE, not undecidable)",
