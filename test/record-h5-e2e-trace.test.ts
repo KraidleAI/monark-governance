@@ -22,6 +22,8 @@ const TRACE = "fixtures/h5-e2e-trace.json";
 const MANIFEST = "apps/site/data/manifest.sha256.json";
 const MAIN_LINE = "const MAIN = process.argv[1] !== undefined && pathToFileURL(process.argv[1]).href === import.meta.url;";
 const REFUSE_LINE = "writeSync(2, refusalLine(e));";
+const ROOT_LINE = 'await recordH5Trace(join(dirname(fileURLToPath(import.meta.url)), ".."));';
+const EXIT_LINE = "process.exit(1);";
 const CODES = ["manifest_unreadable", "trace_unreadable", "build_failed", "manifest_entry_unlisted", "manifest_not_canonical", "write_failed", "postcondition_failed"];
 const sha = (s: string): string => createHash("sha256").update(s.replace(/\r\n/g, "\n"), "utf8").digest("hex");
 const DECOY_A = sha("record-h5 decoy one"), DECOY_B = sha("record-h5 decoy two");
@@ -117,6 +119,8 @@ async function refusesReadOnly(r: Recorder, tmp: string, code: string, change?: 
 }
 
 // killer: scripts/record-h5-e2e-trace.mjs:27 CONST "= H5_TRACE_REL;" -> "= H5_TRACE_REL; console.log(H5_TRACE_REL);"
+// killer: scripts/record-h5-e2e-trace.mjs:100 CONST "\"..\"" -> "\".\""
+// killer: scripts/record-h5-e2e-trace.mjs:103 CONST "process.exit(1)" -> "process.exit(0)"
 test("record_h5_runs_only_as_a_script", async () => {
   const calls: unknown[][] = [], [log, error] = [console.log, console.error];
   let r: Recorder | undefined;
@@ -134,6 +138,9 @@ test("record_h5_runs_only_as_a_script", async () => {
   assert.deepEqual(r.REFUSALS, CODES, "the seven refusal codes, in order");
   assert.ok(Object.isFrozen(r.REFUSALS), "the refusal codes are frozen");
   for (const f of [r.pinnedManifest, r.recordH5Trace, r.refusalLine]) assert.equal(typeof f, "function");
+  const text = readFileSync(RECORDER_URL, "utf8");
+  assert.ok(text.includes(ROOT_LINE), "run as a script, the recorder records under the repository root, the parent of scripts/");
+  assert.ok(text.includes(EXIT_LINE), "run as a script, a refusal exits 1");
 });
 
 // killer: scripts/record-h5-e2e-trace.mjs:87 CONST "\"set\" : \"unchanged\"" -> "\"set\" : \"set\""
