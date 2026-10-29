@@ -2811,6 +2811,14 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     `assert-fleet-html.mjs` et à `/token`, puis un build et le contrôle sur une racine sans record ; environ 20 lignes et un build.
     Porteur : MONARK. Déclencheur : le prochain lot qui touche `scripts/assert-fleet-html.mjs` ou la page `/dojo`, au plus tard avant
     tout retrait du record servi (DJ-L193) ; état : ouvert.
+  - ORACLE-RUNNER-GATE-1 (G7 de #340, MONARK, 2026-10-29 00:4x UTC) : le premier G7 de #340, sur une première fusion jamais poussée
+    (`1bf83ee9`), était rouge parce que l'oracle local rejouait toutes les lignes `run:` de `ci.yml`, dont l'étape `curl` de
+    `g3-genkan` : sans `RUNNER_TEMP` sur l'hôte, sortie 23, rien d'écrit (enregistrement sha256 `98c630b9…`). `08991237` retire les six
+    étapes du runner par une entrée de `CI_ONLY` (`scripts/oracle/run.mjs` l.32), mais la liste reste tenue à la main : la prochaine
+    étape de CI qui lit l'environnement du runner ou le réseau serait rejouée de même. Construction : une règle de l'oracle qui refuse
+    une gate dont la commande nomme `$RUNNER_`, `$GITHUB_`, `${{` ou une URL `http(s)://` sans entrée `CI_ONLY` qui la retire, avec son
+    test et ses tueurs. Porteur : MONARK ; preuve de clôture : le test de la règle, rouge sans elle. Déclencheur : avant le lot 1b de
+    Genkan ; état : ouvert.
 
 ## Ce qui reste pour la page
 
