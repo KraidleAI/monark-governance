@@ -1743,6 +1743,27 @@
   "s2_predictors_wired",
   "s2_report_reproducible"
  ],
+ "packages/hikae/test/suivi-mc.test.ts": [
+  "o4_dependent_negative_witness",
+  "o4_dependent_null_family",
+  "o4_false_closure_mc",
+  "o4_false_licence_mc",
+  "o4_licence_median_bt_power",
+  "o4_power_k_licenses",
+  "o4_power_w_closes",
+  "o4_study_parity_per_path"
+ ],
+ "packages/hikae/test/suivi-o4.test.ts": [
+  "labels_enter_in_order",
+  "o4_alarm_closes_segment",
+  "o4_budget_nano_floor",
+  "o4_closure_returns_minus_one",
+  "o4_exact_dp_oracle",
+  "o4_state_invariants_refused",
+  "one_evaluation_per_horizon",
+  "suivi_policy_closed_and_canonical",
+  "suivi_purity_sweep"
+ ],
  "packages/hikae/test/tracker.test.ts": [
   "tracker_E_from_fact",
   "tracker_digest_order_sensitive",
