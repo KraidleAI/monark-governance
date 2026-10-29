@@ -80,6 +80,7 @@ export function trackerStepSize(t: number, params: TrackerParams): number {
   if (!Number.isFinite(eta)) {
     throw new Error(`trackerStepSize: non-finite step (t=${String(t)}, base=${String(base)}).`);
   }
+  if (eta <= 0) throw new Error(`trackerStepSize: non-positive step (t=${String(t)}, base=${String(base)}).`);
   return eta;
 }
 

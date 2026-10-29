@@ -162,10 +162,10 @@ function messageOf(f: () => unknown): string {
 }
 
 const SUIVI = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "suivi");
-const SUIVI_FILES = ["label.ts", "o4.ts", "policy.ts"];
+const SUIVI_FILES = ["detector.ts", "label.ts", "m1.ts", "o4.ts", "policy.ts"];
 const BANNED_NAMES = new Set(["fetch", "Date", "performance", "process", "globalThis", "setTimeout", "setInterval", "setImmediate",
   "queueMicrotask", "randomBytes", "randomInt", "randomUUID", "randomFill", "randomFillSync", "getRandomValues"]);
-const ADMITTED = new Set(["node:crypto", "@monark/contracts", "../pari/index.ts"]);
+const ADMITTED = new Set(["node:crypto", "@monark/contracts", "../pari/index.ts", "../l2-monitor.ts"]);
 /** A load that forbiddenLoads names; a specifier outside the closed list (a file of the folder by ./<file>.ts, ../pari/index.ts,
  *  @monark/contracts, node:crypto); an identifier of BANNED_NAMES anywhere; the member random of Math. */
 function impurities(text: string): string[] {
@@ -448,10 +448,11 @@ test("suivi_policy_closed_and_canonical", () => {
   assert.equal(crosses(q(9999n), srReadingDelta(FIX)), false, "9999 does not");
 });
 
-// killer: packages/hikae/src/suivi/policy.ts:14 CONST "\"../pari/index.ts\"" -> "\"../pari/../pari/index.ts\""
+// killer: packages/hikae/src/suivi/detector.ts:15 CONST "\"./label.ts\";" -> "\"./label.ts\"; import \"../l2-monitor.ts\";"
 test("suivi_purity_sweep", () => {
   assert.deepEqual(readdirSync(SUIVI).sort(), SUIVI_FILES, "the files of src/suivi/");
   for (const f of SUIVI_FILES) assert.deepEqual(impurities(readFileSync(join(SUIVI, f), "utf8")), [], `src/suivi/${f}`);
+  for (const f of SUIVI_FILES.filter((x) => x !== "m1.ts")) assert.ok(!importSpecifiers(readFileSync(join(SUIVI, f), "utf8")).includes("../l2-monitor.ts"), `src/suivi/${f}: no ../l2-monitor.ts`);
   const witnesses: readonly [string, string][] = [["import { readFileSync } from \"node:fs\";\nexport const r = readFileSync;\n", "node:fs"],
     ["export { srStep } from \"../pari/sr.ts\";\n", "../pari/sr.ts"], ["export { q } from \"../index.ts\";\n", "../index.ts"],
     ["export { x } from \"./absent.ts\";\n", "./absent.ts"], ["export const f = (): Promise<Response> => fetch(\"x\");\n", "fetch"],
