@@ -158,6 +158,7 @@
  "packages/hikae/test/l3.test.ts": 7,
  "packages/hikae/test/oracle-l1-split.test.ts": 6,
  "packages/hikae/test/oracle-l3-interval.test.ts": 4,
+ "packages/hikae/test/pari.test.ts": 8,
  "packages/hikae/test/region-predictor.test.ts": 4,
  "packages/hikae/test/risk-control-quantile.test.ts": 6,
  "packages/hikae/test/runs.test.ts": 5,
