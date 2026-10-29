@@ -2829,7 +2829,12 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     de `decide`, mesuré au lot 1b). Construction : après la construction du noyau, une étape écrit `#print axioms main` et une ligne par
     théorème des deux fichiers de théorèmes, et les donne à l'audit, en CI et en local, avec son test. Porteur : MONARK ; preuve de
     clôture : `g3-genkan` qui refuse un noyau dont seul l'enregistrement montre l'axiome, et le test de l'étape, rouge sans elle.
-    Déclencheur : avant le lot 2 de Genkan ; état : ouvert.
+    Déclencheur : avant le lot 2 de Genkan ; état : clos le 2026-10-29 par #346 (fusion `57f03e43`, G7 `9569f749…`) :
+    `apps/genkan/scripts/records.mjs` écrit l'enregistrement de `main` et de chaque théorème depuis le noyau construit, et `g3-genkan`
+    le donne à l'audit (`--axioms-from`) ; tests `records_kernel_refuses_the_planted_native_axiom` et
+    `records_kernel_passes_the_real_kernel` (sous Lean 4.32.1), et `records_writes_the_records_of_main_and_each_theorem`, rouges sans
+    l'étape. Écart à la preuve : le noyau planté porte aussi le mot `native` ; son refus par l'enregistrement est une ligne à elle, qui
+    fait échouer l'audit seule. Aucune forme sans mot banni n'est connue : item GENKAN-RECORD-ONLY-1.
   - GENKAN-PANIC-1 (G7 de #343, MONARK, 2026-10-29 03:5x UTC) : dans le code compilé, `panic!` et les accès qui paniquent (`get!`, `xs[i]!`)
     impriment un message et rendraient la valeur par défaut du type sans arrêter le programme, à mesurer sur la chaîne épinglée.
     Construction : la mesure, puis une règle de l'audit qui les refuse dans le noyau, ou un théorème qui prouve qu'ils ne sont pas
@@ -2837,6 +2842,22 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
   - GENKAN-MAIN-IO-1 (G7 de #343, MONARK, 2026-10-29 03:5x UTC) : `Main` ne doit lire que l'entrée standard et n'écrire que la sortie standard.
     Construction : une règle de l'audit qui refuse ailleurs dans le noyau `IO.Process`, `IO.FS` et le réseau, avec ses tests. Porteur :
     MONARK. Déclencheur : le lot 2 de Genkan, où `Main` lit sa première entrée ; état : ouvert.
+  - GENKAN-THEOREM-NAMES-1 (G7 de #346, MONARK, 2026-10-29 13:3x UTC) : `audit.mjs --source-only` passe un nom de théorème entre
+    guillemets dans un fichier de théorèmes. `records.mjs` le refuse avant que Lean ne tourne, et la CI échoue à l'étape des
+    enregistrements, mais la forme de l'audit (`Genkan.«a»`) n'est pas celle de l'enregistrement de Lean (`Genkan.a`, mesuré).
+    Construction : une règle de source qui refuse, dans les fichiers de théorèmes, un nom de théorème qui n'est pas simple, avec ses
+    tests. Porteur : MONARK. Déclencheur : avant le lot 2 de Genkan ; état : ouvert.
+  - GENKAN-RECORD-ONLY-1 (G7 de #346, MONARK, 2026-10-29 13:3x UTC) : chercher, sur la chaîne épinglée, une forme qui ajoute un
+    axiome étranger sans mot banni (tactiques d'`Init` et leurs configurations, attributs, instances, `deriving`, théorèmes d'`Init`
+    qui dépendent déjà d'un tel axiome). Si une forme est trouvée, l'audit gagne son mot, et le test du noyau la plante comme noyau
+    que seul l'enregistrement refuse. Porteur : MONARK. Déclencheur : la G2 de la partie 1 de Genkan ; état : ouvert.
+  - GUARD-ZONE-EXCLUSION-1 (trouvé par HIKAE à la revue de #345, MONARK, 2026-10-29 13:3x UTC) : la règle 32 de la garde de
+    l'atelier, qui refuse sur une branche de lot le commit d'un fichier qu'aucune rangée de `coordination/ZONES.md` de cette branche
+    ne nomme, compte comme nommé tout chemin de la rangée écrit entre accents graves, même placé dans une clause d'exclusion (« reste
+    hors de la zone »). Une règle naïve par clause casserait les rangées où la même clause porte l'inclusion d'une plage et
+    l'exclusion du reste du fichier. Construction : une lecture de la clause qui distingue les deux, avec un cas rouge sur une rangée
+    d'exclusion seule et un cas vert sur une rangée mixte. Porteur : MONARK. Déclencheur : le prochain changement de la garde ; état :
+    ouvert.
 
 ## Ce qui reste pour la page
 
