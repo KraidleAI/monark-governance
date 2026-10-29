@@ -169,6 +169,49 @@ test("oracle_ci_only_withdraws_the_runner_toolchain_steps_of_the_genkan_job — 
     `the skeleton's block is withdrawn, never the near miss that starts as it does: ${a.out}`);
 }));
 
+// Item ORACLE-RUNNER-GATE-1 (G7 of #340: the oracle replayed the curl step of g3-genkan, exit 23, RUNNER_TEMP unset on the host): a plain
+// gate that names the runner's environment, a workflow expression or a URL refuses the derivation (exit 2, no record) until a CI_ONLY entry
+// withdraws its step; near misses stay gates, and the real ci.yml derives, its runner steps withdrawn.
+// killer: scripts/oracle/run.mjs:133 CONST "else if (runner) throw" -> "else if (false) throw"
+// killer: scripts/oracle/run.mjs:133 CONST "names ${runner[1]}" -> "names it"
+// killer: scripts/oracle/run.mjs:130 CONST "runner = RUNNER_ONLY.find(([re]) => re.test(cmd))" -> "runner = RUNNER_ONLY.find(([re]) => re.test(cmd.split(\"\\n\")[0]))"
+// killer: scripts/oracle/run.mjs:33 CONST "[/\\$\\{?RUNNER_/, " -> "[/\\$RUNNER_/, "
+// killer: scripts/oracle/run.mjs:33 CONST "[/\\$\\{?RUNNER_/, " -> "[/\\{?RUNNER_/, "
+// killer: scripts/oracle/run.mjs:33 CONST "RUNNER_/, " -> "RUNNER/, "
+// killer: scripts/oracle/run.mjs:33 CONST "[/\\$\\{?GITHUB_/, " -> "[/\\$\\{GITHUB_/, "
+// killer: scripts/oracle/run.mjs:33 CONST "GITHUB_/, " -> "GITHUB/, "
+// killer: scripts/oracle/run.mjs:33 CONST "[/\\$\\{\\{/, " -> "[/\\$\\{\\{\\{/, "
+// killer: scripts/oracle/run.mjs:33 CONST "[/https?:\\/\\//, " -> "[/https:\\/\\//, "
+// killer: scripts/oracle/run.mjs:33 CONST "[/https?:\\/\\//, " -> "[/http:\\/\\//, "
+// killer: scripts/oracle/run.mjs:33 CONST "[/https?:\\/\\//, " -> "[/https?:\\//, "
+test("oracle_refuses_a_gate_that_names_the_runner_or_a_url — the runner's and the workflow's environment, a workflow expression, http and https each refuse the derivation, exit 2, no record; near misses stay gates and the real ci.yml derives", () => withFx((fx) => {
+  const ci = join(fx.repo, ".github", "workflows", "ci.yml"), own = readFileSync(ci, "utf8");
+  const refused: [string, string, string][] = [ // [the step, the first line the refusal names, what it names]
+    ['echo "$RUNNER_TEMP"', 'echo "$RUNNER_TEMP"', "the runner's environment"],
+    ['|\n          set -e\n          echo "${RUNNER_OS}"', "set -e", "the runner's environment"], // below the block's first line, braced
+    ["echo $GITHUB_SHA", "echo $GITHUB_SHA", "the workflow's environment"],
+    ["echo ${{ github.sha }}", "echo ${{ github.sha }}", "a workflow expression"],
+    ["curl -fsS http://example.org/a", "curl -fsS http://example.org/a", "a URL"],
+    ["curl -fsS https://example.org/a", "curl -fsS https://example.org/a", "a URL"],
+  ];
+  for (const [step, first, what] of refused) {
+    writeFileSync(ci, `${own}      - run: ${step}\n`);
+    git(fx.repo, "commit", "-qam", `a runner step: ${first}`);
+    const r = oracle(fx, ["--role", "G1", "--static-only"]);
+    assert.equal(r.status, 2, `${first}: the derivation is refused: ${r.out}`);
+    assert.equal(r.rec, null, `${first}: no record`);
+    assert.ok(r.out.includes(`the gate "${first}" names ${what}`) && r.out.includes("ORACLE-RUNNER-GATE-1"), `${first}: the refusal names the gate, what it names and the item: ${r.out}`);
+  }
+  const real = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8").replace(/\r\n/g, "\n");
+  const near = 'echo "$MY_RUNNER_TEMP" "$TMPDIR" $RUNNERS $GITHUB http-only https:/x';
+  writeFileSync(ci, `${real}${real.endsWith("\n") ? "" : "\n"}  near:\n    steps:\n      - run: ${near}\n`);
+  git(fx.repo, "commit", "-qam", "the real ci.yml and near misses");
+  const a = oracle(fx, ["--role", "G1", "--static-only"]);
+  assert.notEqual(a.status, 2, `the real ci.yml and the near misses derive: ${a.out}`);
+  assert.ok(a.rec !== null && !(a.rec.ci_only ?? []).some((c) => c.cmd === near), `a record, the near misses a gate, never withdrawn: ${a.out}`);
+  assert.ok((a.rec?.ci_only ?? []).some((c) => c.cmd.startsWith("curl ")), `the runner's curl step is withdrawn: ${a.out}`);
+}));
+
 // G2 delta A-3: the npm overrides win under any case on every OS. On Windows a case-insensitive env merge lets NPM_CONFIG_OFFLINE
 // stand in for npm_config_offline; on POSIX both names reach the gate, so the gate must see npm's two override names only.
 // killer: scripts/oracle/run.mjs:47 COR " || /^npm_config_(offline|logs_dir)$/i.test(k)" -> ""
