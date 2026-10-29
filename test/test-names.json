@@ -1699,6 +1699,16 @@
   "oracle_l3_interval_path_reason_order_exhaustive",
   "oracle_l3_set_path_reason_order_exhaustive"
  ],
+ "packages/hikae/test/pari.test.ts": [
+  "pari_bet_factor_bounds",
+  "pari_capital_counts_equal_product",
+  "pari_crossing_table_exact",
+  "pari_purity_sweep",
+  "pari_rational_exact",
+  "pari_threshold_integer",
+  "pari_weighted_restart_weights",
+  "sr_fixed_point_never_exceeds_exact"
+ ],
  "packages/hikae/test/region-predictor.test.ts": [
   "build_set_region_defensive_copy",
   "features_strictly_before_t",
