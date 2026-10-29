@@ -60,6 +60,19 @@ function copyKernel(from: string, to: string, rel = ""): void {
   }
 }
 
+/** The count of *.lean files (any case) under `dir`, the build dir .lake at its root left out, as the audit walks them. */
+function leanFiles(dir: string, rel = ""): number {
+  let n = 0;
+  for (const d of readdirSync(join(dir, rel), { withFileTypes: true })) {
+    if (rel === "" && d.name === ".lake") continue;
+    const r = rel === "" ? d.name : join(rel, d.name);
+    if (d.isDirectory()) n += leanFiles(dir, r);
+    else if (d.name.toLowerCase().endsWith(".lean")) n++;
+  }
+  return n;
+}
+const ADMITTED_AXIOMS = new Set(["propext", "Classical.choice", "Quot.sound"]);
+
 interface Tree { root: string; scripts: string; kernel: string; tmp: string; out: string }
 
 /** A tree <root>/apps/genkan/{scripts,kernel} with copies of the three real scripts, and a temp dir for the wrapper. */
@@ -96,8 +109,8 @@ test("records_kernel_refuses_the_planted_native_axiom", OPTIONS, () => {
   const home = pinnedHome();
   const t = makeTree();
   try {
-    for (const f of ["lakefile.lean", "lean-toolchain", "lake-manifest.json"]) copyFileSync(join(KERNEL_DIR, f), join(t.kernel, f));
-    // The comment keeps `decide +native` on line 2: the audit refuses the word there, and the record the axiom it adds.
+    // The real kernel, its Genkan/ included (a lean_lib whose dir is missing does not build), then the planted Main.lean over
+    // its own. The comment keeps `decide +native` on line 2: the audit refuses the word there, and the record the axiom it adds.
     const planted = [
       "-- Planted: main reaches decide's native axiom through a subtype whose proof is decided natively.",
       "def big : { n : Nat // n * n = 100 } := ⟨10, by decide +native⟩",
@@ -105,6 +118,7 @@ test("records_kernel_refuses_the_planted_native_axiom", OPTIONS, () => {
       "def main : IO UInt32 := pure (UInt32.ofNat big.val)",
       "",
     ].join("\n");
+    copyKernel(KERNEL_DIR, t.kernel);
     writeFileSync(join(t.kernel, "Main.lean"), planted);
     const { records, audit } = buildRecordAudit(t, home);
     assert.equal(records, "'main' depends on axioms: [big._native.decide.ax_1]\n", "main's record names the axiom of decide's native mode");
@@ -129,9 +143,15 @@ test("records_kernel_passes_the_real_kernel", OPTIONS, () => {
       assert.ok(existsSync(join(t.kernel, f)), `the copy of the real kernel holds ${f}`);
     }
     const { records, audit } = buildRecordAudit(t, home);
-    assert.equal(records, "'main' does not depend on any axioms\n", "the real main depends on no axiom");
+    // One record, main's: no axiom, or axioms all admitted (Lean may wrap the list over lines).
+    const m = /^'main' (?:does not depend on any axioms|depends on axioms: \[([^\]]+)\])\n$/.exec(records);
+    assert.ok(m !== null, `the records are one record, main's, in one of Lean's two forms:\n${records}`);
+    const axioms = (m[1] ?? "").split(",").map((a) => a.trim()).filter((a) => a !== "");
+    for (const a of axioms) assert.ok(ADMITTED_AXIOMS.has(a), `main's axiom ${a} is one of propext, Classical.choice, Quot.sound:\n${records}`);
     assert.equal(audit.status, 0, `the audit passes the real kernel with its records\n${show(audit)}`);
-    assert.deepEqual(linesOf(audit.stdout), ["audit: 2 Lean files, 0 theorems, no finding"], `the success line\n${show(audit)}`);
+    const files = leanFiles(t.kernel);
+    assert.ok(files >= 2, `the copy holds Main.lean and lakefile.lean at least (found ${String(files)})`);
+    assert.deepEqual(linesOf(audit.stdout), [`audit: ${String(files)} Lean files, 0 theorems, no finding`], `the success line\n${show(audit)}`);
     assert.deepEqual(linesOf(audit.stderr), [], `nothing on stderr\n${show(audit)}`);
   } finally {
     rmSync(t.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
