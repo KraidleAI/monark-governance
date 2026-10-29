@@ -177,12 +177,12 @@ test("test_count_check_names_its_base_or_refuses", () => {
   }
 });
 
-// killer: .github/workflows/ci.yml:371 CONST "node scripts/test-count-check.mjs" -> "node scripts/test-count-floor.mjs write"
+// killer: .github/workflows/ci.yml:378 CONST "node scripts/test-count-check.mjs" -> "node scripts/test-count-floor.mjs write"
 test("test_count_job_runs_test_main_then_the_check", () => {
   const ci = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8").split(/\r?\n/), at = ci.indexOf("  g3-test-count:"), end = ci.findIndex((l, i) => i > at && /^ {0,2}\S/.test(l));
   const job = at < 0 ? [] : ci.slice(at + 1, end < 0 ? ci.length : end).map((l) => l.replace(/\s*#.*$/, ""));
   assert.deepEqual(job.flatMap((l) => /^\s+run: (.+)$/.exec(l)?.[1] ?? []), ["npm ci", "npm run test:main", "node scripts/test-count-check.mjs"], "the job installs, runs the main suite, then the gate");
-  // killer: .github/workflows/ci.yml:361 CONST "fetch-depth: 0" -> "fetch-depth: 1"
+  // killer: .github/workflows/ci.yml:368 CONST "fetch-depth: 0" -> "fetch-depth: 1"
   assert.ok(job.some((l) => /^\s+fetch-depth: 0$/.test(l)), "the whole history: the base's record and list are read at the merge base");
   const minutes = Number(/^ {4}timeout-minutes: (\d+)$/.exec(job.find((l) => l.startsWith("    timeout-minutes:")) ?? "")?.[1] ?? 0);
   assert.ok(minutes > 0 && minutes <= 20, `a bound above 0 and at most 20 minutes (${minutes})`);

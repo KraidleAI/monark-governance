@@ -2829,14 +2829,75 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     de `decide`, mesuré au lot 1b). Construction : après la construction du noyau, une étape écrit `#print axioms main` et une ligne par
     théorème des deux fichiers de théorèmes, et les donne à l'audit, en CI et en local, avec son test. Porteur : MONARK ; preuve de
     clôture : `g3-genkan` qui refuse un noyau dont seul l'enregistrement montre l'axiome, et le test de l'étape, rouge sans elle.
-    Déclencheur : avant le lot 2 de Genkan ; état : ouvert.
+    Déclencheur : avant le lot 2 de Genkan ; état : clos le 2026-10-29 par #346 (fusion `57f03e43`, G7 `9569f749…`) :
+    `apps/genkan/scripts/records.mjs` écrit l'enregistrement de `main` et de chaque théorème depuis le noyau construit, et `g3-genkan`
+    le donne à l'audit (`--axioms-from`) ; tests `records_kernel_refuses_the_planted_native_axiom` et
+    `records_kernel_passes_the_real_kernel` (sous Lean 4.32.1), et `records_writes_the_records_of_main_and_each_theorem`, rouges sans
+    l'étape. Écart à la preuve : le noyau planté porte aussi le mot `native` ; son refus par l'enregistrement est une ligne à elle, qui
+    fait échouer l'audit seule. Aucune forme sans mot banni n'est connue : item GENKAN-RECORD-ONLY-1.
   - GENKAN-PANIC-1 (G7 de #343, MONARK, 2026-10-29 03:5x UTC) : dans le code compilé, `panic!` et les accès qui paniquent (`get!`, `xs[i]!`)
     impriment un message et rendraient la valeur par défaut du type sans arrêter le programme, à mesurer sur la chaîne épinglée.
     Construction : la mesure, puis une règle de l'audit qui les refuse dans le noyau, ou un théorème qui prouve qu'ils ne sont pas
-    atteints. Porteur : MONARK. Déclencheur : avant le lot 2 de Genkan, dont le décodeur lit des octets ; état : ouvert.
+    atteints. Porteur : MONARK. Déclencheur : avant le lot 2 de Genkan, dont le décodeur lit des octets ; état : clos le 2026-10-29 par #347
+    (fusion `2c8a6ec4`, G7 `439671e1…`). Mesuré sur la chaîne épinglée : une panique atteinte écrit `PANIC at …` sur la sortie d'erreur,
+    puis le programme continue avec la valeur par défaut du type et sort comme si de rien n'était ; sous `LEAN_ABORT_ON_PANIC=1`, il avorte,
+    rien sur la sortie standard. `apps/genkan/scripts/audit.mjs` refuse, dans tous les fichiers du noyau et en position de code, un `]`
+    collé à `!` (l.337), toute composante de nom qui porte `!` ou contient `panic` en toute casse, sauf les têtes `s!`, `f!` et `println!`
+    écrites seules et le mot collé à un `#` (l.344-346), et la composante `outOfBounds` (l.68) ; test `audit_refuses_panics_in_the_kernel`,
+    rouge sans la règle (red-proof `80d7e563…`), ses tueurs tués (mutants `de6a406a…`). Les paniques que les mots ne voient pas sont les
+    items GENKAN-PANIC-2 et GENKAN-PANIC-3.
   - GENKAN-MAIN-IO-1 (G7 de #343, MONARK, 2026-10-29 03:5x UTC) : `Main` ne doit lire que l'entrée standard et n'écrire que la sortie standard.
     Construction : une règle de l'audit qui refuse ailleurs dans le noyau `IO.Process`, `IO.FS` et le réseau, avec ses tests. Porteur :
     MONARK. Déclencheur : le lot 2 de Genkan, où `Main` lit sa première entrée ; état : ouvert.
+  - GENKAN-THEOREM-NAMES-1 (G7 de #346, MONARK, 2026-10-29 13:3x UTC) : `audit.mjs --source-only` passe un nom de théorème entre
+    guillemets dans un fichier de théorèmes. `records.mjs` le refuse avant que Lean ne tourne, et la CI échoue à l'étape des
+    enregistrements, mais la forme de l'audit (`Genkan.«a»`) n'est pas celle de l'enregistrement de Lean (`Genkan.a`, mesuré).
+    Construction : une règle de source qui refuse, dans les fichiers de théorèmes, un nom de théorème qui n'est pas simple, avec ses
+    tests. Porteur : MONARK. Déclencheur : avant le lot 2 de Genkan ; état : clos le 2026-10-29 par #347 (fusion `2c8a6ec4`, G7
+    `439671e1…`) : dans les deux fichiers de théorèmes, `audit.mjs` refuse, à son mot-clé, un théorème dont le nom complet ne passe pas le
+    littéral `NAME` de `records.mjs`, repris tel quel (l.82, lu à la l.359) ; tests `audit_refuses_theorem_names_that_are_not_plain` et
+    `audit_name_rule_is_the_records_rule`, rouges sans la règle (red-proof `80d7e563…`), leurs tueurs tués (mutants `de6a406a…`).
+  - GENKAN-RECORD-ONLY-1 (G7 de #346, MONARK, 2026-10-29 13:3x UTC) : chercher, sur la chaîne épinglée, une forme qui ajoute un
+    axiome étranger sans mot banni (tactiques d'`Init` et leurs configurations, attributs, instances, `deriving`, théorèmes d'`Init`
+    qui dépendent déjà d'un tel axiome). Si une forme est trouvée, l'audit gagne son mot, et le test du noyau la plante comme noyau
+    que seul l'enregistrement refuse. Porteur : MONARK. Déclencheur : la G2 de la partie 1 de Genkan ; état : ouvert.
+  - GUARD-ZONE-EXCLUSION-1 (trouvé par HIKAE à la revue de #345, MONARK, 2026-10-29 13:3x UTC) : la règle 32 de la garde de
+    l'atelier, qui refuse sur une branche de lot le commit d'un fichier qu'aucune rangée de `coordination/ZONES.md` de cette branche
+    ne nomme, compte comme nommé tout chemin de la rangée écrit entre accents graves, même placé dans une clause d'exclusion (« reste
+    hors de la zone »). Une règle naïve par clause casserait les rangées où la même clause porte l'inclusion d'une plage et
+    l'exclusion du reste du fichier. Construction : une lecture de la clause qui distingue les deux, avec un cas rouge sur une rangée
+    d'exclusion seule et un cas vert sur une rangée mixte. Porteur : MONARK. Déclencheur : le prochain changement de la garde ; état :
+    ouvert.
+  - GENKAN-LAKE-DIR-1 (trouvé par la revue de sécurité automatique du push de `9cdfba24`, le 2026-10-29 à 15:2x UTC ; écrit ici au G7 de
+    #347, MONARK, 2026-10-29 16:5x UTC) : l'audit du noyau sautait le dossier `.lake` à sa racine, que la construction lit. En CI, ce
+    dossier n'existe avant la construction que si des fichiers y sont suivis par git (`git add -f` passe le `.gitignore`) : des sources, des
+    `.olean` ou des traces que lake réutiliserait, et que ni l'audit ni Lean ne vérifient. Construction : `--source-only`, qui tourne en CI
+    avant toute construction, refuse une entrée `.lake` à la racine. Porteur : MONARK. Déclencheur : le lot 1d de Genkan ; état : clos le
+    2026-10-29 par #347 (fusion `2c8a6ec4`, G7 `439671e1…`) : sous `--source-only`, `audit.mjs` refuse une entrée `.lake` de toute casse à
+    la racine du noyau, dossier, fichier ou lien même pendant (l.465 et l.496), et les autres modes la sautent toujours ; test
+    `audit_source_only_refuses_the_root_build_dir`, rouge sans la règle (red-proof `80d7e563…`), ses tueurs tués (mutants `de6a406a…`).
+  - GENKAN-PANIC-2 (G7 de #347, MONARK, 2026-10-29 16:5x UTC) : savoir si le code compilé de `main` (son IR, pas son terme) appelle une
+    fonction qui panique : `panicCore` ou `lean_panic_fn`, ou un extern dont le C appelle `lean_array_get_panic`, `lean_array_set_panic` ou
+    un `lean_internal_panic` (liste à lire dans `include/lean/lean.h` de la chaîne épinglée). La clôture des constantes n'y répond pas
+    (mesuré) : un `main` sans aucun `!` atteint `panicCore` par l'instance de `GetElem?` de `ByteArray`, et `a[i]!` sur `Array` panique dans
+    le C de `lean_array_get` sans aucun nom de panique dans le graphe. Construction : une sonde sur les vrais `Bytes`, `Format` et `Main` du
+    lot 2 ; si elle trouve une panique atteinte, la règle avance au lot 2, sinon elle se construit au lot 3b, avec le contrôle croisé des
+    axiomes par l'énumération des déclarations du noyau (un fichier Lean hors du noyau, un mode de `records.mjs` et un test réel). Porteur :
+    MONARK. Déclencheur : le lot-check du lot 2 de Genkan ; état : ouvert.
+  - GENKAN-PANIC-3 (G7 de #347, MONARK, 2026-10-29 16:5x UTC) : `genkan-core` lance le noyau avec `LEAN_ABORT_ON_PANIC=1` dans
+    l'environnement de l'enfant : une panique que les mots laissent passer tue alors le noyau au lieu de rendre la valeur par défaut, et le
+    cœur s'abstient. Construction : la variable, et un test réel qui plante un noyau qui panique et attend l'abstention ; le code de sortie
+    se mesure sur la CI Linux (sous Windows, `0xC0000409`, mesuré). Porteur : MONARK. Déclencheur : le lot 4 de Genkan (`src/kernel.ts`) ;
+    état : ouvert.
+  - HARNESS-VERIFY-TLS-FLAKE-1 (vu par HIKAE dans un passage complet de `test:main` sur `f6447437`, la première fusion du tronc du lot 2a de
+    Hikae, le 2026-10-29 ; écrit ici au G7 de #348, MONARK, 2026-10-29 17:5x UTC) : le test
+    `verify_harness_out_is_written_only_when_every_check_passes` (`test/verify-harness-liq.test.ts` l.366) a échoué une fois, son passage
+    TLS rouge sur tous ses contrôles réseau en 783 ms. Il a passé seul 20 fois sur 20, puis dans les cinq passages suivants de la session
+    HIKAE, dont deux de l'oracle. Lecture non mesurée : le front TLS écoute sur `127.0.0.1` (`listen`, `test/helpers/loopback.ts` l.58-62)
+    et le client appelle `https://localhost` (l.385), que la machine peut résoudre d'abord en `::1`, où un autre serveur du passage peut
+    écouter sur le même port. Construction : mesurer la cause sous la charge d'un passage complet, puis faire appeler au client l'adresse où
+    le front écoute, avec un cas qui force la résolution de `localhost` en `::1` d'abord. Porteur : MONARK. Déclencheur : le prochain lot
+    qui touche `scripts/verify-harness.mjs` ou ce test, ou un second échec dans un passage complet, au premier des deux ; état : ouvert.
 
 ## Ce qui reste pour la page
 

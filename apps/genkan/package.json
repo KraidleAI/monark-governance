@@ -3,5 +3,5 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "MONARK Genkan: an order gate whose decisions will come from a Lean kernel; this package holds the kernel skeleton, its pinned-toolchain wrapper and its source and axiom audit, with Node built-ins only."
+  "description": "MONARK Genkan: an order gate whose decisions will come from a Lean kernel; this package holds the kernel skeleton, its pinned-toolchain wrapper, its source and axiom audit and the writer of its axiom records, with Node built-ins only."
 }

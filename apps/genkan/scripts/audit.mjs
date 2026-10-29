@@ -3,18 +3,25 @@
 // lexes it as the pinned toolchain does where it matters (nested block comments, strings, raw strings, char literals,
 // guillemet names, the code parts of interpolated strings), and refuses, in code position only: an opener of those glued
 // to a character (not after white space), a banned word as a whole single-component name (a guillemet name read as its
-// content), a foreign axiom or a debugging function of Init as any component of a name, a # command other than #check
-// and #print, any skipKernelTC, a theorem outside the two theorem files, an import other than Genkan and its plain
-// modules; then any lakefile.toml (any case), and a lakefile.lean whose sha256 (LF line ends) is not the pinned one.
+// content), a foreign axiom or a debugging function of Init as any component of a name, a panic (a ] glued to !, a name
+// component that holds ! or the word panic in any case, the interpolation heads s!, f! and println! excepted, and Init's
+// outOfBounds), a # command other than #check and #print, any skipKernelTC, a theorem outside the two theorem files and,
+// inside them, the word private (a private theorem's name is mangled: no record names it, measured) and a theorem whose
+// full name is not plain (records.mjs refuses it as a root), an import other than Genkan and its plain modules; then any
+// lakefile.toml (any case), and a lakefile.lean whose sha256 (LF line ends) is not the pinned one.
 // Words do not see every axiom (a tactic's config adds one with no word for it, measured): the records do. Read only from
-// --axioms-from (the `#print axioms` output), they must name main and each theorem of Genkan/Theorems.lean and
-// Genkan/Vectors.lean (named through their namespaces), and every record must stay within {propext, Classical.choice,
-// Quot.sound}.
+// --axioms-from (the `#print axioms` output records.mjs writes), they must name main and each theorem of
+// Genkan/Theorems.lean and Genkan/Vectors.lean (named through their namespaces), and every record must stay within
+// {propext, Classical.choice, Quot.sound}; bare, no record is given, so main has none and the audit fails. --source-only
+// judges the sources alone (CI runs it before any Lean runs), and refuses a .lake (any case) at the kernel root: before the
+// build it can only hold files git tracks, which lake would reuse and no rule reads. --roots prints the roots whose records
+// are due, one line `<module> <name>` each, `Main main` first, and exits 0 whatever the sources hold.
 //
-//   node apps/genkan/scripts/audit.mjs [--kernel <dir>] [--axioms-from <file>]
+//   node apps/genkan/scripts/audit.mjs [--kernel <dir>] [--axioms-from <file> | --source-only | --roots]
 //
-// Exit 0 with one stdout line `audit: ...` (the counts); 1 when anything is found or refused, every finding printed on
-// stderr as `audit: <file>:<line>: <what>`; 2 on a usage error or an unreadable kernel dir or axioms file.
+// Exit 0 with one stdout line `audit: ...` (the counts, then `(sources only)` under --source-only); 1 when anything is
+// found or refused, every finding printed on stderr as `audit: <file>:<line>: <what>`; 2 on a usage error or an
+// unreadable kernel dir or axioms file.
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
@@ -53,7 +60,14 @@ const AXIOM_WORDS = new Set(FOREIGN_AXIOMS.map((n) => n.slice(n.lastIndexOf(".")
 // Init's debugging functions (Init/Util.lean): from pure code they print, read the stack or sleep. Refused as any component
 // of a name, as the foreign axioms are.
 const DEBUG_FUNCTIONS = ["dbgTrace", "dbgTraceVal", "dbgTraceIfShared", "dbgStackTrace", "dbgStackTraceIf", "dbgSleep"];
-const PART_WORDS = new Set([...AXIOM_WORDS, ...DEBUG_FUNCTIONS]);
+// A panic reached in compiled code prints on stderr and goes on with the type's default value, or aborts the program when
+// the host sets LEAN_ABORT_ON_PANIC (measured): either way the output depends on more than the input. Refused: a ] glued to
+// ! (getElem!, the only spelling that parses), any name component that holds ! (get!, head!, panic!, get!Internal) or the
+// word panic in any case (panicCore, sliceOrPanic), and the one function of Init that panics under neither, outOfBounds
+// (Init/GetElem.lean, a panic! of its own), refused as the debugging functions are.
+const PANIC_FUNCTIONS = ["outOfBounds"];
+const PANIC_WORD = /panic/i;
+const PART_WORDS = new Set([...AXIOM_WORDS, ...DEBUG_FUNCTIONS, ...PANIC_FUNCTIONS]);
 // The # commands admitted: #check and #print only read the environment. #eval and #guard run code while the file is
 // elaborated (measured on #guard), #exit ends it, others wrap a command. The vector literal #v[ is a term, not a command.
 const HASH_COMMANDS = new Set(["check", "print"]);
@@ -62,6 +76,10 @@ const GENKAN_MODULE = /^Genkan(?:\.[A-Z][A-Za-z0-9]*)*$/;
 // Tokens after which a string is interpolated (Init: s!, f!, println!; the builtin dbg_trace; Macro.trace[...] is handled
 // apart).
 const INTERP_HEADS = new Set(["s!", "f!", "println!", "dbg_trace"]);
+// The heads whose ! is part of the name: exempt from the panic rule as written, never through guillemets or a qualifier.
+const BANG_HEADS = new Set([...INTERP_HEADS].filter((h) => h.endsWith("!")));
+// A plain name: dotted ASCII components. The very line of records.mjs, which refuses any other root (a test reads both).
+const NAME = /^[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*$/;
 // Words that are never the name of a section or an `end` (a name is the next identifier on the same line).
 // (Word lists and the two words below are spelled so that no keyword is followed by a quote on its line: the specifier
 // scan of packages/rpc-guard/test/durable.test.ts reads every scripts/ file of every workspace.)
@@ -74,12 +92,16 @@ const KEYWORDS = new Set(
 const IMPORT_WORD = "import";
 const KERNEL_FLAG = "--kernel";
 const AXIOMS_FLAG = "--axioms-from";
+const SOURCE_FLAG = "--source-only";
+const ROOTS_FLAG = "--roots";
 const CHAR_LIT = /'(?:\\(?:x[0-9a-fA-F]{2}|u\{[0-9a-fA-F]+\}|.)|[^\\'\n])'/uy;
 const UNICODE_ESCAPE = /u\{[0-9a-fA-F]+\}/y;
 const WHITE = new Set([" ", "\t", "\r", "\n"]);
 
 function usage(msg) {
-  process.stderr.write(`audit: ${msg}\naudit: usage: node apps/genkan/scripts/audit.mjs [--kernel <dir>] [--axioms-from <file>]\n`);
+  process.stderr.write(
+    `audit: ${msg}\naudit: usage: node apps/genkan/scripts/audit.mjs [--kernel <dir>] [--axioms-from <file> | --source-only | --roots]\n`,
+  );
   process.exit(2);
 }
 
@@ -312,24 +334,33 @@ function auditFile(rel, src) {
         const vector = next.text === "v" && after?.text === "[" && after.start === next.start + 1;
         if (!vector) add(tok.start, next.text.startsWith("eval") ? "banned #eval" : `banned #${next.text}`);
       }
+      if (tok.text === "]" && next?.kind === "sym" && next.text === "!" && next.start === tok.start + 1) add(tok.start, "banned ]!");
       continue;
     }
-    const part = splitName(tok.text).map(unquote).find((p) => PART_WORDS.has(p));
+    const parts = splitName(tok.text).map(unquote);
+    const part = parts.find((p) => PART_WORDS.has(p));
     if (part !== undefined) add(tok.start, `banned ${part}`);
+    const prev = tokens[t - 1];
+    const commandWord = prev?.kind === "sym" && prev.text === "#" && prev.start === tok.start - 1; // judged by the # rule
+    const panic = parts.find((p) => p.includes("!") || PANIC_WORD.test(p));
+    if (panic !== undefined && !BANG_HEADS.has(tok.text) && !commandWord) add(tok.start, `banned ${panic}`);
     if (tok.parts !== 1) continue;
     const word = unquote(tok.text); // Lean applies `@[«implemented_by» g]`
     if (BANNED.has(word)) add(tok.start, `banned ${word}`);
     if (word === "theorem" && !THEOREM_FILES.has(rel)) add(tok.start, "banned theorem");
+    if (word === "private" && THEOREM_FILES.has(rel)) add(tok.start, "banned private");
     if (tok.text === IMPORT_WORD && rel !== "lakefile.lean" && next?.kind === "id") {
       if (!GENKAN_MODULE.test(next.text)) add(tok.start, `foreign import ${next.text}`);
     }
   }
   for (const [k, opener] of gluedAt) add(k, `glued ${opener}`);
   for (let k = code.indexOf("skipKernelTC"); k !== -1; k = code.indexOf("skipKernelTC", k + 1)) add(k, "banned skipKernelTC");
-  return { findings: [...findings], theorems: THEOREM_FILES.has(rel) ? theoremNames(tokens, lineOf) : [] };
+  const theorems = THEOREM_FILES.has(rel) ? theoremNames(tokens, lineOf) : [];
+  for (const { name, start } of theorems) if (!NAME.test(name)) add(start, `theorem name ${name} is not plain`);
+  return { findings: [...findings], theorems: theorems.map((th) => th.name) };
 }
 
-/** Full names of the `theorem` declarations, through namespace, section, mutual and end. */
+/** Full names of the `theorem` declarations, through namespace, section, mutual and end, each with its keyword's index. */
 function theoremNames(tokens, lineOf) {
   const scopes = []; // one entry per scope: a namespace component, or null (a section or a mutual block)
   const names = [];
@@ -360,7 +391,7 @@ function theoremNames(tokens, lineOf) {
     } else if (tok.text === "theorem" && next?.kind === "id") {
       const own = splitName(next.text);
       const full = own[0] === "_root_" ? own.slice(1) : [...scopes.filter((p) => p !== null), ...own];
-      names.push(full.join("."));
+      names.push({ name: full.join("."), start: tok.start });
       t++;
     }
   }
@@ -405,17 +436,23 @@ const seen = new Set();
 const argv = process.argv.slice(2);
 for (let k = 0; k < argv.length; k++) {
   const flag = argv[k];
-  if (flag !== KERNEL_FLAG && flag !== AXIOMS_FLAG) usage(`unknown argument ${flag}`);
+  if (![KERNEL_FLAG, AXIOMS_FLAG, SOURCE_FLAG, ROOTS_FLAG].includes(flag)) usage(`unknown argument ${flag}`);
   if (seen.has(flag)) usage(`${flag} given twice`);
   seen.add(flag);
+  if (flag === SOURCE_FLAG || flag === ROOTS_FLAG) continue; // no value
   const value = argv[++k];
   if (value === undefined || value === "") usage(`${flag} needs a value`);
   if (flag === KERNEL_FLAG) kernelDir = path.resolve(value);
   else axiomsFrom = path.resolve(value);
 }
+if ([AXIOMS_FLAG, SOURCE_FLAG, ROOTS_FLAG].filter((f) => seen.has(f)).length > 1) {
+  usage(`${AXIOMS_FLAG}, ${SOURCE_FLAG} and ${ROOTS_FLAG} exclude each other`);
+}
+const sourceOnly = seen.has(SOURCE_FLAG);
 
 const leanFiles = [];
 const tomls = [];
+const rootLakes = []; // the names of the .lake entries (any case) at the kernel root
 const walked = new Set(); // real paths of the walked dirs: a linked dir is read once, and a link loop ends
 function walk(abs, rel) {
   const real = realpathSync(abs);
@@ -425,6 +462,7 @@ function walk(abs, rel) {
   for (const d of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
     const childAbs = path.join(abs, d.name);
     const childRel = rel === "" ? d.name : `${rel}/${d.name}`;
+    if (rel === "" && d.name.toLowerCase() === ".lake") rootLakes.push(d.name);
     const st = statSync(childAbs, { throwIfNoEntry: false });
     if (st === undefined) continue;
     if (st.isDirectory()) {
@@ -448,23 +486,33 @@ for (const f of leanFiles) {
   const src = orExit(() => readFileSync(f.abs, "utf8"), `kernel file ${f.rel}`);
   const r = auditFile(f.rel, src);
   out.push(...r.findings);
-  theorems.push(...r.theorems);
+  theorems.push(...r.theorems.map((name) => ({ module: f.rel.slice(0, -".lean".length).split("/").join("."), name })));
   if (f.rel === "lakefile.lean") {
     const sha = createHash("sha256").update(src.replace(/\r\n/g, "\n"), "utf8").digest("hex");
     if (sha !== LAKEFILE_SHA256) out.push(`lakefile.lean: differs from the pinned sha256 ${LAKEFILE_SHA256.slice(0, 12)}`);
   }
 }
 for (const rel of tomls) out.push(`${rel}: lakefile.toml refused`);
+if (sourceOnly) for (const name of rootLakes) out.push(`${name}: build dir refused under ${SOURCE_FLAG}`);
 
-const { records, refusals } = parseRecords(axiomsText);
-out.push(...refusals);
-for (const [name, axioms] of records) for (const a of axioms) if (!ADMITTED_AXIOMS.has(a)) out.push(`${name}: foreign axiom ${a}`);
-for (const name of theorems) if (!records.has(name)) out.push(`${name}: no axiom record`);
-// Given records, the program's root is among them: what main's value reaches is in its record.
-if (axiomsFrom !== undefined && !records.has("main")) out.push("main: no axiom record");
+// The roots whose records are due, for records.mjs: main, the program's root, then each theorem with its module.
+if (seen.has(ROOTS_FLAG)) {
+  process.stdout.write([{ module: "Main", name: "main" }, ...theorems].map((r) => `${r.module} ${r.name}\n`).join(""));
+  process.exit(0);
+}
+
+if (!sourceOnly) {
+  const { records, refusals } = parseRecords(axiomsText);
+  out.push(...refusals);
+  for (const [name, axioms] of records) for (const a of axioms) if (!ADMITTED_AXIOMS.has(a)) out.push(`${name}: foreign axiom ${a}`);
+  for (const { name } of theorems) if (!records.has(name)) out.push(`${name}: no axiom record`);
+  // The program's root is among the records: what main's value reaches is in its record. Bare, no record is given.
+  if (!records.has("main")) out.push("main: no axiom record");
+}
 
 if (out.length > 0) {
   for (const l of out) process.stderr.write(`audit: ${l}\n`);
   process.exit(1);
 }
-process.stdout.write(`audit: ${String(leanFiles.length)} Lean files, ${String(theorems.length)} theorems, no finding\n`);
+const counts = `${String(leanFiles.length)} Lean files, ${String(theorems.length)} theorems`;
+process.stdout.write(`audit: ${counts}, no finding${sourceOnly ? " (sources only)" : ""}\n`);
