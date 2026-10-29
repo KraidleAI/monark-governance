@@ -2811,6 +2811,32 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     `assert-fleet-html.mjs` et à `/token`, puis un build et le contrôle sur une racine sans record ; environ 20 lignes et un build.
     Porteur : MONARK. Déclencheur : le prochain lot qui touche `scripts/assert-fleet-html.mjs` ou la page `/dojo`, au plus tard avant
     tout retrait du record servi (DJ-L193) ; état : ouvert.
+  - ORACLE-RUNNER-GATE-1 (G7 de #340, MONARK, 2026-10-29 00:4x UTC) : le premier G7 de #340, sur une première fusion jamais poussée
+    (`1bf83ee9`), était rouge parce que l'oracle local rejouait toutes les lignes `run:` de `ci.yml`, dont l'étape `curl` de
+    `g3-genkan` : sans `RUNNER_TEMP` sur l'hôte, sortie 23, rien d'écrit (enregistrement sha256 `98c630b9…`). `08991237` retire les six
+    étapes du runner par une entrée de `CI_ONLY` (`scripts/oracle/run.mjs` l.32), mais la liste reste tenue à la main : la prochaine
+    étape de CI qui lit l'environnement du runner ou le réseau serait rejouée de même. Construction : une règle de l'oracle qui refuse
+    une gate dont la commande nomme `$RUNNER_`, `$GITHUB_`, `${{` ou une URL `http(s)://` sans entrée `CI_ONLY` qui la retire, avec son
+    test et ses tueurs. Porteur : MONARK ; preuve de clôture : le test de la règle, rouge sans elle. Déclencheur : avant le lot 1b de
+    Genkan ; état : clos le 2026-10-29 par #342 (fusion `d985f85b`, G7 `09f431af…`) : `RUNNER_ONLY` (`scripts/oracle/run.mjs` l.33), lu
+    aux l.130 et l.133 : une gate ordinaire qui nomme l'une de ses quatre formes arrête la dérivation (sortie 2, sans enregistrement) et
+    nomme le remède ; test `oracle_refuses_a_gate_that_names_the_runner_or_a_url`, rouge sans la règle (red-proof `52b32b10…`), 12
+    tueurs, tous tués (mutants `fe578e8c…`).
+  - GENKAN-AXIOMS-ALL-1 (G7 de #343, MONARK, 2026-10-29 03:5x UTC) : l'audit du noyau de Genkan (`apps/genkan/scripts/audit.mjs`) juge les
+    enregistrements d'axiomes qu'on lui donne (`--axioms-from`, la sortie de `#print axioms`), mais aucune étape ne les écrit : en CI,
+    `g3-genkan` ne lance que la partie source de l'audit, et seul `apps/genkan/test/audit.test.ts` lui en donne. Les règles de source
+    filtrent, les enregistrements décident : la configuration d'une tactique peut ajouter un axiome qu'aucun mot ne montre (le mode natif
+    de `decide`, mesuré au lot 1b). Construction : après la construction du noyau, une étape écrit `#print axioms main` et une ligne par
+    théorème des deux fichiers de théorèmes, et les donne à l'audit, en CI et en local, avec son test. Porteur : MONARK ; preuve de
+    clôture : `g3-genkan` qui refuse un noyau dont seul l'enregistrement montre l'axiome, et le test de l'étape, rouge sans elle.
+    Déclencheur : avant le lot 2 de Genkan ; état : ouvert.
+  - GENKAN-PANIC-1 (G7 de #343, MONARK, 2026-10-29 03:5x UTC) : dans le code compilé, `panic!` et les accès qui paniquent (`get!`, `xs[i]!`)
+    impriment un message et rendraient la valeur par défaut du type sans arrêter le programme, à mesurer sur la chaîne épinglée.
+    Construction : la mesure, puis une règle de l'audit qui les refuse dans le noyau, ou un théorème qui prouve qu'ils ne sont pas
+    atteints. Porteur : MONARK. Déclencheur : avant le lot 2 de Genkan, dont le décodeur lit des octets ; état : ouvert.
+  - GENKAN-MAIN-IO-1 (G7 de #343, MONARK, 2026-10-29 03:5x UTC) : `Main` ne doit lire que l'entrée standard et n'écrire que la sortie standard.
+    Construction : une règle de l'audit qui refuse ailleurs dans le noyau `IO.Process`, `IO.FS` et le réseau, avec ses tests. Porteur :
+    MONARK. Déclencheur : le lot 2 de Genkan, où `Main` lit sa première entrée ; état : ouvert.
 
 ## Ce qui reste pour la page
 

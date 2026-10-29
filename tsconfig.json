@@ -28,6 +28,8 @@
     "apps/harness/test/**/*.ts",
     "apps/sentinel/src/**/*.ts",
     "apps/sentinel/test/**/*.ts",
+    "apps/genkan/src/**/*.ts",
+    "apps/genkan/test/**/*.ts",
     "apps/bell/src/**/*.ts",
     "apps/bell/test/**/*.ts",
     "apps/dojo/src/**/*.ts",
