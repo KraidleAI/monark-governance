@@ -25,7 +25,7 @@ const job = (name: string): string[] => {
 };
 const SETUP_PYTHON = "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97"; // v7.0.0: git ls-remote of refs/tags/v7.0.0, a commit
 
-// killer: .github/workflows/ci.yml:335 CONST "python-version: \"3.14.8\"" -> "python-version: \"3.14\""
+// killer: .github/workflows/ci.yml:342 CONST "python-version: \"3.14.8\"" -> "python-version: \"3.14\""
 test("verifier_tool_job_runs_the_driver_under_one_pinned_cpython - g3-verifier-tool: a fixed image, full history, the pinned setup-python at an exact version that the step names again, then the driver; no if:, no continue-on-error; dropped from the public workflow", () => {
   const body = job("g3-verifier-tool");
   assert.ok(body.length > 0, "job 'g3-verifier-tool' missing from the workflow");
@@ -40,7 +40,7 @@ test("verifier_tool_job_runs_the_driver_under_one_pinned_cpython - g3-verifier-t
   assert.ok(body[py + 1] === "with:" && version?.startsWith("3.14."), `python-version is one exact CPython 3.14 release, no range: ${body[py + 2]}`);
   assert.deepEqual(body.slice(run - 2, run), ["env:", `VERIFIER_TOOL_PYTHON: "${version ?? ""}"`], "the run step names the same version, which the driver requires");
   assert.equal(run, body.length - 1, "the driver is the last step of the job");
-  // killer: .github/workflows/ci.yml:341 CONST "ref: ffb5ea33fcdcde2bd497cb25fba184ae2c4bbfa8" -> "ref: main"
+  // killer: .github/workflows/ci.yml:348 CONST "ref: ffb5ea33fcdcde2bd497cb25fba184ae2c4bbfa8" -> "ref: main"
   const spec = body.findIndex((l, i) => i > co && /^- uses: actions\/checkout@/.test(l)), v = ci.VECTORS;
   assert.ok(py < spec && spec < run && body[spec] === body[co], `the spec vectors checked out by the same pinned action, after setup-python, before the driver: ${spec}`);
   assert.deepEqual(body.slice(spec + 1, spec + 6), ["with:", `repository: ${v?.repository}`, `ref: ${v?.commit}`, `path: ${v?.path.split("/")[0]}`, "persist-credentials: false"],
