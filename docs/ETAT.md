@@ -2769,6 +2769,59 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     de D-10 recodé, et rétablit la fonction en fin de test. Un octet de moins est refusé `disk_space`, sans rien écrire. Le produit ne
     change pas, et son refus reste épinglé seul par `dojo_history_disk_rpc_error_and_faulted_body_paths`. Preuve : sous un hôte simulé
     à 946 Mo libres, le test est rouge à la base (`disk_space`) et vert après le lot.
+  - SITE-NEXT-REDEPLOY-1 (G2 m-3 de #341, MONARK, 2026-10-28) : le correctif `next` et `@next/mdx` 16.4.3 est au tronc (#341, fusion
+    `f6a3b25a`, `docs/G7-lot-site-next-16-4-3.md`). La vitrine servie tourne par `next start` sur le serveur et ne change qu'au
+    redéploiement, acte de MONARK sous le go du fondateur (`docs/RUNBOOK-vitrine.md` l.6 et l.13-21 ; « acte du fondateur », écrit ici
+    d'abord, était faux). Porteur : MONARK ; preuve de clôture : la version de `next` lue sur le serveur après le redéploiement.
+    Déclencheur : la fusion de #341 ; état : clos le 2026-10-28 à 23:3x UTC.
+    Ligne datée MONARK 2026-10-28 23:3x UTC : go du fondateur (verbatim « tu as mon go quand tu veux. », 23:13:50 UTC), puis son choix
+    (« Correctif seul (Recommandé) », 23:21:19 UTC). Renvoyé : l'arbre servi depuis le 2026-10-06 (`db778e2e`) avec les deux fichiers de
+    #341 seuls, commit `d85ef2c6` de la branche `lot/site-served-next-16-4-3` ; le manifeste servi et celui de l'export ne diffèrent que
+    par ces deux fichiers. Bascule à 23:31:05 UTC ; lus sur le serveur : `next` 16.4.3, `monark` actif, 200 ; le texte visible de 18 pages
+    est le même avant et après. Ce renvoi, au contenu inchangé, n'est pas l'envoi du tronc. Pour celui-ci : I-G2-5 (registre Bell, L-22) a
+    sa lecture sur place faite le 2026-10-14 et sa phrase gardée, ouvert pour l'égalité chiffrée seule (BELL-SIP-VOLUME-RECONCILE-1) ;
+    DJ-L43 et DJ-L113 (registre du Dōjō) nomment « l'envoi du site » : MONARK les relit avant l'envoi du tronc. La question posée au
+    fondateur disait à tort qu'I-G2-5 attendait encore un texte corrigé (erratum au journal du fondateur, même heure). Journal :
+    `docs/JOURNAL-PROVENANCE.md`, entrée du 2026-10-28 23:31 UTC.
+  - HARNESS-MCP-REDEPLOY-1 (MONARK, 2026-10-28 23:3x UTC) : le harnais servi (`/opt/monark-harness`) tourne avec
+    `@modelcontextprotocol/server` 2.0.0 et `zod` 4.6.1, versions lues sur le serveur le 2026-10-28 à 23:28:13 UTC ; son dernier
+    déploiement journalisé est l'acte 1 de T0 (2026-10-06, `9612d4d2`). `b24927c3` (2026-10-21) les porte au tronc à 2.3.1 et 4.6.7 ; son
+    message dit que l'avis d'épuisement de la mémoire pendant la validation atteint le harnais ([2nd] : les textes des avis ne sont pas
+    lus). Les mêmes versions restent dans l'arbre de la vitrine, que `next start` ne charge pas (ni `apps/site` ni `packages/` ne les
+    importent) : SERVED-TREES-RESIDUE-1. Porteur : MONARK, sous le go du fondateur (`docs/RUNBOOK-harness.md`) ; preuve de clôture : les
+    deux versions lues sur le serveur après le redéploiement du harnais. Déclencheur : la lecture du 2026-10-28 ; état : clos le
+    2026-10-28 à 23:5x UTC.
+    Ligne datée MONARK 2026-10-28 23:5x UTC : choix du fondateur (« Correctif seul (Recommandé) », 23:45:13 UTC). Redéployé : l'arbre de
+    T0 avec les deux fichiers de `b24927c3` seuls, commit `9819552b` de la branche `lot/harness-served-mcp-2-3-1`. Lus sur le serveur après
+    le redémarrage de 23:57:29 UTC : `@modelcontextprotocol/server` 2.3.1, `zod` 4.6.7 ; `/openapi.json` inchangé ; le contrôle de
+    déploiement, joué avant et après vers des fichiers de travail, 18 sur 18 verts chaque fois, ses 18 empreintes égales une à une. Journal :
+    `docs/JOURNAL-PROVENANCE.md`, entrée du 2026-10-28 23:57 UTC.
+  - SERVED-TREES-RESIDUE-1 (MONARK, 2026-10-28 23:5x UTC) : les deux renvois du correctif seul laissent dans les arbres servis des
+    paquets que `npm audit` classe vulnérables, qu'aucun code servi n'importe : sur la vitrine, `@modelcontextprotocol/server` 2.0.0 et
+    `zod` 4.6.1 ; sur le harnais, `next` 16.3.8, `sharp` 0.35.4 et `fast-uri` 3.1.8. L'hôte du harnais garde aussi trois fichiers
+    périmés, qu'aucun code servi n'importe et que `git archive` ne retire pas : `packages/contracts/src/calib-digest.ts`,
+    `packages/contracts/test/calib-digest.test.ts`, `packages/monark/test/cross-agent-gate.test.ts`. Porteur : MONARK, sous le go du
+    fondateur pour chaque envoi ; preuve de clôture : `npm audit` sans avis sur l'arbre servi de chaque hôte, et les trois fichiers hors de
+    l'arbre servi du harnais. Déclencheur : le prochain envoi de chaque hôte depuis le tronc ; état : ouvert.
+  - DOJO-NEXT-E0-REPLAY-1 (G2 m-2 de #341, MONARK, 2026-10-28 ; registre du Dōjō, DJ-L117) : à la montée en 16.4.3, le job `g3-site` de
+    #341 (run 40773586871) a rejoué `next build` et `scripts/assert-fleet-html.mjs`, verts, `/dojo` en état E1. L'état E0 (aucun record
+    servi, la branche `notFound()`) n'est pas rejoué : la page lit sa racine dans `MONARK_DOJO_LOCAL_BUILD_ROOT`
+    (`apps/site/app/dojo/page.tsx` l.65-70), mais `assert-fleet-html.mjs` lit la sienne à une place fixe (l.27) et `/token` ne lit pas
+    cette variable ; MONARK ne fabrique pas d'arbre sans le record (règle des données du site). Construction : la même racine passée à
+    `assert-fleet-html.mjs` et à `/token`, puis un build et le contrôle sur une racine sans record ; environ 20 lignes et un build.
+    Porteur : MONARK. Déclencheur : le prochain lot qui touche `scripts/assert-fleet-html.mjs` ou la page `/dojo`, au plus tard avant
+    tout retrait du record servi (DJ-L193) ; état : ouvert.
+  - ORACLE-RUNNER-GATE-1 (G7 de #340, MONARK, 2026-10-29 00:4x UTC) : le premier G7 de #340, sur une première fusion jamais poussée
+    (`1bf83ee9`), était rouge parce que l'oracle local rejouait toutes les lignes `run:` de `ci.yml`, dont l'étape `curl` de
+    `g3-genkan` : sans `RUNNER_TEMP` sur l'hôte, sortie 23, rien d'écrit (enregistrement sha256 `98c630b9…`). `08991237` retire les six
+    étapes du runner par une entrée de `CI_ONLY` (`scripts/oracle/run.mjs` l.32), mais la liste reste tenue à la main : la prochaine
+    étape de CI qui lit l'environnement du runner ou le réseau serait rejouée de même. Construction : une règle de l'oracle qui refuse
+    une gate dont la commande nomme `$RUNNER_`, `$GITHUB_`, `${{` ou une URL `http(s)://` sans entrée `CI_ONLY` qui la retire, avec son
+    test et ses tueurs. Porteur : MONARK ; preuve de clôture : le test de la règle, rouge sans elle. Déclencheur : avant le lot 1b de
+    Genkan ; état : clos le 2026-10-29 par #342 (fusion `d985f85b`, G7 `09f431af…`) : `RUNNER_ONLY` (`scripts/oracle/run.mjs` l.33), lu
+    aux l.130 et l.133 : une gate ordinaire qui nomme l'une de ses quatre formes arrête la dérivation (sortie 2, sans enregistrement) et
+    nomme le remède ; test `oracle_refuses_a_gate_that_names_the_runner_or_a_url`, rouge sans la règle (red-proof `52b32b10…`), 12
+    tueurs, tous tués (mutants `fe578e8c…`).
 
 ## Ce qui reste pour la page
 

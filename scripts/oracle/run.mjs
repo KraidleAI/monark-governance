@@ -29,8 +29,8 @@ const CI_ONLY = [
   [/^npm run build -w @monark\/site\b/, "build site: next build writes .next/ (job g3-site)"],
   [/^node scripts\/assert-fleet-html\.mjs\b/, "build site: O-2 reads the next build output (job g3-site)"],
   [/^node scripts\/verifier-tool-ci\.mjs\b/, "frozen verifier tool: runs under the CPython the CI pins (job g3-verifier-tool), not the host's"],
-  [/^sudo (?:groupadd --system bell-handoff|env "PATH=\$PATH" npm run test:handoff-perms)\b/, "root on the runner: the two blocks of g3-bell-handoff-perms"]];
-const STATIC = /^(npm run (gate:vocab|typecheck|lint|lint:ratchet|lang:gate|export:check)|bash enforcement\/lint-model-pinning\.sh \.|r25)$/;
+  [/^sudo (?:groupadd --system bell-handoff|env "PATH=\$PATH" npm run test:handoff-perms)\b/, "root on the runner: the two blocks of g3-bell-handoff-perms"], [/^(?:curl [^\n]* --output "\$RUNNER_TEMP\/lean-4\.32\.1-linux\.tar\.zst" https:\/\/github\.com\/leanprover\/lean4\/releases\/download\/v4\.32\.1\/lean-4\.32\.1-linux\.tar\.zst$|echo "[0-9a-f]{64}  \$RUNNER_TEMP\/lean-4\.32\.1-linux\.tar\.zst" \| sha256sum -c -$|mkdir -p "\$RUNNER_TEMP\/(?:elan\/toolchains\/leanprover--lean4---v4\.32\.1"\n|genkan"$)|ELAN_HOME="\$RUNNER_TEMP\/elan" node apps\/genkan\/scripts\/lake\.mjs build$|status=0\n\s*apps\/genkan\/kernel\/\.lake\/build\/bin\/genkan-kernel \|\| status=\$\?\n)/, "the Linux runner's Lean toolchain (job g3-genkan, one entry on this line so that no cited line moves): the release fetched over the network, held to its sha256 and unpacked in the runner's temp, then the build and the skeleton's exit code 3 with it; the oracle reaches no network, test:genkan runs here"]];
+const STATIC = /^(npm run (gate:vocab|typecheck|lint|lint:ratchet|lang:gate|export:check)|bash enforcement\/lint-model-pinning\.sh \.|r25)$/; const RUNNER_ONLY = [[/\$\{?RUNNER_/, "the runner's environment ($RUNNER_*), which GitHub's runner sets"], [/\$\{?GITHUB_/, "the workflow's environment ($GITHUB_*), which DENY deletes here"], [/\$\{\{/, "a workflow expression (${{ }}), which GitHub expands before the step runs"], [/https?:\/\//, "a URL, and the oracle reaches no network"]]; // item ORACLE-RUNNER-GATE-1 (G7 of #340), on this line so that no cited line moves: a plain gate naming one of them is refused (l.133)
 const REQUIRED = ["schema", "role", "tree", "base", "key", "pid", "start", "end", "static_only", "gates", "tests", "r25", "residues", "ci_only", "cv4", "exit", "served_from"];
 const ENV_KEY = ["NODE_OPTIONS", "NODE_ENV", "TZ", "LANG", "LC_ALL", "CI"]; // the declared env of the D4 key
 // DENY (closed list, rule Q-M1-10): every variable whose NAME matches is deleted from process.env before any child process
@@ -127,10 +127,10 @@ try {
     runs.push(lines.slice(i + 1, j).join("\n"));
   });
   for (const cmd of new Set(runs.map((r) => r.trim()))) {
-    const only = CI_ONLY.find(([re]) => re.test(cmd));
+    const only = CI_ONLY.find(([re]) => re.test(cmd)), runner = RUNNER_ONLY.find(([re]) => re.test(cmd));
     if (only) ciOnly.push({ cmd, reason: only[1] });
     else if (cmd.split("\n").some((l) => R25_DIFF_RE.test(l))) gates.push({ name: rangeMode ? "range" : "r25", cmd: "r25" });
-    else gates.push({ name: /^npm (?:run )?([\w:.-]+)$/.exec(cmd)?.[1] ?? cmd, cmd });
+    else if (runner) throw new Error(`the gate "${cmd.split("\n")[0]}" names ${runner[1]}: a CI_ONLY entry (l.25-32) must withdraw its step, with its reason (item ORACLE-RUNNER-GATE-1)`); else gates.push({ name: /^npm (?:run )?([\w:.-]+)$/.exec(cmd)?.[1] ?? cmd, cmd });
   }
   if (rangeMode && !gates.some((g) => g.cmd === "r25")) throw new Error("--range: the tree's ci.yml holds no r25 count (R25_DIFF_RE), no step can be judged");
   const sh = process.platform === "win32" ? join(execFileSync("git", ["--exec-path"], { encoding: "utf8" }).trim(), "..", "..", "..", "bin", "bash.exe") : "bash";
