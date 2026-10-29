@@ -2822,6 +2822,21 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     aux l.130 et l.133 : une gate ordinaire qui nomme l'une de ses quatre formes arrête la dérivation (sortie 2, sans enregistrement) et
     nomme le remède ; test `oracle_refuses_a_gate_that_names_the_runner_or_a_url`, rouge sans la règle (red-proof `52b32b10…`), 12
     tueurs, tous tués (mutants `fe578e8c…`).
+  - GENKAN-AXIOMS-ALL-1 (G7 de #343, MONARK, 2026-10-29 03:5x UTC) : l'audit du noyau de Genkan (`apps/genkan/scripts/audit.mjs`) juge les
+    enregistrements d'axiomes qu'on lui donne (`--axioms-from`, la sortie de `#print axioms`), mais aucune étape ne les écrit : en CI,
+    `g3-genkan` ne lance que la partie source de l'audit, et seul `apps/genkan/test/audit.test.ts` lui en donne. Les règles de source
+    filtrent, les enregistrements décident : la configuration d'une tactique peut ajouter un axiome qu'aucun mot ne montre (le mode natif
+    de `decide`, mesuré au lot 1b). Construction : après la construction du noyau, une étape écrit `#print axioms main` et une ligne par
+    théorème des deux fichiers de théorèmes, et les donne à l'audit, en CI et en local, avec son test. Porteur : MONARK ; preuve de
+    clôture : `g3-genkan` qui refuse un noyau dont seul l'enregistrement montre l'axiome, et le test de l'étape, rouge sans elle.
+    Déclencheur : avant le lot 2 de Genkan ; état : ouvert.
+  - GENKAN-PANIC-1 (G7 de #343, MONARK, 2026-10-29 03:5x UTC) : dans le code compilé, `panic!` et les accès qui paniquent (`get!`, `xs[i]!`)
+    impriment un message et rendraient la valeur par défaut du type sans arrêter le programme, à mesurer sur la chaîne épinglée.
+    Construction : la mesure, puis une règle de l'audit qui les refuse dans le noyau, ou un théorème qui prouve qu'ils ne sont pas
+    atteints. Porteur : MONARK. Déclencheur : avant le lot 2 de Genkan, dont le décodeur lit des octets ; état : ouvert.
+  - GENKAN-MAIN-IO-1 (G7 de #343, MONARK, 2026-10-29 03:5x UTC) : `Main` ne doit lire que l'entrée standard et n'écrire que la sortie standard.
+    Construction : une règle de l'audit qui refuse ailleurs dans le noyau `IO.Process`, `IO.FS` et le réseau, avec ses tests. Porteur :
+    MONARK. Déclencheur : le lot 2 de Genkan, où `Main` lit sa première entrée ; état : ouvert.
 
 ## Ce qui reste pour la page
 
