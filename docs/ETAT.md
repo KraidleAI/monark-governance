@@ -2889,6 +2889,15 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     cœur s'abstient. Construction : la variable, et un test réel qui plante un noyau qui panique et attend l'abstention ; le code de sortie
     se mesure sur la CI Linux (sous Windows, `0xC0000409`, mesuré). Porteur : MONARK. Déclencheur : le lot 4 de Genkan (`src/kernel.ts`) ;
     état : ouvert.
+  - HARNESS-VERIFY-TLS-FLAKE-1 (vu par HIKAE dans un passage complet de `test:main` sur `f6447437`, la première fusion du tronc du lot 2a de
+    Hikae, le 2026-10-29 ; écrit ici au G7 de #348, MONARK, 2026-10-29 17:5x UTC) : le test
+    `verify_harness_out_is_written_only_when_every_check_passes` (`test/verify-harness-liq.test.ts` l.366) a échoué une fois, son passage
+    TLS rouge sur tous ses contrôles réseau en 783 ms. Il a passé seul 20 fois sur 20, puis dans les cinq passages suivants de la session
+    HIKAE, dont deux de l'oracle. Lecture non mesurée : le front TLS écoute sur `127.0.0.1` (`listen`, `test/helpers/loopback.ts` l.58-62)
+    et le client appelle `https://localhost` (l.385), que la machine peut résoudre d'abord en `::1`, où un autre serveur du passage peut
+    écouter sur le même port. Construction : mesurer la cause sous la charge d'un passage complet, puis faire appeler au client l'adresse où
+    le front écoute, avec un cas qui force la résolution de `localhost` en `::1` d'abord. Porteur : MONARK. Déclencheur : le prochain lot
+    qui touche `scripts/verify-harness.mjs` ou ce test, ou un second échec dans un passage complet, au premier des deux ; état : ouvert.
 
 ## Ce qui reste pour la page
 
