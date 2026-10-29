@@ -140,6 +140,78 @@ test("oracle_ci_only_withdraws_the_two_sudo_blocks_of_the_handoff_job_only — a
   `the two blocks of the job only, never the foreign one: ${a.out}`);
 }));
 
+// killer: scripts/oracle/run.mjs:32 CONST "^(?:curl " -> "^(?:wget "
+// killer: scripts/oracle/run.mjs:32 CONST "sha256sum -c -$" -> "sha256sum -c -x$"
+// killer: scripts/oracle/run.mjs:32 CONST "|genkan\"$)" -> ")"
+// killer: scripts/oracle/run.mjs:32 CONST "lake\\.mjs build$" -> "lake\\.mjs build -x$"
+// killer: scripts/oracle/run.mjs:32 CONST "status=0\\n" -> "status=1\\n"
+// killer: scripts/oracle/run.mjs:32 CONST "mkdir -p \"\\$RUNNER_TEMP\\/(?:" -> "mkdir -p \"\\$\\w+\\/(?:"
+// killer: scripts/oracle/run.mjs:32 CONST "|ELAN_HOME=\"\\$RUNNER_TEMP\\/elan\" node apps" -> "|(?:ELAN_HOME=\"\\$RUNNER_TEMP\\/elan\" )?node apps"
+// killer: scripts/oracle/run.mjs:32 CONST "genkan-kernel \\|\\|" -> "\\w+ \\|\\|"
+test("oracle_ci_only_withdraws_the_runner_toolchain_steps_of_the_genkan_job — fetch, hold, unpack, temp, build, the skeleton's exit code; the tools check, the tests and three near misses stay gates", () => withFx((fx) => {
+  // The job g3-genkan, copied from the real ci.yml, then a foreign job of near misses: the wrapper's build without the runner's ELAN_HOME,
+  // a temp dir that is not the runner's, a block that starts as the skeleton's and runs another binary. --static-only: none of them runs
+  // here (outside the static lane); each must be absent from ci_only, where it would never run.
+  const real = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8").replace(/\r\n/g, "\n"), at = real.indexOf("\n  g3-genkan:\n");
+  assert.ok(at > 0, "the real ci.yml holds the job g3-genkan");
+  const end = real.slice(at + 1).search(/\n {2}[\w-]+:\n/), job = real.slice(at + 1, end < 0 ? undefined : at + 1 + end + 1);
+  appendFileSync(join(fx.repo, ".github", "workflows", "ci.yml"), `${job}  foreign:\n    steps:\n      - run: node apps/genkan/scripts/lake.mjs build\n      - run: mkdir -p "$TMPDIR/genkan"\n      - run: |\n          status=0\n          apps/genkan/kernel/.lake/build/bin/other || status=$?\n          echo done\n`);
+  git(fx.repo, "commit", "-qam", "the genkan job and three near misses");
+  const a = oracle(fx, ["--role", "G1", "--static-only"]);
+  assert.deepEqual(a.rec?.ci_only?.map((c) => c.cmd.split("\n")[0]), ["npm ci", "npm audit --audit-level=high",
+    'curl --fail --location --silent --show-error --retry 5 --retry-all-errors --retry-delay 5 --output "$RUNNER_TEMP/lean-4.32.1-linux.tar.zst" https://github.com/leanprover/lean4/releases/download/v4.32.1/lean-4.32.1-linux.tar.zst',
+    'echo "57d5c062a6b4bae6fba511a1704aa124dff461c37d0fc94585637fbb7d951b50  $RUNNER_TEMP/lean-4.32.1-linux.tar.zst" | sha256sum -c -',
+    'mkdir -p "$RUNNER_TEMP/elan/toolchains/leanprover--lean4---v4.32.1"', 'mkdir -p "$RUNNER_TEMP/genkan"',
+    'ELAN_HOME="$RUNNER_TEMP/elan" node apps/genkan/scripts/lake.mjs build', "status=0"],
+  `the six runner steps of the job only, never the tools check, the tests nor a near miss: ${a.out}`);
+  const withdrawn = a.rec?.ci_only?.map((c) => c.cmd) ?? []; // the near miss block starts as the skeleton's: its first line alone cannot tell them apart
+  assert.ok(withdrawn.some((c) => c.includes("bin/genkan-kernel || status=$?")) && !withdrawn.some((c) => c.includes("bin/other")),
+    `the skeleton's block is withdrawn, never the near miss that starts as it does: ${a.out}`);
+}));
+
+// Item ORACLE-RUNNER-GATE-1 (G7 of #340: the oracle replayed the curl step of g3-genkan, exit 23, RUNNER_TEMP unset on the host): a plain
+// gate that names the runner's environment, a workflow expression or a URL refuses the derivation (exit 2, no record) until a CI_ONLY entry
+// withdraws its step; near misses stay gates, and the real ci.yml derives, its runner steps withdrawn.
+// killer: scripts/oracle/run.mjs:133 CONST "else if (runner) throw" -> "else if (false) throw"
+// killer: scripts/oracle/run.mjs:133 CONST "names ${runner[1]}" -> "names it"
+// killer: scripts/oracle/run.mjs:130 CONST "runner = RUNNER_ONLY.find(([re]) => re.test(cmd))" -> "runner = RUNNER_ONLY.find(([re]) => re.test(cmd.split(\"\\n\")[0]))"
+// killer: scripts/oracle/run.mjs:33 CONST "[/\\$\\{?RUNNER_/, " -> "[/\\$RUNNER_/, "
+// killer: scripts/oracle/run.mjs:33 CONST "[/\\$\\{?RUNNER_/, " -> "[/\\{?RUNNER_/, "
+// killer: scripts/oracle/run.mjs:33 CONST "RUNNER_/, " -> "RUNNER/, "
+// killer: scripts/oracle/run.mjs:33 CONST "[/\\$\\{?GITHUB_/, " -> "[/\\$\\{GITHUB_/, "
+// killer: scripts/oracle/run.mjs:33 CONST "GITHUB_/, " -> "GITHUB/, "
+// killer: scripts/oracle/run.mjs:33 CONST "[/\\$\\{\\{/, " -> "[/\\$\\{\\{\\{/, "
+// killer: scripts/oracle/run.mjs:33 CONST "[/https?:\\/\\//, " -> "[/https:\\/\\//, "
+// killer: scripts/oracle/run.mjs:33 CONST "[/https?:\\/\\//, " -> "[/http:\\/\\//, "
+// killer: scripts/oracle/run.mjs:33 CONST "[/https?:\\/\\//, " -> "[/https?:\\//, "
+test("oracle_refuses_a_gate_that_names_the_runner_or_a_url — the runner's and the workflow's environment, a workflow expression, http and https each refuse the derivation, exit 2, no record; near misses stay gates and the real ci.yml derives", () => withFx((fx) => {
+  const ci = join(fx.repo, ".github", "workflows", "ci.yml"), own = readFileSync(ci, "utf8");
+  const refused: [string, string, string][] = [ // [the step, the first line the refusal names, what it names]
+    ['echo "$RUNNER_TEMP"', 'echo "$RUNNER_TEMP"', "the runner's environment"],
+    ['|\n          set -e\n          echo "${RUNNER_OS}"', "set -e", "the runner's environment"], // below the block's first line, braced
+    ["echo $GITHUB_SHA", "echo $GITHUB_SHA", "the workflow's environment"],
+    ["echo ${{ github.sha }}", "echo ${{ github.sha }}", "a workflow expression"],
+    ["curl -fsS http://example.org/a", "curl -fsS http://example.org/a", "a URL"],
+    ["curl -fsS https://example.org/a", "curl -fsS https://example.org/a", "a URL"],
+  ];
+  for (const [step, first, what] of refused) {
+    writeFileSync(ci, `${own}      - run: ${step}\n`);
+    git(fx.repo, "commit", "-qam", `a runner step: ${first}`);
+    const r = oracle(fx, ["--role", "G1", "--static-only"]);
+    assert.equal(r.status, 2, `${first}: the derivation is refused: ${r.out}`);
+    assert.equal(r.rec, null, `${first}: no record`);
+    assert.ok(r.out.includes(`the gate "${first}" names ${what}`) && r.out.includes("ORACLE-RUNNER-GATE-1"), `${first}: the refusal names the gate, what it names and the item: ${r.out}`);
+  }
+  const real = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8").replace(/\r\n/g, "\n");
+  const near = 'echo "$MY_RUNNER_TEMP" "$TMPDIR" $RUNNERS $GITHUB http-only https:/x';
+  writeFileSync(ci, `${real}${real.endsWith("\n") ? "" : "\n"}  near:\n    steps:\n      - run: ${near}\n`);
+  git(fx.repo, "commit", "-qam", "the real ci.yml and near misses");
+  const a = oracle(fx, ["--role", "G1", "--static-only"]);
+  assert.notEqual(a.status, 2, `the real ci.yml and the near misses derive: ${a.out}`);
+  assert.ok(a.rec !== null && !(a.rec.ci_only ?? []).some((c) => c.cmd === near), `a record, the near misses a gate, never withdrawn: ${a.out}`);
+  assert.ok((a.rec?.ci_only ?? []).some((c) => c.cmd.startsWith("curl ")), `the runner's curl step is withdrawn: ${a.out}`);
+}));
+
 // G2 delta A-3: the npm overrides win under any case on every OS. On Windows a case-insensitive env merge lets NPM_CONFIG_OFFLINE
 // stand in for npm_config_offline; on POSIX both names reach the gate, so the gate must see npm's two override names only.
 // killer: scripts/oracle/run.mjs:47 COR " || /^npm_config_(offline|logs_dir)$/i.test(k)" -> ""

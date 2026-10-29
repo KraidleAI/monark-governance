@@ -722,6 +722,18 @@
   "dojo_verify_url_equals_dir_on_the_same_tree",
   "dojo_verify_url_transport_is_the_bell_policy"
  ],
+ "apps/genkan/test/audit.test.ts": [
+  "audit_pins_lakefile",
+  "audit_refuses_banned_construct",
+  "audit_refuses_foreign_axiom"
+ ],
+ "apps/genkan/test/export.test.ts": [
+  "export_omits_lake_build"
+ ],
+ "apps/genkan/test/scripts.test.ts": [
+  "lake_wrapper_refuses_elan_home_on_c",
+  "lake_wrapper_runs_pinned_lake"
+ ],
  "apps/harness/test/attest.test.ts": [
   "attest_label_off_frozen_contract",
   "attest_makes_no_probative_claim",
@@ -3087,6 +3099,7 @@
   "no_secret_in_repo"
  ],
  "test/oracle-run.test.ts": [
+  "oracle_ci_only_withdraws_the_runner_toolchain_steps_of_the_genkan_job — fetch, hold, unpack, temp, build, the skeleton's exit code; the tools check, the tests and three near misses stay gates",
   "oracle_ci_only_withdraws_the_two_sudo_blocks_of_the_handoff_job_only — any other sudo block stays a gate",
   "oracle_clone_takes_no_machine_template - G2 delta3 m-f: a machine git template (GIT_TEMPLATE_DIR, or init.templateDir) carrying info/attributes `* -diff` never reaches the clone: r25 reads the 3 lines of the lot, green (0 lines before)",
   "oracle_cv4_refuses_the_suite — free memory or node.exe out of bounds => exit 3, no suite, lock released; defaults 4096 MB free and 40 node.exe (M12, X13)",
@@ -3103,6 +3116,7 @@
   "oracle_reads_the_tests_of_test_main — the tests field comes from the suite's gate as the real tree names it, npm run test:main, which gets the oracle's base as ORACLE_BASE over the host's (TEST-COUNT-FLOOR-1, Q-9 and Q-4 (a))",
   "oracle_record_not_written_is_a_refusal — a gate turns the record path into a directory (BRK) => exit 2, no oracle-result line, no record (C-G2-7)",
   "oracle_red_same_key_record_is_never_served — decision 267 (c): a suite refused by C-V-4, or a red base, is replayed with a mention, never served (X4)",
+  "oracle_refuses_a_gate_that_names_the_runner_or_a_url — the runner's and the workflow's environment, a workflow expression, http and https each refuse the derivation, exit 2, no record; near misses stay gates and the real ci.yml derives",
   "oracle_refuses_an_incomplete_same_key_record — a record without pid, or whose tree object is absent or null => exit 2, neither served nor replayed (M8, C-G2-3)",
   "oracle_refuses_without_role — --role absent or unknown => exit 2, nothing runs (M1)",
   "oracle_store_serves_g1_never_g2_cp2_g7 — same key: G1 served (cited by file and sha256, never copied, with its own tree sha), an ignored file leaves the tree clean; independent roles replay (M4, M5, X11)",
