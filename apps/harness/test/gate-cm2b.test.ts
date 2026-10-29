@@ -143,7 +143,8 @@ function up(x: number): number {
 // B-13 (ADR-CM; spec section 8; inverts R-3 of CM-2b): each USDe band edge is the one of the score test, checked against
 // the definition (fl(hi - yhat) <= qhat and the next double up fails; fl(yhat - lo) <= qhat and the next double down
 // fails); some edges are one ulp off fl(yhat -/+ qhat); the BYO edge of (1; 1) is -2^-53, not 0. The B-7 clause is
-// withdrawn from the core sentence, the description and the served content.
+// withdrawn from the core sentence, the description and the served content. Outside the calm support [0, 0.01/24) of the
+// committed key the gate abstains under_calib with no band, so only the values of the grid inside it carry edges.
 // killer: packages/hikae/src/region.ts:109 ROR "if (ofKey(m) - c <= q) a = m;" -> "if (ofKey(m) - c < q) a = m;"
 test("interval_edges_follow_the_score_test", () => {
   const usdeText = HARNESS_TOOLS.find((t) => t.name === "gate")?.run({ prediction: pred(USDE, 1e-4, USDE_STABLE_RUN_PREDICTOR_ID), params: PARAMS }).text ?? "";
@@ -151,13 +152,17 @@ test("interval_edges_follow_the_score_test", () => {
   for (const t of [STABLE_RUN_COMMITTED_SENTENCE, GATE_TOOL_DESCRIPTION, usdeText]) assert.ok(!/band edge is yhat|half a unit|not widened/.test(t), "no B-7 clause");
   let moved = 0;
   for (const yhat of [0, 1e-12, 1e-6, 0.0000416, 0.0001, 0.00123, -0.0003, 0.1, 1, 12345.678, 3e-4, 7.5e-5, -0.0001, 0.0005]) {
-    const v = runGate(pred(USDE, yhat, USDE_STABLE_RUN_PREDICTOR_ID), PARAMS).verdict;
+    const d = runGate(pred(USDE, yhat, USDE_STABLE_RUN_PREDICTOR_ID), PARAMS), v = d.verdict;
+    if (!(0 <= yhat && yhat < 0.01 / 24)) {
+      assert.deepEqual([v.reason, d.reason, d.action, v.region, v.qhat, v.n_calib], ["under_calib", "under_calib", "abstain", null, null, 0], `${String(yhat)}: outside the calm support, under_calib with no band`);
+      continue;
+    }
     const [r, q] = [v.region, v.qhat ?? Number.NaN];
     assert.ok(r !== null && r.kind === "interval", `${String(yhat)}: an interval band`);
     assert.ok(r.hi - yhat <= q && !(up(r.hi) - yhat <= q) && yhat - r.lo <= q && !(yhat + up(-r.lo) <= q), `${String(yhat)}: edges of the score test`);
     if (r.hi !== yhat + q || r.lo !== yhat - q) moved++;
   }
-  assert.ok(moved > 0, "some edges differ from fl(yhat -/+ qhat)");
+  assert.ok(moved > 0, "some edges inside the calm support differ from fl(yhat -/+ qhat)");
   const byo = runGate(pred("acme-model-x", 1, "acme:key"), { ...PARAMS, nMin: 5, tauInterval: 2, calibration: { scores: [0.5, 0.1, 0.9, 0.3, 1, 0.7, 0.2, 0.8, 0.4, 0.6], mode: "interval" } });
   assert.deepEqual(byo.verdict.region, { kind: "interval", lo: -(2 ** -53), hi: 2 }, "BYO (1; 1): fl(1 - lo) <= 1 down to -2^-53");
 });
@@ -169,7 +174,7 @@ test("interval_edges_follow_the_score_test", () => {
 test("usde_band_full_bytes_are_pinned_at_1_1_0", () => {
   const grid = [0, 1e-12, 1e-6, 0.0000416, 0.0001, 0.00123, -0.0003, 0.1, 1, 12345.678, 3e-4, 7.5e-5];
   const replay = grid.map((yhat) => JSON.stringify(runGate(pred(USDE, yhat, USDE_STABLE_RUN_PREDICTOR_ID), { ...PARAMS, tool: "t" }))).join("\n");
-  assert.equal(createHash("sha256").update(replay).digest("hex"), "c4b6bf1532879e8074d61a18fefa43ecb71508b366853d94000409c92a8b03fc", "served bytes of the USDe band (1.1.0; B-13 edges since CM-3c-4b, was 50ccc9fd...)");
+  assert.equal(createHash("sha256").update(replay).digest("hex"), "47b284630f009c4547190ee7527b6b8ec01759a8480cb9d74d9afb4d7bc86c64", "served bytes of the USDe band (1.1.0; B-13 edges since CM-3c-4b, was c4b6bf15..., 50ccc9fd...)");
 });
 
 // Test R-4 (F2P, B-5; moved from gate.test.ts gate_attested_concordant_files_residual, ADR-M017 D2(iii)/D4(3)): the

@@ -35,7 +35,7 @@ import type { GateInput, VerdictCell } from "@monark/hikae";
 import { assertClosedGateDecision, assertNoForbiddenKey, requestSha256, sha256Canonical, SCHEMA_VERSION, TOOL_ERROR_CODES } from "@monark/contracts";
 import type { GateDecision, Prediction, CoverageVerdict, AttestedPrice, ClassEntry } from "@monark/contracts";
 import {
-  lookupCommittedCalibration,
+  lookupCommittedCalibration, USDE_STABLE_RUN_THETA_STRESS, USDE_STABLE_RUN_WINDOW_HOURS,
   UKEMI_LIQ_PREDICTOR_BASE,
   hasCommittedCalibrationForClass,
   asciiLower,
@@ -135,7 +135,7 @@ export const STABLE_RUN_COMMITTED_CORE =
 
 /** The SERVER-imposed params of the committed USDe key, declared in the class description (ADR-CM B-2). */
 export const STABLE_RUN_REQUIREMENTS_SENTENCE = `on that key it requires alpha = ${String(USDE_POLICY.alpha)}, nMin = ${String(USDE_POLICY.nMin)}`;
-
+export const STABLE_RUN_CALM_SUPPORT_SENTENCE = `on that key a velocity forecast outside [0, ${String(USDE_STABLE_RUN_THETA_STRESS)}/${String(USDE_STABLE_RUN_WINDOW_HOURS)}) per hour, the calm support of its calibration, abstains under_calib`; // the guard of stableRunVerdict
 /**
  * The FULL committed sentence = CORE + the "every other population abstains" queue. `honestyText()`
  * (tools/call, K-1 carrier) renders THIS unchanged for the USDe COMMIT — byte-identical on the wire, its
@@ -248,7 +248,7 @@ export function describeGate(registryHasLiq: boolean): string {
     "authorization budget B_t. Dispatches on task_class. The class 'btc-dir-15m' is retired and answers a named " +
     `refusal. For 'cascade-liquidable-24h' ${CASCADE_UNCALIBRATED_SENTENCE}. ` +
     `For 'stable-run-velocity-24h' (Narabi: a redemption-flow velocity forecast) the gate holds ${STABLE_RUN_COMMITTED_CORE}; ` +
-    `${STABLE_RUN_REQUIREMENTS_SENTENCE}; ` +
+    `${STABLE_RUN_REQUIREMENTS_SENTENCE}; ${STABLE_RUN_CALM_SUPPORT_SENTENCE}; ` +
     `for any other population, ${STABLE_RUN_UNCALIBRATED_SENTENCE}. ` +
     `For '${TASK_LIQ_ELIGIBLE}' (Ukemi: a per-account liquidable-amount class, class A only) ${liqClause}. ` +
     `${kataClause()} ` +
@@ -635,11 +635,7 @@ function stableRunVerdict(prediction: Prediction, params: HarnessParams): Covera
   const split = admittedSplit(cell); // Q-3b2-2: qhat and alpha read on the admitted row (exact rank, B-12)
   if ("reason" in split) {
     // No current row for the key (unreachable for the committed key: its row is built at load) ⇒ honest under_calib.
-    return underCalibVerdict({
-      taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores,
-      residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
-      cell,
-    });
+    return underCalibVerdict({ taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores, residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION, cell });
   }
   const ir = scoreTestBand(yhat, split.qhat); // B-13: edges of the score test
   if (ir.abstain) {
@@ -650,6 +646,10 @@ function stableRunVerdict(prediction: Prediction, params: HarnessParams): Covera
       cell,
     });
   }
+  // Calm support of the committed key: a forecast outside [0, thetaStress / windowHours) per hour, or an entry with no
+  // support (fail-closed), abstains under_calib with empty scores (n_calib 0), the form of an uncommitted liq stratum; the region above is dropped.
+  const calmSupport = committed.calmSupport;
+  if (calmSupport === undefined || !(0 <= yhat && yhat < calmSupport.thetaStress / calmSupport.windowHours)) return underCalibVerdict({ taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores: [], residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION, cell });
   return buildVerdict({
     taskClass: TASK_STABLE_RUN, method: "split", alpha: split.alpha, scores,
     region: ir.region, qhat: split.qhat, abstain: false, reason: "covered",
@@ -975,7 +975,7 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
       throw new HarnessToolError(`task_class '${TASK_STABLE_RUN}' expects a number yhat (velocity forecast), got ${typeof prediction.yhat}`, "yhat_type_mismatch");
     }
     verdict = stableRunVerdict(prediction, params);
-    nCalib = verdict.n_calib; // 613 for the committed USDe key; 0 for any other population (under_calib)
+    nCalib = verdict.n_calib; // 613 for the committed USDe key; 0 for a forecast outside its calm support and for any other population (under_calib)
   } else if (taskClass === TASK_LIQ_ELIGIBLE) {
     if (typeof prediction.yhat !== "number") {
       throw new HarnessToolError(`task_class '${TASK_LIQ_ELIGIBLE}' expects a number yhat (liquidable amount), got ${typeof prediction.yhat}`, "yhat_type_mismatch");

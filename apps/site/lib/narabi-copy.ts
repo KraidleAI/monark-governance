@@ -91,7 +91,7 @@ export const GLOSSARY: { term: string; def: string }[] = [
   { term: "supply identity", def: "What each window must satisfy: opening supply equals closing supply plus burns minus mints, checked on every line." },
   { term: "code version", def: "A run of lines with an unchanged sentinel_sha and Node version. The sentinel_sha hashes the sentinel's own top-level source files, not the packages it imports. A new build does not change the tracker parameters." },
   { term: "parameter segment", def: "A run of unchanged tracker parameters. A change of c or ε would open a new one and move the printed bound to the arbitrary-step theorem." },
-  { term: "under_calib", def: "Too few calibration points for a population: the gate abstains for it, serving no region while its state is published. A named state, never a number." },
+  { term: "under_calib", def: "Too few calibration points for a population, or a forecast outside the calm zone its calibration covers: the gate abstains for it, serving no region while its state is published. A named state, never a number." },
 ];
 
 // Which definition of the sentinel_sha the served lines carry, the one the code-version entry above and the note of

@@ -10,9 +10,10 @@
     "apps/site/data/narabi-served.json": "14df98bd3a77439708fea53c65849c571032445daf99d19dd3278156626c4085",
     "apps/site/data/narabi-capture.json": "44a5b6288a24cc68cf78bcc6d87d9c6e13c9e4d8b806282d559696979b7ae149",
     "apps/site/data/ukemi-served.json": "286cd472a3ceb0795ce27be37e47bb8398e03175db1dd86bcfe2dfd6250218da",
-    "apps/site/data/harness-served.json": "f47ed82f98bdcdb0738cf466442d2b78e841c34b21b23d0038f626584ba75c47",
+    "apps/site/data/harness-served.json": "58f6ec63a8154ee3043abcc96b098c159b975f72322a8e05c4d701023cf79128",
+    "apps/site/data/harness-pending.json": "6290c2cae0fd8514de626bb5b44b0aaecaf8a15961b6c2bdcac3d887602485da",
     "fixtures/byo-demo-trace.json": "5c9b03e62bd88703a1ecfe381cf8288cab62aee9d096b03b2302338d49883dfc",
-    "fixtures/h5-e2e-trace.json": "57d38c1907bfea4d7cb746186f9bada86bd210358c0a7902a61392957567fc19",
+    "fixtures/h5-e2e-trace.json": "25b86707358c38afb4f4cbf5203624051a7b83d711cf65d4ee65895b85b3fcae",
     "apps/site/data/docs-references.json": "9adfeb45accfb471bf9ff813d0251698b87e65f521f26d3b50195000edef114b",
     "apps/site/data/dojo-served.json": "4c3a2da5184b4e68caa4362dac9cd855e94d1a45e8b496c852ad7ce588b13381"
   }
