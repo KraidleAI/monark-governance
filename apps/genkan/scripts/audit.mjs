@@ -3,11 +3,13 @@
 // lexes it as the pinned toolchain does where it matters (nested block comments, strings, raw strings, char literals,
 // guillemet names, the code parts of interpolated strings), and refuses, in code position only: an opener of those glued
 // to a character (not after white space), a banned word as a whole single-component name (a guillemet name read as its
-// content), a foreign axiom of Init as any component of a name, a #eval, any skipKernelTC, a theorem outside the two
-// theorem files, an import other than Genkan and its plain modules; then any lakefile.toml (any case), and a lakefile.lean
-// whose sha256 (LF line ends) is not the pinned one. The theorems of Genkan/Theorems.lean and Genkan/Vectors.lean, named
-// through their namespaces, must each have an axiom record within {propext, Classical.choice, Quot.sound}; records are
-// read only from --axioms-from (the `#print axioms` output).
+// content), a foreign axiom or a debugging function of Init as any component of a name, a # command other than #check
+// and #print, any skipKernelTC, a theorem outside the two theorem files, an import other than Genkan and its plain
+// modules; then any lakefile.toml (any case), and a lakefile.lean whose sha256 (LF line ends) is not the pinned one.
+// Words do not see every axiom (a tactic's config adds one with no word for it, measured): the records do. Read only from
+// --axioms-from (the `#print axioms` output), they must name main and each theorem of Genkan/Theorems.lean and
+// Genkan/Vectors.lean (named through their namespaces), and every record must stay within {propext, Classical.choice,
+// Quot.sound}.
 //
 //   node apps/genkan/scripts/audit.mjs [--kernel <dir>] [--axioms-from <file>]
 //
@@ -28,6 +30,18 @@ const BANNED = new Set([
   "init", "builtin_init", "export",
   // a notation can declare a token that holds a quote, and so change how the lexer must read the rest
   "notation", "infix", "infixl", "infixr", "prefix", "postfix", "declare_syntax_cat", "binder_predicate",
+  // builtin debugging syntax: dbg_trace prints from pure code (its string is read as interpolated, below); idbg makes the
+  // compiled program fetch code from a debugger over TCP and evaluate it
+  "dbg_trace", "idbg",
+  // builtin terms whose message is an interpolated string after a name (and a term, for the At forms), a shape the lexer
+  // does not follow; none elaborates without an import of Lean (measured on throwNamedError)
+  "throwNamedError", "throwNamedErrorAt", "logNamedError", "logNamedErrorAt", "logNamedWarning", "logNamedWarningAt",
+  // debug.byAsSorry, debug.proofAsSorry and debug.terminalTacticsAsSorry make Lean accept a false claim through sorryAx,
+  // with no word for it (measured), and debug.skipKernelTC skips the kernel's check: the kernel sets no option
+  "set_option",
+  // decide's native mode adds an axiom of its own (measured); a tactic's config sets it as +native, (native := true) or
+  // (config := ...), the config forms of Init/Tactics.lean
+  "native", "config",
 ]);
 const THEOREM_FILES = new Set(["Genkan/Theorems.lean", "Genkan/Vectors.lean"]);
 const ADMITTED_AXIOMS = new Set(["propext", "Classical.choice", "Quot.sound"]);
@@ -36,10 +50,18 @@ const ADMITTED_AXIOMS = new Set(["propext", "Classical.choice", "Quot.sound"]);
 const FOREIGN_AXIOMS = ["sorryAx", "lcProof", "lcAny", "lcCast", "lcErased", "lcUnreachable", "lcVoid", "isScalarObj", "Quot.lcInv",
   "Lean.ofReduceBool", "Lean.ofReduceNat", "Lean.trustCompiler"];
 const AXIOM_WORDS = new Set(FOREIGN_AXIOMS.map((n) => n.slice(n.lastIndexOf(".") + 1)));
+// Init's debugging functions (Init/Util.lean): from pure code they print, read the stack or sleep. Refused as any component
+// of a name, as the foreign axioms are.
+const DEBUG_FUNCTIONS = ["dbgTrace", "dbgTraceVal", "dbgTraceIfShared", "dbgStackTrace", "dbgStackTraceIf", "dbgSleep"];
+const PART_WORDS = new Set([...AXIOM_WORDS, ...DEBUG_FUNCTIONS]);
+// The # commands admitted: #check and #print only read the environment. #eval and #guard run code while the file is
+// elaborated (measured on #guard), #exit ends it, others wrap a command. The vector literal #v[ is a term, not a command.
+const HASH_COMMANDS = new Set(["check", "print"]);
 // The kernel's own modules: Genkan and Genkan.<Name>, plain ASCII components that open with a capital.
 const GENKAN_MODULE = /^Genkan(?:\.[A-Z][A-Za-z0-9]*)*$/;
-// Tokens after which a string is interpolated (Init: s!, f!, println!; Macro.trace[...] is handled apart).
-const INTERP_HEADS = new Set(["s!", "f!", "println!"]);
+// Tokens after which a string is interpolated (Init: s!, f!, println!; the builtin dbg_trace; Macro.trace[...] is handled
+// apart).
+const INTERP_HEADS = new Set(["s!", "f!", "println!", "dbg_trace"]);
 // Words that are never the name of a section or an `end` (a name is the next identifier on the same line).
 // (Word lists and the two words below are spelled so that no keyword is followed by a quote on its line: the specifier
 // scan of packages/rpc-guard/test/durable.test.ts reads every scripts/ file of every workspace.)
@@ -285,11 +307,15 @@ function auditFile(rel, src) {
     const tok = tokens[t];
     const next = tokens[t + 1];
     if (tok.kind === "sym") {
-      if (tok.text === "#" && next?.kind === "id" && next.start === tok.start + 1 && next.text.startsWith("eval")) add(tok.start, "banned #eval");
+      if (tok.text === "#" && next?.kind === "id" && next.start === tok.start + 1 && !HASH_COMMANDS.has(next.text)) {
+        const after = tokens[t + 2];
+        const vector = next.text === "v" && after?.text === "[" && after.start === next.start + 1;
+        if (!vector) add(tok.start, next.text.startsWith("eval") ? "banned #eval" : `banned #${next.text}`);
+      }
       continue;
     }
-    const axiom = splitName(tok.text).map(unquote).find((p) => AXIOM_WORDS.has(p));
-    if (axiom !== undefined) add(tok.start, `banned ${axiom}`);
+    const part = splitName(tok.text).map(unquote).find((p) => PART_WORDS.has(p));
+    if (part !== undefined) add(tok.start, `banned ${part}`);
     if (tok.parts !== 1) continue;
     const word = unquote(tok.text); // Lean applies `@[«implemented_by» g]`
     if (BANNED.has(word)) add(tok.start, `banned ${word}`);
@@ -434,6 +460,8 @@ const { records, refusals } = parseRecords(axiomsText);
 out.push(...refusals);
 for (const [name, axioms] of records) for (const a of axioms) if (!ADMITTED_AXIOMS.has(a)) out.push(`${name}: foreign axiom ${a}`);
 for (const name of theorems) if (!records.has(name)) out.push(`${name}: no axiom record`);
+// Given records, the program's root is among them: what main's value reaches is in its record.
+if (axiomsFrom !== undefined && !records.has("main")) out.push("main: no axiom record");
 
 if (out.length > 0) {
   for (const l of out) process.stderr.write(`audit: ${l}\n`);

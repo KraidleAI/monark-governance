@@ -1,7 +1,8 @@
 // GENKAN - the source audit of the kernel, driven as a subprocess. It lexes Lean the way the pinned toolchain does where
 // it matters (raw strings, char literals, guillemet names, interpolated strings, openers glued to code), refuses banned
-// constructs in code position, foreign imports, an unpinned lakefile, and a theorem whose axiom closure leaves {propext,
-// Classical.choice, Quot.sound}. Every case runs in a temporary tree under os.tmpdir(); axiom records come only from a file.
+// constructs in code position, # commands other than #check and #print, foreign imports, an unpinned lakefile, and a record
+// of main or of a theorem whose axiom closure leaves {propext, Classical.choice, Quot.sound}; given records, main must have
+// one. Every case runs in a temporary tree under os.tmpdir(); axiom records come only from a file.
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -49,7 +50,9 @@ function axiomsFile(text: string): string {
 const audit = (kernel: string, axioms: string): SpawnSyncReturns<string> =>
   run(AUDIT_MJS, ["--kernel", kernel, "--axioms-from", axioms], { ...process.env });
 const none = (n: string): string => `'${n}' does not depend on any axioms`;
-const recordsFor = (names: string[]): string => axiomsFile(names.map(none).join("\n") + "\n");
+const MAIN_NONE = none("main");
+/** Records with no axiom for `names` and for main, which given records must hold. */
+const recordsFor = (names: string[]): string => axiomsFile([...names.map(none), MAIN_NONE].join("\n") + "\n");
 
 /** The audit passed: exit 0, exactly one stdout line starting `audit: `, and no `audit:` line on stderr. */
 function assertAuditPasses(r: SpawnSyncReturns<string>, what: string): void {
@@ -66,9 +69,9 @@ const positioned = (r: SpawnSyncReturns<string>): string[] => linesOf(r.stderr).
 const refusals = (r: SpawnSyncReturns<string>): string[] =>
   linesOf(r.stderr).filter((l) => /^audit: (?:.*: foreign axiom |.*: no axiom record$|unparsed axiom output: )/.test(l)).sort();
 
-// A clean theorems file and its record, so the only findings of a kernel are the ones a case plants.
+// A clean theorems file and its records (main's included), so the only findings of a kernel are the ones a case plants.
 const CLEAN_THEOREMS = ["namespace Genkan", "theorem t : True := trivial", "end Genkan", ""].join("\n");
-const CLEAN_RECORD = "'Genkan.t' does not depend on any axioms\n";
+const CLEAN_RECORD = "'Genkan.t' does not depend on any axioms\n'main' does not depend on any axioms\n";
 
 // The token-declaring commands, each banned: a notation can declare a token that holds a quote.
 const TOKEN_WORDS = ["infix", "infixl", "infixr", "prefix", "postfix", "declare_syntax_cat", "binder_predicate"];
@@ -110,6 +113,55 @@ const PROBES: Record<string, [string[], [number, string][]]> = {
     ],
     [[8, "banned init"]],
   ],
+  // A sorry inside dbg_trace's interpolated string compiled (P13); #guard ran its term while the file was elaborated (P14);
+  // the three options made Lean accept false claims through sorryAx (P15); decide's native mode added an axiom of its own
+  // in each spelling (P16, P17).
+  P13: [
+    ["-- A sorry inside the code part of dbg_trace's interpolated string (the review's case).", 'def x : Nat := dbg_trace "{(sorry : Nat)}"; 0'],
+    [[2, "banned dbg_trace"], [2, "banned sorry"]],
+  ],
+  P14: [
+    ["-- #guard compiles and runs its term while the file is elaborated.", '#guard (dbgTrace "guard ran while the file was elaborated" fun _ => true)'],
+    [[2, "banned #guard"], [2, "banned dbgTrace"]],
+  ],
+  P15: [
+    [
+      "-- The three options, each on a false claim: byAsSorry in a def, proofAsSorry in a theorem, terminalTacticsAsSorry on omega.",
+      "set_option debug.byAsSorry true in",
+      "def falseDef : { n : Nat // n > 0 } := ⟨0, by decide⟩",
+      "",
+      "set_option debug.proofAsSorry true in",
+      "theorem falseThm : 0 > 0 := by decide",
+      "",
+      "set_option debug.terminalTacticsAsSorry true in",
+      "def falseDef2 : { n : Nat // n > 0 } := ⟨0, by omega⟩",
+      "",
+      "#print axioms falseDef",
+      "#print axioms falseThm",
+      "#print axioms falseDef2",
+    ],
+    [[2, "banned set_option"], [5, "banned set_option"], [6, "banned theorem"], [8, "banned set_option"]],
+  ],
+  P16: [
+    [
+      "-- decide's native flag set through an anonymous constructor: no word native, no word axiom.",
+      "def big2 : { n : Nat // n = 1 } := ⟨1, by decide (config := ⟨false, true, true, false⟩)⟩",
+      "",
+      "#print axioms big2",
+    ],
+    [[2, "banned config"]],
+  ],
+  P17: [
+    [
+      "-- decide's native mode through its flag and its named item: each adds an axiom of its own, the word axiom never written.",
+      "def big : { n : Nat // n = 1 } := ⟨1, by decide +native⟩",
+      "def big3 : { n : Nat // n = 1 } := ⟨1, by decide (native := true)⟩",
+      "",
+      "#print axioms big",
+      "#print axioms big3",
+    ],
+    [[2, "banned native"], [3, "banned native"]],
+  ],
 };
 // The axioms of the pinned toolchain (measured: Lean 4.32.1 declares 15, all in Init) less the three admitted, each named as
 // a kernel module would name it; the audit refuses the last component.
@@ -121,8 +173,14 @@ const FOREIGN_AXIOMS = [
 // Genkan.«.lake».Hidden from Genkan/.lake/Hidden.lean once the kernel has its Genkan library, measured), guillemet and
 // lower-case components.
 const FOREIGN_IMPORTS = ["Lean", "Std.Data", "Genkan.«.lake».Hidden", "Genkan.«Judge»", "Genkan.judge"];
+// Init's debugging functions, each refused as a name component; the builtin terms whose message is an interpolated string
+// after a name, each banned (the lexer reads that string as plain text, so the sorry in it is not seen: the word refuses);
+// # commands other than #check and #print, each refused by its name.
+const DEBUG_FUNCTIONS = ["dbgTrace", "dbgTraceVal", "dbgTraceIfShared", "dbgStackTrace", "dbgStackTraceIf", "dbgSleep"];
+const NAMED_HEADS = ["throwNamedError", "throwNamedErrorAt", "logNamedError", "logNamedErrorAt", "logNamedWarning", "logNamedWarningAt"];
+const HASH_REFUSED = ["#guard true", "#guard_msgs in #check 1", "#reduce 1", "#exit", "#synth Inhabited Nat", "#check_failure 1", "#time #check 1", "#where"];
 
-// killer: apps/genkan/scripts/audit.mjs:168 COR "i === 0 || WHITE" -> "i === 0 && WHITE"
+// killer: apps/genkan/scripts/audit.mjs:190 COR "i === 0 || WHITE" -> "i === 0 && WHITE"
 test("audit_refuses_banned_construct", () => {
   // (1) Each finding at its exact line. The header block comment spans two lines (line numbers are kept) and the line
   // comment holds a block opener (it opens nothing). The `sorry` lines from `def q` on each defeat a naive lexer: a char
@@ -152,7 +210,7 @@ test("audit_refuses_banned_construct", () => {
     ['def i2 : Std.Format := f!"{(sorry : Nat)}"', "banned sorry"],
     ['def i3 : IO Unit := println! "{(sorry : Nat)}"', "banned sorry"],
     ["def k : Bool := !sorry", "banned sorry"],
-    ["set_option debug.skipKernelTC true in", "banned skipKernelTC"],
+    ["set_option debug.skipKernelTC true in", ["banned set_option", "banned skipKernelTC"]],
     ["def m : Nat := debug.«skipKernelTC»", "banned skipKernelTC"],
     ["example : True := by admit", "banned admit"],
     ["example : True := by stop", "banned stop"],
@@ -187,6 +245,11 @@ test("audit_refuses_banned_construct", () => {
     ["def ax2 : Nat := _root_.«sorryAx» Nat", "banned sorryAx"],
     ["def ax3 : True := Lean.«trustCompiler»", "banned trustCompiler"],
     ["open Lean in def ax4 : Bool := ofReduceBool", "banned ofReduceBool"],
+    // dbg_trace in a do block (its string's code part is read), idbg, a qualified debugging function, an option in a term.
+    ['def dd : IO Unit := do dbg_trace "{sorryAx Nat}"; pure ()', ["banned dbg_trace", "banned sorryAx"]],
+    ["def id1 (n : Nat) : Nat := idbg n; n + 1", "banned idbg"],
+    ["def db1 : Nat := _root_.dbgSleep 1 fun _ => 0", "banned dbgSleep"],
+    ["def so : Nat := set_option pp.all true in 0", "banned set_option"],
     ["end Genkan", null],
   ];
   const dirty = makeKernel({
@@ -194,6 +257,9 @@ test("audit_refuses_banned_construct", () => {
     "Genkan/Imports.lean": FOREIGN_IMPORTS.map((m) => `import ${m}`).join("\n") + "\n",
     "Genkan/Tok.lean": TOKEN_WORDS.map((w) => `${w} gk_${w} " x "`).join("\n") + "\n",
     "Genkan/Axioms.lean": FOREIGN_AXIOMS.map((n, i) => `def fa${String(i)} := @${n}`).join("\n") + "\n",
+    "Genkan/Debug.lean": DEBUG_FUNCTIONS.map((n, i) => `def db${String(i)} := @${n}`).join("\n") + "\n",
+    "Genkan/Named.lean": NAMED_HEADS.map((w, i) => `def nh${String(i)} := ${w} lean.x "{(sorry : Nat)}"`).join("\n") + "\n",
+    "Genkan/Hash.lean": HASH_REFUSED.join("\n") + "\n",
     ...Object.fromEntries(Object.entries(PROBES).map(([p, [text]]) => [`Genkan/${p}.lean`, text.join("\n") + "\n"])),
     "Genkan/Theorems.lean": CLEAN_THEOREMS,
     // A nested .lake is read (the measured probe: lake builds it into the program), and so is a source whose extension a
@@ -208,6 +274,9 @@ test("audit_refuses_banned_construct", () => {
     ...judge.flatMap(([, w], i) => [w ?? []].flat().map((x) => `audit: Genkan/Judge.lean:${String(i + 1)}: ${x}`)),
     ...TOKEN_WORDS.map((w, i) => `audit: Genkan/Tok.lean:${String(i + 1)}: banned ${w}`),
     ...FOREIGN_AXIOMS.map((n, i) => `audit: Genkan/Axioms.lean:${String(i + 1)}: banned ${n.slice(n.lastIndexOf(".") + 1)}`),
+    ...DEBUG_FUNCTIONS.map((n, i) => `audit: Genkan/Debug.lean:${String(i + 1)}: banned ${n}`),
+    ...NAMED_HEADS.map((w, i) => `audit: Genkan/Named.lean:${String(i + 1)}: banned ${w}`),
+    ...HASH_REFUSED.map((c, i) => `audit: Genkan/Hash.lean:${String(i + 1)}: banned ${c.split(" ")[0]!}`),
     ...Object.entries(PROBES).flatMap(([p, [, want]]) => want.map(([l, x]) => `audit: Genkan/${p}.lean:${String(l)}: ${x}`)),
     ...FOREIGN_IMPORTS.map((m, i) => `audit: Genkan/Imports.lean:${String(i + 1)}: foreign import ${m}`),
     "audit: Genkan/.lake/Hidden.lean:1: banned sorry",
@@ -215,8 +284,9 @@ test("audit_refuses_banned_construct", () => {
   ].sort();
   assert.equal(
     expected.length,
-    95,
-    "non-vacuity: 53 findings in Judge.lean, 7 token commands, 12 foreign axioms, 16 in the probes, 5 foreign imports, 2 sources",
+    132,
+    "non-vacuity: 59 findings in Judge.lean, 7 token commands, 12 foreign axioms, 6 debugging functions, 6 named heads, 8 # commands, " +
+      "27 in the probes, 5 foreign imports, 2 sources",
   );
   // Exact set: every planted finding at its file and line, nothing from Theorems.lean, nothing from the root's .lake.
   assert.deepEqual(positioned(r), expected, `each finding is named with its file and line, and only those\n${show(r)}`);
@@ -267,6 +337,12 @@ test("audit_refuses_banned_construct", () => {
       "def initial : Nat := 0", "def exported : Nat := initial", "def sorryAxe : Nat := 0", "def lcProofs : Nat := sorryAxe",
       "-- @[init] export sorryAx Lean.ofReduceBool", 'def s1 : String := "@[init] export sorryAx Lean.ofReduceBool"',
       "def k6 := Foo.«unsafe»",
+      // The words of the second review in a comment and in a plain string (its braces hold text), near misses of them, and
+      // the # forms admitted besides #check: #print, the array and the vector literals.
+      "-- dbg_trace idbg set_option native config dbgTrace throwNamedError #guard #reduce #exit",
+      'def s2 : String := "dbg_trace {sorry} idbg set_option native config dbgTrace #guard"',
+      "def natively : Nat := 0", "def configs : Nat := natively", "def dbgTraced : Nat := 0", "def idbgs : Nat := dbgTraced",
+      "def vv : Vector Nat 2 := #v[1, 2]", "def aa : Array Nat := #[1, 2]", "#print Nat",
       "end Genkan",
       "",
     ].join("\n"),
@@ -288,7 +364,7 @@ test("audit_refuses_banned_construct", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:428 ROR "sha !== LAKEFILE_SHA256" -> "sha === LAKEFILE_SHA256"
+// killer: apps/genkan/scripts/audit.mjs:454 ROR "sha !== LAKEFILE_SHA256" -> "sha === LAKEFILE_SHA256"
 test("audit_pins_lakefile", () => {
   // The real lakefile next to the scripts is the pinned one: its copy passes, with LF or CRLF line ends.
   const realPath = join(KERNEL_DIR, "lakefile.lean");
@@ -321,7 +397,7 @@ test("audit_pins_lakefile", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:326 CONST "name?.length ?? 1" -> "name?.length ?? 0"
+// killer: apps/genkan/scripts/audit.mjs:352 CONST "name?.length ?? 1" -> "name?.length ?? 0"
 test("audit_refuses_foreign_axiom", () => {
   const kernel = makeKernel({
     "Genkan/Theorems.lean": ["namespace Genkan", "theorem a : True := trivial", "theorem b : True := trivial", "end Genkan", ""].join("\n"),
@@ -329,16 +405,16 @@ test("audit_refuses_foreign_axiom", () => {
   const B_NONE = none("Genkan.b");
 
   // (1) An axiom outside the three: refused, naming it; propext alone is not.
-  const r1 = audit(kernel, axiomsFile(["'Genkan.a' depends on axioms: [propext, sorryAx]", B_NONE, ""].join("\n")));
+  const r1 = audit(kernel, axiomsFile(["'Genkan.a' depends on axioms: [propext, sorryAx]", B_NONE, MAIN_NONE, ""].join("\n")));
   assert.equal(r1.status, 1, `a foreign axiom must fail the audit\n${show(r1)}`);
   assert.deepEqual(refusals(r1), ["audit: Genkan.a: foreign axiom sorryAx"], `the refusal names sorryAx and only it\n${show(r1)}`);
 
   // (2) The three admitted axioms, in a list Lean wrapped over three lines, and a theorem with none: the audit passes.
-  const wrapped = ["'Genkan.a' depends on axioms: [propext,", "  Classical.choice,", "  Quot.sound]", B_NONE].join("\n");
+  const wrapped = ["'Genkan.a' depends on axioms: [propext,", "  Classical.choice,", "  Quot.sound]", B_NONE, MAIN_NONE].join("\n");
   assertAuditPasses(audit(kernel, axiomsFile(wrapped + "\n")), "admitted axioms, wrapped list");
 
   // (3) No record for a declared theorem: refused.
-  const r3 = audit(kernel, axiomsFile("'Genkan.a' depends on axioms: [propext]\n"));
+  const r3 = audit(kernel, axiomsFile(["'Genkan.a' depends on axioms: [propext]", MAIN_NONE, ""].join("\n")));
   assert.equal(r3.status, 1, `a theorem without a record must fail the audit\n${show(r3)}`);
   assert.deepEqual(refusals(r3), ["audit: Genkan.b: no axiom record"], `the refusal names Genkan.b\n${show(r3)}`);
 
@@ -414,4 +490,14 @@ test("audit_refuses_foreign_axiom", () => {
     const u = run(AUDIT_MJS, args, { ...process.env });
     assert.equal(u.status, 2, `${what} is a usage error\n${show(u)}`);
   }
+
+  // (9) Given records, main is among them, within the three admitted axioms: a missing record of main is refused, and so
+  // is the axiom decide's native mode adds (measured, P16) when it reaches main's record.
+  const r9 = audit(mainOnly, axiomsFile(none("Genkan.other") + "\n"));
+  assert.equal(r9.status, 1, `records without main must fail the audit\n${show(r9)}`);
+  assert.deepEqual(refusals(r9), ["audit: main: no axiom record"], `the missing record of main is named\n${show(r9)}`);
+  const r9b = audit(mainOnly, axiomsFile("'main' depends on axioms: [big2._native.decide.ax_1]\n"));
+  assert.equal(r9b.status, 1, `a foreign axiom in main's record must fail the audit\n${show(r9b)}`);
+  assert.deepEqual(refusals(r9b), ["audit: main: foreign axiom big2._native.decide.ax_1"], `the axiom is named\n${show(r9b)}`);
+  assertAuditPasses(audit(mainOnly, axiomsFile("'main' depends on axioms: [propext, Quot.sound]\n")), "main within the admitted axioms");
 });
