@@ -2818,7 +2818,10 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     étape de CI qui lit l'environnement du runner ou le réseau serait rejouée de même. Construction : une règle de l'oracle qui refuse
     une gate dont la commande nomme `$RUNNER_`, `$GITHUB_`, `${{` ou une URL `http(s)://` sans entrée `CI_ONLY` qui la retire, avec son
     test et ses tueurs. Porteur : MONARK ; preuve de clôture : le test de la règle, rouge sans elle. Déclencheur : avant le lot 1b de
-    Genkan ; état : ouvert.
+    Genkan ; état : clos le 2026-10-29 par #342 (fusion `d985f85b`, G7 `09f431af…`) : `RUNNER_ONLY` (`scripts/oracle/run.mjs` l.33), lu
+    aux l.130 et l.133 : une gate ordinaire qui nomme l'une de ses quatre formes arrête la dérivation (sortie 2, sans enregistrement) et
+    nomme le remède ; test `oracle_refuses_a_gate_that_names_the_runner_or_a_url`, rouge sans la règle (red-proof `52b32b10…`), 12
+    tueurs, tous tués (mutants `fe578e8c…`).
 
 ## Ce qui reste pour la page
 
