@@ -2788,9 +2788,21 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     déploiement journalisé est l'acte 1 de T0 (2026-10-06, `9612d4d2`). `b24927c3` (2026-10-21) les porte au tronc à 2.3.1 et 4.6.7 ; son
     message dit que l'avis d'épuisement de la mémoire pendant la validation atteint le harnais ([2nd] : les textes des avis ne sont pas
     lus). Les mêmes versions restent dans l'arbre de la vitrine, que `next start` ne charge pas (ni `apps/site` ni `packages/` ne les
-    importent) : elles en partent à l'envoi du tronc. Porteur : MONARK, sous le go du fondateur (`docs/RUNBOOK-harness.md`) ; preuve de
-    clôture : les deux versions lues sur le serveur après le redéploiement du harnais. Déclencheur : la lecture du 2026-10-28 ; état :
-    ouvert, go demandé au fondateur.
+    importent) : SERVED-TREES-RESIDUE-1. Porteur : MONARK, sous le go du fondateur (`docs/RUNBOOK-harness.md`) ; preuve de clôture : les
+    deux versions lues sur le serveur après le redéploiement du harnais. Déclencheur : la lecture du 2026-10-28 ; état : clos le
+    2026-10-28 à 23:5x UTC.
+    Ligne datée MONARK 2026-10-28 23:5x UTC : choix du fondateur (« Correctif seul (Recommandé) », 23:45:13 UTC). Redéployé : l'arbre de
+    T0 avec les deux fichiers de `b24927c3` seuls, commit `9819552b` de la branche `lot/harness-served-mcp-2-3-1`. Lus sur le serveur après
+    le redémarrage de 23:57:29 UTC : `@modelcontextprotocol/server` 2.3.1, `zod` 4.6.7 ; `/openapi.json` inchangé ; le contrôle de
+    déploiement, joué avant et après vers des fichiers de travail, 18 sur 18 verts chaque fois, ses 18 empreintes égales une à une. Journal :
+    `docs/JOURNAL-PROVENANCE.md`, entrée du 2026-10-28 23:57 UTC.
+  - SERVED-TREES-RESIDUE-1 (MONARK, 2026-10-28 23:5x UTC) : les deux renvois du correctif seul laissent dans les arbres servis des
+    paquets que `npm audit` classe vulnérables, qu'aucun code servi n'importe : sur la vitrine, `@modelcontextprotocol/server` 2.0.0 et
+    `zod` 4.6.1 ; sur le harnais, `next` 16.3.8, `sharp` 0.35.4 et `fast-uri` 3.1.8. L'hôte du harnais garde aussi trois fichiers
+    périmés, qu'aucun code servi n'importe et que `git archive` ne retire pas : `packages/contracts/src/calib-digest.ts`,
+    `packages/contracts/test/calib-digest.test.ts`, `packages/monark/test/cross-agent-gate.test.ts`. Porteur : MONARK, sous le go du
+    fondateur pour chaque envoi ; preuve de clôture : `npm audit` sans avis sur l'arbre servi de chaque hôte, et les trois fichiers hors de
+    l'arbre servi du harnais. Déclencheur : le prochain envoi de chaque hôte depuis le tronc ; état : ouvert.
   - DOJO-NEXT-E0-REPLAY-1 (G2 m-2 de #341, MONARK, 2026-10-28 ; registre du Dōjō, DJ-L117) : à la montée en 16.4.3, le job `g3-site` de
     #341 (run 40773586871) a rejoué `next build` et `scripts/assert-fleet-html.mjs`, verts, `/dojo` en état E1. L'état E0 (aucun record
     servi, la branche `notFound()`) n'est pas rejoué : la page lit sa racine dans `MONARK_DOJO_LOCAL_BUILD_ROOT`
