@@ -269,9 +269,10 @@ jobs:
         run: node scripts/assert-fleet-html.mjs
 
   g3-genkan:
-    # The Genkan kernel skeleton under its pinned toolchain: first the source and axiom audit, before any Lean runs; then the Lean
-    # 4.32.1 release for Linux, fetched by curl and held to its sha256 before it is unpacked (no elan, no installer), laid out as
-    # <ELAN_HOME>/toolchains/<name>; the build through apps/genkan/scripts/lake.mjs, the skeleton's refusal (exit code 3), the tests.
+    # The Genkan kernel skeleton under its pinned toolchain: first the source audit, before any Lean runs; then the Lean 4.32.1
+    # release for Linux, fetched by curl and held to its sha256 before it is unpacked (no elan, no installer), laid out as
+    # <ELAN_HOME>/toolchains/<name>; the build through apps/genkan/scripts/lake.mjs, the axiom records of main and each theorem
+    # and the audit that judges them, the skeleton's refusal (exit code 3), the tests (the kernel ones under that toolchain).
     # Public job: it reads only exported paths. Bound: a declared 20 until its first runs measure it (measured job
     # wall-time x3, capped <= 20). Every step blocks.
     runs-on: ubuntu-latest
@@ -282,8 +283,8 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-      - name: Source and axiom audit of the kernel (apps/genkan/scripts/audit.mjs)
-        run: node apps/genkan/scripts/audit.mjs
+      - name: Source audit of the kernel, before any Lean runs (apps/genkan/scripts/audit.mjs --source-only)
+        run: node apps/genkan/scripts/audit.mjs --source-only
       # One name at a time: bash's `command -v a b` succeeds when any one of the names is found.
       - name: The tools of the toolchain steps (curl, tar, zstd, sha256sum)
         run: for t in curl tar zstd sha256sum; do command -v "$t" || { echo "::error::$t is missing"; exit 1; }; done
@@ -300,6 +301,10 @@ jobs:
         run: mkdir -p "$RUNNER_TEMP/genkan"
       - name: Build the kernel with the pinned lake (apps/genkan/scripts/lake.mjs)
         run: ELAN_HOME="$RUNNER_TEMP/elan" node apps/genkan/scripts/lake.mjs build
+      - name: The axiom records of main and each theorem, read from the built kernel (apps/genkan/scripts/records.mjs)
+        run: ELAN_HOME="$RUNNER_TEMP/elan" node apps/genkan/scripts/records.mjs --out "$RUNNER_TEMP/genkan/axioms.txt"
+      - name: The audit of those records (apps/genkan/scripts/audit.mjs --axioms-from)
+        run: node apps/genkan/scripts/audit.mjs --axioms-from "$RUNNER_TEMP/genkan/axioms.txt"
       - name: The skeleton refuses (exit code 3)
         run: |
           status=0
@@ -308,7 +313,9 @@ jobs:
           [ "$status" -eq 3 ] || { echo "::error::the skeleton must exit with code 3"; exit 1; }
       - name: Install (lockfile must be present and consistent)
         run: npm ci
-      - name: The Genkan tests
+      - name: The Genkan tests, the kernel ones under the pinned toolchain
+        env:
+          ELAN_HOME: ${{ runner.temp }}/elan
         run: npm run test:genkan
 
   g3-verifier-tool:
