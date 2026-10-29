@@ -58,6 +58,7 @@
  "apps/dojo/test/dojo-verify.test.ts": 40,
  "apps/genkan/test/audit.test.ts": 9,
  "apps/genkan/test/export.test.ts": 1,
+ "apps/genkan/test/frame.test.ts": 1,
  "apps/genkan/test/records.test.ts": 3,
  "apps/genkan/test/scripts.test.ts": 2,
  "apps/harness/test/attest.test.ts": 3,

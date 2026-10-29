@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { createHash } from "node:crypto";
 
 const AUDIT_MJS = fileURLToPath(new URL("../scripts/audit.mjs", import.meta.url));
 const RECORDS_MJS = fileURLToPath(new URL("../scripts/records.mjs", import.meta.url));
@@ -369,6 +370,25 @@ test("audit_refuses_banned_construct", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+// The lakefile of L2a (12 lines, LF) and the one of L1 (8 lines: the same without the library target and its blank line).
+const LAKEFILE_L2 = [
+  "import Lake",
+  "open Lake DSL",
+  "",
+  "package «genkan-kernel»",
+  "",
+  "@[default_target]",
+  "lean_lib Genkan where",
+  "  globs := #[.submodules `Genkan]",
+  "",
+  "@[default_target]",
+  "lean_exe «genkan-kernel» where",
+  "  root := `Main",
+  "",
+].join("\n");
+const LAKEFILE_L1 = ["import Lake", "open Lake DSL", "", "package «genkan-kernel»", "", "@[default_target]", "lean_exe «genkan-kernel» where", "  root := `Main", ""].join("\n");
+const LAKEFILE_L1_SHA256 = "ed9d18b98ef3cfa1269b4d053bdf9ef83db0351bbf06ec83e7b35e5486b0785d";
+
 // killer: apps/genkan/scripts/audit.mjs:492 ROR "sha !== LAKEFILE_SHA256" -> "sha === LAKEFILE_SHA256"
 test("audit_pins_lakefile", () => {
   // The real lakefile next to the scripts is the pinned one: its copy passes, with LF or CRLF line ends.
@@ -386,6 +406,16 @@ test("audit_pins_lakefile", () => {
   const own = linesOf(r.stderr).filter((l) => l.startsWith("audit: lakefile."));
   assert.equal(own.length, 1, `exactly one lakefile refusal\n${show(r)}`);
   assert.match(own[0]!, /^audit: lakefile\.lean: differs from the pinned sha256 [0-9a-f]{12}$/, "the refusal quotes 12 hex characters");
+
+  // The lakefile of L2a: a library target builds every module of Genkan/ (GENKAN-LAKEFILE-LIB-1). The real one is it, and
+  // the lakefile of L1, without that target, is refused (its sha256 is the one L1 pinned: it is that file, byte for byte).
+  assert.equal(lf, LAKEFILE_L2, "the real lakefile is the one of L2a, its library target included");
+  assert.equal(createHash("sha256").update(LAKEFILE_L1, "utf8").digest("hex"), LAKEFILE_L1_SHA256, "LAKEFILE_L1 is the lakefile L1 pinned");
+  const l1 = audit(withLakefile(LAKEFILE_L1), axiomsFile(CLEAN_RECORD));
+  assert.equal(l1.status, 1, `the lakefile of L1 must fail the audit\n${show(l1)}`);
+  const l1Own = linesOf(l1.stderr).filter((l) => l.startsWith("audit: lakefile."));
+  assert.equal(l1Own.length, 1, `exactly one lakefile refusal for the lakefile of L1\n${show(l1)}`);
+  assert.match(l1Own[0]!, /^audit: lakefile\.lean: differs from the pinned sha256 [0-9a-f]{12}$/, `the lakefile of L1 is not the pinned one\n${show(l1)}`);
 
   // A lakefile.toml at the kernel root, whatever it holds: refused.
   const toml = makeKernel({ "lakefile.toml": 'name = "genkan"\n', "Genkan/Theorems.lean": CLEAN_THEOREMS });

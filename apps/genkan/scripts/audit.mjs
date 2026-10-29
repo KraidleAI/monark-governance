@@ -28,7 +28,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** sha256 of apps/genkan/kernel/lakefile.lean, LF line ends. */
-const LAKEFILE_SHA256 = "ed9d18b98ef3cfa1269b4d053bdf9ef83db0351bbf06ec83e7b35e5486b0785d";
+const LAKEFILE_SHA256 = "a522d4bec3b4dd0e90efe23e7824c4ecb2b59dcb2042fa0f1bf2e9f032d30a4e";
 const BANNED = new Set([
   "sorry", "admit", "stop", "axiom", "native_decide", "implemented_by", "extern", "unsafe", "partial", "macro", "macro_rules",
   "syntax", "elab", "elab_rules", "initialize", "builtin_initialize", "run_cmd", "run_elab", "run_meta",
