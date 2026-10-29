@@ -86,6 +86,9 @@ Responsible = the maintainer for every row (one maintainer today).
 | `skills` | yes | skill | maintainer |
 | `apps/harness` | yes | MCP/HTTP | maintainer |
 | `apps/sentinel` | yes | git mirror, site (published timeline) | maintainer |
+| `apps/genkan` | yes | git mirror | maintainer |
+| `apps/genkan/kernel` | yes | git mirror, CI | maintainer |
+| `apps/genkan/scripts` | yes | git mirror, CI | maintainer |
 | `packages/atelier` | yes | git mirror | maintainer |
 | `packages/contracts` | yes | git mirror | maintainer |
 | `packages/hikae` | yes | git mirror | maintainer |

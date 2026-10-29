@@ -268,6 +268,47 @@ jobs:
       - name: O-2 — assert the built /fleet HTML body carries each served note (scripts/assert-fleet-html.mjs)
         run: node scripts/assert-fleet-html.mjs
 
+  g3-genkan:
+    # The Genkan kernel skeleton under its pinned toolchain: the Lean 4.32.1 release for Linux, fetched by curl and held to its
+    # sha256 before it is unpacked (no elan, no installer), laid out as <ELAN_HOME>/toolchains/<name>, then the build through
+    # apps/genkan/scripts/lake.mjs, the skeleton's refusal (exit code 3), and the Genkan tests.
+    # Public job: it reads only exported paths. Bound: a declared 20 until its first runs measure it (measured job
+    # wall-time x3, capped <= 20). Every step blocks.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      # One name at a time: bash's `command -v a b` succeeds when any one of the names is found.
+      - name: The tools of the toolchain steps (curl, tar, zstd, sha256sum)
+        run: for t in curl tar zstd sha256sum; do command -v "$t" || { echo "::error::$t is missing"; exit 1; }; done
+      - name: Fetch the Lean 4.32.1 release for Linux
+        run: curl --fail --location --silent --show-error --retry 5 --retry-all-errors --retry-delay 5 --output "$RUNNER_TEMP/lean-4.32.1-linux.tar.zst" https://github.com/leanprover/lean4/releases/download/v4.32.1/lean-4.32.1-linux.tar.zst
+      - name: Hold the archive to its pinned sha256
+        run: echo "57d5c062a6b4bae6fba511a1704aa124dff461c37d0fc94585637fbb7d951b50  $RUNNER_TEMP/lean-4.32.1-linux.tar.zst" | sha256sum -c -
+      - name: Unpack it as the pinned toolchain of an ELAN_HOME, then check its lake
+        run: |
+          mkdir -p "$RUNNER_TEMP/elan/toolchains/leanprover--lean4---v4.32.1"
+          tar --zstd -xf "$RUNNER_TEMP/lean-4.32.1-linux.tar.zst" -C "$RUNNER_TEMP/elan/toolchains/leanprover--lean4---v4.32.1" --strip-components=1
+          test -x "$RUNNER_TEMP/elan/toolchains/leanprover--lean4---v4.32.1/bin/lake"
+      - name: The temp dir of the wrapper
+        run: mkdir -p "$RUNNER_TEMP/genkan"
+      - name: Build the kernel with the pinned lake (apps/genkan/scripts/lake.mjs)
+        run: ELAN_HOME="$RUNNER_TEMP/elan" node apps/genkan/scripts/lake.mjs build
+      - name: The skeleton refuses (exit code 3)
+        run: |
+          status=0
+          apps/genkan/kernel/.lake/build/bin/genkan-kernel || status=$?
+          echo "genkan-kernel exit code: $status"
+          [ "$status" -eq 3 ] || { echo "::error::the skeleton must exit with code 3"; exit 1; }
+      - name: Install (lockfile must be present and consistent)
+        run: npm ci
+      - name: The Genkan tests
+        run: npm run test:genkan
+
   g3-verifier-tool:
     # VERIFIER-TOOL-CI-1 (docs/G0-lot-verifier-tool-ci-1.md): the frozen verifier tool, tools/kata-recalc/ (monark-kata-recalc in
     # apps/harness/data/verifiers.json), held on every PR by its own Python checks, launched under the FORM of its io_guard.py by

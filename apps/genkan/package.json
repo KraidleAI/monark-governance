@@ -1,0 +1,7 @@
+{
+  "name": "@monark/genkan",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MONARK Genkan: an order gate whose decisions will come from a Lean kernel; this package holds the kernel skeleton and its pinned-toolchain wrapper, with Node built-ins only."
+}

@@ -44,7 +44,7 @@ export const PACKAGE_SUBPATHS = ["src", "test", "package.json", "README.md"];
 // is dropped as a dormant guard (DORMANT_APP_TEST). A whole-dir walk would also drag
 // apps/harness/tsconfig.json, which the export does not need (the exported root tsconfig.json already
 // includes apps/harness/**); package-style keeps the public surface minimal and matches packages/*.
-export const APP_PACKAGE_DIRS = ["apps/harness", "apps/sentinel"];
+export const APP_PACKAGE_DIRS = ["apps/harness", "apps/sentinel", "apps/genkan"];
 // `enforcement/` (contains lint-model-pinning.sh, English): required by the exported
 // g1-controle-generation job (`bash enforcement/lint-model-pinning.sh .`). Confirmed in the whitelist
 // by ADR-M004 D7 bis R3 (D7 amended). `apps/site` shipped earlier, so the D7 tolerated-absence
@@ -53,7 +53,7 @@ export const APP_PACKAGE_DIRS = ["apps/harness", "apps/sentinel"];
 // `skills` (ADR-M006 D5/M-4): the ClawHub skill artefacts (skills/monark/SKILL.md +
 // INTEGRATION.md + LICENSE). Whitelisted AND created in the SAME lot, so this fixed entry is REQUIRED
 // (fail-closed on absence, like every other entry below — TOLERATED_ABSENT is empty).
-export const WHITELIST_DIRS = ["schemas", "fixtures", "enforcement", "apps/site", "skills"];
+export const WHITELIST_DIRS = ["schemas", "fixtures", "enforcement", "apps/site", "skills", "apps/genkan/kernel", "apps/genkan/scripts"];
 export const WHITELIST_FILES = [
   "README.md", "LICENSE", "CONTRIBUTING.md",
   // SECURITY.md (Lot CRA-B, ADR-M004 D7 quinquies): a public surface GitHub renders on the Security tab and
@@ -293,7 +293,7 @@ export function pendingSendBlockers(kept, readText) {
 // F-public for apps/site (Next.js). A committed working tree lacks them, but a local `npm install` /
 // `next build` creates node_modules/.next/.turbo, and the whole-tree copy exercised by test 42 would
 // otherwise walk them into the manifest. Skipping is defense in depth; git-tracking is the real source.
-export const WALK_SKIP_DIRS = new Set(["node_modules", ".next", ".turbo"]);
+export const WALK_SKIP_DIRS = new Set(["node_modules", ".next", ".turbo", ".lake"]);
 
 // ---- 2c. GENERATED-FILE EXCLUSION under apps/site (F-1 G2 O2) --------------
 // Item 3b offered a git-tracked-only walk as an alternative. A LITERAL git filter is NOT usable here,
