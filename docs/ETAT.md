@@ -2846,9 +2846,16 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     écrites seules et le mot collé à un `#` (l.344-346), et la composante `outOfBounds` (l.68) ; test `audit_refuses_panics_in_the_kernel`,
     rouge sans la règle (red-proof `80d7e563…`), ses tueurs tués (mutants `de6a406a…`). Les paniques que les mots ne voient pas sont les
     items GENKAN-PANIC-2 et GENKAN-PANIC-3.
-  - GENKAN-MAIN-IO-1 (G7 de #343, MONARK, 2026-10-29 03:5x UTC) : `Main` ne doit lire que l'entrée standard et n'écrire que la sortie standard.
-    Construction : une règle de l'audit qui refuse ailleurs dans le noyau `IO.Process`, `IO.FS` et le réseau, avec ses tests. Porteur :
-    MONARK. Déclencheur : le lot 2 de Genkan, où `Main` lit sa première entrée ; état : ouvert.
+  - GENKAN-MAIN-IO-1 (G7 de #343, MONARK, 2026-10-29 03:5x UTC) : `Main` ne doit lire que l'entrée standard et n'écrire que la sortie
+    standard. Construction : une règle de l'audit qui refuse ailleurs dans le noyau `IO.Process`, `IO.FS` et le réseau, avec ses tests.
+    Porteur : MONARK. Déclencheur : le lot 2 de Genkan, où `Main` lit sa première entrée ; état : clos le 2026-10-30 par #351 (fusion
+    `a99292da`, G7 `b7ebde91…`) : hors du `lakefile.lean`, `apps/genkan/scripts/audit.mjs` refuse un nom dont la première composante, après
+    un `_root_` initial, est `IO`, `EIO`, `BaseIO`, `EST`, `ST` ou `System` (l.80, lu à la l.393), un nom dont une composante est `timeit`,
+    `allocprof`, `unsafeIO`, `unsafeEIO` ou `unsafeBaseIO` (l.85), la tête `println!` (l.394) et un point initial qui n'est pas collé après
+    un terme (l.372) ; `Main.lean` seul peut écrire `IO`, `IO.getStdin`, `IO.getStdout` et `IO.FS.Stream` tels quels (l.81), n'y écrit ni
+    `open` ni `namespace` (l.406) et y déclare `def main : IO UInt32` (l.402 et l.415) ; test `audit_bounds_main_io_to_stdin_and_stdout`,
+    rouge sans les règles (red-proof `7d6152bf…`), ses tueurs tués (mutants `b231ccba…`). Ces règles lisent les sources : l'initialiseur
+    `IO.stdGenRef` d'`Init`, qui tourne avant `main`, reste à GENKAN-PANIC-3 et GENKAN-RUNTIME-1.
   - GENKAN-THEOREM-NAMES-1 (G7 de #346, MONARK, 2026-10-29 13:3x UTC) : `audit.mjs --source-only` passe un nom de théorème entre
     guillemets dans un fichier de théorèmes. `records.mjs` le refuse avant que Lean ne tourne, et la CI échoue à l'étape des
     enregistrements, mais la forme de l'audit (`Genkan.«a»`) n'est pas celle de l'enregistrement de Lean (`Genkan.a`, mesuré).
@@ -2876,19 +2883,41 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     2026-10-29 par #347 (fusion `2c8a6ec4`, G7 `439671e1…`) : sous `--source-only`, `audit.mjs` refuse une entrée `.lake` de toute casse à
     la racine du noyau, dossier, fichier ou lien même pendant (l.465 et l.496), et les autres modes la sautent toujours ; test
     `audit_source_only_refuses_the_root_build_dir`, rouge sans la règle (red-proof `80d7e563…`), ses tueurs tués (mutants `de6a406a…`).
-  - GENKAN-PANIC-2 (G7 de #347, MONARK, 2026-10-29 16:5x UTC) : savoir si le code compilé de `main` (son IR, pas son terme) appelle une
-    fonction qui panique : `panicCore` ou `lean_panic_fn`, ou un extern dont le C appelle `lean_array_get_panic`, `lean_array_set_panic` ou
-    un `lean_internal_panic` (liste à lire dans `include/lean/lean.h` de la chaîne épinglée). La clôture des constantes n'y répond pas
-    (mesuré) : un `main` sans aucun `!` atteint `panicCore` par l'instance de `GetElem?` de `ByteArray`, et `a[i]!` sur `Array` panique dans
-    le C de `lean_array_get` sans aucun nom de panique dans le graphe. Construction : une sonde sur les vrais `Bytes`, `Format` et `Main` du
-    lot 2 ; si elle trouve une panique atteinte, la règle avance au lot 2, sinon elle se construit au lot 3b, avec le contrôle croisé des
-    axiomes par l'énumération des déclarations du noyau (un fichier Lean hors du noyau, un mode de `records.mjs` et un test réel). Porteur :
-    MONARK. Déclencheur : le lot-check du lot 2 de Genkan ; état : ouvert.
+  - GENKAN-PANIC-2 (G7 de #347, MONARK, 2026-10-29 16:5x UTC ; réécrit au G7 de #350, MONARK, 2026-10-29 21:5x UTC) : savoir si le code
+    compilé de `main` (son IR, pas son terme) appelle une fonction qui panique. Lecture retenue au lot-check du lot 2a : classe 1 (P1, par
+    symbole) depuis R ; classe 2 admise sous le contrat de sortie ; initialiseurs liés rapportés. P1 = {`lean_panic_fn`,
+    `lean_panic_fn_borrowed`, `lean_array_get_panic`, `lean_array_set_panic`} (`include/lean/lean.h` de la chaîne épinglée, l.333-334, l.922
+    et l.976), atteint par le symbole d'un extern ou par le corps d'une fonction inline de `lean.h` ; R = {`main`, `IO.FS.Stream.ofHandle`}.
+    La classe 2, les `lean_internal_panic*` de `lean.h` l.336-340 (`LEAN_NORETURN`), arrête le processus ; sa sortie et son code de retour
+    sont du C++ non lu : le juge n'accepte qu'un code de sortie 0 et une sortie standard bien formée, et tout autre couple est une
+    abstention, jamais une erreur interprétée. La clôture des constantes ne répond pas à la question (mesuré au lot 1d) : un `main` sans
+    aucun `!` atteint `panicCore` par l'instance de `GetElem?` de `ByteArray`, et `a[i]!` sur `Array` panique dans le C de `lean_array_get`
+    sans aucun nom de panique dans le graphe. Mesure du lot-check, par une sonde de l'IR hors du dépôt, sur le noyau du commit `9b4a1660` :
+    depuis R, 256 nœuds et 39 externes, aucune classe 1 ; une classe 2, `lean_mk_empty_byte_array` ; le seul initialiseur lié,
+    `IO.stdGenRef` d'`Init`, atteint `panicCore` (GENKAN-PANIC-3) ; trois noyaux témoins sont refusés, un `panic!` et un `a[i]!` sur `Array`
+    atteints depuis `main` et un `initialize` dans un module du noyau. Construction : la sonde devient le mode `--reach` de `records.mjs`,
+    avec la liste close des 39 externes et l'état de lecture de chacun, le refus de tout initialiseur lié autre que `IO.stdGenRef`, et un
+    test réel ; au lot 2b si R-25 le porte, sinon au lot 3b avec le contrôle croisé des axiomes par l'énumération des déclarations du noyau.
+    Porteur : MONARK. Déclencheur : le lot 2b de Genkan ; état : ouvert.
   - GENKAN-PANIC-3 (G7 de #347, MONARK, 2026-10-29 16:5x UTC) : `genkan-core` lance le noyau avec `LEAN_ABORT_ON_PANIC=1` dans
     l'environnement de l'enfant : une panique que les mots laissent passer tue alors le noyau au lieu de rendre la valeur par défaut, et le
-    cœur s'abstient. Construction : la variable, et un test réel qui plante un noyau qui panique et attend l'abstention ; le code de sortie
-    se mesure sur la CI Linux (sous Windows, `0xC0000409`, mesuré). Porteur : MONARK. Déclencheur : le lot 4 de Genkan (`src/kernel.ts`) ;
-    état : ouvert.
+    cœur s'abstient. La variable garde aussi un chemin d'`Init` qu'aucune règle ne refuse (ajouté au G7 de #350, MONARK, 2026-10-29 21:5x
+    UTC) : avant `main`, l'initialiseur `IO.stdGenRef` lit 8 octets par `IO.getRandomBytes` et les convertit par `ByteArray.toUInt64LE!`,
+    dont l'`assert!` passe par `panicCore` ; le refuser refuserait tout binaire Lean. Construction : la variable, et un test réel qui plante
+    un noyau qui panique et attend l'abstention, avec deux cas que la mesure sous Windows ne nomme pas : une panique dans un initialiseur,
+    et un appel direct de `panicCore` (symbole `lean_panic_fn_borrowed`) ; le code de sortie se mesure sur la CI Linux (sous Windows,
+    `0xC0000409`, mesuré). Porteur : MONARK. Déclencheur : le lot 4 de Genkan (`src/kernel.ts`) ; état : ouvert.
+  - GENKAN-RUNTIME-1 (G7 de #350, MONARK, 2026-10-29 21:5x UTC) : les corps compilés du runtime de Lean que le noyau atteint ne sont pas
+    lus. Ce sont 14 externes atteints depuis `main` dont le corps n'est pas dans `lean.h` (`lean_array_mk`, `lean_array_to_list`,
+    `lean_byte_array_mk`, `lean_byte_array_data`, `lean_byte_array_copy_slice`, `lean_get_stdin`, `lean_get_stdout`, `lean_string_to_utf8`
+    et six `lean_io_prim_handle_*`), ceux de l'initialiseur `IO.stdGenRef` (dont `lean_io_get_random_bytes` et `lean_panic_fn_borrowed`) et
+    les fonctions que le `main` émis par la chaîne appelle autour de l'initialiseur de `Main` (`lean_setup_args`,
+    `lean_initialize_runtime_module`, `lean_io_mark_end_initialization`, `lean_init_task_manager`, `lean_run_main`,
+    `lean_finalize_task_manager`, `lean_io_result_show_error`). La classe 1 de GENKAN-PANIC-2 se juge par le nom du symbole ; ce que ces
+    corps font d'autre tombe sous le contrat de sortie, et `libleanrt.a` de la chaîne ne remplace pas la lecture des sources. Construction :
+    lire `src/runtime/` du dépôt `leanprover/lean4` au tag `v4.32.1` aux quatre couches, avec copie et sha256, ou, sans accès au dépôt, une
+    demande de procurement du tarball de sources du tag ; un corps qui appelle une fonction de P1 étend P1 et rouvre GENKAN-PANIC-2.
+    Porteur : MONARK. Déclencheur : le lot 3b de Genkan ; état : ouvert.
   - HARNESS-VERIFY-TLS-FLAKE-1 (vu par HIKAE dans un passage complet de `test:main` sur `f6447437`, la première fusion du tronc du lot 2a de
     Hikae, le 2026-10-29 ; écrit ici au G7 de #348, MONARK, 2026-10-29 17:5x UTC) : le test
     `verify_harness_out_is_written_only_when_every_check_passes` (`test/verify-harness-liq.test.ts` l.366) a échoué une fois, son passage
@@ -2896,8 +2925,12 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     HIKAE, dont deux de l'oracle. Lecture non mesurée : le front TLS écoute sur `127.0.0.1` (`listen`, `test/helpers/loopback.ts` l.58-62)
     et le client appelle `https://localhost` (l.385), que la machine peut résoudre d'abord en `::1`, où un autre serveur du passage peut
     écouter sur le même port. Construction : mesurer la cause sous la charge d'un passage complet, puis faire appeler au client l'adresse où
-    le front écoute, avec un cas qui force la résolution de `localhost` en `::1` d'abord. Porteur : MONARK. Déclencheur : le prochain lot
-    qui touche `scripts/verify-harness.mjs` ou ce test, ou un second échec dans un passage complet, au premier des deux ; état : ouvert.
+    le front écoute, avec un cas qui force la résolution de `localhost` en `::1` d'abord. Prix (ajouté au G7 de #351, MONARK, 2026-10-30
+    00:4x UTC, sur la remarque de HIKAE) : une mesure, un passage complet de `test:main` instrumenté (347 s sur la branche de #351), puis
+    environ 15 lignes et un cas : une entrée `IP:127.0.0.1` au `subjectAltName` de `test/helpers/self-signed.ts`, qui ne porte que
+    `DNS:localhost` (l.16), les deux URL `https://localhost` du test (l.385 et l.392), et le cas de `::1`. Le test a passé depuis sur la
+    branche de #351 et dans le `test:main` de l'oracle G7 de sa fusion. Porteur : MONARK. Déclencheur : le prochain lot qui touche
+    `scripts/verify-harness.mjs` ou ce test, ou un second échec dans un passage complet, au premier des deux ; état : ouvert.
 
 ## Ce qui reste pour la page
 

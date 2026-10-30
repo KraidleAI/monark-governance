@@ -723,6 +723,7 @@
   "dojo_verify_url_transport_is_the_bell_policy"
  ],
  "apps/genkan/test/audit.test.ts": [
+  "audit_bounds_main_io_to_stdin_and_stdout",
   "audit_modes_source_only_and_roots",
   "audit_name_rule_is_the_records_rule",
   "audit_pins_lakefile",
@@ -735,6 +736,9 @@
  ],
  "apps/genkan/test/export.test.ts": [
   "export_omits_lake_build"
+ ],
+ "apps/genkan/test/frame.test.ts": [
+  "gnk1_vectors_encode"
  ],
  "apps/genkan/test/records.test.ts": [
   "records_refuses_bad_arguments_and_bad_roots",
