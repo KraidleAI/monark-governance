@@ -67,7 +67,7 @@ test("served_replay_identical_and_nan_never_commits_in_the_served_gate", () => {
   assert.equal(set.length, 111);
   const lines = set.map(replayLine);
   const digest = createHash("sha256").update(lines.join("\n")).digest("hex");
-  assert.equal(digest, "efdde3e6331a784c15a3e64f3528d44e61dc69e7d595ca0d7478f65226eacd56", "projection: only the B-13 edges of 39 calls move in CM-3c-4b (was c9db863c..., base 418a421f)");
+  assert.equal(digest, "6f88d76d7d802f44e6d368bb6f0f8b8bf0345eb4cdb608cb5463ccf198a72d63", "projection: only the 36 USDe calls at yhat 5e-4, 0.01 and -1e-4 move with the calm support guard, under_calib outside the calm support (was efdde3e6..., base 9f8563af)");
   // The replay reaches every served outcome kind (commit, defer, abstain, 400), so the digest is not vacuous.
   for (const kind of ['["commit"', '["defer"', '["abstain"', '"error":"']) assert.ok(lines.some((l) => l.includes(kind)), kind);
   // E-8 in the served gate: the committed USDe decision, re-run with one numeric field set to NaN, never commits.
@@ -97,7 +97,7 @@ test("served_replay_full_bytes_are_pinned_at_1_1_0", () => {
     }
   });
   assert.equal(lines.length, 111);
-  assert.equal(createHash("sha256").update(lines.join("\n")).digest("hex"), "1aab90a8c81af1cbc7a97681c4032402d4dc51cdedbfc09ad1dba0538965682d", "served bytes of the replay (1.1.0; CM-3c-4b, was cb6a4e4f...)");
+  assert.equal(createHash("sha256").update(lines.join("\n")).digest("hex"), "a43f66f1cde2d95c26e4e425f8f44760b962da184704c49a69a9b9d180cf6228", "served bytes of the replay (1.1.0; the calm support guard, the same 36 calls, was 1aab90a8...)");
 });
 
 // G2 m-6 of 3c-3a (spec r3 section 5, constraints the closed check does not hold): on every served verdict of the replay,

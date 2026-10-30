@@ -55,9 +55,10 @@ const read = (rel: string): string => readFileSync(join(ROOT, rel), "utf8");
 // TYPED BY DESIGN (T0-TOOLING-1): the syncs write the manifest themselves, so a changed byte of these files must show as a test
 // diff. Written by node scripts/repin-served.mjs only (the pending line goes with its file at the T0 promotion).
 const PINNED: Record<string, string> = {
-  "apps/site/data/harness-served.json": "f47ed82f98bdcdb0738cf466442d2b78e841c34b21b23d0038f626584ba75c47",
+  "apps/site/data/harness-served.json": "58f6ec63a8154ee3043abcc96b098c159b975f72322a8e05c4d701023cf79128",
+  "apps/site/data/harness-pending.json": "6290c2cae0fd8514de626bb5b44b0aaecaf8a15961b6c2bdcac3d887602485da",
   "fixtures/byo-demo-trace.json": "5c9b03e62bd88703a1ecfe381cf8288cab62aee9d096b03b2302338d49883dfc",
-  "fixtures/h5-e2e-trace.json": "57d38c1907bfea4d7cb746186f9bada86bd210358c0a7902a61392957567fc19",
+  "fixtures/h5-e2e-trace.json": "25b86707358c38afb4f4cbf5203624051a7b83d711cf65d4ee65895b85b3fcae",
 };
 
 interface Schema { required?: string[]; properties?: Record<string, Schema>; type?: string | string[]; description?: string; maxItems?: number; items?: Schema; additionalProperties?: unknown }
@@ -697,19 +698,26 @@ test("harness_served_budget_note_carries_the_served_clause", () => {
 // sha256 of the bodies the in-process harness answers to the deploy check's own requests, under the served snapshot's keys:
 // the bodies the pending snapshot announces, which the deploy check records at T0.
 const PENDING_BODIES_SHA256: Record<string, string> = {
-  "/openapi.json": "61c9df97a254a863a68fdc2c493799803397bfa190b85db3ca97673d2a8ccbf0",
+  "/openapi.json": "607f556e7a9a511d3bf3e21f3ce130cd414633040f8c661c81a76af1b8634943",
   "/gate": "701e9b068944aca7a9c49bb5415fa2af21006b4ba696c916108c4d326445a08c",
   "/gate liquidation-eligible-coverage": "e2bfb18be056b2ed6f0d1cdae681d9b9e38ede054c79509898243d327a105fe7",
   "/calibrate": "f169e9f6e333374a9d47a2010674ca789aba45bd126ef8764df2f0fb86a2cb90",
 };
+/** The pinned bodies whose bytes change at T0; every other pinned body keeps the bytes the served snapshot records. */
+const BODIES_CHANGED_AT_T0: readonly string[] = ["/openapi.json"];
 /** The pinned bodies against the committed snapshots of `root` (T0-TOOLING-1, review B-2: derived, no re-pin at T0): while a
- *  pending snapshot exists, its /openapi.json sha256 and served bodies that change at T0; once promoted, the served snapshot
- *  records these very bytes. */
+ *  pending snapshot exists, its /openapi.json sha256, each body the served snapshot records, the declared ones with other bytes
+ *  and the others with the same; once promoted, the served snapshot records these very bytes. */
 function bodiesAgree(root: string, got: Record<string, string>): void {
   const pendingFile = join(root, PENDING_REL), served = loadHarnessServed(root).bodies_sha256;
   if (existsSync(pendingFile)) {
     assert.equal(got["/openapi.json"], (JSON.parse(readFileSync(pendingFile, "utf8")) as Rec).openapi_sha256, "the openapi pin is the pending snapshot's");
-    for (const k of Object.keys(got)) assert.ok(k in served && served[k] !== got[k], `${k}: a body the served snapshot records, whose bytes change at T0`);
+    for (const k of BODIES_CHANGED_AT_T0) assert.ok(k in got, `${k}: a declared body is pinned`);
+    for (const k of Object.keys(got)) {
+      assert.ok(k in served, `${k}: a body the served snapshot records`);
+      if (BODIES_CHANGED_AT_T0.includes(k)) assert.notEqual(served[k], got[k], `${k}: a declared body, whose bytes change at T0`);
+      else assert.equal(served[k], got[k], `${k}: an undeclared body, whose bytes the served snapshot already records`);
+    }
   } else {
     for (const k of Object.keys(got)) assert.equal(served[k], got[k], `${k}: the promoted served snapshot records the pinned bytes`);
   }
@@ -733,6 +741,9 @@ test("pending_bodies_are_pinned_byte_for_byte", async () => {
     [{ [HARNESS_SERVED_REL]: promoted(got) }, false, "a promoted tree recording the pinned bodies passes"],
     [{ [HARNESS_SERVED_REL]: promoted({ ...got, "/gate": "0".repeat(64) }) }, true, "a promoted tree recording another /gate body reds"],
     [{ [HARNESS_SERVED_REL]: { ...servedJson(), pending_since: "2026-10-04" }, [PENDING_REL]: { ...currentPending(), openapi_sha256: "0".repeat(64) } }, true, "a pending snapshot announcing another document reds"],
+    [{ [HARNESS_SERVED_REL]: { ...servedJson(), pending_since: "2026-10-04" }, [PENDING_REL]: currentPending() }, false, "the pending tree as it is passes (control of the staging)"],
+    [{ [HARNESS_SERVED_REL]: { ...servedJson(), pending_since: "2026-10-04", bodies_sha256: { ...(servedJson().bodies_sha256 as Rec), "/gate": "0".repeat(64) } }, [PENDING_REL]: currentPending() }, true, "a pending tree whose served snapshot records another /gate body reds: an undeclared body moves"],
+    [{ [HARNESS_SERVED_REL]: { ...servedJson(), pending_since: "2026-10-04", bodies_sha256: { ...(servedJson().bodies_sha256 as Rec), "/openapi.json": got["/openapi.json"] } }, [PENDING_REL]: currentPending() }, true, "a pending tree whose served snapshot already records the pinned /openapi.json reds: a declared body does not move"],
   ] as const) {
     const t = stage(files);
     try {

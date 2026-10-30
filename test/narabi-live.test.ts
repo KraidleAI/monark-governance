@@ -427,6 +427,7 @@ test("narabi_first_reading_label_single_source_of_seven — the week length is S
   assert.equal((src.match(/\bconst\s+WINDOW_BEFORE_FIRST_READING\b/g) ?? []).length, 0, "no WINDOW_BEFORE_FIRST_READING duplicate constant (C-5, M-17)");
 });
 
+// killer: apps/site/lib/narabi-copy.ts:94 CONST ", or a forecast outside the calm zone its calibration covers" -> ""
 test("narabi_glossary_under_calib_generic_digit_free — the glossary defines under_calib, generic + digit-free (ruling C-11, M-23)", () => {
   const entry = GLOSSARY.find((g) => g.term === "under_calib");
   assert.ok(entry, "GLOSSARY must define under_calib");
@@ -434,6 +435,7 @@ test("narabi_glossary_under_calib_generic_digit_free — the glossary defines un
   assert.ok(!/stratum/i.test(entry.def), "the under_calib def must be generic, never the Ukemi 'stratum' vocabulary");
   assert.ok(/calib/i.test(entry.def), "the def must speak of calibration");
   assert.ok(/abstain|withheld|withhold|no region|serving no/i.test(entry.def), "the def must state the withheld/abstained region");
+  assert.ok(/outside the calm zone/i.test(entry.def), "the under_calib def must name the out-of-support abstention");
   assert.ok(readComponent().includes("{g.def}"), "narabi-live.tsx must render each glossary def as {g.def}");
 });
 

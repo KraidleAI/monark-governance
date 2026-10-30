@@ -45,7 +45,6 @@ export const BTC_DIR_CALIB_PROVENANCE =
   `nCalib=${nCalib}); 0/1 indicator scores; scores_sha256=${CALIB_DIGEST_PINNED}; declared synthetic, ` +
   `a plumbing fixture, not a measured predictor (ADR-M005 D5, C-8).`;
 
-
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────
 // USDe (Ethena) — the FIRST committed MEASURED calibration of the `stable-run-velocity-24h` class
 // (ADR-M008 Amendement 2026-09-17 bis; PLAN-m008-f2b-usde §5/§8). MEASURED, not synthetic: real redemption
@@ -72,6 +71,9 @@ export const USDE_STABLE_RUN_TASK_CLASS = "stable-run-velocity-24h";
 
 /** The committed (task_class, predictor_id) key — derived by the SAME shared function the adapter emits. */
 export const USDE_STABLE_RUN_PREDICTOR_ID = narabiPredictorId(USDE_STABLE_RUN_CHAIN, USDE_STABLE_RUN_SUBJECT);
+/** The calm support of the key, [0, THETA_STRESS / WINDOW_HOURS) per hour: THETA_STRESS of scripts/record-usde-calib.mjs, whose stress rule excludes burns/S_open >= THETA_STRESS, over its window "24h". */
+export const USDE_STABLE_RUN_THETA_STRESS = 0.01;
+export const USDE_STABLE_RUN_WINDOW_HOURS = 24;
 
 /** The 613 committed nonconformity scores (adapter 1e12 scale, A1). MEASURED; order-independent (digest sorts). */
 export const USDE_STABLE_RUN_CALIB: readonly number[] = [
@@ -164,21 +166,22 @@ export const USDE_STABLE_RUN_SCORES_SHA256_PINNED = "e44a68b6b697a32f3f198770e74
 export const USDE_STABLE_RUN_CALIB_PROVENANCE =
   `measured — USDe (Ethena) redemption flow, token 0x4c9EDD5852cd905f086C759E8383e09bff1E68B3, chain ` +
   `${USDE_STABLE_RUN_CHAIN}; wrapping_family=synthetic-dollar-whitelisted-redeem (provenance metadata; the ` +
-  `KEY ${USDE_STABLE_RUN_PREDICTOR_ID} is the support). Calm 24h UTC windows from deploy block 18571358 ` +
+  `KEY ${USDE_STABLE_RUN_PREDICTOR_ID} is the support). Calm ${String(USDE_STABLE_RUN_WINDOW_HOURS)}h UTC windows from deploy block 18571358 ` +
   `series (sha256 7c33027a0e4c6a72e6b390dd95aa2396f1f8c6cdcfee22f8abe729ba8dfc9ef1); bootstrap floor ` +
-  `S_open >= 1e25 wei (10,000,000 USDe) excludes 30 windows; stress rule burns/S_open >= 0.01 excludes 28; ` +
+  `S_open >= 1e25 wei (10,000,000 USDe) excludes 30 windows; stress rule burns/S_open >= ${String(USDE_STABLE_RUN_THETA_STRESS)} excludes 28; ` +
   `637 calm kept, 403 active (rho=0.6327), n=613 consecutive-calm pairs, alpha=0.10; q_hat=1.3119e-4 /h ` +
   `(support 61), q99=3.4009e-4 /h (support 6); scores regenerated via fromAttestedFlow at the 1e12 adapter ` +
   `scale (A1), calib_digest=${USDE_STABLE_RUN_CALIB_DIGEST_PINNED}; recorder scripts/record-usde-calib.mjs; ` +
   `measured 2026-09-17.`;
 
-/** A committed calibration entry: (task_class, predictor_id) → measured scores + pinned digest + provenance. */
+/** A committed calibration entry: (task_class, predictor_id) → measured scores + pinned digest + provenance (+ calm support, stable-run). */
 export interface CommittedCalibration {
   readonly taskClass: string;
   readonly predictorId: string;
   readonly scores: readonly number[];
   readonly digestPinned: string;
   readonly provenance: string;
+  readonly calmSupport?: CalmSupport; // required on every stable-run entry (assertCommittedScores); the other classes omit it
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -254,26 +257,30 @@ export const UKEMI_LIQ_SCORES_SHA256_PINNED: Readonly<Record<string, string>> = 
  *  liq class contributes its committed strata (ADR-U4b-2b D1), each under its own stratum key. */
 const COMMITTED_CALIBRATIONS: readonly CommittedCalibration[] = [
   {
-    taskClass: USDE_STABLE_RUN_TASK_CLASS,
-    predictorId: USDE_STABLE_RUN_PREDICTOR_ID,
-    scores: USDE_STABLE_RUN_CALIB,
-    digestPinned: USDE_STABLE_RUN_CALIB_DIGEST_PINNED,
-    provenance: USDE_STABLE_RUN_CALIB_PROVENANCE,
+    taskClass: USDE_STABLE_RUN_TASK_CLASS, predictorId: USDE_STABLE_RUN_PREDICTOR_ID, scores: USDE_STABLE_RUN_CALIB, digestPinned: USDE_STABLE_RUN_CALIB_DIGEST_PINNED,
+    provenance: USDE_STABLE_RUN_CALIB_PROVENANCE, calmSupport: { thetaStress: USDE_STABLE_RUN_THETA_STRESS, windowHours: USDE_STABLE_RUN_WINDOW_HOURS },
   },
   ...UKEMI_LIQ_COMMITTED,
 ];
 
 /** The load guard of contract 1.1.0, per committed entry: scores_sha256 of its scores in the stored order equals its pin,
  *  held outside the generated block (USDe, then liq by stratum key); an entry with no pin throws too. The C5 digestPinned
- *  stays the provenance pin of each entry, checked by the tests through the provenance tool (decision Q-3b-2). */
+ *  stays the provenance pin of each entry, checked by the tests through the provenance tool (decision Q-3b-2). A stable-run entry with no calm support throws too. */
 export function assertCommittedScores(c: CommittedCalibration): void {
   const pinned = c.taskClass === USDE_STABLE_RUN_TASK_CLASS ? USDE_STABLE_RUN_SCORES_SHA256_PINNED : UKEMI_LIQ_SCORES_SHA256_PINNED[c.predictorId];
   const computed = scoresSha256(c.scores);
   if (computed !== pinned) throw new Error(`calibration: scores drift for ${c.predictorId}: scores_sha256 ${computed} != pinned ${String(pinned)} (re-record and re-pin, never silently accept).`);
+  if (c.taskClass === USDE_STABLE_RUN_TASK_CLASS && c.calmSupport === undefined) throw new Error(`calibration: the stable-run entry ${c.predictorId} declares no calm support (thetaStress, windowHours); a key without one fails closed.`);
 }
-
 // Fail-closed at import, in every process importing this module (harness, Narabi job): a drift never serves unnoticed.
 for (const c of COMMITTED_CALIBRATIONS) assertCommittedScores(c);
+
+/** The calm support of a stable-run calibration: its stress ratio and its window in hours. A velocity forecast outside
+ *  [0, thetaStress / windowHours) per hour lies where the calibration holds no point, so the gate abstains under_calib. */
+export interface CalmSupport {
+  readonly thetaStress: number;
+  readonly windowHours: number;
+}
 
 /** Look up the committed calibration for a (task_class, predictor_id) key. Non-match ⇒ undefined ⇒ the
  *  caller abstains `under_calib` (isolation of population on the wire, C-10, fail-closed). */
