@@ -147,9 +147,9 @@ function chainMc(side: Side, H: number, p1: number, p0: number, seed: number, n:
 }
 /** The null at the boundary: u = 0, one draw, E+ = 1 under a; u > 0, the resolution coin (unresolved under u), then the miss coin
  *  (missed under (a - u)/(1 - u)), drawn at every step and ignored when the window is unresolved. */
-function nullMc(side: Side, H: number, u: number, seed: number): { n: number; e: number; unresolved: number; resolvedMissed: number } {
+function nullMc(side: Side, H: number, u: number, seed: number): { n: number } {
   const r = lcg(seed), tab = table(side, H), p = (A - u) / (1 - u);
-  let n = 0, e = 0, unresolved = 0, resolvedMissed = 0;
+  let n = 0;
   for (let i = 0; i < N; i++) {
     let k = 0;
     for (let t = 1; t <= H; t++) {
@@ -157,11 +157,8 @@ function nullMc(side: Side, H: number, u: number, seed: number): { n: number; e:
       if (u === 0) E = r.next() < A ? 1 : 0;
       else {
         const noRes = r.next() < u, miss = r.next() < p;
-        if (noRes) unresolved++;
-        else if (miss) resolvedMissed++;
         E = noRes || miss ? 1 : 0;
       }
-      e += E;
       k += E;
       if (hit(side, tab, t, k)) {
         n++;
@@ -169,7 +166,7 @@ function nullMc(side: Side, H: number, u: number, seed: number): { n: number; e:
       }
     }
   }
-  return { n, e, unresolved, resolvedMissed };
+  return { n };
 }
 function nullRuns(t: { diagnostic: (m: string) => void }, side: Side, H: number, seeds: readonly [number, number], exact: number, delta: number): void {
   assert.deepEqual([...table(side, H)], floatFrontier(side, H), `the ${side} table of the fixture's mixture`);
@@ -178,7 +175,6 @@ function nullRuns(t: { diagnostic: (m: string) => void }, side: Side, H: number,
     t.diagnostic(`${side} u ${s(u)}: ${s(out.n)} of ${s(N)} cross before ${s(H)}, ${(performance.now() - t0).toFixed(0)} ms`);
     inBand(freq, exact, N, `${side} u ${s(u)}`);
     assert.ok(freq < delta, `${side} u ${s(u)} under delta`);
-    if (u > 0) assert.equal(out.e, out.resolvedMissed + out.unresolved, "#E+ = #(resolved and missed) + #(unresolved)");
   }
 }
 
