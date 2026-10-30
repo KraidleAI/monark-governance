@@ -2846,9 +2846,16 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     écrites seules et le mot collé à un `#` (l.344-346), et la composante `outOfBounds` (l.68) ; test `audit_refuses_panics_in_the_kernel`,
     rouge sans la règle (red-proof `80d7e563…`), ses tueurs tués (mutants `de6a406a…`). Les paniques que les mots ne voient pas sont les
     items GENKAN-PANIC-2 et GENKAN-PANIC-3.
-  - GENKAN-MAIN-IO-1 (G7 de #343, MONARK, 2026-10-29 03:5x UTC) : `Main` ne doit lire que l'entrée standard et n'écrire que la sortie standard.
-    Construction : une règle de l'audit qui refuse ailleurs dans le noyau `IO.Process`, `IO.FS` et le réseau, avec ses tests. Porteur :
-    MONARK. Déclencheur : le lot 2 de Genkan, où `Main` lit sa première entrée ; état : ouvert.
+  - GENKAN-MAIN-IO-1 (G7 de #343, MONARK, 2026-10-29 03:5x UTC) : `Main` ne doit lire que l'entrée standard et n'écrire que la sortie
+    standard. Construction : une règle de l'audit qui refuse ailleurs dans le noyau `IO.Process`, `IO.FS` et le réseau, avec ses tests.
+    Porteur : MONARK. Déclencheur : le lot 2 de Genkan, où `Main` lit sa première entrée ; état : clos le 2026-10-30 par #351 (fusion
+    `a99292da`, G7 `b7ebde91…`) : hors du `lakefile.lean`, `apps/genkan/scripts/audit.mjs` refuse un nom dont la première composante, après
+    un `_root_` initial, est `IO`, `EIO`, `BaseIO`, `EST`, `ST` ou `System` (l.80, lu à la l.393), un nom dont une composante est `timeit`,
+    `allocprof`, `unsafeIO`, `unsafeEIO` ou `unsafeBaseIO` (l.85), la tête `println!` (l.394) et un point initial qui n'est pas collé après
+    un terme (l.372) ; `Main.lean` seul peut écrire `IO`, `IO.getStdin`, `IO.getStdout` et `IO.FS.Stream` tels quels (l.81), n'y écrit ni
+    `open` ni `namespace` (l.406) et y déclare `def main : IO UInt32` (l.402 et l.415) ; test `audit_bounds_main_io_to_stdin_and_stdout`,
+    rouge sans les règles (red-proof `7d6152bf…`), ses tueurs tués (mutants `b231ccba…`). Ces règles lisent les sources : l'initialiseur
+    `IO.stdGenRef` d'`Init`, qui tourne avant `main`, reste à GENKAN-PANIC-3 et GENKAN-RUNTIME-1.
   - GENKAN-THEOREM-NAMES-1 (G7 de #346, MONARK, 2026-10-29 13:3x UTC) : `audit.mjs --source-only` passe un nom de théorème entre
     guillemets dans un fichier de théorèmes. `records.mjs` le refuse avant que Lean ne tourne, et la CI échoue à l'étape des
     enregistrements, mais la forme de l'audit (`Genkan.«a»`) n'est pas celle de l'enregistrement de Lean (`Genkan.a`, mesuré).
@@ -2918,8 +2925,12 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     HIKAE, dont deux de l'oracle. Lecture non mesurée : le front TLS écoute sur `127.0.0.1` (`listen`, `test/helpers/loopback.ts` l.58-62)
     et le client appelle `https://localhost` (l.385), que la machine peut résoudre d'abord en `::1`, où un autre serveur du passage peut
     écouter sur le même port. Construction : mesurer la cause sous la charge d'un passage complet, puis faire appeler au client l'adresse où
-    le front écoute, avec un cas qui force la résolution de `localhost` en `::1` d'abord. Porteur : MONARK. Déclencheur : le prochain lot
-    qui touche `scripts/verify-harness.mjs` ou ce test, ou un second échec dans un passage complet, au premier des deux ; état : ouvert.
+    le front écoute, avec un cas qui force la résolution de `localhost` en `::1` d'abord. Prix (ajouté au G7 de #351, MONARK, 2026-10-30
+    00:4x UTC, sur la remarque de HIKAE) : une mesure, un passage complet de `test:main` instrumenté (347 s sur la branche de #351), puis
+    environ 15 lignes et un cas : une entrée `IP:127.0.0.1` au `subjectAltName` de `test/helpers/self-signed.ts`, qui ne porte que
+    `DNS:localhost` (l.16), les deux URL `https://localhost` du test (l.385 et l.392), et le cas de `::1`. Le test a passé depuis sur la
+    branche de #351 et dans le `test:main` de l'oracle G7 de sa fusion. Porteur : MONARK. Déclencheur : le prochain lot qui touche
+    `scripts/verify-harness.mjs` ou ce test, ou un second échec dans un passage complet, au premier des deux ; état : ouvert.
 
 ## Ce qui reste pour la page
 
