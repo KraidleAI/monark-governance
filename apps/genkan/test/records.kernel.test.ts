@@ -1,7 +1,11 @@
 // GENKAN - the axiom records under the real pinned toolchain (Lean 4.32.1). Each case builds a temporary tree under os.tmpdir()
 // with copies of the three real scripts and a kernel dir: lake.mjs builds the kernel, records.mjs writes the `#print axioms`
 // output of main and each theorem, and audit.mjs reads it with --axioms-from. A main that reaches decide's native axiom is
-// refused by its record (the word refuses it too); the real kernel passes. It runs in test:genkan only (the file name ends
+// refused by its record (the word refuses it too); the real kernel passes. records.mjs --replay runs the pinned leanchecker
+// on each module the audit names (`audit.mjs --modules`): a theorem of False added to the environment without the kernel's
+// check, which its record passes, is refused, as is a module with no build; the real kernel passes. leanchecker is not an
+// external verifier: it replays each declaration in Lean's kernel, a tool to detect environment hacking. It runs in
+// test:genkan only (the file name ends
 // .kernel.test.ts, which test and test:main leave out). With ELAN_HOME unset or blank and CI unset or false, every test is
 // skipped; with CI set, a missing ELAN_HOME or a home without the pinned lake fails. The temp dir of the wrapper is GENKAN_TMP,
 // a dir of the tree, so nothing is written outside it.
@@ -104,7 +108,7 @@ function buildRecordAudit(t: Tree, home: string): { records: string; audit: Spaw
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:568 SDL "  for (const [name, axioms] of records) for (const a of axioms) if (!ADMITTED_AXIOMS.has(a)) out.push(`${name}: foreign axiom ${a}`);" -> ""
+// killer: apps/genkan/scripts/audit.mjs:575 SDL "  for (const [name, axioms] of records) for (const a of axioms) if (!ADMITTED_AXIOMS.has(a)) out.push(`${name}: foreign axiom ${a}`);" -> ""
 test("records_kernel_refuses_the_planted_native_axiom", OPTIONS, () => {
   const home = pinnedHome();
   const t = makeTree();
@@ -133,7 +137,7 @@ test("records_kernel_refuses_the_planted_native_axiom", OPTIONS, () => {
   }
 });
 
-// killer: apps/genkan/scripts/records.mjs:80 CONST "writeFileSync(outAbs, lean.stdout)" -> "writeFileSync(outAbs, lean.stdout.toString(\"utf8\").trim())"
+// killer: apps/genkan/scripts/records.mjs:94 CONST "writeFileSync(outAbs, lean.stdout)" -> "writeFileSync(outAbs, lean.stdout.toString(\"utf8\").trim())"
 test("records_kernel_passes_the_real_kernel", OPTIONS, () => {
   const home = pinnedHome();
   const t = makeTree();
@@ -153,6 +157,97 @@ test("records_kernel_passes_the_real_kernel", OPTIONS, () => {
     assert.ok(files >= 2, `the copy holds Main.lean and lakefile.lean at least (found ${String(files)})`);
     assert.deepEqual(linesOf(audit.stdout), [`audit: ${String(files)} Lean files, 0 theorems, no finding`], `the success line\n${show(audit)}`);
     assert.deepEqual(linesOf(audit.stderr), [], `nothing on stderr\n${show(audit)}`);
+  } finally {
+    rmSync(t.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
+  }
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** Runs `script` of the tree with the toolchain home and the tree's temp dir, as buildRecordAudit does. */
+function nodeIn(t: Tree, home: string, script: string, args: string[], timeout: number, input?: string): SpawnSyncReturns<string> {
+  const env: NodeJS.ProcessEnv = { ...process.env, ELAN_HOME: home, GENKAN_TMP: t.tmp };
+  return spawnSync(process.execPath, [join(t.scripts, script), ...args], { env, encoding: "utf8", stdio: "pipe", timeout, ...(input === undefined ? {} : { input }) });
+}
+/** Builds the tree's kernel with the pinned lake. */
+function build(t: Tree, home: string): void {
+  const b = nodeIn(t, home, "lake.mjs", ["build"], 120_000);
+  assert.equal(b.status, 0, `the kernel builds with the pinned lake\n${show(b)}`);
+}
+const replay = (t: Tree, home: string): SpawnSyncReturns<string> => nodeIn(t, home, "records.mjs", ["--replay"], 240_000);
+
+// killer: apps/genkan/scripts/records.mjs:116 SDL "relay(r.stderr);" -> ""
+test("replay_refuses_the_planted_environment_hack", OPTIONS, () => {
+  const home = pinnedHome();
+  const t = makeTree();
+  try {
+    // The real kernel, then a module that adds a theorem of False to the environment without the kernel's check, and a
+    // theorem that uses it. Its record names no axiom: the records would pass it.
+    const hack = [
+      "import Lean",
+      "open Lean Elab Command",
+      "",
+      "-- A theorem of False whose value is True.intro, added to the environment without the kernel's check.",
+      "set_option debug.skipKernelTC true in",
+      "run_cmd liftCoreM <| addDecl <| Declaration.thmDecl {",
+      "  name := `Genkan.bad, levelParams := [], type := mkConst ``False, value := mkConst ``True.intro }",
+      "",
+      "theorem Genkan.useBad : False := Genkan.bad",
+      "",
+    ].join("\n");
+    copyKernel(KERNEL_DIR, t.kernel);
+    writeFileSync(join(t.kernel, "Genkan", "Hack.lean"), hack);
+    build(t, home);
+    const p = nodeIn(t, home, "lake.mjs", ["env", "lean", "--stdin"], 120_000, "import Genkan.Hack\n#print axioms Genkan.useBad\n");
+    assert.equal(p.status, 0, `#print axioms of the planted theorem runs\n${show(p)}`);
+    assert.equal(String(p.stdout), "'Genkan.useBad' does not depend on any axioms\n", `the planted theorem's record names no axiom\n${show(p)}`);
+    // The replay: leanchecker replays Genkan.Hack in the kernel and refuses it.
+    const r = replay(t, home);
+    assert.equal(r.status, 1, `the replay refuses the planted module\n${show(r)}`);
+    assert.equal(String(r.stdout), "", `nothing on stdout\n${show(r)}`);
+    const err = linesOf(r.stderr);
+    assert.ok(err.includes("leanchecker found a problem in Genkan.Hack"), `leanchecker names the module\n${show(r)}`);
+    assert.ok(err.some((l) => l.includes("'Genkan.bad' has type")), `leanchecker names the declaration the kernel refuses\n${show(r)}`);
+    assert.equal(err.at(-1), "records: lake.mjs env leanchecker Genkan.Hack exited 1", `the last line names the module and its exit\n${show(r)}`);
+  } finally {
+    rmSync(t.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
+  }
+});
+
+// killer: apps/genkan/scripts/records.mjs:117 CONST "exited ${exitOf(r)}" -> "exited"
+test("replay_refuses_an_unbuilt_module", OPTIONS, () => {
+  const home = pinnedHome();
+  const t = makeTree();
+  try {
+    // The real kernel, built; then a module written after the build: it has no .olean, and leanchecker finds none.
+    copyKernel(KERNEL_DIR, t.kernel);
+    build(t, home);
+    writeFileSync(join(t.kernel, "Genkan", "Extra.lean"), ["namespace Genkan", "def extra : Nat := 0", "end Genkan", ""].join("\n"));
+    const r = replay(t, home);
+    assert.equal(r.status, 1, `the replay refuses a module with no build\n${show(r)}`);
+    const err = linesOf(r.stderr);
+    assert.ok(err.some((l) => l.includes("Could not find any oleans for: Genkan.Extra")), `leanchecker finds no .olean\n${show(r)}`);
+    // Measured on 2026-10-30 (win32, Lean 4.32.1): leanchecker exits 1.
+    assert.equal(err.at(-1), "records: lake.mjs env leanchecker Genkan.Extra exited 1", `the last line names the module and its exit\n${show(r)}`);
+  } finally {
+    rmSync(t.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
+  }
+});
+
+// killer: apps/genkan/scripts/records.mjs:119 CONST "modules replayed by leanchecker" -> "modules replayed"
+test("replay_passes_the_real_kernel", OPTIONS, () => {
+  const home = pinnedHome();
+  const t = makeTree();
+  try {
+    copyKernel(KERNEL_DIR, t.kernel);
+    build(t, home);
+    const r = replay(t, home);
+    // Its modules: each Lean file of the copy outside its root .lake, but the one lakefile.lean.
+    const n = leanFiles(t.kernel) - 1;
+    assert.ok(n >= 4, `the copy holds Main and three modules of Genkan/ at least (found ${String(n)})`);
+    assert.equal(r.status, 0, `the replay passes the real kernel\n${show(r)}`);
+    assert.equal(String(r.stdout), `records: ${String(n)} modules replayed by leanchecker\n`, `the success line, exactly\n${show(r)}`);
+    assert.equal(String(r.stderr), "", `nothing on stderr\n${show(r)}`);
   } finally {
     rmSync(t.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
   }

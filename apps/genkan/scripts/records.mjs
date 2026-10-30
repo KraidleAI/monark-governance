@@ -4,12 +4,18 @@
 // input of `lake.mjs env lean --stdin` (this dir's wrapper of the pinned lake), and writes what Lean prints to --out, byte for
 // byte, only when Lean exits 0. Lean loads the built kernel's modules: run it after the source audit (audit.mjs --source-only)
 // and the build, as CI does; audit.mjs --axioms-from <file> judges the records.
+// --replay asks audit.mjs for the modules (`--modules`) and refuses, before any Lean runs, a line that is not a module a root
+// may name (so leanchecker never runs without a module); then it runs `lake.mjs env leanchecker <module>` once per module, in
+// order, relays what each prints to stderr, and stops at the first that does not exit 0; it writes no file. leanchecker
+// replays each declaration of a module in Lean's kernel against the environment its imports give, a check against environment
+// hacking; it is not an external verifier.
 //
-//   ELAN_HOME=<toolchain home> node apps/genkan/scripts/records.mjs --out <file>
+//   ELAN_HOME=<toolchain home> node apps/genkan/scripts/records.mjs --out <file> | --replay
 //
-// Exit 0 with one stdout line `records: <R> roots, written to <file>`; 1 when the roots or Lean fail, or a root line is
-// refused before Lean runs (what they printed goes to stderr, and nothing is written); 2 on a usage error or an --out on drive
-// C (judged as lake.mjs judges its temp dir). It never deletes anything.
+// Exit 0 with one stdout line `records: <R> roots, written to <file>`, or `records: <N> modules replayed by leanchecker`; 1
+// when the roots, the modules, Lean or a leanchecker fail, or a root or module line is refused before Lean runs (what they
+// printed goes to stderr, and nothing is written); 2 on a usage error or an --out on drive C (judged as lake.mjs judges its
+// temp dir). It never deletes anything.
 import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
@@ -28,21 +34,29 @@ const MODULE = /^(?:Main|Genkan(?:\.[A-Z][A-Za-z0-9]*)*)$/;
 const NAME = /^[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*$/;
 const TIMEOUT_MS = 600_000;
 const MAX_BUFFER = 64 * 1024 * 1024;
-const USAGE = "records: usage: ELAN_HOME=<toolchain home> node apps/genkan/scripts/records.mjs --out <file>";
+const USAGE = "records: usage: ELAN_HOME=<toolchain home> node apps/genkan/scripts/records.mjs --out <file> | --replay";
 
 process.exitCode = main();
 
 function main() {
   const argv = process.argv.slice(2);
   let out;
+  let replay = false;
   for (let k = 0; k < argv.length; k++) {
+    if (argv[k] === "--replay") {
+      if (replay) return usage("--replay given twice");
+      replay = true;
+      continue;
+    }
     if (argv[k] !== "--out") return usage(`unknown argument ${argv[k]}`);
     if (out !== undefined) return usage("--out given twice");
     const value = argv[++k];
     if (value === undefined || value.trim() === "") return usage("--out needs a value");
     out = value;
   }
-  if (out === undefined) return usage("--out <file> is required");
+  if (out !== undefined && replay) return usage("--out and --replay exclude each other");
+  if (replay) return replayModules();
+  if (out === undefined) return usage("one of --out <file> and --replay is required");
   if (onDriveC(out)) return usage(`--out is on C: (${out}); refused`);
   const outAbs = path.resolve(out);
 
@@ -82,6 +96,27 @@ function main() {
     return fail(`records: ${outAbs} unwritable (${String(e.code ?? e.message)})`);
   }
   process.stdout.write(`records: ${String(parsed.length)} roots, written to ${outAbs}\n`);
+  return 0;
+}
+
+/** --replay: each module the audit names, every line judged first, then replayed by leanchecker until the first refusal. */
+function replayModules() {
+  const listed = spawnSync(process.execPath, [AUDIT, "--modules"], { stdio: ["ignore", "pipe", "pipe"], timeout: TIMEOUT_MS, maxBuffer: MAX_BUFFER });
+  if (listed.error !== undefined || listed.status !== 0) {
+    relay(listed.stderr);
+    return fail(`records: audit.mjs --modules exited ${exitOf(listed)}`);
+  }
+  const modules = listed.stdout.toString("utf8").split("\n");
+  if (modules.at(-1) === "") modules.pop();
+  for (const m of modules) if (!MODULE.test(m)) return fail(`records: refused module line ${JSON.stringify(m)}`);
+  if (modules.length === 0) return fail("records: audit.mjs --modules named no module");
+  for (const m of modules) {
+    const r = spawnSync(process.execPath, [LAKE, "env", "leanchecker", m], { stdio: ["ignore", "pipe", "pipe"], timeout: TIMEOUT_MS, maxBuffer: MAX_BUFFER });
+    relay(r.stdout);
+    relay(r.stderr);
+    if (r.error !== undefined || r.status !== 0) return fail(`records: lake.mjs env leanchecker ${m} exited ${exitOf(r)}`);
+  }
+  process.stdout.write(`records: ${String(modules.length)} modules replayed by leanchecker\n`);
   return 0;
 }
 

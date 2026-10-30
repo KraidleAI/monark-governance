@@ -64,6 +64,7 @@ const GENKAN_SOURCES = [
   "apps/genkan/kernel/Genkan/Sha256.lean",
   "apps/genkan/kernel/Genkan/Format.lean",
   "apps/genkan/kernel/vectors/gnk1.json",
+  "apps/genkan/kernel/vectors/mutants-equivalent.json",
   "apps/genkan/src/frame.ts",
   "apps/genkan/scripts/lake.mjs",
   "apps/genkan/scripts/audit.mjs",

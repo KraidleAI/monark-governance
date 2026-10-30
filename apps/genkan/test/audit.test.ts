@@ -184,7 +184,7 @@ const DEBUG_FUNCTIONS = ["dbgTrace", "dbgTraceVal", "dbgTraceIfShared", "dbgStac
 const NAMED_HEADS = ["throwNamedError", "throwNamedErrorAt", "logNamedError", "logNamedErrorAt", "logNamedWarning", "logNamedWarningAt"];
 const HASH_REFUSED = ["#guard true", "#guard_msgs in #check 1", "#reduce 1", "#exit", "#synth Inhabited Nat", "#check_failure 1", "#time #check 1", "#where"];
 
-// killer: apps/genkan/scripts/audit.mjs:233 COR "i === 0 || WHITE" -> "i === 0 && WHITE"
+// killer: apps/genkan/scripts/audit.mjs:235 COR "i === 0 || WHITE" -> "i === 0 && WHITE"
 test("audit_refuses_banned_construct", () => {
   // (1) Each finding at its exact line. The header block comment spans two lines (line numbers are kept) and the line
   // comment holds a block opener (it opens nothing). The `sorry` lines from `def q` on each defeat a naive lexer: a char
@@ -390,7 +390,7 @@ const LAKEFILE_L2 = [
 const LAKEFILE_L1 = ["import Lake", "open Lake DSL", "", "package «genkan-kernel»", "", "@[default_target]", "lean_exe «genkan-kernel» where", "  root := `Main", ""].join("\n");
 const LAKEFILE_L1_SHA256 = "ed9d18b98ef3cfa1269b4d053bdf9ef83db0351bbf06ec83e7b35e5486b0785d";
 
-// killer: apps/genkan/scripts/audit.mjs:553 ROR "sha !== LAKEFILE_SHA256" -> "sha === LAKEFILE_SHA256"
+// killer: apps/genkan/scripts/audit.mjs:560 ROR "sha !== LAKEFILE_SHA256" -> "sha === LAKEFILE_SHA256"
 test("audit_pins_lakefile", () => {
   // The real lakefile next to the scripts is the pinned one: its copy passes, with LF or CRLF line ends.
   const realPath = join(KERNEL_DIR, "lakefile.lean");
@@ -433,9 +433,9 @@ test("audit_pins_lakefile", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:444 CONST "name?.length ?? 1" -> "name?.length ?? 0"
-// killer: apps/genkan/scripts/audit.mjs:571 CONST "if (!records.has(\"main\")) out.push(\"main: no axiom record\");" -> "if (false) out.push(\"main: no axiom record\");"
-// killer: apps/genkan/scripts/audit.mjs:569 SDL "  for (const { name } of theorems) if (!records.has(name)) out.push(`${name}: no axiom record`);" -> ""
+// killer: apps/genkan/scripts/audit.mjs:446 CONST "name?.length ?? 1" -> "name?.length ?? 0"
+// killer: apps/genkan/scripts/audit.mjs:578 CONST "if (!records.has(\"main\")) out.push(\"main: no axiom record\");" -> "if (false) out.push(\"main: no axiom record\");"
+// killer: apps/genkan/scripts/audit.mjs:576 SDL "  for (const { name } of theorems) if (!records.has(name)) out.push(`${name}: no axiom record`);" -> ""
 test("audit_refuses_foreign_axiom", () => {
   const kernel = makeKernel({
     "Genkan/Theorems.lean": ["namespace Genkan", "theorem a : True := trivial", "theorem b : True := trivial", "end Genkan", ""].join("\n"),
@@ -544,14 +544,14 @@ test("audit_refuses_foreign_axiom", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:500 CONST "[KERNEL_FLAG, AXIOMS_FLAG, SOURCE_FLAG, ROOTS_FLAG].includes(flag)" -> "[KERNEL_FLAG, AXIOMS_FLAG, SOURCE_FLAG].includes(flag)"
-// killer: apps/genkan/scripts/audit.mjs:503 SDL "  if (flag === SOURCE_FLAG || flag === ROOTS_FLAG) continue; // no value" -> ""
-// killer: apps/genkan/scripts/audit.mjs:509 CONST ".filter((f) => seen.has(f)).length > 1)" -> ".filter((f) => seen.has(f)).length > 2)"
-// killer: apps/genkan/scripts/audit.mjs:561 CONST "[{ module: \"Main\", name: \"main\" }, ...theorems]" -> "[...theorems]"
-// killer: apps/genkan/scripts/audit.mjs:550 CONST ".split(\"/\").join(\".\")" -> ".split(\"/\").join(\"/\")"
-// killer: apps/genkan/scripts/audit.mjs:562 SDL "  process.exit(0);" -> ""
-// killer: apps/genkan/scripts/audit.mjs:565 CONST "if (!sourceOnly) {" -> "if (true) {"
-// killer: apps/genkan/scripts/audit.mjs:579 CONST "sourceOnly ? \" (sources only)\" : \"\"" -> "\"\""
+// killer: apps/genkan/scripts/audit.mjs:502 CONST "[KERNEL_FLAG, AXIOMS_FLAG, SOURCE_FLAG, ROOTS_FLAG, MODULES_FLAG].includes(flag)" -> "[KERNEL_FLAG, AXIOMS_FLAG, SOURCE_FLAG, MODULES_FLAG].includes(flag)"
+// killer: apps/genkan/scripts/audit.mjs:505 SDL "  if (flag === SOURCE_FLAG || flag === ROOTS_FLAG || flag === MODULES_FLAG) continue; // no value" -> ""
+// killer: apps/genkan/scripts/audit.mjs:511 CONST ".filter((f) => seen.has(f)).length > 1)" -> ".filter((f) => seen.has(f)).length > 2)"
+// killer: apps/genkan/scripts/audit.mjs:568 CONST "[{ module: \"Main\", name: \"main\" }, ...theorems]" -> "[...theorems]"
+// killer: apps/genkan/scripts/audit.mjs:557 CONST ".split(\"/\").join(\".\")" -> ".split(\"/\").join(\"/\")"
+// killer: apps/genkan/scripts/audit.mjs:569 SDL "  process.exit(0);" -> ""
+// killer: apps/genkan/scripts/audit.mjs:572 CONST "if (!sourceOnly) {" -> "if (true) {"
+// killer: apps/genkan/scripts/audit.mjs:586 CONST "sourceOnly ? \" (sources only)\" : \"\"" -> "\"\""
 test("audit_modes_source_only_and_roots", () => {
   const env = { ...process.env };
   const MAIN = "def main : IO UInt32 := pure 3\n";
@@ -668,8 +668,72 @@ test("audit_modes_source_only_and_roots", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:410 CONST "if (word === \"private\" && THEOREM_FILES.has(rel))" -> "if (false && THEOREM_FILES.has(rel))"
-// killer: apps/genkan/scripts/audit.mjs:410 COR "word === \"private\" && THEOREM_FILES.has(rel)" -> "word === \"private\""
+// killer: apps/genkan/scripts/audit.mjs:541 ROR "f.rel !== \"lakefile.lean\"" -> "f.rel === \"lakefile.lean\""
+test("audit_modules_lists_each_kernel_module", () => {
+  const env = { ...process.env };
+  // (1) --modules: one line per module of the kernel, whatever the sources hold (Dirty.lean holds a banned word), exit 0,
+  // nothing on stderr. A module is each *.lean file of any case the walk collects but the root lakefile.lean (a nested one
+  // is a module), named by its relative path without its last five characters, each / made a dot; the root build dir is
+  // skipped and a nested .lake is read; each dir's entries are sorted by code unit (".lake" before "Bytes.lean", and
+  // "Upper.LEAN" before "lakefile.lean").
+  const kernel = makeKernel({
+    "Main.lean": "def main : IO UInt32 := pure 0\n",
+    "lakefile.lean": "-- any text: the root lakefile is not a module\n",
+    "Genkan/Bytes.lean": "namespace Genkan\ndef b : Nat := 0\nend Genkan\n",
+    "Genkan/Dirty.lean": "def d : Nat := sorry\n",
+    "Genkan/Inner/Deep.lean": "def deep : Nat := 0\n",
+    "Genkan/Upper.LEAN": "def upper : Nat := 0\n",
+    "Genkan/lakefile.lean": "def nested : Nat := 0\n",
+    "Genkan/.lake/Nested.lean": "def inNested : Nat := 0\n",
+    ".lake/build/Skipped.lean": "def skipped : Nat := 0\n",
+    "Genkan/notes.txt": "not a Lean file\n",
+  });
+  const MODULES = ["Genkan..lake.Nested", "Genkan.Bytes", "Genkan.Dirty", "Genkan.Inner.Deep", "Genkan.Upper", "Genkan.lakefile", "Main"];
+  for (const args of [["--kernel", kernel, "--modules"], ["--modules", "--kernel", kernel]]) {
+    const r = run(AUDIT_MJS, args, env);
+    assert.equal(r.status, 0, `${args.join(" ")}: --modules exits 0\n${show(r)}`);
+    assert.equal(String(r.stdout), MODULES.map((l) => `${l}\n`).join(""), `${args.join(" ")}: the modules, one line each, in the walk's order\n${show(r)}`);
+    assert.equal(linesOf(r.stdout).length, 7, `${args.join(" ")}: non-vacuity, seven modules\n${show(r)}`);
+    assert.equal(String(r.stderr), "", `${args.join(" ")}: nothing on stderr, no finding printed\n${show(r)}`);
+  }
+  // Non-vacuity: the kernel holds a finding the source audit reports, and the root build dir holds a Lean file.
+  assert.ok(existsSync(join(kernel, ".lake", "build", "Skipped.lean")), "the root build dir holds a Lean file");
+  const f = run(AUDIT_MJS, ["--kernel", kernel, "--source-only"], env);
+  assert.equal(f.status, 1, `the kernel of --modules holds findings\n${show(f)}`);
+
+  // (2) A kernel dir with no .lean file: no module, exit 0, nothing printed.
+  const empty = makeKernel({ "notes.txt": "no Lean here\n" });
+  const e = run(AUDIT_MJS, ["--kernel", empty, "--modules"], env);
+  assert.equal(e.status, 0, `no Lean file: --modules exits 0\n${show(e)}`);
+  assert.equal(String(e.stdout), "", `no Lean file: nothing on stdout\n${show(e)}`);
+  assert.equal(String(e.stderr), "", `no Lean file: nothing on stderr\n${show(e)}`);
+
+  // (3) Usage errors, exit 2, in their form: the message, then the usage line, which names --modules; nothing on stdout.
+  const USAGE = "audit: usage: node apps/genkan/scripts/audit.mjs [--kernel <dir>] [--axioms-from <file> | --source-only | --roots | --modules]";
+  const EXCLUDE = "audit: --axioms-from, --source-only, --roots and --modules exclude each other";
+  const rec = recordsFor([]);
+  const usage: [string, string[], string][] = [
+    ["--modules then --axioms-from", ["--modules", "--axioms-from", rec], EXCLUDE],
+    ["--axioms-from then --modules", ["--axioms-from", rec, "--modules"], EXCLUDE],
+    ["--modules then --source-only", ["--modules", "--source-only"], EXCLUDE],
+    ["--source-only then --modules", ["--source-only", "--modules"], EXCLUDE],
+    ["--modules then --roots", ["--modules", "--roots"], EXCLUDE],
+    ["--roots then --modules", ["--roots", "--modules"], EXCLUDE],
+    ["--modules twice", ["--modules", "--modules"], "audit: --modules given twice"],
+    ["a word after --modules", ["--modules", "x"], "audit: unknown argument x"],
+  ];
+  for (const [what, args, first] of usage) {
+    const u = run(AUDIT_MJS, ["--kernel", kernel, ...args], env);
+    assert.equal(u.status, 2, `${what} is a usage error\n${show(u)}`);
+    assert.deepEqual(linesOf(u.stderr), [first, USAGE], `${what}: the message, then the usage line\n${show(u)}`);
+    assert.deepEqual(linesOf(u.stdout), [], `${what}: nothing on stdout\n${show(u)}`);
+  }
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+// killer: apps/genkan/scripts/audit.mjs:412 CONST "if (word === \"private\" && THEOREM_FILES.has(rel))" -> "if (false && THEOREM_FILES.has(rel))"
+// killer: apps/genkan/scripts/audit.mjs:412 COR "word === \"private\" && THEOREM_FILES.has(rel)" -> "word === \"private\""
 test("audit_refuses_private_in_theorem_files", () => {
   // A private theorem gets a mangled name that `#print axioms` does not find under its written one (measured): in the two
   // theorem files the word private is refused, as a whole single-component name in code position, read through
@@ -712,10 +776,10 @@ test("audit_refuses_private_in_theorem_files", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:74 CONST "[\"outOfBounds\"]" -> "[]"
-// killer: apps/genkan/scripts/audit.mjs:75 CONST "/panic/i" -> "/panic/"
-// killer: apps/genkan/scripts/audit.mjs:388 SDL "add(tok.start, `banned ${panic}`);" -> ""
-// killer: apps/genkan/scripts/audit.mjs:379 SDL "add(tok.start, \"banned ]!\");" -> ""
+// killer: apps/genkan/scripts/audit.mjs:75 CONST "[\"outOfBounds\"]" -> "[]"
+// killer: apps/genkan/scripts/audit.mjs:76 CONST "/panic/i" -> "/panic/"
+// killer: apps/genkan/scripts/audit.mjs:390 SDL "add(tok.start, `banned ${panic}`);" -> ""
+// killer: apps/genkan/scripts/audit.mjs:381 SDL "add(tok.start, \"banned ]!\");" -> ""
 test("audit_refuses_panics_in_the_kernel", () => {
   // (1) Each way kernel code can panic, at its exact line, in code position: an index `]` glued to `!` (in the code part of
   // an interpolated string too), a name any of whose components holds `!` or `panic` in any case (the first such component
@@ -821,7 +885,7 @@ test("audit_refuses_panics_in_the_kernel", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:80 CONST "IO EIO BaseIO" -> "EIO BaseIO"
+// killer: apps/genkan/scripts/audit.mjs:81 CONST "IO EIO BaseIO" -> "EIO BaseIO"
 test("audit_bounds_main_io_to_stdin_and_stdout", () => {
   const env = { ...process.env };
   // (1) GENKAN-MAIN-IO-1. The kernel's sources may name no effect but stdin and stdout. In every file but lakefile.lean a
@@ -976,7 +1040,7 @@ test("audit_bounds_main_io_to_stdin_and_stdout", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:419 SDL "if (!NAME.test(name)) add(start," -> ""
+// killer: apps/genkan/scripts/audit.mjs:421 SDL "if (!NAME.test(name)) add(start," -> ""
 test("audit_refuses_theorem_names_that_are_not_plain", () => {
   const env = { ...process.env };
   // (1) In the two theorem files, a theorem whose full name (as --roots prints it) is not made of plain ASCII components is
@@ -1048,7 +1112,7 @@ test("audit_refuses_theorem_names_that_are_not_plain", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:103 CONST "(?:\\.[A-Za-z_][A-Za-z0-9_']*)*$/" -> "(?:\\.[A-Za-z_][A-Za-z0-9_']*)*/"
+// killer: apps/genkan/scripts/audit.mjs:104 CONST "(?:\\.[A-Za-z_][A-Za-z0-9_']*)*$/" -> "(?:\\.[A-Za-z_][A-Za-z0-9_']*)*/"
 test("audit_name_rule_is_the_records_rule", () => {
   // The audit refuses in the sources the theorem names that records.mjs refuses as roots: each file declares the rule once,
   // on its own line, and the two literals are the same.
@@ -1067,9 +1131,9 @@ test("audit_name_rule_is_the_records_rule", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:526 CONST "d.name.toLowerCase() === \".lake\") rootLakes" -> "d.name === \".lake\") rootLakes"
-// killer: apps/genkan/scripts/audit.mjs:526 SDL "rootLakes.push(d.name);" -> ""
-// killer: apps/genkan/scripts/audit.mjs:557 CONST "if (sourceOnly) for" -> "for"
+// killer: apps/genkan/scripts/audit.mjs:528 CONST "d.name.toLowerCase() === \".lake\") rootLakes" -> "d.name === \".lake\") rootLakes"
+// killer: apps/genkan/scripts/audit.mjs:528 SDL "rootLakes.push(d.name);" -> ""
+// killer: apps/genkan/scripts/audit.mjs:564 CONST "if (sourceOnly) for" -> "for"
 test("audit_source_only_refuses_the_root_build_dir", () => {
   const env = { ...process.env };
   // Under --source-only (CI runs it on the checked-out sources, before any Lean runs) an entry named .lake at the kernel's
