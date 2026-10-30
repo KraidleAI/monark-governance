@@ -725,6 +725,7 @@
  "apps/genkan/test/audit.test.ts": [
   "audit_bounds_main_io_to_stdin_and_stdout",
   "audit_modes_source_only_and_roots",
+  "audit_modules_lists_each_kernel_module",
   "audit_name_rule_is_the_records_rule",
   "audit_pins_lakefile",
   "audit_refuses_banned_construct",
@@ -740,8 +741,14 @@
  "apps/genkan/test/frame.test.ts": [
   "gnk1_vectors_encode"
  ],
+ "apps/genkan/test/mutants.test.ts": [
+  "mutants_operators_are_exact"
+ ],
  "apps/genkan/test/records.test.ts": [
   "records_refuses_bad_arguments_and_bad_roots",
+  "records_replay_refuses_bad_arguments_and_bad_modules",
+  "records_replay_stops_at_the_first_refusal",
+  "records_replays_each_module_with_leanchecker",
   "records_writes_nothing_when_lean_fails",
   "records_writes_the_records_of_main_and_each_theorem"
  ],
@@ -3166,6 +3173,7 @@
   "no_secret_in_repo"
  ],
  "test/oracle-run.test.ts": [
+  "oracle_ci_only_withdraws_the_replay_step_of_the_genkan_job",
   "oracle_ci_only_withdraws_the_runner_toolchain_steps_of_the_genkan_job — fetch, hold, unpack, temp, build, the skeleton's exit code; the tools check, the tests and three near misses stay gates",
   "oracle_ci_only_withdraws_the_two_records_steps_of_the_genkan_job - the records writer and the audit of its file on the runner's paths only; near misses stay gates or refuse the derivation",
   "oracle_ci_only_withdraws_the_two_sudo_blocks_of_the_handoff_job_only — any other sudo block stays a gate",
