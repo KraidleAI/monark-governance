@@ -1,13 +1,17 @@
 // GENKAN - the records writer, driven as a subprocess. records.mjs asks the audit for the roots (`audit.mjs --roots`), writes
 // one Lean source on lake's standard input (an import per module, then a `#print axioms` per root) and keeps lake's stdout, byte
 // for byte, as the records file; it refuses bad arguments, an output on drive C and a bad root line before lake runs, and writes
-// nothing when a child fails. Every case runs in its own tree under os.tmpdir(): a copy of the real records.mjs, the real
-// audit.mjs or a fake one, and a fake lake.mjs, each fake recording its argv, its standard input and ELAN_HOME beside itself
-// and answering with a canned stdout, stderr and exit code. No Lean runs here (records.kernel.test.ts runs the real one).
+// nothing when a child fails. With --replay it asks the audit for the modules (`audit.mjs --modules`), refuses a module line
+// that is not plain before any Lean runs, then runs `lake.mjs env leanchecker <module>` once per module, in order, relaying
+// what each prints to stderr and stopping at the first that does not exit 0; it writes no file. Every case runs in its own
+// tree under os.tmpdir(): a copy of the real records.mjs, the real audit.mjs or a fake one, and a fake lake.mjs, each fake
+// recording its argv, its standard input and ELAN_HOME beside itself, the last call alone and every call in order, and
+// answering with a canned stdout, stderr and exit code, which may depend on the last word of its argv. No Lean runs here
+// (records.kernel.test.ts runs the real one).
 // Drive prefixes are joined at run time, so this source carries no literal drive path (the public export refuses one).
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -48,30 +52,38 @@ function run(script: string, args: string[], env: NodeJS.ProcessEnv, cwd?: strin
 
 /** What a fake child answers: its stdout, its stderr, its exit code; `kill`: it kills itself once its stdout is written. */
 interface Answer { stdout: string; stderr?: string; code?: number; kill?: boolean }
+/** Answers that depend on the call: the answer of the last word of its argv when the map has one, else `otherwise`. */
+interface Answers { byLastWord: Record<string, Answer>; otherwise: Answer }
+const isAnswers = (a: Answer | Answers): a is Answers => "byLastWord" in a;
 
 /**
  * The source of a fake child named `name` (lake or audit): it writes its argv (<name>-argv.json, its script path first, the
  * marker that it ran), for lake its whole standard input (lake-stdin.bin), and its ELAN_HOME (<name>-env.json) beside itself,
- * then answers. It sets its exit code and ends naturally, which drains a piped stdout (an exit right after a write may cut it).
+ * appends the call (argv after the script path, standard input, ELAN_HOME) as one JSON line to <name>-calls.jsonl, then
+ * answers. It sets its exit code and ends naturally, which drains a piped stdout (an exit right after a write may cut it).
  */
-function fake(name: string, answer: Answer): string {
+function fake(name: string, answer: Answer | Answers): string {
   const at = (suffix: string): string => `join(here, ${JSON.stringify(`${name}-${suffix}`)})`;
+  const answers: Answers = isAnswers(answer) ? answer : { byLastWord: {}, otherwise: answer };
   return [
-    'import { readFileSync, writeFileSync } from "node:fs";',
+    'import { appendFileSync, readFileSync, writeFileSync } from "node:fs";',
     'import { dirname, join } from "node:path";',
     'import { fileURLToPath } from "node:url";',
     "const here = dirname(fileURLToPath(import.meta.url));",
-    `const answer = ${JSON.stringify(answer)};`,
+    `const answers = ${JSON.stringify(answers)};`,
+    "const last = process.argv.at(-1);",
+    "const answer = Object.hasOwn(answers.byLastWord, last) ? answers.byLastWord[last] : answers.otherwise;",
     `writeFileSync(${at("argv.json")}, JSON.stringify(process.argv.slice(1)));`,
     // Only lake is given a standard input: the audit fake never waits on one.
+    "let input = null;",
     ...(name === "lake"
       ? [
-          "let input;",
           'try { input = readFileSync(0); } catch (e) { input = Buffer.from("<stdin unreadable: " + String(e.code) + ">"); }',
           `writeFileSync(${at("stdin.bin")}, input);`,
         ]
       : []),
     `writeFileSync(${at("env.json")}, JSON.stringify({ ELAN_HOME: process.env.ELAN_HOME ?? null }));`,
+    `appendFileSync(${at("calls.jsonl")}, JSON.stringify({ argv: process.argv.slice(2), stdin: input === null ? null : input.toString("utf8"), ELAN_HOME: process.env.ELAN_HOME ?? null }) + "\\n");`,
     "process.exitCode = answer.code ?? 0;",
     'process.stderr.write(answer.stderr ?? "");',
     'process.stdout.write(Buffer.from(answer.stdout, "utf8"), () => {',
@@ -89,7 +101,7 @@ interface Tree { root: string; scripts: string; out: string; elan: string }
  * the ELAN_HOME the runs pass (lake is a fake: nothing is read there).
  */
 let trees = 0;
-function makeTree(files: Record<string, string>, lake: Answer, audit?: Answer): Tree {
+function makeTree(files: Record<string, string>, lake: Answer | Answers, audit?: Answer | Answers): Tree {
   assert.ok(existsSync(RECORDS_MJS), `the script under test must exist: apps/genkan/scripts/records.mjs (${RECORDS_MJS})`);
   const root = join(TMP, `tree-${String(++trees)}`);
   const scripts = join(root, "apps", "genkan", "scripts");
@@ -121,6 +133,13 @@ function argvOf(t: Tree, name: "lake" | "audit"): string[] | null {
   const f = join(t.scripts, `${name}-argv.json`);
   return existsSync(f) ? (JSON.parse(readFileSync(f, "utf8")) as string[]) : null;
 }
+/** Every call of a fake child, in order (none when it never ran). */
+interface Call { argv: string[]; stdin: string | null; ELAN_HOME: string | null }
+function callsOf(t: Tree, name: "lake" | "audit"): Call[] {
+  const f = join(t.scripts, `${name}-calls.jsonl`);
+  if (!existsSync(f)) return [];
+  return readFileSync(f, "utf8").split("\n").filter((l) => l !== "").map((l) => JSON.parse(l) as Call);
+}
 const stdinOf = (t: Tree): string => readFileSync(join(t.scripts, "lake-stdin.bin"), "utf8");
 const elanOf = (t: Tree): string | null => (JSON.parse(readFileSync(join(t.scripts, "lake-env.json"), "utf8")) as { ELAN_HOME: string | null }).ELAN_HOME;
 
@@ -142,12 +161,12 @@ const UNKNOWN = "<stdin>:2:14: error(lean.unknownIdentifier): Unknown constant";
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/records.mjs:56 SDL "if (lines.at(-1) === \"\") lines.pop();" -> ""
-// killer: apps/genkan/scripts/records.mjs:66 CONST "[...new Set(parsed.map((r) => r.module))]" -> "parsed.map((r) => r.module)"
-// killer: apps/genkan/scripts/records.mjs:67 CONST ".map((l) => `${l}\\n`).join(\"\")" -> ".join(\"\\n\")"
-// killer: apps/genkan/scripts/records.mjs:68 CONST "[LAKE, \"env\", \"lean\", \"--stdin\"]" -> "[LAKE, \"env\", \"lean\"]"
-// killer: apps/genkan/scripts/records.mjs:80 CONST "writeFileSync(outAbs, lean.stdout)" -> "writeFileSync(outAbs, lean.stdout.toString(\"utf8\").trim())"
-// killer: apps/genkan/scripts/records.mjs:84 CONST "`records: ${String(parsed.length)} roots, written to ${outAbs}\\n`" -> "`records: ${String(modules.length)} roots, written to ${outAbs}\\n`"
+// killer: apps/genkan/scripts/records.mjs:70 SDL "if (lines.at(-1) === \"\") lines.pop();" -> ""
+// killer: apps/genkan/scripts/records.mjs:80 CONST "[...new Set(parsed.map((r) => r.module))]" -> "parsed.map((r) => r.module)"
+// killer: apps/genkan/scripts/records.mjs:81 CONST ".map((l) => `${l}\\n`).join(\"\")" -> ".join(\"\\n\")"
+// killer: apps/genkan/scripts/records.mjs:82 CONST "[LAKE, \"env\", \"lean\", \"--stdin\"]" -> "[LAKE, \"env\", \"lean\"]"
+// killer: apps/genkan/scripts/records.mjs:94 CONST "writeFileSync(outAbs, lean.stdout)" -> "writeFileSync(outAbs, lean.stdout.toString(\"utf8\").trim())"
+// killer: apps/genkan/scripts/records.mjs:98 CONST "`records: ${String(parsed.length)} roots, written to ${outAbs}\\n`" -> "`records: ${String(modules.length)} roots, written to ${outAbs}\\n`"
 test("records_writes_the_records_of_main_and_each_theorem", () => {
   // (1) Main, Theorems (a, b) and Vectors (v), through the real audit's roots: one import per module, a `#print axioms` per
   // root, on lake's standard input; lake runs as `env lean --stdin` with the parent's ELAN_HOME; its stdout is the file.
@@ -199,11 +218,11 @@ test("records_writes_the_records_of_main_and_each_theorem", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/records.mjs:74 COR "lean.error !== undefined || lean.status !== 0" -> "lean.error !== undefined"
-// killer: apps/genkan/scripts/records.mjs:75 SDL "    relay(lean.stdout);" -> ""
-// killer: apps/genkan/scripts/records.mjs:76 SDL "    relay(lean.stderr);" -> ""
-// killer: apps/genkan/scripts/records.mjs:104 SDL "  if (bytes[bytes.length - 1] !== 10) process.stderr.write(\"\\n\");" -> ""
-// killer: apps/genkan/scripts/records.mjs:82 CONST "return fail(`records: ${outAbs} unwritable (${String(e.code ?? e.message)})`);" -> "throw e;"
+// killer: apps/genkan/scripts/records.mjs:88 COR "lean.error !== undefined || lean.status !== 0" -> "lean.error !== undefined"
+// killer: apps/genkan/scripts/records.mjs:89 SDL "    relay(lean.stdout);" -> ""
+// killer: apps/genkan/scripts/records.mjs:90 SDL "    relay(lean.stderr);" -> ""
+// killer: apps/genkan/scripts/records.mjs:139 SDL "  if (bytes[bytes.length - 1] !== 10) process.stderr.write(\"\\n\");" -> ""
+// killer: apps/genkan/scripts/records.mjs:96 CONST "return fail(`records: ${outAbs} unwritable (${String(e.code ?? e.message)})`);" -> "throw e;"
 test("records_writes_nothing_when_lean_fails", () => {
   const LAST = (n: string): string => `records: lake.mjs env lean --stdin exited ${n}; no records written`;
   // The failing child's stdout ends without a line break: records.mjs's stderr must still hold it, the child's stderr and its
@@ -250,23 +269,23 @@ test("records_writes_nothing_when_lean_fails", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/records.mjs:40 SDL "if (out !== undefined) return usage(\"--out given twice\");" -> ""
-// killer: apps/genkan/scripts/records.mjs:42 COR "value === undefined || value.trim() === \"\"" -> "value === undefined"
-// killer: apps/genkan/scripts/records.mjs:45 SDL "if (out === undefined) return usage(\"--out <file> is required\");" -> ""
-// killer: apps/genkan/scripts/records.mjs:46 SDL "if (onDriveC(out)) return usage(`--out is on C: (${out}); refused`);" -> ""
-// killer: apps/genkan/scripts/records.mjs:50 CONST "[AUDIT, \"--roots\"]" -> "[AUDIT]"
-// killer: apps/genkan/scripts/records.mjs:51 COR "roots.error !== undefined || roots.status !== 0" -> "roots.error !== undefined"
-// killer: apps/genkan/scripts/records.mjs:26 CONST "const ROOT_LINE = /^(\\S+) (\\S+)$/;" -> "const ROOT_LINE = /^(\\S+) (\\S+)/;"
-// killer: apps/genkan/scripts/records.mjs:27 CONST "const MODULE = /^(?:Main|Genkan(?:\\.[A-Z][A-Za-z0-9]*)*)$/;" -> "const MODULE = /^\\S+$/;"
-// killer: apps/genkan/scripts/records.mjs:63 SDL "if (parsed.length === 0) return fail(\"records: audit.mjs --roots named no root\");" -> ""
-// killer: apps/genkan/scripts/records.mjs:109 CONST "return String(r.status ?? r.signal" -> "return String(1 ?? r.signal"
-// killer: apps/genkan/scripts/records.mjs:52 SDL "    relay(roots.stderr);" -> ""
-// killer: apps/genkan/scripts/records.mjs:60 COR " || !NAME.test(m[2])" -> ""
-// killer: apps/genkan/scripts/records.mjs:28 CONST "const NAME = /^[A-Za-z_][A-Za-z0-9_']*(?:\\.[A-Za-z_][A-Za-z0-9_']*)*$/;" -> "const NAME = /^[^\\s#]+$/;"
-// killer: apps/genkan/scripts/records.mjs:28 CONST "(?:\\.[A-Za-z_][A-Za-z0-9_']*)*$/;" -> "(?:\\.[A-Za-z0-9_']*)*$/;"
-// killer: apps/genkan/scripts/records.mjs:39 SDL "if (argv[k] !== \"--out\") return usage(`unknown argument ${argv[k]}`);" -> ""
-// killer: apps/genkan/scripts/records.mjs:114 CONST "ON_C.test(value) || ON_C.test(value.trim())" -> "ON_C.test(value)"
-// killer: apps/genkan/scripts/records.mjs:115 CONST "return IS_WIN && ON_C.test(path.win32.resolve(value));" -> "return false;"
+// killer: apps/genkan/scripts/records.mjs:52 SDL "if (out !== undefined) return usage(\"--out given twice\");" -> ""
+// killer: apps/genkan/scripts/records.mjs:54 COR "value === undefined || value.trim() === \"\"" -> "value === undefined"
+// killer: apps/genkan/scripts/records.mjs:59 SDL "if (out === undefined) return usage(\"one of --out <file> and --replay is required\");" -> ""
+// killer: apps/genkan/scripts/records.mjs:60 SDL "if (onDriveC(out)) return usage(`--out is on C: (${out}); refused`);" -> ""
+// killer: apps/genkan/scripts/records.mjs:64 CONST "[AUDIT, \"--roots\"]" -> "[AUDIT]"
+// killer: apps/genkan/scripts/records.mjs:65 COR "roots.error !== undefined || roots.status !== 0" -> "roots.error !== undefined"
+// killer: apps/genkan/scripts/records.mjs:32 CONST "const ROOT_LINE = /^(\\S+) (\\S+)$/;" -> "const ROOT_LINE = /^(\\S+) (\\S+)/;"
+// killer: apps/genkan/scripts/records.mjs:33 CONST "const MODULE = /^(?:Main|Genkan(?:\\.[A-Z][A-Za-z0-9]*)*)$/;" -> "const MODULE = /^\\S+$/;"
+// killer: apps/genkan/scripts/records.mjs:77 SDL "if (parsed.length === 0) return fail(\"records: audit.mjs --roots named no root\");" -> ""
+// killer: apps/genkan/scripts/records.mjs:144 CONST "return String(r.status ?? r.signal" -> "return String(1 ?? r.signal"
+// killer: apps/genkan/scripts/records.mjs:66 SDL "    relay(roots.stderr);" -> ""
+// killer: apps/genkan/scripts/records.mjs:74 COR " || !NAME.test(m[2])" -> ""
+// killer: apps/genkan/scripts/records.mjs:34 CONST "const NAME = /^[A-Za-z_][A-Za-z0-9_']*(?:\\.[A-Za-z_][A-Za-z0-9_']*)*$/;" -> "const NAME = /^[^\\s#]+$/;"
+// killer: apps/genkan/scripts/records.mjs:34 CONST "(?:\\.[A-Za-z_][A-Za-z0-9_']*)*$/;" -> "(?:\\.[A-Za-z0-9_']*)*$/;"
+// killer: apps/genkan/scripts/records.mjs:51 SDL "if (argv[k] !== \"--out\") return usage(`unknown argument ${argv[k]}`);" -> ""
+// killer: apps/genkan/scripts/records.mjs:149 CONST "ON_C.test(value) || ON_C.test(value.trim())" -> "ON_C.test(value)"
+// killer: apps/genkan/scripts/records.mjs:150 CONST "return IS_WIN && ON_C.test(path.win32.resolve(value));" -> "return false;"
 test("records_refuses_bad_arguments_and_bad_roots", () => {
   // (1) Usage errors: exit 2, every stderr line `records: ...`, nothing written, no child run. The fake audit would fail (exit
   // 3) if it ran, so a missed refusal never writes. On drive C only paths whose parent dir does not exist: a records.mjs that
@@ -359,4 +378,126 @@ test("records_refuses_bad_arguments_and_bad_roots", () => {
   const rp = records(p, ["--out", p.out]);
   assert.equal(rp.status, 0, `records.mjs succeeds on a plain name with a prime and an underscore\n${show(rp)}`);
   assert.equal(stdinOf(p), "import Main\nimport Genkan.Theorems\n#print axioms main\n#print axioms Genkan.a_b'\n", `the name on lake's input\n${show(rp)}`);
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+const REPLAY_USAGE = "records: usage: ELAN_HOME=<toolchain home> node apps/genkan/scripts/records.mjs --out <file> | --replay";
+const LAKE_OK: Answer = { stdout: "", code: 0 };
+const leanchecker = (m: string): string[] => ["env", "leanchecker", m];
+
+// killer: apps/genkan/scripts/records.mjs:115 SDL "relay(r.stdout);" -> ""
+test("records_replays_each_module_with_leanchecker", () => {
+  // (1) Three modules, through a fake audit: one leanchecker per module, in order, each with the parent's ELAN_HOME and an
+  // empty standard input; what a child prints is relayed to stderr, its stdout then its stderr; one success line; no file.
+  const lake: Answers = { byLastWord: { "Genkan.Format": { stdout: "a note\n", stderr: "a warning\n", code: 0 } }, otherwise: LAKE_OK };
+  const t = makeTree({}, lake, { stdout: "Genkan.Bytes\nGenkan.Format\nMain\n" });
+  const r = records(t, ["--replay"]);
+  assert.equal(r.status, 0, `records.mjs --replay succeeds\n${show(r)}`);
+  assert.equal(String(r.stdout), "records: 3 modules replayed by leanchecker\n", `the success line, exactly\n${show(r)}`);
+  assert.deepEqual(linesOf(r.stderr), ["a note", "a warning"], `the child's stdout then its stderr, relayed to stderr\n${show(r)}`);
+  assertCalled(t, "audit", ["--modules"], "the modules of the replay", r);
+  assert.deepEqual(callsOf(t, "audit").map((c) => c.argv), [["--modules"]], `the audit ran once\n${show(r)}`);
+  const calls = callsOf(t, "lake");
+  assert.deepEqual(calls.map((c) => c.argv), [leanchecker("Genkan.Bytes"), leanchecker("Genkan.Format"), leanchecker("Main")], `one leanchecker per module, in order\n${show(r)}`);
+  for (const c of calls) {
+    assert.equal(c.ELAN_HOME, t.elan, `${c.argv.join(" ")}: ELAN_HOME passes through to lake`);
+    assert.equal(c.stdin, "", `${c.argv.join(" ")}: an empty standard input`);
+  }
+  assertCalled(t, "lake", leanchecker("Main"), "the last module", r); // the lake.mjs beside records.mjs
+  assert.ok(!existsSync(t.out), `no records file is written\n${show(r)}`);
+  assert.deepEqual(readdirSync(join(t.root, "out")), [], `nothing is written in the out dir\n${show(r)}`);
+
+  // (2) One module: the count as --out writes its roots, with no plural rule.
+  const one = makeTree({}, LAKE_OK, { stdout: "Main\n" });
+  const r1 = records(one, ["--replay"]);
+  assert.equal(r1.status, 0, `records.mjs --replay succeeds on one module\n${show(r1)}`);
+  assert.equal(String(r1.stdout), "records: 1 modules replayed by leanchecker\n", `the success line of one module\n${show(r1)}`);
+  assert.deepEqual(callsOf(one, "lake").map((c) => c.argv), [leanchecker("Main")], `one leanchecker\n${show(r1)}`);
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+// killer: apps/genkan/scripts/records.mjs:117 SDL "if (r.error !== undefined || r.status !== 0) return fail(" -> ""
+test("records_replay_stops_at_the_first_refusal", () => {
+  const MODULES = "Genkan.Bytes\nGenkan.Hack\nMain\n";
+  // (1) leanchecker refuses the second module: its stderr, then the exit, on stderr; exit 1; the third never runs.
+  const refusal = "leanchecker found a problem in Genkan.Hack";
+  const lake: Answers = { byLastWord: { "Genkan.Hack": { stdout: "", stderr: `${refusal}\n`, code: 1 } }, otherwise: LAKE_OK };
+  const t = makeTree({}, lake, { stdout: MODULES });
+  const r = records(t, ["--replay"]);
+  assert.equal(r.status, 1, `a refused module fails records.mjs\n${show(r)}`);
+  assert.equal(String(r.stdout), "", `nothing on stdout\n${show(r)}`);
+  assert.deepEqual(linesOf(r.stderr), [refusal, "records: lake.mjs env leanchecker Genkan.Hack exited 1"], `the refusal, then the exit\n${show(r)}`);
+  assert.deepEqual(callsOf(t, "lake").map((c) => c.argv), [leanchecker("Genkan.Bytes"), leanchecker("Genkan.Hack")], `lake ran twice, Main never\n${show(r)}`);
+
+  // (2) lake killed on the first module (win32: the self-kill ends it with code 1): exit 1, the last line names the module
+  // and what stopped it; lake ran once.
+  const k = makeTree({}, { byLastWord: { "Genkan.Bytes": { stdout: "a line before the kill\n", kill: true } }, otherwise: LAKE_OK }, { stdout: MODULES });
+  const rk = records(k, ["--replay"]);
+  assert.equal(rk.status, 1, `a killed lake fails records.mjs\n${show(rk)}`);
+  assert.match(linesOf(rk.stderr).at(-1) ?? "", /^records: lake\.mjs env leanchecker Genkan\.Bytes exited \S+$/, `the last line names the module and its exit\n${show(rk)}`);
+  assert.equal(callsOf(k, "lake").length, 1, `lake ran once\n${show(rk)}`);
+
+  // (3) The audit exits 3: its stderr, then its exit; lake never runs.
+  const a = makeTree({}, LAKE_OK, { stdout: "", stderr: "audit: boom\n", code: 3 });
+  const ra = records(a, ["--replay"]);
+  assert.equal(ra.status, 1, `the audit exits 3: records.mjs fails\n${show(ra)}`);
+  assertCalled(a, "audit", ["--modules"], "the audit that exits 3", ra);
+  assert.deepEqual(linesOf(ra.stderr), ["audit: boom", "records: audit.mjs --modules exited 3"], `the audit's stderr, then its exit\n${show(ra)}`);
+  assert.deepEqual(callsOf(a, "lake"), [], `the audit failed: lake never ran\n${show(ra)}`);
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+// killer: apps/genkan/scripts/records.mjs:111 SDL "for (const m of modules) if (!MODULE.test(m)) return fail(" -> ""
+test("records_replay_refuses_bad_arguments_and_bad_modules", () => {
+  // (1) Usage errors: exit 2, every stderr line `records: ...`, the last one the usage line; neither child runs (the fake
+  // audit would fail, exit 3, if it ran).
+  const t = makeTree({}, LAKE_OK, { stdout: "", stderr: "audit: the fake audit ran\n", code: 3 });
+  const usage: [string, string[], string | null][] = [
+    ["no argument", [], "records: one of --out <file> and --replay is required"],
+    ["a word after --replay", ["--replay", "x"], "records: unknown argument x"],
+    ["--replay twice", ["--replay", "--replay"], "records: --replay given twice"],
+    ["--out then --replay", ["--out", t.out, "--replay"], "records: --out and --replay exclude each other"],
+    ["--replay then --out", ["--replay", "--out", t.out], "records: --out and --replay exclude each other"],
+    ["a word glued to --replay", ["--replayx"], null],
+    ["a word before --replay", ["x", "--replay"], null],
+  ];
+  for (const [what, args, first] of usage) {
+    const r = records(t, args);
+    assert.equal(r.status, 2, `${what}: a usage error\n${show(r)}`);
+    const err = linesOf(r.stderr);
+    assert.ok(err.length >= 2 && err.every((l) => l.startsWith("records: ")), `${what}: stderr lines starting "records: "\n${show(r)}`);
+    if (first !== null) assert.equal(err[0], first, `${what}: the message\n${show(r)}`);
+    assert.equal(err.at(-1), REPLAY_USAGE, `${what}: the usage line, last\n${show(r)}`);
+    assert.deepEqual(callsOf(t, "audit"), [], `${what}: the audit never ran\n${show(r)}`);
+    assert.deepEqual(callsOf(t, "lake"), [], `${what}: lake never ran\n${show(r)}`);
+    assert.ok(!existsSync(t.out), `${what}: nothing written\n${show(r)}`);
+  }
+
+  // (2) Bad module lines (the audit exits 0): exit 1, one stderr line, and lake never runs, not even for a good line before
+  // the bad one: every line is judged before any Lean runs.
+  const refused = (line: string): string => `records: refused module line ${JSON.stringify(line)}`;
+  const bad: [string, string, string][] = [
+    ["no module", "", "records: audit.mjs --modules named no module"],
+    ["a lower-case component", "Genkan.bytes\n", refused("Genkan.bytes")],
+    ["a flag of leanchecker", "-v\n", refused("-v")],
+    ["a long flag", "--help\n", refused("--help")],
+    ["two words", "Main x\n", refused("Main x")],
+    ["an empty component", "Genkan..lake.Nested\n", refused("Genkan..lake.Nested")],
+    ["a foreign module", "Lean\n", refused("Lean")],
+    ["a carriage return", "Main\r\n", refused("Main\r")],
+    ["an empty line in the middle", "Main\n\nGenkan.Bytes\n", refused("")],
+    ["a bad line after a good one", "Main\nGenkan.Bytes x\n", refused("Genkan.Bytes x")],
+  ];
+  for (const [what, modules, line] of bad) {
+    const b = makeTree({}, LAKE_OK, { stdout: modules });
+    const rb = records(b, ["--replay"]);
+    assert.equal(rb.status, 1, `${what}: a bad module line fails records.mjs\n${show(rb)}`);
+    assertCalled(b, "audit", ["--modules"], what, rb);
+    assert.equal(String(rb.stdout), "", `${what}: nothing on stdout\n${show(rb)}`);
+    assert.equal(String(rb.stderr), `${line}\n`, `${what}: exactly one stderr line\n${show(rb)}`);
+    assert.deepEqual(callsOf(b, "lake"), [], `${what}: lake never ran\n${show(rb)}`);
+  }
 });

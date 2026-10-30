@@ -21,9 +21,10 @@
 // {propext, Classical.choice, Quot.sound}; bare, no record is given, so main has none and the audit fails. --source-only
 // judges the sources alone (CI runs it before any Lean runs), and refuses a .lake (any case) at the kernel root: before the
 // build it can only hold files git tracks, which lake would reuse and no rule reads. --roots prints the roots whose records
-// are due, one line `<module> <name>` each, `Main main` first, and exits 0 whatever the sources hold.
+// are due, one line `<module> <name>` each, `Main main` first; --modules prints each module (a walked file but the root
+// lakefile.lean, its path without .lean, / made .), one line each in the walk's order; both exit 0 whatever the sources hold.
 //
-//   node apps/genkan/scripts/audit.mjs [--kernel <dir>] [--axioms-from <file> | --source-only | --roots]
+//   node apps/genkan/scripts/audit.mjs [--kernel <dir>] [--axioms-from <file> | --source-only | --roots | --modules]
 //
 // Exit 0 with one stdout line `audit: ...` (the counts, then `(sources only)` under --source-only); 1 when anything is
 // found or refused, every finding printed on stderr as `audit: <file>:<line>: <what>` (a file's by line, then by their
@@ -115,13 +116,14 @@ const KERNEL_FLAG = "--kernel";
 const AXIOMS_FLAG = "--axioms-from";
 const SOURCE_FLAG = "--source-only";
 const ROOTS_FLAG = "--roots";
+const MODULES_FLAG = "--modules";
 const CHAR_LIT = /'(?:\\(?:x[0-9a-fA-F]{2}|u\{[0-9a-fA-F]+\}|.)|[^\\'\n])'/uy;
 const UNICODE_ESCAPE = /u\{[0-9a-fA-F]+\}/y;
 const WHITE = new Set([" ", "\t", "\r", "\n"]);
 
 function usage(msg) {
   process.stderr.write(
-    `audit: ${msg}\naudit: usage: node apps/genkan/scripts/audit.mjs [--kernel <dir>] [--axioms-from <file> | --source-only | --roots]\n`,
+    `audit: ${msg}\naudit: usage: node apps/genkan/scripts/audit.mjs [--kernel <dir>] [--axioms-from <file> | --source-only | --roots | --modules]\n`,
   );
   process.exit(2);
 }
@@ -497,17 +499,17 @@ const seen = new Set();
 const argv = process.argv.slice(2);
 for (let k = 0; k < argv.length; k++) {
   const flag = argv[k];
-  if (![KERNEL_FLAG, AXIOMS_FLAG, SOURCE_FLAG, ROOTS_FLAG].includes(flag)) usage(`unknown argument ${flag}`);
+  if (![KERNEL_FLAG, AXIOMS_FLAG, SOURCE_FLAG, ROOTS_FLAG, MODULES_FLAG].includes(flag)) usage(`unknown argument ${flag}`);
   if (seen.has(flag)) usage(`${flag} given twice`);
   seen.add(flag);
-  if (flag === SOURCE_FLAG || flag === ROOTS_FLAG) continue; // no value
+  if (flag === SOURCE_FLAG || flag === ROOTS_FLAG || flag === MODULES_FLAG) continue; // no value
   const value = argv[++k];
   if (value === undefined || value === "") usage(`${flag} needs a value`);
   if (flag === KERNEL_FLAG) kernelDir = path.resolve(value);
   else axiomsFrom = path.resolve(value);
 }
-if ([AXIOMS_FLAG, SOURCE_FLAG, ROOTS_FLAG].filter((f) => seen.has(f)).length > 1) {
-  usage(`${AXIOMS_FLAG}, ${SOURCE_FLAG} and ${ROOTS_FLAG} exclude each other`);
+if ([AXIOMS_FLAG, SOURCE_FLAG, ROOTS_FLAG, MODULES_FLAG].filter((f) => seen.has(f)).length > 1) {
+  usage(`${AXIOMS_FLAG}, ${SOURCE_FLAG}, ${ROOTS_FLAG} and ${MODULES_FLAG} exclude each other`);
 }
 const sourceOnly = seen.has(SOURCE_FLAG);
 
@@ -534,6 +536,11 @@ function walk(abs, rel) {
 }
 if (statSync(kernelDir, { throwIfNoEntry: false })?.isDirectory() !== true) usage(`kernel dir unreadable (${kernelDir})`);
 walk(kernelDir, "");
+// The modules, for records.mjs --replay: printed before any file is read, whatever the sources hold.
+if (seen.has(MODULES_FLAG)) {
+  process.stdout.write(leanFiles.filter((f) => f.rel !== "lakefile.lean").map((f) => `${f.rel.slice(0, -5).split("/").join(".")}\n`).join(""));
+  process.exit(0);
+}
 
 /** fn(), or a usage exit naming what could not be read. */
 function orExit(fn, what) {
