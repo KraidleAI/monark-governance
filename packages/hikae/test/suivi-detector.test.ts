@@ -6,13 +6,15 @@
  * each step, published and never acting; the refusals of a policy, of a malformed state and of a label.
  * How the expected values are computed. Never by the module: the Monte-Carlo loops call weightedStep and srStep of the library and decide
  * the threshold here, on integers (sum_j omega_j v_j >= n scale 2^64, scale and omega read here from the weight texts); the frozen float
- * loops of the two studies are copied here and run on the same labels, path by path; the counts and instants are literals printed by a
- * separate script of the test writer (its own fixed point, no library, equal to the library loop on every path); the steps and values of
- * the suites likewise (exact rationals and that fixed point, equal at every step); the bounds at 3.09 standard errors, computed here.
+ * loops of the two studies are copied here and run on the same labels, path by path; the counts and instants of (A) and (B) are literals
+ * printed by a separate script of the test writer (its own fixed point, no library, equal to the library loop on every path); the steps
+ * and values of the suites likewise (exact rationals and that fixed point, equal at every step); the count of (C) is pinned from the
+ * first run of its test, equal on the study's float loop; the bounds at 3.09 standard errors, computed here.
  * Each run draws from the studies' LCG, seed (1664525 seed + 1013904223) mod 2^32, value seed / 2^32, jumped by the affine map composed in
  * bigint; all the labels of a trajectory are drawn first, then each loop stops at its first crossing; one run per stream, kept for its
  * tests.
- * Category: new-module (red at base by the load of ../src/suivi/detector.ts, which this change adds).
+ * Category: new-module (red at base by the load of ../src/suivi/detector.ts, which this change adds). The mean run length test of (C),
+ * added later, is a pin: green at base, since the library it runs is unchanged by its change, with one named killer.
  */
 import { alarm, detInit, detStep, srReading } from "../src/suivi/detector.ts";
 import type { DetState } from "../src/suivi/detector.ts";
@@ -84,6 +86,9 @@ const SEED_B = 20261028, POS_B500 = 790000000, POS_B1000 = 792000000, POS_B5000 
  *  0.0090 of 2 000 and 0.0300, 0.0635, 0.2855 of 2 000. */
 const INSTANTS_A = [85, 64, 90, 284, 7, 27, 110, 87, 105, 78, 272, 414, 129, 5, 388, 290, 19, 246];
 const COUNTS_B = [60, 127, 571], BANDS_B = [0.065059, 0.120728, 0.534547];
+/** (C): the reading's mean run length, on the stream of (B) where its three sections end, H = 3 x 10 000; its count of crossings,
+ *  pinned from the first run of this test, equal on the study's float loop. */
+const POS_C = 816000000, H_C = 30000, COUNT_C = 1814;
 const STUDY_L = [0.1, 0.2, 0.4, 0.8], STUDY_A = 0.2, STUDY_ARL_A = 1 / 100, STUDY_ARL_B = 1e-4;
 
 /** Study 1b, alarmTime, branch of the weighted detector, copied operation by operation; the mean of each step kept. */
@@ -184,6 +189,16 @@ function runB(): (Run & { readonly H: number })[] {
   memoB = out;
   return out;
 }
+let memoC: Run | undefined;
+function runC(): Run {
+  const r = lcg(jump(SEED_B, POS_C));
+  memoC ??= section(() => {
+    let E: 0 | 1 = r.next() < P_B ? 1 : 0;
+    if (r.next() < U_B) E = 1;
+    return E;
+  }, H_C, false, [0, 0]);
+  return memoC;
+}
 const ds = (t: number, sv: readonly string[], r: readonly string[], last_seq: number | null, alarm_at: number | null,
   alarm_seq: number | null): DetState => ({ t, s: sv, r, last_seq, alarm_at, alarm_seq });
 const rep = (n: number, E: 0 | 1): (0 | 1)[] => new Array<0 | 1>(n).fill(E);
@@ -249,6 +264,19 @@ test("detector_sr_reading_expectation", (t) => {
     assert.equal(b.x.length, N, "one difference per path");
     assert.ok(d.mean <= d.tol, `H ${s(b.H)}: mean difference ${s(d.mean)} above 3.09 standard errors ${s(d.tol)}`);
   }
+});
+
+// killer: packages/hikae/src/pari/sr.ts:50 CONST "(UNIT + v)" -> "(2n * UNIT + v)"
+test("detector_sr_reading_arl_lower_bound", (t) => {
+  assert.equal(POS_C, POS_B5000 + 2 * 5000 * N, "(C) starts where the stream of (B) ends");
+  const c = runC(), runs = [...c.lib, ...new Array<number>(N - c.lib.length).fill(H_C)], d = stats(runs), lb = d.mean - d.tol;
+  t.diagnostic(`(C): library ${s(c.lib.length)}, study ${s(c.study.length)} of ${s(N)} before ${s(H_C)}, admitted one-step gaps ${s(c.gaps)}`);
+  t.diagnostic(`(C): min(N~*, H) mean ${d.mean.toFixed(1)}, sd ${d.sd.toFixed(1)}, lower bound ${lb.toFixed(1)}; library loop ${c.ms.toFixed(0)} ms, float loop ${c.floatMs.toFixed(0)} ms`);
+  assert.deepEqual(c.breaks, [], "(C): the same first crossing on every path, or a one-step gap at a float tie");
+  assert.equal(c.lib.length, COUNT_C, "(C): the library's count");
+  assert.equal(c.study.length, COUNT_C, "(C): the study's count, on the same labels");
+  // min(N~*, H) <= N~*: a lower confidence bound on its mean above the threshold bounds E[N~*] from below.
+  assert.ok(lb >= Number(N_SR), `(C): lower bound ${s(lb)} of the mean of min(N~*, ${s(H_C)}) under ${s(N_SR)}`);
 });
 
 // killer: packages/hikae/src/suivi/detector.ts:92 CONST "label.E, t);" -> "label.E, t + 1);"
