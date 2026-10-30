@@ -48,6 +48,10 @@ Une bibliothèque pure sous `packages/hikae/src/pari/` : ni horloge, ni réseau,
   - le diff reste dans la zone déclarée (lot-check, sortie 0).
 - Red-proof rejoué par MONARK avant la fusion, contre la même base : 8 tests jugés, rouges à la base et verts ici ; 4 tueurs tirés,
   tous tués (`RED-PROOF.json` `08bfd0ce…`).
+- **Ligne datée du 2026-10-30 (G7 de la partie 1 d'ADR-HIKAE-2 ; correction 3 de son checkpoint-2 ; ajout seul)**,
+  MONARK, 2026-10-30 09:0x UTC : à la l.49, « contre la même base » se lit « contre `b116393f` ». L'enregistrement de ce rejeu,
+  `RED-PROOF.json` `08bfd0ce…`, porte la base `b116393f`, le tronc que la branche a fusionné en `ed8f85ee` (l.4), et son gel est la
+  tête `b0a7dd76` ; la base de la l.45, `9f8563af`, est celle d'où part la branche, qui a fusionné `b116393f` après elle.
 - Oracle G1 de la tête `aaf47079`, base `57f03e43` : vert, 14 gates sur 14 (enregistrement
   `aaf470791cfc1171812b89338901234d1db9d7c9-G1-20261029T135118Z-37960.json`, sha256 `3d09a4ba…`).
 - CI de #344 : 15 contrôles sur 15 verts à `aaf47079` (run 40887941585).

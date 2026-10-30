@@ -32,6 +32,13 @@
   y étant formé depuis. Réparation n° 2 de ce pli, après un vérificateur adverse neuf de la réparation n° 1, le 2026-10-08 à partir de 10:32 UTC (`date -u`),
   par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à `5437cd0d` et à `565c7065` ; pliés : la phrase de la réparation n° 1,
   complétée ; F-W2-4 nommé à ETAT depuis `5437cd0d`, défaut antérieur au pli (N6, doute 17) ; parties touchées : en-tête, N6, §7 (doute 17).
+  Pli du G7 de la partie 1 d'ADR-HIKAE-2, rédigé le 2026-10-30 à partir de 06:4x UTC (`now.mjs`) par un worker de MONARK
+  (`claude-opus-5-5`, effort high), sur les décisions de MONARK du même jour, relu et commité par MONARK le 2026-10-30 à 09:0x UTC :
+  sources : le tronc à `8d01bd3f` et la PR #353 (`c9117885`, `3f78fb04`, fusion `a82393a1`) ; ancres de ce pli à `8d01bd3f`, sauf le
+  test de #353, cité au tronc après sa fusion ; les quatre items de la partie sont formés à ETAT par le commit de ce pli, et les lignes
+  « ETAT l.N-M » qui les citent sont celles de ce commit ; « le G0 » de ce pli est ADR-HIKAE-2, son §4 (entrées) et son §7 (items) ;
+  parties touchées : en-tête, §0 (la ligne de `HKT-nn`), titres des §2 et §4.1, L4, L5, L9, L10, L13, L18, L19, N4, N13, L8 et L20
+  (passées au §4.1), §4.3 (HKT-09), §5 (son alinéa d'ouverture, HKT-08, HKT-10), §8.
 - **Bases** : inventaire mesuré à `d8fe354c` ; il lit ETAT, `apps/harness/src/policy-guard.ts` et `docs/G7-lot-retire-path-ra.md` à
   `57a131fc` (INV l.9-13 ; §7, doute 6).
   Toutes les ancres de ce registre sont à la tête `87b821b0` de `lot/etude-suite`, reportées par l'outil `reanchor.mjs` (pièce de la
@@ -51,8 +58,8 @@
   porteur et déclencheur ; état et suite) ; une ligne longue se continue en retrait (forme de `docs/PAROXYSME-Dojo.md` §0).
 - **Étiquettes** : celles de l'inventaire, inchangées : `L1` à `L24` et `Q6` (= PX-Hikae-11) pour les limites du 2026-09-27, `N1` à
   `N22` pour les nouvelles. L24 est repliée avec L1 dans une seule entrée, `L1 (+L24)`, comme la table de l'inventaire l'écrit (INV
-  l.126) ; L6 y est scindée en `L6a` et `L6b`. `HKT-nn` numérote les limites trouvées à la tête (§5). Ce sont des numéros de ligne de
-  registre, jamais des items, et aucune n'apparaît dans un champ « item ».
+  l.126) ; L6 y est scindée en `L6a` et `L6b`. `HKT-nn` numérote les limites trouvées à la tête (§5 ; closes : §4.3). Ce sont des
+  numéros de ligne de registre, jamais des items, et aucune n'apparaît dans un champ « item ».
 - **Champs** : limite (25 mots au plus) ; source (fichier et ligne à `87b821b0`) ; touche (texte public que la limite qualifie) ; nature ;
   item ; porteur ; déclencheur ; état ; suite.
 - **Natures** (celles de l'inventaire) : T théorie · M mesure · D donnée · P dépendance · Dr droit · C capacité ; « texte » : une phrase
@@ -88,7 +95,7 @@
   (KATA-EXCH-TEST-1) et renvoyé par la L20 d'Ukemi ; échéance : la recartographie de PXC-01 partie 2 (ETAT l.567-570 à `565c7065` ;
   MSG2 l.29-31).
 
-## 2. Limites du 2026-09-27 : ouvertes ou changées (21, INV §3.1)
+## 2. Limites du 2026-09-27 : ouvertes ou changées (19, INV §3.1 ; L8 et L20 au §4)
 
 - **L1 (+L24)** · « Erreur d'un acte engagé non bornée par α : la construction 1.1.0 (`bound_on=commit`, τ ≤ 1) n'est servie sur aucune ligne. »
   source : `packages/hikae/src/l1-split.ts:48-80` ; `spec/contract-1.1.0/policy/btc-dir-1h.json` (`"rows":[]`) ; 0004 l.50 ; C l.225,
@@ -115,14 +122,24 @@
     ici et renvoyé par cette L20 ; échéance : la recartographie de PXC-01 partie 2 (ETAT l.568-570 à `565c7065` ; MSG2 l.31)
 - **L4** · « La couche de surveillance (`l2-monitor`) est sans garantie : la garantie (ii) de Wang n'est pas invoquée ; `r_t` n'a aucun consommateur. »
   source : `packages/hikae/src/l2-monitor.ts:1-15` · touche : HR:13 (public par l'export) · nature : T
-  item : PXC-10 CM-5-RETIRE-1, partie 3 (`B_t` et moniteur, selon la décision du fondateur sur `B_t`) ; PXC-09 partie 1 (campagne K3)
-    · porteur : PAROXYSME · déclencheur : campagne en F3 ; partie 3 de PXC-10 (F4)
-  état : ouvert · suite : PX-Hikae-5 du 2026-09-27 ; lectures : Wang-Zecchin-Simeone, Joulani, Weinberger-Ordentlich (CC l.354-355)
+  item : PXC-10 CM-5-RETIRE-1, partie 3 (`B_t` et moniteur, selon la décision du fondateur sur `B_t`) ; PXC-09 partie 1 (campagne K3) ;
+    HIKAE2-CABLAGE-USDE-1 (ETAT l.2989-2998) · porteur : PAROXYSME ; HIKAE (HIKAE2-CABLAGE-USDE-1) · déclencheur :
+    campagne en F3 ; partie 3 de PXC-10 (F4) ; HIKAE2-CABLAGE-USDE-1 : celui d'ETAT
+  état : bibliothèque fusionnée (preuve : tests nommés du lot 2 de la partie 1 d'ADR-HIKAE-2, à `8d01bd3f` : `o4_exact_dp_oracle`
+    (`packages/hikae/test/suivi-o4.test.ts:191`), `o4_false_licence_mc` et `o4_false_closure_mc` (`packages/hikae/test/suivi-mc.test.ts:203`,
+    `:208`), `raw_rate_parity_l2_monitor` (`packages/hikae/test/suivi-library.test.ts:205`)) ; clôture au test nommé par le G0, item
+    HIKAE2-CABLAGE-USDE-1 : `suivi_gate_end_to_end` (HKT-08) · suite : PX-Hikae-5 du 2026-09-27 ; lectures : Wang-Zecchin-Simeone, Joulani,
+    Weinberger-Ordentlich (CC l.354-355)
 - **L5** · « Retard déterministe et terme w/T : une composition (H4) esquissée, choix de conception et non théorème publié. »
   source : `packages/hikae/src/l2-monitor.ts:13-15` · touche : HR:13 · nature : T
-  item : PXC-10 partie 3 (cadrage du moniteur) ; PXC-09 partie 1 (campagne K3) · porteur : PAROXYSME · déclencheur : campagne en F3 ;
-    partie 3 de PXC-10 (F4)
-  état : ouvert · suite : PX-Hikae-5 du 2026-09-27 ; un seul cadrage avec la couche de surveillance (CC l.367)
+  item : PXC-10 partie 3 (cadrage du moniteur) ; PXC-09 partie 1 (campagne K3) ; HIKAE2-CABLAGE-USDE-1 (ETAT
+    l.2989-2998) · porteur : PAROXYSME ; HIKAE (HIKAE2-CABLAGE-USDE-1) · déclencheur : campagne en F3 ; partie 3 de
+    PXC-10 (F4) ; HIKAE2-CABLAGE-USDE-1 : celui d'ETAT
+  état : bibliothèque fusionnée (preuve : tests nommés du lot 2 de la partie 1 d'ADR-HIKAE-2, à `8d01bd3f` : `one_evaluation_per_horizon`
+    et `labels_enter_in_order` (`packages/hikae/test/suivi-o4.test.ts:372`, `:338`), tueurs de deux évaluations dans un même horizon et
+    d'une étiquette postérieure entrée avant une étiquette en attente) ; clôture au test nommé par le G0, item HIKAE2-CABLAGE-USDE-1 :
+    `suivi_gate_end_to_end`, tueur des deux évaluations (HKT-08) · suite : PX-Hikae-5 du 2026-09-27 ; un seul cadrage avec la couche de
+    surveillance (CC l.367)
 - **L6a** · « `n_min` déclaré, non fondé, sur les lignes marginales (USDe 50, liq 100) ; fondé pour les classes kata (n0 dérivé de α et test_delta). »
   source : `apps/harness/src/class-policy.ts:24`, `:27` ; `apps/harness/src/kata-path.ts:61` ; 0004 l.76, l.97 ; C l.235, l.300-301 ·
     touche : HR:45-46 ; `README.md:34` · nature : T/D
@@ -142,34 +159,40 @@
   item : PXC-09 partie 1 (verdict de la campagne) ; M009 item (d) (contrainte `τ_interval < 2B`, hors d'ETAT : à former) · porteur :
     PAROXYSME · déclencheur : partie 1 de PXC-09 (F3) ; celui de l'ADR (« premier passage branche (a) ») n'est pas tiré
   état : ouvert (alourdi en 1.1.0) · suite : PX-Hikae-4 ; partie choisie ici (§7, doute 3) ; HAR:64 et non l.61 (§7, doute 7)
-- **L8** · « `B_t` est un estimateur fragile au bord et aux rafales ; la sentinelle Narabi le publie. »
-  source : M009 l.123-125 (chiffré [abs] par l'ADR) ; `packages/hikae/src/l2-monitor.ts:64-70` ; `apps/sentinel/src/timeline.ts:146` ·
-    touche : timeline Narabi (`B_t` publié) · nature : M/T
-  item : PXC-10 partie 3 (mesure sur des traces réelles ; M009 item (a), hors d'ETAT : à former) · porteur : PAROXYSME · déclencheur :
-    partie 3 de PXC-10 (F4)
-  état : ouvert · suite : PX-Hikae-6 du 2026-09-27 ; le déclencheur de l'ADR (« traces S2 ») n'a jamais été tiré (INV l.134 ; CC
-    l.360-361) ; même source que L33 du registre Narabi
 - **L9** · « `B_t` est porté par l'appelant et rendu inchangé ; la porte est sans état et ne reçoit aucune issue. »
   source : `apps/harness/src/tools/gate.ts:247-248` ; `packages/hikae/src/l3-gate.ts:158` ; `apps/site/lib/sim.ts:43` ; HAR:61, :111 ;
     0004 l.60 · touche : `README.md:13`, `:94` · nature : C
-  item : PXC-10 partie 3 (`B_t` selon la décision du fondateur) ; texte : PXC-02, liste (b) du PLAN §5.1 · porteur : PAROXYSME ; le
-    fondateur (sémantique de `B_t`, label Backbone, CX-07 ; par MONARK) · déclencheur : la décision avant la release de textes servis
-    (PLAN §7.3) ; partie 3 de PXC-10 (F4)
-  état : ouvert · suite : PX-Hikae-6 et question Q4 du 2026-09-27 (décisions 71 et 172 effacées, ETAT l.7-11) ; voir N13
+  item : HIKAE2-CABLAGE-USDE-1 (ETAT l.2989-2998 ; la ligne signée par cellule, vérifiée par la porte pure et liée
+    à l'appel : `suivi_gate_end_to_end` et les tueurs du rejeu) · porteur : HIKAE · déclencheur : le G7 du premier chemin servi de TYCHO
+    ou d'Hyperliquid qui consomme `pari/` et `suivi/`, après les parties 1 et 2 d'ADR-HIKAE-1, ou une décision du fondateur qui le
+    rappelle plus tôt
+  état : ouvert · suite : PX-Hikae-6 et question Q4 du 2026-09-27 (décisions 71 et 172 effacées, ETAT l.7-11) ; voir N13 ; items d'avant
+    le G7 de la partie 1 d'ADR-HIKAE-2 : PXC-10 partie 3 et PXC-02, liste (b) du PLAN §5.1 (porteurs PAROXYSME et le fondateur, CX-07)
 - **L10** · « Un `drift_flag` est publié par ligne par la sentinelle, sans autre effet ; « drive π (…) and the drift flag » reste faux. »
   source : `apps/sentinel/src/timeline.ts:9-10`, `:25`, `:164` ; `packages/hikae/src/l2-monitor.ts:6`, `:61` ; ADR-CM l.67 ; ETAT
     l.533-534 · touche : `README.md:53-56` (« drift criterion ») ; DP:61-63 · nature : C/T
   item : PXC-02 partie 1, noyau (`README.md:53-56`, PLAN l.657) et partie 2 (commentaire de `l2-monitor.ts:6`, `:61`) ; CM-5-PLAN-1
-    (ETAT l.533-537) ; PXC-10 partie 1 · porteur : PAROXYSME ; CM-5-PLAN-1 : RECHERCHES (ETAT l.534 ; c3 et c4, l.535), MONARK (oracles
-    d'hôte, G2, courses, l.536-537) · déclencheur : tâche 2 du TABLEAU (F1) ; partie 2 de PXC-02 (F3) ; T0, atteint (ETAT l.534) ;
-    partie 1 de PXC-10, après la mesure de R-b (F3)
-  état : changé (fiche du 2026-09-27 corrigée ; G0 de CM-5 écrit, ETAT l.543) · suite : PX-Hikae-8 ; C1 au PLAN l.406-408 ; voir N14
+    (ETAT l.533-537) ; PXC-10 partie 1 ; HIKAE2-CABLAGE-USDE-1 (ETAT l.2989-2998) · porteur : PAROXYSME ;
+    CM-5-PLAN-1 : RECHERCHES (ETAT l.534 ; c3 et c4, l.535), MONARK (oracles d'hôte, G2, courses, l.536-537) ; HIKAE2-CABLAGE-USDE-1 :
+    HIKAE · déclencheur : tâche 2 du TABLEAU (F1) ; partie 2 de PXC-02 (F3) ; T0, atteint (ETAT l.534) ; partie 1 de PXC-10, après la
+    mesure de R-b (F3) ; HIKAE2-CABLAGE-USDE-1 : celui d'ETAT
+  état : bibliothèque fusionnée (preuve : tests nommés du lot 2 de la partie 1 d'ADR-HIKAE-2, à `8d01bd3f` : `detector_pfa_control`,
+    `detector_restart_supermartingale` et `detector_sr_reading_never_acts` (`packages/hikae/test/suivi-detector.test.ts:197`, `:213`,
+    `:292`), `o4_alarm_closes_segment` (`packages/hikae/test/suivi-o4.test.ts:253`), `suivi_alarm_composition_precedence`
+    (`packages/hikae/test/suivi-library.test.ts:308`)) ; clôture au test nommé par le G0, item HIKAE2-CABLAGE-USDE-1 :
+    `suivi_gate_end_to_end`, alarme, avec le contrôle PFA servi (HKT-08) · suite : l'alarme qui ferme est celle du détecteur à
+    redémarrages pondérés ; la lecture de changement est publiée sans action (HKT-09, §4.3) ; avant ce pli : changé (fiche du 2026-09-27
+    corrigée ; G0 de CM-5 écrit, ETAT l.543) ; PX-Hikae-8 ; C1 au PLAN l.406-408 ; voir N14
 - **L13** · « Le « silence calibré » est désormais un résultat mesuré : 239 silences sur 240 cellules de direction à la vague 1. »
   source : `packages/hikae/src/l1-split.ts:12-14` ; W1R l.8 ; `apps/harness/data/kata/registry/wave1.json` (recompté au tronc : 239
     `silence` et 1 `vetoed` sur 240 cellules de direction, §7 doute 1) · touche : HR:18-20 · nature : T/D
-  item : PXC-17 DOMAINE-PX-2, partie 1 (campagne D4, prévisibilité intrajournalière) et partie 2 (ADR de direction) · porteur : PAROXYSME
-    · déclencheur : partie 1 (D4) et partie 2 de PXC-17 (F4)
-  état : changé (mesuré sur des données réelles) · suite : même construction que N3 ; même fait que MK-L08 du registre du Harnais
+  item : HIKAE2-CABLAGE-USDE-1 (ETAT l.2989-2998 ; la part des silences de l'évaluation de référence, mesurée et
+    publiée par cellule par la ligne du suivi qui les compte) ; PXC-17 DOMAINE-PX-2, partie 1 (campagne D4, prévisibilité
+    intrajournalière) · porteur : HIKAE ; PAROXYSME (PXC-17) · déclencheur : le G7 du premier chemin servi de TYCHO ou d'Hyperliquid qui
+    consomme `pari/` et `suivi/`, après les parties 1 et 2 d'ADR-HIKAE-1, ou une décision du fondateur qui le rappelle plus tôt ; partie
+    1 (D4) de PXC-17 (F4)
+  état : changé (mesuré sur des données réelles) · suite : même construction que N3 ; même fait que MK-L08 du registre du Harnais ; item
+    d'avant le G7 de la partie 1 d'ADR-HIKAE-2 : PXC-17 partie 2 (ADR de direction), porteur PAROXYSME, que N3 garde
 - **L15** · « Attestation non revérifiée à l'appel : la phrase reste servie, mais tout `attested` est refusé (jointure dormante). »
   source : `apps/harness/src/tools/gate.ts:194-196`, `:260-261` ; `apps/harness/src/attestation-binding.ts:64-65` ; ADR-CM l.186-191 ·
     touche : `README.md:205` ; DP:66 · nature : C/P
@@ -194,22 +217,22 @@
 - **L18** · « La borne ABB du tracker est numériquement vide en cadence journalière (propriétaire Narabi). »
   source : M009 l.120-121 ; `packages/hikae/src/tracker.ts` (octets inchangés depuis le 2026-09-27, INV l.47) · touche : `README.md:125` ·
     nature : T
-  item : PXC-04 NARABI-SERVED-2, partie 5 (instrument à pas constant certifié) · porteur : PAROXYSME (pièce propriétaire : Narabi) · déclencheur :
-    partie 5 de PXC-04 (F4)
-  état : ouvert · suite : NARABI-THEORY-1 terminée, sans suite Hikae (INV l.144) ; même famille que L9 du registre Narabi ; partie choisie
-    ici (§7, doute 3)
+  item : PXC-04 NARABI-SERVED-2, partie 5 (instrument à pas constant certifié) ; HIKAE2-CABLAGE-USDE-1 (ETAT
+    l.2989-2998) · porteur : PAROXYSME (pièce propriétaire : Narabi) ; HIKAE (HIKAE2-CABLAGE-USDE-1) · déclencheur :
+    partie 5 de PXC-04 (F4) ; HIKAE2-CABLAGE-USDE-1 : celui d'ETAT
+  état : bibliothèque fusionnée (preuve : tests nommés du lot 2 de la partie 1 d'ADR-HIKAE-2, à `8d01bd3f` : `m1_bound_each_step`,
+    `m1_telescoping_identity` et `m1_reuses_imocp_step` (`packages/hikae/test/suivi-library.test.ts:221`, `:239`, `:249`)) ; clôture au
+    test nommé par le G0, item HIKAE2-CABLAGE-USDE-1 : la borne assertée à chaque pas du journal du suivi, où vit M1 (HKT-08) · suite :
+    NARABI-THEORY-1 terminée, sans suite Hikae (INV l.144) ; même famille que L9 du registre Narabi ; partie choisie ici (§7, doute 3)
 - **L19** · « En-tête « Hikae Adaptive Conformal Control (HAC-CP) » ; `hac-cp` reste dans l'énumération des méthodes du contrat. »
   source : `packages/hikae/src/index.ts:2` ; HR:1 ; M009 l.128-130 ; `packages/contracts/src/enums.ts:39` ; C l.226 · touche : HR:1
     (public par l'export) · nature : C
-  item : PXC-02 partie 2 (renommage de `index.ts:2` et du titre de HR ; M009 item (e), hors d'ETAT : à former) · porteur : PAROXYSME ·
-    déclencheur : partie 2 de PXC-02 (F3) ; publication : release du miroir (acte du fondateur, par MONARK)
-  état : ouvert (déclencheur de l'ADR tiré, acte non fait) · suite : `hac-cp` relève de MK-L33 du registre du Harnais (C l.226)
-- **L20** · « `trackerStepSize` ne rejette pas η = 0, inatteignable par un `trackerInit` validé. »
-  source : `packages/hikae/src/tracker.ts:50-68`, `:73-79` ; M009 l.130-133 · touche : aucune · nature : C
-  item : PXC-01 PAROXYSME-STANDARD-1, partie 2 (re-formation à ETAT de l'item (f) de M009 : rejeter η ≤ 0, avec son test) · porteur :
-    PAROXYSME (chantier) ; MONARK (ligne d'ETAT) · déclencheur : partie 2 de PXC-01 (F3) ; celui de l'ADR (exposition de `eps` à un
-    appelant) n'est pas tiré
-  état : ouvert (non dû) · suite : aucune
+  item : HIKAE2-CABLAGE-USDE-1 (ETAT l.2989-2998 ; `hac-cp` rendu par le verdict d'une cellule suivie active,
+    en-tête et titre récrits : `public_text_end_to_end`) · porteur : HIKAE · déclencheur : le G7 du premier chemin servi de TYCHO ou
+    d'Hyperliquid qui consomme `pari/` et `suivi/`, après les parties 1 et 2 d'ADR-HIKAE-1, ou une décision du fondateur qui le rappelle
+    plus tôt ; publication : release du miroir (acte du fondateur, par MONARK)
+  état : ouvert (déclencheur de l'ADR tiré, acte non fait) · suite : `hac-cp` relève de MK-L33 du registre du Harnais (C l.226) ; items
+    d'avant le G7 de la partie 1 d'ADR-HIKAE-2 : PXC-02 partie 2 et M009 item (e), porteur PAROXYSME
 - **L21** · « Classe `ukemi-liquidable-24h` : modèle déclaré, non fondé, hors des 35 tables servies (propriétaire Ukemi). »
   source : `packages/hikae/src/liquidable-24h.ts:9-13` ; C §10 l.353-357 · touche : aucune · nature : D
   item : PXC-17 partie 3 (classes métier : `liquidable-24h`) · porteur : PAROXYSME (pièce propriétaire : Ukemi) · déclencheur : partie 3 de PXC-17 (F5)
@@ -261,7 +284,9 @@
 - **N4** · « Sélection côté appel : l'erreur au COMMIT n'égale le taux de raté de la cellule que si l'intention de l'appelant est indépendante de l'issue. »
   source : 0004 l.50, l.52 · touche : phrase servie des lignes ensemble à venir (C-5) · nature : T
   item : PXC-09 partie 3 (SELECTIVE-COMMIT-1, à former ; Jin-Ren et Jin-Candès détenus, Weinstein-Ramdas libre, Benjamini-Yekutieli
-    reçu, INV l.226-229) · porteur : PAROXYSME · déclencheur : partie 3 de PXC-09 (F4)
+    reçu, INV l.226-229) ; HIKAE2-INTENTION-1 (ETAT l.3018-3024) · porteur : PAROXYSME (PXC-09) ; HIKAE
+    (HIKAE2-INTENTION-1) · déclencheur : partie 3 de PXC-09 (F4) ; HIKAE2-INTENTION-1 : la levée par le fondateur du gel des lectures, ou
+    l'arrivée d'une source qui couvre ce cas, pour la partie 2 d'ADR-HIKAE-2
   état : ouvert · suite : volet appel de PX-Hikae-1 ; même famille que MK-L04 du registre du Harnais (sélection par l'admission)
 - **N5** · « L'erreur au COMMIT n'est pas identifiée sur les lignes intervalle (`bound_on=region`). »
   source : 0004 l.51, l.194 ; W1R l.888 (section de référence, rapport seul) · touche : aucune · nature : T/M
@@ -343,10 +368,15 @@
 - **N13** · « Le README promet que chaque `commit` dépense `B_t` ; la règle servie le rend inchangé, rien ne le dépense ; jeton « à annoncer ». »
   source : `README.md:262-264` ; `apps/site/lib/sim.ts:43` ; `packages/hikae/src/l3-gate.ts:158` ; HAR:61 · touche : `README.md:13`, `:79`,
     `:197`, `:255`, `:262-264` · nature : C
-  item : PXC-02, liste (b) du PLAN §5.1 (« carried unchanged until the token exists »), parties 2-3 ; PXC-10 partie 3 (construction)
-    · porteur : PAROXYSME ; le fondateur (label Backbone et jeton, CX-07 ; par MONARK) · déclencheur : la décision du fondateur avant la
-    release de textes servis (PLAN §7.3), puis parties 2-3 de PXC-02 (F3) ; partie 3 de PXC-10 (F4)
-  état : ouvert · suite : voir L9 ; la construction côté jeton est un acte du fondateur (INV l.168)
+  item : PXC-02, liste (b) du PLAN §5.1 (« carried unchanged until the token exists »), parties 2-3 ; PXC-10 partie 3 (construction) ;
+    HIKAE2-CABLAGE-USDE-1 (ETAT l.2989-2998) · porteur : PAROXYSME ; le fondateur (label Backbone et jeton, CX-07 ;
+    par MONARK) ; HIKAE (HIKAE2-CABLAGE-USDE-1) · déclencheur : la décision du fondateur avant la release de textes servis (PLAN §7.3),
+    puis parties 2-3 de PXC-02 (F3) ; partie 3 de PXC-10 (F4) ; HIKAE2-CABLAGE-USDE-1 : celui d'ETAT
+  état : bibliothèque fusionnée (preuve : tests nommés du lot 2 de la partie 1 d'ADR-HIKAE-2, à `8d01bd3f` : `o4_budget_nano_floor` et
+    `o4_closure_returns_minus_one` (`packages/hikae/test/suivi-o4.test.ts:207`, `:230`), le budget tiré des ratés de l'évaluation de
+    référence par O4, et `suivi_in_sample_replay_library` (`packages/hikae/test/suivi-library.test.ts:148`)) ; clôture au test nommé par
+    le G0, item HIKAE2-CABLAGE-USDE-1 : le tueur de la phrase « caller-carried » sur une cellule marquée (HKT-08) · suite : voir L9 ; la
+    construction côté jeton est un acte du fondateur (INV l.168)
 - **N14** · « Surveillance par clé kata (CM-5) non planifiée, déclencheur T0 passé ; seules protections : vetos TEST, FWD, bridge et retrait. »
   source : ADR-CM l.67 ; ETAT l.533-543 ; F9 l.117 · touche : `README.md:53-56` · nature : C/T
   item : CM-5-PLAN-1 (ETAT l.533-537) ; PXC-10 CM-5-RETIRE-1, partie 1 · porteur : RECHERCHES (ETAT l.534 ; c3 et c4, l.535) ; MONARK
@@ -405,8 +435,12 @@
 
 ## 4. Limites closes ou obsolètes (avec preuve)
 
-### 4.1 Limites du 2026-09-27 (4, INV §3.1)
+### 4.1 Limites du 2026-09-27 (6, INV §3.1)
 
+- **L8** · « `B_t` est un estimateur fragile au bord et aux rafales ; la sentinelle Narabi le publie. » · clos (preuve : Monte-Carlo de
+  licence et de fermeture, tests du lot 2 de la partie 1 d'ADR-HIKAE-2 `o4_false_licence_mc` et `o4_false_closure_mc`
+  (`packages/hikae/test/suivi-mc.test.ts:203`, `:208`, à `8d01bd3f`), verts à l'oracle G7 de `db5bc942`, `docs/G7-lot-hikae2-p1-l2a.md:69-71`)
+  · suite : O4 est le prédicat, le taux brut reste une lecture, sans chemin servi encore (HKT-08) ; même source que L33 du registre Narabi
 - **L11** · « Classe servie `btc-dir-15m` synthétique. » · obsolète (preuve : commit de retrait `77e825c6`, 2026-10-03 21:34:18 UTC ;
   `apps/harness/src/tools/gate.ts:68-69`, `:92-94`, refus nommé `task_class_retired` ; ADR-CM l.95, B-5 ; HAR:31) · suite : remplacée par
   N2 ; HR:16-24 périmé (N11) ; commit relu dans le clone complet (§7, doute 8)
@@ -414,6 +448,10 @@
   séries réelles, W1R l.3-4 ; registre `apps/harness/data/kata/registry/wave1.json` versé, ETAT l.631-632) · suite : HR:22-24 périmé (N11)
 - **L14** · « Réserve Su et al. : jamais testé sur une API propriétaire. » · obsolète (preuve : aucun prédicteur LLM sur un chemin servi ;
   prédicteurs kata, `apps/harness/src/tools/gate.ts:234-235` ; BYO sur les scores de l'appelant, `:256-257`)
+- **L20** · « `trackerStepSize` ne rejette pas η = 0, inatteignable par un `trackerInit` validé. » · clos (preuve : test du lot 2 de la
+  partie 1 d'ADR-HIKAE-2 `tracker_step_size_rejects_nonpositive` (`packages/hikae/test/suivi-library.test.ts:296`, à `8d01bd3f`), vert à
+  l'oracle G7 de `8e21cd26`, `docs/G7-lot-hikae2-p1-l2b.md:67-69` ; `packages/hikae/src/tracker.ts:83` refuse un pas qui n'est pas positif)
+  · suite : l'item d'avant (PXC-01 partie 2, re-formation à ETAT de l'item (f) de M009) n'a plus d'objet pour cette limite
 - **L23** · « Ordre des raisons, lecture d'horloge, sémantique d'`abstain` donnés comme « choix déclarés ». » · clos (preuve : tests à
   `87b821b0`, `packages/hikae/test/oracle-l3-interval.test.ts:3-4`, `:67-72`, `:119` (ordre des raisons écrit depuis ADR-M002 D5, horloge
   comprise, chaque combinaison énumérée) ; `packages/hikae/test/l3.test.ts:53`, `:111`, `:127` (`abstain` et ses raisons) ; contrat C §6
@@ -427,6 +465,13 @@
 - **N21** · « Bord de bande USDe à un demi-ulp près (B-7), déclaré. » · clos (preuve : bords tirés du test du score, B-13, ADR-CM l.253 ;
   `apps/harness/src/tools/gate.ts:133-134`)
 
+### 4.3 Limites trouvées à la tête (1, HKT)
+
+- **HKT-09** · « La durée moyenne avant fausse alarme de la lecture de changement, au moins 10 000 évaluations sous le nul, est démontrée et non testée. »
+  · clos (preuve : HIKAE2-ARL-LECTURE-1, ETAT l.2999-3007 : test `detector_sr_reading_arl_lower_bound`
+  (`packages/hikae/test/suivi-detector.test.ts`, l.270 à `a82393a1`), vert au CI de #353 (15 contrôles sur 15 à `1953750d`), son tueur à `packages/hikae/src/pari/sr.ts:50`)
+  · suite : il vérifie le code sur le membre frontière p = a, à un niveau de confiance ; l'énoncé de classe reste à son théorème
+
 ## 5. Limites marquées PAROXYSME apparues à ETAT depuis l'inventaire
 
 Commande (à la tête, sans réseau) : `git diff -U0 57a131fc 87b821b0 -- docs/ETAT.md | grep '^+' | grep PAROXYSME` : dix lignes, soit huit
@@ -435,7 +480,8 @@ v2 » (ETAT l.730-778) porte des items déjà rattachés aux entrées L3 (KATA-E
 KATA-INPUT-RECOMPUTE-1), et LATE-CALL-WINDOW-1 (registre du Harnais), qui rouvrirait N20 ; ses autres items (SERVER-CLOCK-BOUND-1, W2-MKL09-ADDENDUM-1) sont au
 registre du Harnais, NARABI-POLICY-TEXT-REV-1 au registre Narabi. DOJO-PROBE-UID-BOUNDARY-1 (ETAT l.1889) touche les sondes de Narabi et
 du Dōjō, pas la porte. Les sept autres limites touchent la porte : chacune qualifie une entrée de ce registre, dite en suite ; ce sont
-les mêmes que HT-01 à HT-07 du registre du Harnais.
+les mêmes que HT-01 à HT-07 du registre du Harnais. HKT-08 et HKT-10 ne viennent pas de cette commande : elles sont trouvées à la tête
+au G7 de la partie 1 d'ADR-HIKAE-2, comme HKT-09, close, au §4.3.
 
 - **HKT-01** · « Les quatre tables dir-4h ne peuvent être servies sans divulguer des suites sous 2^128. »
   source : ETAT l.614-620 · touche : aucune (tables retenues) · nature : T/C
@@ -472,6 +518,45 @@ les mêmes que HT-01 à HT-07 du registre du Harnais.
   item : RETIRE-LATENCY-FIRST-REAL-1 (ETAT l.1101-1103) · porteur : MONARK · déclencheur : ce premier retrait réel (`live:1` au plus tôt
     le 2027-01-01, ou une cause `adr:` avant)
   état : ouvert · suite : touche N15 ; même limite que HT-07 du registre du Harnais
+- **HKT-08** · « La bibliothèque de paris et les statistiques du suivi sont fusionnées sans chemin servi : aucune surface ne les consomme. »
+  source : `packages/hikae/src/pari/index.ts`, `packages/hikae/src/suivi/o4.ts`, `packages/hikae/src/suivi/detector.ts`,
+    `packages/hikae/src/suivi/m1.ts` à `8d01bd3f` ; `docs/G7-lot-hikae2-p1-l1.md:12-13`, `docs/G7-lot-hikae2-p1-l2a.md:12-13`,
+    `docs/G7-lot-hikae2-p1-l2b.md:12-13` (« upcoming » jusqu'au branchement) · touche : aucune (la porte USDe servie ne les lit pas) ·
+    nature : C
+  item : HIKAE2-CABLAGE-USDE-1 (ETAT l.2989-2998) : le câblage USDe en quatre lots (ligne signée et chaîne,
+    vérification, sentinelle, harnais), puis `suivi_gate_end_to_end` ; prix : environ 3 300 lignes en quatre lots, un plan de partie
+    révisé, son circuit et sa G2 · porteur : HIKAE · déclencheur : le G7 du premier chemin servi de TYCHO ou d'Hyperliquid qui consomme
+    `pari/` et `suivi/`, après les parties 1 et 2 d'ADR-HIKAE-1, ou une décision du fondateur qui le rappelle plus tôt
+  état : ouvert · suite : jusque-là, la cellule USDe reste servie comme aujourd'hui, le budget « caller-carried », et l'activation ne
+    s'ouvre pas ; l'item clôt L4, L5, L10, L18 et N13 par leurs tests nommés, porte L9 et L19 entières, et L13 avec la campagne D4 de
+    PXC-17 ; il reçoit de la partie 1 ces obligations : (a) la pièce d'état refuse `o4Init(policy, true)` hors de l'activation de la
+    cellule (`packages/hikae/src/suivi/o4.ts:93`) et garde le dernier pas consommé pour `enterInOrder`
+    (`packages/hikae/src/suivi/label.ts:43-45`) ; chaque étiquette passe par `o4Step` puis `detStep`, la même ; après les deux, si
+    l'alarme est levée et le segment ouvert, elle appelle `o4CloseOnAlarm` (`packages/hikae/src/suivi/o4.ts:124`), jamais sur un autre
+    segment ; une alarme levée pendant l'attente de licence ne laisse aucune trace dans O4, et ferme le segment au pas de la licence si
+    elle y est encore levée ; l'évaluation du pas n entre en attente avant les issues du pas n + 1 ; un `outcomes_through_seq` nul garde
+    la dernière valeur non nulle ; `detInit` vient au plus tard à l'ouverture du segment, jamais dans la version (à la version ou à
+    l'ouverture, au choix de l'ADR du câblage, avec la même borne δ_exh + α_arl pour les deux) ; ce que fait le détecteur après une
+    alarme se fixe avec cette pièce, l'alarme restant collante (`docs/G7-lot-hikae2-p1-l2b.md:18`) ; (b) le harnais vérifie a > α_cal
+    en rationnel (`gate_suivi_policy_a_exceeds_class_alpha`) et la sentinelle consomme `grace_steps`
+    (`packages/hikae/src/suivi/policy.ts:44`) ; (c) M1 reçoit l'α de la ligne de classe, le même η tiré d'`eta_m1` à chaque pas, r_1 =
+    `committedQ1()`/B (`apps/sentinel/src/timeline.ts:28`) et s01 = `clipScore(s, B)`/B (`packages/hikae/src/tracker.ts:92`) ; son E ne
+    décide de rien ; (d) toute `RefEvaluation`, `Outcome`, `Label`, `O4State` ou `DetState` lue d'un fichier voit sa forme JavaScript
+    contrôlée par la pièce qui la lit, avant tout appel de `label.ts`, `o4.ts` ou `detector.ts`, avec ses tests, une ligne mal typée
+    chacun, refusée par une `RangeError` (`docs/G7-lot-hikae2-p1-l2a.md:62-63`, `:77-79`) ; (e) la ligne publie `srReading` (valeur et
+    dépassement), la valeur du détecteur pondéré, `alarm_at` et le taux brut des étiquettes entrées par `remainingBudget` (α quand rien
+    n'est entré, jamais NaN), l'échelle d'écriture de ses rationnels se fixant avec elle ; le texte servi nomme séparément W, qui
+    détecte un excès présent depuis l'ouverture, et le détecteur, une rupture à date inconnue, et ne nomme la durée moyenne avant
+    fausse alarme de la lecture qu'après le test de HKT-09 (§4.3)
+- **HKT-10** · « Aucune borne d'admission pour la cellule USDe au démarrage : la porte la sert sans licence préalable du suivi. »
+  source : `apps/harness/src/tools/gate.ts:613` (`stableRunVerdict`, à `8d01bd3f`) ; `o4_licence_median_bt_power`
+    (`packages/hikae/test/suivi-mc.test.ts:315`) · touche : les verdicts servis de la clé USDe (aucune phrase d'admission servie) ·
+    nature : T/D
+  item : HIKAE2-ADMISSION-USDE-1 (ETAT l.3008-3017) · porteur : HIKAE · déclencheur : le résultat de l'étude de
+    puissance BT-POWER-1, atteint au plan de la partie 1 ; puis la première fermeture du segment USDe, ou un taux de non-résolution
+    mesuré sous 0,01 sur le journal, qui rend a = 3/20 examinable (médiane 288, 90e centile 657)
+  état : ouvert (premier déclencheur atteint ; prix replié au G7 de la partie 1 : 107 à 176 étiquettes calmes, environ quatre à six
+    mois et demi, médianes assertées par `o4_licence_median_bt_power`) · suite : la phrase d'admission attend le câblage (HKT-08)
 
 ## 6. Renvois
 
@@ -616,6 +701,18 @@ PX-Hikae-1 à -11 restent à re-former à ETAT par PXC-01 p2 (N17) ; les autres 
 DATA-ACCORDS-TEXTS-1 et F-W2-4 nommés depuis à ETAT, non formés : ETAT l.56 et l.260 à `5437cd0d` ; à `565c7065`,
 DATA-ACCORDS-TEXTS-1 et DATA-LICENCE-KATA-1 formés : ETAT l.559-562 ; F-W2-1 et F-W2-3 nommés, non formés, à former par la
 recartographie de PXC-01 partie 2 : ETAT l.564-566 à `565c7065`, MSG2 l.28 ; L6a, N16).
+
+**Ligne PAROXYSME (2026-10-30, pli du G7 de la partie 1 d'ADR-HIKAE-2).** Hikae : 57 entrées, 48 ouvertes, 9 closes (les 6
+d'avant ; L8 et L20, closes par ce pli et passées au §4.1 ; HKT-09, close à la fusion de #353, au §4.3) ; N17 reste « changé » ; deux
+limites trouvées à la tête restent ouvertes au §5, HKT-08 et HKT-10. Les quatre items de la partie sont formés à ETAT par ce pli :
+HIKAE2-CABLAGE-USDE-1 (ETAT l.2989-2998 ; il clôt L4, L5, L10, L18 et N13 par leurs tests nommés, porte L9 et L19
+entières, et L13 avec la campagne D4 de PXC-17), HIKAE2-ARL-LECTURE-1 (ETAT l.2999-3007, clos),
+HIKAE2-ADMISSION-USDE-1 (ETAT l.3008-3017, prix replié), HIKAE2-INTENTION-1 (ETAT
+l.3018-3024, inchangé, pour la partie 2). Aucune dette établie : chaque entrée ouverte a son item, son porteur et
+son déclencheur. La garde du support calme de la porte USDe, construite dans la partie (#345), reçoit sa ligne avec sa fusion.
+Le lint des pièces de MONARK compte en erreur 24 empreintes des tableaux de sources qui suivent : chacune cite un fichier à une
+révision nommée, et y est juste (sha256 et nombre de lignes, par `git show`, 24 sur 24) ; LINT-EMPREINTE-FAUX-1 (ETAT
+l.2620-2631) corrige le lint.
 
 | Source | Lignes | sha256 |
 |---|---|---|

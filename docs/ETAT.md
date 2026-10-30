@@ -2608,6 +2608,8 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     règle B-3 : registres égaux, admis ; registres autres, refusés. Prix, mesuré par HIKAE sur ses pièces : la porte de 11 lignes, deux
     cas, et un oracle G1 de 670 s. Porteur : RECHERCHES, qui a construit `--test-only` (proposé par HIKAE ; placé par la boîte). Se règle
     avec RED-PROOF-PIN-1. Déclencheur : atteint par #353, le 2026-10-30 ; état : ouvert.
+    Porteur changé (G7 de la partie 1 de Hikae, MONARK, 2026-10-30 09:0x UTC) : MONARK, qui le règle avec RED-PROOF-PIN-1 et
+    RED-PROOF-BLOCK-ALIGN-1 dans la partie de règlement des items en retard, avant le lot 2b-ii de Genkan.
   - RED-PROOF-BLOCK-ALIGN-1 (G7 de #354, MONARK, 2026-10-30 07:2x UTC) : `red-proof.mjs` juge un test dès qu'une ligne de son corps
     est dans une plage de `git diff -U0` (`changedLines`, `judgedOf`). Un test neuf ajouté juste après un test existant peut placer la
     plage dans le corps de celui-ci : `oracle_ci_only_withdraws_the_two_records_steps_of_the_genkan_job`, que #354 ne change pas (son
@@ -2615,6 +2617,18 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     Construction : ne juger changé qu'un test dont le bloc diffère en octets entre la base et la tête ; un cas dans
     `test/red-proof.test.ts` : deux tests voisins, le second neuf, seul le second est jugé. Porteur : MONARK. Se règle avec
     RED-PROOF-PIN-1. Déclencheur : la partie de règlement des items en retard, avant le lot 2b-ii ; état : ouvert.
+  - LINT-EMPREINTE-FAUX-1 (G7 de la partie 1 de Hikae, MONARK, 2026-10-30 09:0x UTC) : outil MONARK, `lint-piece.mjs`
+    (monark-atelier/bin). Son contrôle des empreintes cherche une empreinte dans le dossier du dernier fichier nommé avant elle, à
+    l'arbre de travail. Il donne deux classes de fausses erreurs, 28 empreintes sur 27 lignes à `3a9e81fe` : (a) 24 empreintes de
+    fichiers cités à une révision nommée, justes à cette révision (sha256 et nombre de lignes, par `git show`), au §8 de
+    `docs/PAROXYSME-Hikae.md` (l.622, 623, 628, 629, 635, 638, 642, 643, 648, 649, 651, 652, 659 à 662, 669 à 675 et 698) ; (b) 4
+    empreintes d'un autre objet que le fichier nommé avant elles, dans `docs/ETAT.md` : un enregistrement d'oracle et un arbre git
+    après `scripts/registry-root.mjs` (l.2269), deux empreintes de trace après `skills/monark/DEMO.md` (l.2772 et 2773).
+    Construction : une règle par classe, (a) une empreinte qui suit un fichier à une révision nommée se vérifie par git à cette
+    révision, hors des lieux que MONARK ne lit jamais ; (b) une empreinte qui nomme un autre objet (enregistrement, arbre, trace) ne
+    se cherche pas dans le dossier du fichier d'avant ; des cas rouges et verts par règle dans `lint-pin-cases.mjs`
+    (monark-atelier/test). Porteur : MONARK. Déclencheur : la partie de règlement des items en retard, avant le lot 2b-ii de Genkan ;
+    état : ouvert.
   - HARNESS-BYO-400-RATE-1 (nom proposé ; mesure) : le nombre de clients touchés par B-0 et B-1 de CM-1 n'est pas mesuré ; borne : le
     taux de réponses 400 sur `POST /gate` dans `harness-access.log` (route et statut, aucun corps), sur une fenêtre avant et une après
     le déploiement de l'arbre qui les porte. Source : `cm1rev/RAPPORT.md` l.164 et l.181 (Q-6). Déclencheur : l'acte (3) de l'ordre de
@@ -2972,6 +2986,42 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     `DNS:localhost` (l.16), les deux URL `https://localhost` du test (l.385 et l.392), et le cas de `::1`. Le test a passé depuis sur la
     branche de #351 et dans le `test:main` de l'oracle G7 de sa fusion. Porteur : MONARK. Déclencheur : le prochain lot qui touche
     `scripts/verify-harness.mjs` ou ce test, ou un second échec dans un passage complet, au premier des deux ; état : ouvert.
+  - HIKAE2-CABLAGE-USDE-1 (G7 de la partie 1 de Hikae, MONARK, 2026-10-30 09:0x UTC ; formé le 2026-10-28 par le plan de la partie 1
+    d'ADR-HIKAE-2, sur décision du fondateur) : la bibliothèque de paris et les statistiques du suivi (`packages/hikae/src/pari/`,
+    `packages/hikae/src/suivi/`) sont au tronc sans chemin servi : aucune surface ne les consomme, et elles restent « upcoming » au
+    registre public. Construction : le câblage USDe en quatre lots (ligne signée et chaîne, vérification, sentinelle, harnais), puis le
+    test `suivi_gate_end_to_end`, avec les deux lignes datées sous ADR-M014 et ADR-M012 et les obligations que la partie 1 lui laisse,
+    écrites à HKT-08 de `docs/PAROXYSME-Hikae.md` ; il clôt L4, L5, L10, L18 et N13 de ce registre par leurs tests nommés, porte L9 et
+    L19 entières, et L13 avec la campagne D4 de PXC-17. Prix : environ 3 300 lignes en quatre lots, un plan de partie révisé, son
+    circuit et sa G2 ; jusque-là, la cellule USDe reste servie comme aujourd'hui, le budget « caller-carried », et l'activation ne
+    s'ouvre pas. Porteur : HIKAE. Déclencheur : le G7 du premier chemin servi de TYCHO ou d'Hyperliquid qui consomme `pari/` et
+    `suivi/`, après les parties 1 et 2 d'ADR-HIKAE-1, ou une décision du fondateur qui le rappelle plus tôt ; état : ouvert.
+  - HIKAE2-ARL-LECTURE-1 (G7 de la partie 1 de Hikae, MONARK, 2026-10-30 09:0x UTC ; formé au pli de la G2 de la partie) : la durée
+    moyenne avant fausse alarme de la lecture de changement (`srReading`, `packages/hikae/src/suivi/detector.ts` l.103), au moins
+    10 000 évaluations sous le nul, était démontrée et non testée. Construction : un Monte-Carlo de la lecture sous p = a = 1/5, 2 000
+    trajectoires, horizon 30 000, la bibliothèque dans la boucle ; il asserte que la moyenne de min(Ñ*, H) moins 3,09 écarts-types sur
+    √N atteint 10 000, ce qui borne E[Ñ*] par-dessous puisque min(Ñ*, H) ≤ Ñ*. Prix : mesuré, 23 300 709 pas au rejeu (graine
+    20261030), soit 51 à 100 s ; au-delà d'un facteur 3 du runner au premier CI, repli à 1 000 trajectoires. Porteur : HIKAE.
+    Déclencheur : le pli de la G2 de la partie ; état : clos (preuve : #353, fusion `a82393a1` : le test
+    `detector_sr_reading_arl_lower_bound` (`packages/hikae/test/suivi-detector.test.ts` l.270), vert au CI de #353 (15 contrôles sur
+    15 à `1953750d`), son tueur à `packages/hikae/src/pari/sr.ts` l.50).
+  - HIKAE2-ADMISSION-USDE-1 (G7 de la partie 1 de Hikae, MONARK, 2026-10-30 09:0x UTC ; formé par ADR-HIKAE-2 §7) : la cellule USDe
+    n'a aucune borne d'admission au démarrage : la porte la sert (`stableRunVerdict`, `apps/harness/src/tools/gate.ts` l.613) sans
+    licence préalable du suivi ; à l'activation, son segment s'ouvrira sans licence, et seul le test d'exploitation bornera sa fermeture
+    (D2 (i) d'ADR-HIKAE-2). Construction : la licence préalable de la cellule, au prix d'une abstention pendant sa durée, que l'étude
+    de puissance BT-POWER-1, faite par le plan de la partie 1, chiffre, et dont les médianes sont assertées par
+    `o4_licence_median_bt_power` (`packages/hikae/test/suivi-mc.test.ts` l.315) ; la phrase d'admission attend le câblage
+    (HIKAE2-CABLAGE-USDE-1). Prix : 107 à 176 étiquettes calmes, environ quatre à six mois et demi. Porteur : HIKAE. Déclencheur : le
+    résultat de BT-POWER-1, atteint au plan de la partie 1 ; puis la première fermeture du segment USDe, ou un taux de non-résolution
+    mesuré sous 0,01 sur le journal, qui rend a = 3/20 examinable (médiane 288, 90e centile 657) ; état : ouvert (premier déclencheur
+    atteint, prix replié).
+  - HIKAE2-INTENTION-1 (G7 de la partie 1 de Hikae, MONARK, 2026-10-30 09:0x UTC ; formé par ADR-HIKAE-2 §7) : aucun énoncé d'erreur
+    au COMMIT pour une intention fournie par l'appelant ; l'erreur au COMMIT n'égale le taux de raté de la cellule que si cette intention
+    est indépendante de l'issue (N4 de `docs/PAROXYSME-Hikae.md`), et ni CAP ni Sale-Ramdas ne la couvrent telle quelle (D6 (ii)
+    d'ADR-HIKAE-2). Construction : un énoncé qui couvre ce cas, tiré d'une source lue ; d'ici là, la partie 2 ne sert que l'hypothèse
+    écrite « intention indépendante de l'issue sachant X » et l'alarme M7 qui ferme le segment. Prix : une lecture de plus. Porteur :
+    HIKAE. Déclencheur : la levée par le fondateur du gel des lectures, ou l'arrivée d'une source qui couvre ce cas ; état : ouvert,
+    inchangé au G7 de la partie 1, pour la partie 2 d'ADR-HIKAE-2.
 
 ## Ce qui reste pour la page
 
