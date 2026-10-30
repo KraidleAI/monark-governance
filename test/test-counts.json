@@ -164,7 +164,7 @@
  "packages/hikae/test/risk-control-quantile.test.ts": 6,
  "packages/hikae/test/runs.test.ts": 5,
  "packages/hikae/test/s2.test.ts": 4,
- "packages/hikae/test/suivi-detector.test.ts": 8,
+ "packages/hikae/test/suivi-detector.test.ts": 9,
  "packages/hikae/test/suivi-library.test.ts": 9,
  "packages/hikae/test/suivi-mc.test.ts": 8,
  "packages/hikae/test/suivi-o4.test.ts": 9,

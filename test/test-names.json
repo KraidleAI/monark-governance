@@ -1756,6 +1756,7 @@
   "detector_parity_per_path",
   "detector_pfa_control",
   "detector_restart_supermartingale",
+  "detector_sr_reading_arl_lower_bound",
   "detector_sr_reading_expectation",
   "detector_sr_reading_false_alarm_before_h_mc",
   "detector_sr_reading_never_acts",
