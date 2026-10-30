@@ -2596,6 +2596,25 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     Deux tours de plus y ont buté le 2026-10-03 : COINBASE-PASS-EDGES-1 (tueurs des gardes d'exécution placés dans des tests rouges à la
     base, `cbedges/corr/CORR.md` l.80-88 et l.289-293, Q-CORR-2) et BINANCE-PRE153-1 (cas G18 plié dans un test déjà jugé, vert à la
     base, `bnpre/corr/CORR.md` l.63).
+    Un lot de plus y a buté le 2026-10-30 : le lot 2b-i de Genkan (G7 de #354) déclare `mutants_operators_are_exact`, vert à la base
+    parce que son sujet, `test/helpers/mutants.ts`, est copié dans la base avec les tests.
+  - RED-PROOF-TEST-ONLY-REGISTRIES-1 (vu par HIKAE à la correction 1 du checkpoint-2 de la partie 1 de Hikae 2, le 2026-10-30 ; écrit ici
+    au G7 de #354, MONARK, 2026-10-30 07:2x UTC) : la porte du mode `--test-only` de `red-proof.mjs` (`testOnlyGate`) compte comme
+    code de production un fichier non-test modifié sous `test/`, donc les deux registres de tests quand ils changent
+    (`test/test-counts.json`, `test/test-names.json`), et veut un G0 du diff, sous `docs/`, qui porte « red-proof: test-only ». Un lot
+    qui ajoute une épingle change toujours les deux registres : il ne peut pas passer cette porte, et sa preuve se rejoue à la main.
+    Construction : sous `--test-only`, admettre un changement des deux registres égal au texte que `recordText` et `namesText`
+    (`scripts/test-count-floor.mjs`) tirent du passage `test:main` du lot ; deux cas dans `test/red-proof.test.ts`, près de ceux de la
+    règle B-3 : registres égaux, admis ; registres autres, refusés. Prix, mesuré par HIKAE sur ses pièces : la porte de 11 lignes, deux
+    cas, et un oracle G1 de 670 s. Porteur : RECHERCHES, qui a construit `--test-only` (proposé par HIKAE ; placé par la boîte). Se règle
+    avec RED-PROOF-PIN-1. Déclencheur : atteint par #353, le 2026-10-30 ; état : ouvert.
+  - RED-PROOF-BLOCK-ALIGN-1 (G7 de #354, MONARK, 2026-10-30 07:2x UTC) : `red-proof.mjs` juge un test dès qu'une ligne de son corps
+    est dans une plage de `git diff -U0` (`changedLines`, `judgedOf`). Un test neuf ajouté juste après un test existant peut placer la
+    plage dans le corps de celui-ci : `oracle_ci_only_withdraws_the_two_records_steps_of_the_genkan_job`, que #354 ne change pas (son
+    bloc est le même en octets à la base et à la tête, sha256 `d059df96…`), a été jugé, trouvé vert à la base et refusé, puis déclaré.
+    Construction : ne juger changé qu'un test dont le bloc diffère en octets entre la base et la tête ; un cas dans
+    `test/red-proof.test.ts` : deux tests voisins, le second neuf, seul le second est jugé. Porteur : MONARK. Se règle avec
+    RED-PROOF-PIN-1. Déclencheur : la partie de règlement des items en retard, avant le lot 2b-ii ; état : ouvert.
   - HARNESS-BYO-400-RATE-1 (nom proposé ; mesure) : le nombre de clients touchés par B-0 et B-1 de CM-1 n'est pas mesuré ; borne : le
     taux de réponses 400 sur `POST /gate` dans `harness-access.log` (route et statut, aucun corps), sur une fenêtre avant et une après
     le déploiement de l'arbre qui les porte. Source : `cm1rev/RAPPORT.md` l.164 et l.181 (Q-6). Déclencheur : l'acte (3) de l'ordre de
@@ -2898,7 +2917,8 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     atteints depuis `main` et un `initialize` dans un module du noyau. Construction : la sonde devient le mode `--reach` de `records.mjs`,
     avec la liste close des 39 externes et l'état de lecture de chacun, le refus de tout initialiseur lié autre que `IO.stdGenRef`, et un
     test réel ; au lot 2b si R-25 le porte, sinon au lot 3b avec le contrôle croisé des axiomes par l'énumération des déclarations du noyau.
-    Porteur : MONARK. Déclencheur : le lot 2b de Genkan ; état : ouvert.
+    Porteur : MONARK. Déclencheur : le lot 2b-ii de Genkan (le lot 2b passe en deux PR au G7 de #354, MONARK, 2026-10-30 07:2x UTC :
+    `--reach` va à la seconde) ; état : ouvert.
   - GENKAN-PANIC-3 (G7 de #347, MONARK, 2026-10-29 16:5x UTC) : `genkan-core` lance le noyau avec `LEAN_ABORT_ON_PANIC=1` dans
     l'environnement de l'enfant : une panique que les mots laissent passer tue alors le noyau au lieu de rendre la valeur par défaut, et le
     cœur s'abstient. La variable garde aussi un chemin d'`Init` qu'aucune règle ne refuse (ajouté au G7 de #350, MONARK, 2026-10-29 21:5x
@@ -2918,6 +2938,27 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     lire `src/runtime/` du dépôt `leanprover/lean4` au tag `v4.32.1` aux quatre couches, avec copie et sha256, ou, sans accès au dépôt, une
     demande de procurement du tarball de sources du tag ; un corps qui appelle une fonction de P1 étend P1 et rouvre GENKAN-PANIC-2.
     Porteur : MONARK. Déclencheur : le lot 3b de Genkan ; état : ouvert.
+  - GENKAN-EXTERNAL-1 (G7 de #354, MONARK, 2026-10-30 07:2x UTC) : le rejeu de chaque module du noyau par le `leanchecker` de la
+    chaîne épinglée (lot 2b-i) détecte la manipulation d'environnement ; ce n'est pas un vérificateur externe (`src/lean/LeanChecker.lean`
+    l.67 de la chaîne v4.32.1). Sa note, l.70-72, nomme lean4lean, qui n'est pas indépendant non plus : son README le dit dérivé du
+    noyau C++ et sujet à ses bugs, et il en a partagé un, une preuve de `False` acceptée, que le commit `779c51fd` de son dépôt corrige.
+    Sur la branche master de lean4lean, aucun commit n'épingle la chaîne v4.32.1 : `779c51fd` épingle v4.32.2, la tête v4.33.0-rc2.
+    Sans module, lean4lean vérifie tous les modules de son chemin de recherche, comme `leanchecker` : il ne se lance qu'avec les noms
+    des modules. Construction : (1) recenser les vérificateurs de Lean 4 écrits hors du noyau C++, chacun lu aux quatre couches ;
+    (2) une sonde hors du dépôt : lean4lean à `779c51fd`, construit sur la chaîne v4.32.1, puis chaque module du noyau rejoué par son
+    nom, et un module témoin qui doit être refusé ; elle dit si le code compile sur v4.32.1 et lit ses `.olean`, et mesure la
+    construction et le rejeu ; le clonage et les dépendances que nomme son `lake-manifest.json` sont des téléchargements, faits sur le
+    go du fondateur ; (3) si la sonde passe, une étape de CI après le rejeu par `leanchecker` (un job à part si sa durée mesurée, fois
+    trois, dépasse le plafond de 20 minutes) et son test ; sinon, le choix entre un autre vérificateur du recensement et l'alignement
+    de la chaîne de Genkan, par sa propre ADR. Porteur : MONARK. Déclencheur : le plan du lot 3a de Genkan ; état : ouvert.
+  - GENKAN-MUTANTS-SHA-MAIN-1 (G7 de #354, MONARK, 2026-10-30 07:2x UTC) : les mutants du lot 2b-i ne visent que le décodeur
+    (`Genkan/Bytes.lean`, `Genkan/Format.lean`) ; `Genkan/Sha256.lean` et `Main.lean` ne sont pas mutés. Le générateur du lot
+    (`apps/genkan/test/helpers/mutants.ts`) leur écrit 75 et 12 mutants. Prix mesuré sur ceux du décodeur : 3,38 s à 3,76 s par mutant
+    sous Windows, soit environ 5 minutes de plus pour `test:genkan` ; sous Linux, 1,59 s à 1,94 s (CI de #354), soit environ 2,3 à
+    2,8 minutes de plus, pour un job `g3-genkan` de 4 min 1 s à #354 sous un `timeout-minutes` de 20. Construction : un test par
+    fichier (chaque mutant qui se construit répond à une entrée autrement que le vrai noyau, ou dépasse son délai ; pour `Sha256.lean`,
+    un condensat autre que celui de `node:crypto`), les équivalents listés comme ceux du décodeur, et la durée du job `g3-genkan`
+    mesurée de nouveau contre son `timeout-minutes`. Porteur : MONARK. Déclencheur : le lot 3b de Genkan ; état : ouvert.
   - HARNESS-VERIFY-TLS-FLAKE-1 (vu par HIKAE dans un passage complet de `test:main` sur `f6447437`, la première fusion du tronc du lot 2a de
     Hikae, le 2026-10-29 ; écrit ici au G7 de #348, MONARK, 2026-10-29 17:5x UTC) : le test
     `verify_harness_out_is_written_only_when_every_check_passes` (`test/verify-harness-liq.test.ts` l.366) a échoué une fois, son passage
