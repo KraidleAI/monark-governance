@@ -104,7 +104,7 @@ function buildRecordAudit(t: Tree, home: string): { records: string; audit: Spaw
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:507 SDL "  for (const [name, axioms] of records) for (const a of axioms) if (!ADMITTED_AXIOMS.has(a)) out.push(`${name}: foreign axiom ${a}`);" -> ""
+// killer: apps/genkan/scripts/audit.mjs:568 SDL "  for (const [name, axioms] of records) for (const a of axioms) if (!ADMITTED_AXIOMS.has(a)) out.push(`${name}: foreign axiom ${a}`);" -> ""
 test("records_kernel_refuses_the_planted_native_axiom", OPTIONS, () => {
   const home = pinnedHome();
   const t = makeTree();

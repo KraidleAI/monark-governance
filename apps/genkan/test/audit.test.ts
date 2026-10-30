@@ -85,7 +85,7 @@ const PROBES: Record<string, [string[], [number, string][]]> = {
   P6: [['def h : Nat := 1 +--"', "  2", "def v : Nat := sorry", 'def z : String := "x"'], [[1, "glued --"], [1, 'glued "'], [3, "banned sorry"]]],
   P7: [
     ['def h : Nat := 1--"', "instance : Neg (IO Int) := ⟨fun m => do pure (-(← m))⟩", "def v : IO Nat := do let _x : Int <--sorry; pure 0", 'def z : String := "x"'],
-    [[1, "glued --"], [1, 'glued "'], [3, "glued --"], [3, "banned sorry"]],
+    [[1, "glued --"], [1, 'glued "'], [2, "io name IO refused"], [3, "glued --"], [3, "banned sorry"], [3, "io name IO refused"]],
   ],
   P8: [['def h : Nat := 1 --"', "def v : Nat := sorry", 'def z : String := "x"'], [[2, "banned sorry"]]],
   P9: [[String.raw`notation "a\"b" => (1 : Nat)`, 'def w : Nat := a"b', "def v : Nat := sorry", 'def z : String := "x"'], [[1, "banned notation"], [2, 'glued "'], [3, "banned sorry"]]],
@@ -102,7 +102,7 @@ const PROBES: Record<string, [string[], [number, string][]]> = {
       String.raw`  | some f => IO.FS.writeFile f "anonymous init ran\n"`,
       "  | none => pure ()",
     ],
-    [[2, "banned init"]],
+    [[2, "banned init"], [2, "io name IO refused"], [3, "io name IO.getEnv refused"], [4, "io name IO.FS.writeFile refused"]],
   ],
   P12: [
     [
@@ -115,7 +115,7 @@ const PROBES: Record<string, [string[], [number, string][]]> = {
       "",
       "@[init mkVal] opaque val : Nat",
     ],
-    [[8, "banned init"]],
+    [[2, "io name IO refused"], [3, "io name IO.getEnv refused"], [4, "io name IO.FS.writeFile refused"], [8, "banned init"]],
   ],
   // A sorry inside dbg_trace's interpolated string compiled (P13); #guard ran its term while the file was elaborated (P14);
   // the three options made Lean accept false claims through sorryAx (P15); decide's native mode added an axiom of its own
@@ -184,13 +184,14 @@ const DEBUG_FUNCTIONS = ["dbgTrace", "dbgTraceVal", "dbgTraceIfShared", "dbgStac
 const NAMED_HEADS = ["throwNamedError", "throwNamedErrorAt", "logNamedError", "logNamedErrorAt", "logNamedWarning", "logNamedWarningAt"];
 const HASH_REFUSED = ["#guard true", "#guard_msgs in #check 1", "#reduce 1", "#exit", "#synth Inhabited Nat", "#check_failure 1", "#time #check 1", "#where"];
 
-// killer: apps/genkan/scripts/audit.mjs:212 COR "i === 0 || WHITE" -> "i === 0 && WHITE"
+// killer: apps/genkan/scripts/audit.mjs:233 COR "i === 0 || WHITE" -> "i === 0 && WHITE"
 test("audit_refuses_banned_construct", () => {
   // (1) Each finding at its exact line. The header block comment spans two lines (line numbers are kept) and the line
   // comment holds a block opener (it opens nothing). The `sorry` lines from `def q` on each defeat a naive lexer: a char
   // literal `'"'`, a raw string with no escapes, comment openers inside strings, a guillemet name holding a quote, code
   // inside interpolated strings (one with a nested string), and `!sorry`. After a letter `!` is a name character: `a!sorry`
-  // is one name, refused as a panic name and never read as `sorry`.
+  // is one name, refused as a panic name and never read as `sorry`. Outside Main.lean a name whose first component is IO
+  // and the head println! are refused (GENKAN-MAIN-IO-1), so the rows and probes that write them carry that finding too.
   const judge: [string, string | string[] | null][] = [
     ["/- a header comment", null],
     ["   spanning two lines -/", null],
@@ -213,7 +214,7 @@ test("audit_refuses_banned_construct", () => {
     ['def i : String := s!"{(sorry : Nat)}"', "banned sorry"],
     ['def j : String := s!"{f "x" ++ toString sorry}"', "banned sorry"],
     ['def i2 : Std.Format := f!"{(sorry : Nat)}"', "banned sorry"],
-    ['def i3 : IO Unit := println! "{(sorry : Nat)}"', "banned sorry"],
+    ['def i3 : IO Unit := println! "{(sorry : Nat)}"', ["banned sorry", "io name IO refused", "io name println! refused"]],
     ["def k : Bool := !sorry", "banned sorry"],
     ["def k1 : Nat := a!sorry", "banned a!sorry"],
     ["set_option debug.skipKernelTC true in", ["banned set_option", "banned skipKernelTC"]],
@@ -235,7 +236,7 @@ test("audit_refuses_banned_construct", () => {
     // An opener glued to code is refused (Lean reads `<-` then `-sorry`, `\/` then `-sorry`), and lexing goes on as code; a
     // guillemet component is read as its content; a `-/` right after a letter still closes a block comment; a raw string
     // glued to `(` is refused, and its text read as code.
-    ["def v1 : IO Nat := do let _x <--sorry; pure 0", ["glued --", "banned sorry"]],
+    ["def v1 : IO Nat := do let _x <--sorry; pure 0", ["glued --", "banned sorry", "io name IO refused"]],
     [String.raw`def v2 : Prop := True \/-sorry -/ False`, ["glued /-", "banned sorry"]],
     ["@[«implemented_by» g] def v3 (n : Nat) : Nat := n", ["glued «", "banned implemented_by"]],
     ["def v4 : Nat := «sorry»", "banned sorry"],
@@ -244,15 +245,15 @@ test("audit_refuses_banned_construct", () => {
     ['def v11 : String := (r"sorry")', ["glued r", 'glued "', "banned sorry"]],
     // The attribute forms of initialize (P11, P12) and export; foreign axioms through a qualified, a guillemet and an
     // opened name.
-    ["@[init] def gi2 : IO Unit := pure ()", "banned init"],
-    ["@[builtin_init] def gb2 : IO Unit := pure ()", "banned builtin_init"],
+    ["@[init] def gi2 : IO Unit := pure ()", ["banned init", "io name IO refused"]],
+    ["@[builtin_init] def gb2 : IO Unit := pure ()", ["banned builtin_init", "io name IO refused"]],
     ["@[export genkan_gx] def gx : Nat := 0", "banned export"],
     ["def ax1 : Nat := sorryAx Nat", "banned sorryAx"],
     ["def ax2 : Nat := _root_.«sorryAx» Nat", "banned sorryAx"],
     ["def ax3 : True := Lean.«trustCompiler»", "banned trustCompiler"],
     ["open Lean in def ax4 : Bool := ofReduceBool", "banned ofReduceBool"],
     // dbg_trace in a do block (its string's code part is read), idbg, a qualified debugging function, an option in a term.
-    ['def dd : IO Unit := do dbg_trace "{sorryAx Nat}"; pure ()', ["banned dbg_trace", "banned sorryAx"]],
+    ['def dd : IO Unit := do dbg_trace "{sorryAx Nat}"; pure ()', ["banned dbg_trace", "banned sorryAx", "io name IO refused"]],
     ["def id1 (n : Nat) : Nat := idbg n; n + 1", "banned idbg"],
     ["def db1 : Nat := _root_.dbgSleep 1 fun _ => 0", "banned dbgSleep"],
     ["def so : Nat := set_option pp.all true in 0", "banned set_option"],
@@ -290,9 +291,9 @@ test("audit_refuses_banned_construct", () => {
   ].sort();
   assert.equal(
     expected.length,
-    133,
-    "non-vacuity: 60 findings in Judge.lean, 7 token commands, 12 foreign axioms, 6 debugging functions, 6 named heads, 8 # commands, " +
-      "27 in the probes, 5 foreign imports, 2 sources",
+    147,
+    "non-vacuity: 66 findings in Judge.lean (6 io names: 2 in i3, 1 each in v1, gi2, gb2, dd), 7 token commands, 12 foreign axioms, " +
+      "6 debugging functions, 6 named heads, 8 # commands, 35 in the probes (8 io names: 2 in P7, 3 in P11, 3 in P12), 5 foreign imports, 2 sources",
   );
   // Exact set: every planted finding at its file and line, nothing from Theorems.lean, nothing from the root's .lake.
   assert.deepEqual(positioned(r), expected, `each finding is named with its file and line, and only those\n${show(r)}`);
@@ -389,7 +390,7 @@ const LAKEFILE_L2 = [
 const LAKEFILE_L1 = ["import Lake", "open Lake DSL", "", "package «genkan-kernel»", "", "@[default_target]", "lean_exe «genkan-kernel» where", "  root := `Main", ""].join("\n");
 const LAKEFILE_L1_SHA256 = "ed9d18b98ef3cfa1269b4d053bdf9ef83db0351bbf06ec83e7b35e5486b0785d";
 
-// killer: apps/genkan/scripts/audit.mjs:492 ROR "sha !== LAKEFILE_SHA256" -> "sha === LAKEFILE_SHA256"
+// killer: apps/genkan/scripts/audit.mjs:553 ROR "sha !== LAKEFILE_SHA256" -> "sha === LAKEFILE_SHA256"
 test("audit_pins_lakefile", () => {
   // The real lakefile next to the scripts is the pinned one: its copy passes, with LF or CRLF line ends.
   const realPath = join(KERNEL_DIR, "lakefile.lean");
@@ -432,9 +433,9 @@ test("audit_pins_lakefile", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:383 CONST "name?.length ?? 1" -> "name?.length ?? 0"
-// killer: apps/genkan/scripts/audit.mjs:510 CONST "if (!records.has(\"main\")) out.push(\"main: no axiom record\");" -> "if (false) out.push(\"main: no axiom record\");"
-// killer: apps/genkan/scripts/audit.mjs:508 SDL "  for (const { name } of theorems) if (!records.has(name)) out.push(`${name}: no axiom record`);" -> ""
+// killer: apps/genkan/scripts/audit.mjs:444 CONST "name?.length ?? 1" -> "name?.length ?? 0"
+// killer: apps/genkan/scripts/audit.mjs:571 CONST "if (!records.has(\"main\")) out.push(\"main: no axiom record\");" -> "if (false) out.push(\"main: no axiom record\");"
+// killer: apps/genkan/scripts/audit.mjs:569 SDL "  for (const { name } of theorems) if (!records.has(name)) out.push(`${name}: no axiom record`);" -> ""
 test("audit_refuses_foreign_axiom", () => {
   const kernel = makeKernel({
     "Genkan/Theorems.lean": ["namespace Genkan", "theorem a : True := trivial", "theorem b : True := trivial", "end Genkan", ""].join("\n"),
@@ -513,7 +514,7 @@ test("audit_refuses_foreign_axiom", () => {
   const r7 = run(AUDIT_MJS, ["--kernel", one], { ...process.env });
   assert.equal(r7.status, 1, `no records: a declared theorem must fail the audit\n${show(r7)}`);
   assert.deepEqual(refusals(r7), ["audit: Genkan.a: no axiom record", "audit: main: no axiom record"], `the theorem and main, each without a record, are named\n${show(r7)}`);
-  const mainOnly = makeKernel({ "Main.lean": "def main : IO Unit := pure ()\n" });
+  const mainOnly = makeKernel({ "Main.lean": "def main : IO UInt32 := pure 3\n" });
   const r7b = run(AUDIT_MJS, ["--kernel", mainOnly], { ...process.env });
   assert.equal(r7b.status, 1, `no records, no theorem: main's missing record must fail the audit\n${show(r7b)}`);
   assert.deepEqual(linesOf(r7b.stderr), ["audit: main: no axiom record"], `main without a record is named, and only it\n${show(r7b)}`);
@@ -543,14 +544,14 @@ test("audit_refuses_foreign_axiom", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:439 CONST "[KERNEL_FLAG, AXIOMS_FLAG, SOURCE_FLAG, ROOTS_FLAG].includes(flag)" -> "[KERNEL_FLAG, AXIOMS_FLAG, SOURCE_FLAG].includes(flag)"
-// killer: apps/genkan/scripts/audit.mjs:442 SDL "  if (flag === SOURCE_FLAG || flag === ROOTS_FLAG) continue; // no value" -> ""
-// killer: apps/genkan/scripts/audit.mjs:448 CONST ".filter((f) => seen.has(f)).length > 1)" -> ".filter((f) => seen.has(f)).length > 2)"
-// killer: apps/genkan/scripts/audit.mjs:500 CONST "[{ module: \"Main\", name: \"main\" }, ...theorems]" -> "[...theorems]"
-// killer: apps/genkan/scripts/audit.mjs:489 CONST ".split(\"/\").join(\".\")" -> ".split(\"/\").join(\"/\")"
-// killer: apps/genkan/scripts/audit.mjs:501 SDL "  process.exit(0);" -> ""
-// killer: apps/genkan/scripts/audit.mjs:504 CONST "if (!sourceOnly) {" -> "if (true) {"
-// killer: apps/genkan/scripts/audit.mjs:518 CONST "sourceOnly ? \" (sources only)\" : \"\"" -> "\"\""
+// killer: apps/genkan/scripts/audit.mjs:500 CONST "[KERNEL_FLAG, AXIOMS_FLAG, SOURCE_FLAG, ROOTS_FLAG].includes(flag)" -> "[KERNEL_FLAG, AXIOMS_FLAG, SOURCE_FLAG].includes(flag)"
+// killer: apps/genkan/scripts/audit.mjs:503 SDL "  if (flag === SOURCE_FLAG || flag === ROOTS_FLAG) continue; // no value" -> ""
+// killer: apps/genkan/scripts/audit.mjs:509 CONST ".filter((f) => seen.has(f)).length > 1)" -> ".filter((f) => seen.has(f)).length > 2)"
+// killer: apps/genkan/scripts/audit.mjs:561 CONST "[{ module: \"Main\", name: \"main\" }, ...theorems]" -> "[...theorems]"
+// killer: apps/genkan/scripts/audit.mjs:550 CONST ".split(\"/\").join(\".\")" -> ".split(\"/\").join(\"/\")"
+// killer: apps/genkan/scripts/audit.mjs:562 SDL "  process.exit(0);" -> ""
+// killer: apps/genkan/scripts/audit.mjs:565 CONST "if (!sourceOnly) {" -> "if (true) {"
+// killer: apps/genkan/scripts/audit.mjs:579 CONST "sourceOnly ? \" (sources only)\" : \"\"" -> "\"\""
 test("audit_modes_source_only_and_roots", () => {
   const env = { ...process.env };
   const MAIN = "def main : IO UInt32 := pure 3\n";
@@ -667,8 +668,8 @@ test("audit_modes_source_only_and_roots", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:351 CONST "if (word === \"private\" && THEOREM_FILES.has(rel))" -> "if (false && THEOREM_FILES.has(rel))"
-// killer: apps/genkan/scripts/audit.mjs:351 COR "word === \"private\" && THEOREM_FILES.has(rel)" -> "word === \"private\""
+// killer: apps/genkan/scripts/audit.mjs:410 CONST "if (word === \"private\" && THEOREM_FILES.has(rel))" -> "if (false && THEOREM_FILES.has(rel))"
+// killer: apps/genkan/scripts/audit.mjs:410 COR "word === \"private\" && THEOREM_FILES.has(rel)" -> "word === \"private\""
 test("audit_refuses_private_in_theorem_files", () => {
   // A private theorem gets a mangled name that `#print axioms` does not find under its written one (measured): in the two
   // theorem files the word private is refused, as a whole single-component name in code position, read through
@@ -711,10 +712,10 @@ test("audit_refuses_private_in_theorem_files", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:68 CONST "[\"outOfBounds\"]" -> "[]"
-// killer: apps/genkan/scripts/audit.mjs:69 CONST "/panic/i" -> "/panic/"
-// killer: apps/genkan/scripts/audit.mjs:346 SDL "add(tok.start, `banned ${panic}`);" -> ""
-// killer: apps/genkan/scripts/audit.mjs:337 SDL "add(tok.start, \"banned ]!\");" -> ""
+// killer: apps/genkan/scripts/audit.mjs:74 CONST "[\"outOfBounds\"]" -> "[]"
+// killer: apps/genkan/scripts/audit.mjs:75 CONST "/panic/i" -> "/panic/"
+// killer: apps/genkan/scripts/audit.mjs:388 SDL "add(tok.start, `banned ${panic}`);" -> ""
+// killer: apps/genkan/scripts/audit.mjs:379 SDL "add(tok.start, \"banned ]!\");" -> ""
 test("audit_refuses_panics_in_the_kernel", () => {
   // (1) Each way kernel code can panic, at its exact line, in code position: an index `]` glued to `!` (in the code part of
   // an interpolated string too), a name any of whose components holds `!` or `panic` in any case (the first such component
@@ -755,7 +756,7 @@ test("audit_refuses_panics_in_the_kernel", () => {
     ["end Genkan", null],
   ];
   const main: [string, string | null][] = [
-    ['def main : IO UInt32 := do let b ← (← IO.getStdin).read 8; IO.println s!"{b[7]!}"; return 0', "banned ]!"],
+    ['def main : IO UInt32 := do let b ← (← IO.getStdin).read 8; (← IO.getStdout).putStrLn s!"{b[7]!}"; return 0', "banned ]!"],
   ];
   const theorems: [string, string | null][] = [
     ["namespace Genkan", null],
@@ -788,7 +789,6 @@ test("audit_refuses_panics_in_the_kernel", () => {
       "namespace Genkan",
       'def c1 : String := s!"value {1}"',
       'def c2 : Std.Format := f!"value {1}"',
-      'def c3 : IO Unit := println! "value {1}"',
       'def c4 : String := s! "x"',
       "def c5 (b : ByteArray) (i : Nat) : UInt8 := b[i]?.getD 0",
       "def c6 (c : Bool) : Bool := !c",
@@ -811,7 +811,7 @@ test("audit_refuses_panics_in_the_kernel", () => {
     ].join("\n"),
     "Main.lean": [
       "-- b[7]! panic! get!",
-      'def main : IO UInt32 := do let b ← (← IO.getStdin).read 8; IO.println s!"{b[7]?.getD 0}"; return 0',
+      'def main : IO UInt32 := do let b ← (← IO.getStdin).read 8; (← IO.getStdout).putStrLn s!"{b[7]?.getD 0}"; return 0',
       "",
     ].join("\n"),
     "Genkan/Theorems.lean": ["namespace Genkan", "theorem t : True := trivial", "theorem foo' : True := trivial", "end Genkan", ""].join("\n"),
@@ -821,7 +821,162 @@ test("audit_refuses_panics_in_the_kernel", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:359 SDL "if (!NAME.test(name)) add(start," -> ""
+// killer: apps/genkan/scripts/audit.mjs:80 CONST "IO EIO BaseIO" -> "EIO BaseIO"
+test("audit_bounds_main_io_to_stdin_and_stdout", () => {
+  const env = { ...process.env };
+  // (1) GENKAN-MAIN-IO-1. The kernel's sources may name no effect but stdin and stdout. In every file but lakefile.lean a
+  // name whose first component (read without guillemets, after a leading _root_) is IO, EIO, BaseIO, EST, ST or System is
+  // refused, and so is a name any of whose components is timeit, allocprof, unsafeIO, unsafeEIO or unsafeBaseIO, the head
+  // println!, and a leading dot (a `.` glued to the name after it and not glued after a term: `.getStderr` against the type
+  // `IO _` is IO.getStderr with no IO token written). Main.lean (its name in any case) may write the four tokens IO,
+  // IO.getStdin, IO.getStdout and IO.FS.Stream, exactly so, and neither open nor namespace there (`open IO` would make
+  // getStderr name IO.getStderr); its main must be `def main : IO UInt32`. Each finding at its exact line.
+  const main: [string, string | string[] | null][] = [
+    ["def main : IO UInt32 := pure 0", null],
+    ["def e1 : IO IO.FS.Stream := IO.getStderr", "io name IO.getStderr refused"],
+    ['def e2 : IO Unit := IO.println "x"', "io name IO.println refused"],
+    ['def e3 : IO String := IO.FS.readFile "x"', "io name IO.FS.readFile refused"],
+    ['def e4 : IO IO.Process.Output := IO.Process.output { cmd := "x" }', ["io name IO.Process.Output refused", "io name IO.Process.output refused"]],
+    ["def e5 : IO Nat := IO.monoMsNow", "io name IO.monoMsNow refused"],
+    ['def e6 : IO (Option String) := IO.getEnv "X"', "io name IO.getEnv refused"],
+    ["def e7 : IO IO.FS.Stream := IO.FS.Stream.ofBuffer default", "io name IO.FS.Stream.ofBuffer refused"],
+    ["def e8 : IO.FS.Handle := default", "io name IO.FS.Handle refused"],
+    // The exempt tokens are exempt as written only: a longer name, a _root_ or a guillemet spelling is judged.
+    ["def e9 := IO.getStdout.x", "io name IO.getStdout.x refused"],
+    ["def e10 := _root_.IO.getStdin", "io name _root_.IO.getStdin refused"],
+    ["def e11 := «IO».getStdout", "io name «IO».getStdout refused"],
+    // The other monads of the pinned toolchain (Init/System/IO.lean, ST.lean), and System.
+    ["def e12 : BaseIO Unit := pure ()", "io name BaseIO refused"],
+    ["def e13 : EIO String Unit := pure ()", "io name EIO refused"],
+    ["def e14 : EST String Nat Unit := pure ()", "io name EST refused"],
+    ["def e15 := @ST.Ref.get", "io name ST.Ref.get refused"],
+    ['def e16 : System.FilePath := "x"', "io name System.FilePath refused"],
+    // Init's functions outside those namespaces: timeit and allocprof read the clock and write on stderr.
+    ['def e17 : IO Unit := timeit "x" (pure ())', "io name timeit refused"],
+    ['def e18 : IO Unit := allocprof "x" (pure ())', "io name allocprof refused"],
+    ["def e19 := @unsafeIO", "io name unsafeIO refused"],
+    ["def e20 := @unsafeEIO", "io name unsafeEIO refused"],
+    ["def e21 := @unsafeBaseIO", "io name unsafeBaseIO refused"],
+    ["def e22 := Genkan.«timeit»", "io name Genkan.«timeit» refused"],
+    // println! writes IO.println; the panic rule still exempts it, so it has this finding only.
+    ['def e23 : IO Unit := println! "x"', "io name println! refused"],
+    // Leading dots: against an expected type, after a bind, after |>.
+    ["def e24 : IO IO.FS.Stream := .getStderr", "leading dot .getStderr refused"],
+    ['def e25 : IO Unit := do let e ← .getStderr; e.putStrLn "x"', "leading dot .getStderr refused"],
+    ["def e26 (x : Nat) : Nat := x |>.succ", "leading dot .succ refused"],
+    ["open IO", "io open refused"],
+    ["open Genkan in def e27 : Nat := 0", "io open refused"],
+    ["namespace IO", "io namespace refused"],
+    ["def getStderr2 : Nat := 0", null],
+    ["end IO", null],
+  ];
+  // Outside Main.lean nothing is exempt, the four tokens included, and open and namespace are admitted (their names are
+  // judged).
+  const bytes: [string, string | string[] | null][] = [
+    ["namespace Genkan", null],
+    ["def g1 : IO Unit := pure ()", "io name IO refused"],
+    ["def g2 := IO.getStdin", "io name IO.getStdin refused"],
+    ["def g3 := IO.getStdout", "io name IO.getStdout refused"],
+    ["def g4 (s : IO.FS.Stream) : Nat := 0", "io name IO.FS.Stream refused"],
+    ['def g5 := println! "x"', "io name println! refused"],
+    ["open IO", "io name IO refused"],
+    ["open System in def g6 : Nat := 0", "io name System refused"],
+    ["def g7 := EIO.toIO", "io name EIO.toIO refused"],
+    ["def g8 := ST.Ref.get", "io name ST.Ref.get refused"],
+    ["def g9 : Option Nat := .none", "leading dot .none refused"],
+    ["def g10 := timeit", "io name timeit refused"],
+    // Measured: Lean elaborates it to IO IO.FS.Stream.
+    ['def g11 := println! "x" *> .getStderr', ["io name println! refused", "leading dot .getStderr refused"]],
+    ["end Genkan", null],
+  ];
+  const files: [string, [string, string | string[] | null][]][] = [["Main.lean", main], ["Genkan/Bytes.lean", bytes]];
+  const kernelFiles = Object.fromEntries(files.map(([rel, rows]) => [rel, rows.map(([l]) => l).join("\n") + "\n"]));
+  const dirty = makeKernel(kernelFiles);
+  const s = run(AUDIT_MJS, ["--kernel", dirty, "--source-only"], env);
+  assert.equal(s.status, 1, `an effect beyond stdin and stdout must fail the audit\n${show(s)}`);
+  const expected = files
+    .flatMap(([rel, rows]) => rows.flatMap(([, w], i) => [w ?? []].flat().map((x) => `audit: ${rel}:${String(i + 1)}: ${x}`)))
+    .sort();
+  assert.equal(expected.length, 43, "non-vacuity: 30 findings in Main.lean (e4 has two), 13 in Bytes.lean (g11 has two)");
+  assert.deepEqual(positioned(s), expected, `each finding at its file and line, and only those\n${show(s)}`);
+
+  // (2) The rules hold in every mode but --roots: with main's record, and bare, the same findings are reported; --roots
+  // prints the roots and exits 0.
+  for (const [what, r] of [
+    ["with main's record", audit(dirty, axiomsFile(MAIN_NONE + "\n"))],
+    ["bare", run(AUDIT_MJS, ["--kernel", dirty], env)],
+  ] as const) {
+    assert.equal(r.status, 1, `${what}: the audit fails\n${show(r)}`);
+    const found = positioned(r);
+    for (const f of expected) assert.ok(found.includes(f), `${what}: the finding ${f} is reported\n${show(r)}`);
+  }
+  const roots = run(AUDIT_MJS, ["--kernel", dirty, "--roots"], env);
+  assert.equal(roots.status, 0, `--roots exits 0 whatever the sources hold\n${show(roots)}`);
+  assert.equal(String(roots.stdout), "Main main\n", `--roots prints Main main only\n${show(roots)}`);
+
+  // (3) The form of main, read on tokens: each kernel alone under --source-only, its stderr lines exactly.
+  const MAIN_FORM = "main must be declared as def main : IO UInt32";
+  const forms: [string, Record<string, string>, string[]][] = [
+    ["main with an argument", { "Main.lean": "def main (args : List String) : IO UInt32 := pure 0\n" }, [`audit: Main.lean:1: ${MAIN_FORM}`]],
+    ["main of IO Unit", { "Main.lean": "def main : IO Unit := pure ()\n" }, [`audit: Main.lean:1: ${MAIN_FORM}`]],
+    ["no main", { "Main.lean": "-- no main here\ndef notMain : Nat := 0\n" }, [`audit: Main.lean:1: ${MAIN_FORM}`]],
+    ["main as an abbrev", { "Main.lean": "abbrev main : IO UInt32 := pure 0\n" }, [`audit: Main.lean:1: ${MAIN_FORM}`]],
+    [
+      "main of _root_.IO",
+      { "Main.lean": "def helper : Nat := 0\ndef main : _root_.IO UInt32 := pure 0\n" },
+      ["audit: Main.lean:2: io name _root_.IO refused", `audit: Main.lean:2: ${MAIN_FORM}`].sort(),
+    ],
+    ["main.lean in lower case", { "main.lean": "def main : IO Unit := pure ()\n" }, [`audit: main.lean:1: ${MAIN_FORM}`]],
+  ];
+  for (const [what, alone, want] of forms) {
+    const r = run(AUDIT_MJS, ["--kernel", makeKernel(alone), "--source-only"], env);
+    assert.equal(r.status, 1, `${what}: the audit fails\n${show(r)}`);
+    assert.deepEqual(linesOf(r.stderr), want, `${what}: the finding at the line of main, and only it\n${show(r)}`);
+  }
+
+  // (4) Controls: the words in comments and strings, the four tokens of Main.lean, main declared over two lines, dots
+  // glued after a term (a name, a `)`, a char literal, a string, a `·`, a `?`), and near names. The audit passes.
+  const cleanMain = [
+    "-- IO.getStderr .getStderr println! timeit open namespace IO.FS.readFile",
+    "/- IO.getStderr .getStderr println! timeit open namespace IO.FS.readFile -/",
+    "def readAll (s : IO.FS.Stream) : Nat → ByteArray → IO ByteArray",
+    "  | 0, acc => pure acc",
+    "  | fuel + 1, acc => do",
+    "    let chunk ← s.read 65536",
+    "    if chunk.isEmpty then pure acc else readAll s fuel (acc ++ chunk)",
+    "def IOx : Nat := 0",
+    "def SystemX : Nat := 0",
+    "def ESTx : Nat := 0",
+    "def ioHelper : Nat := 0",
+    "def timeitNot : Nat := 0",
+    "def g : Nat := Genkan.IO.x",
+    "def main :",
+    "    IO UInt32 := do",
+    "  let stdin ← IO.getStdin",
+    "  let stdout ← IO.getStdout",
+    "  let input ← readAll stdin 64 ByteArray.empty",
+    '  stdout.write "IO.getStderr .getStderr".toUTF8',
+    "  (← IO.getStdout).write input",
+    "  stdout.flush",
+    "  let n := (input.size).succ + 'a'.toNat + \"ab\".length + input.data.toList.length",
+    "  pure (UInt32.ofNat n)",
+    "",
+  ].join("\n");
+  const cleanBytes = [
+    "namespace Genkan",
+    "def b1 : Option Nat := none",
+    "def b2 (xs : List UInt8) : Nat := (xs.map (·.toNat)).length",
+    "def b3 (b : ByteArray) (xs : Array Nat) : Nat := (b.data.toList.headD 0).toNat + xs[0]?.getD 0",
+    "end Genkan",
+    "",
+  ].join("\n");
+  assertAuditPasses(run(AUDIT_MJS, ["--kernel", makeKernel({ "Main.lean": cleanMain }), "--source-only"], env), "the clean Main.lean");
+  assertAuditPasses(run(AUDIT_MJS, ["--kernel", makeKernel({ "Genkan/Bytes.lean": cleanBytes }), "--source-only"], env), "the clean Genkan/Bytes.lean");
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+// killer: apps/genkan/scripts/audit.mjs:419 SDL "if (!NAME.test(name)) add(start," -> ""
 test("audit_refuses_theorem_names_that_are_not_plain", () => {
   const env = { ...process.env };
   // (1) In the two theorem files, a theorem whose full name (as --roots prints it) is not made of plain ASCII components is
@@ -893,7 +1048,7 @@ test("audit_refuses_theorem_names_that_are_not_plain", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:82 CONST "(?:\\.[A-Za-z_][A-Za-z0-9_']*)*$/" -> "(?:\\.[A-Za-z_][A-Za-z0-9_']*)*/"
+// killer: apps/genkan/scripts/audit.mjs:103 CONST "(?:\\.[A-Za-z_][A-Za-z0-9_']*)*$/" -> "(?:\\.[A-Za-z_][A-Za-z0-9_']*)*/"
 test("audit_name_rule_is_the_records_rule", () => {
   // The audit refuses in the sources the theorem names that records.mjs refuses as roots: each file declares the rule once,
   // on its own line, and the two literals are the same.
@@ -912,9 +1067,9 @@ test("audit_name_rule_is_the_records_rule", () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-// killer: apps/genkan/scripts/audit.mjs:465 CONST "d.name.toLowerCase() === \".lake\") rootLakes" -> "d.name === \".lake\") rootLakes"
-// killer: apps/genkan/scripts/audit.mjs:465 SDL "rootLakes.push(d.name);" -> ""
-// killer: apps/genkan/scripts/audit.mjs:496 CONST "if (sourceOnly) for" -> "for"
+// killer: apps/genkan/scripts/audit.mjs:526 CONST "d.name.toLowerCase() === \".lake\") rootLakes" -> "d.name === \".lake\") rootLakes"
+// killer: apps/genkan/scripts/audit.mjs:526 SDL "rootLakes.push(d.name);" -> ""
+// killer: apps/genkan/scripts/audit.mjs:557 CONST "if (sourceOnly) for" -> "for"
 test("audit_source_only_refuses_the_root_build_dir", () => {
   const env = { ...process.env };
   // Under --source-only (CI runs it on the checked-out sources, before any Lean runs) an entry named .lake at the kernel's
