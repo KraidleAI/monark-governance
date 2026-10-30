@@ -1,0 +1,37 @@
+{
+  "format": "The mutants of the decoder (apps/genkan/test/helpers/mutants.ts) that build and that no input of the formats tells from the real kernel: each names its file, the line of its fragment, the fragment and its replacement, the sha256 of the file it mutates, and why no input of the formats can tell them apart; decoder_mutants_killed_in_bytes and decoder_mutants_killed_in_format refuse a survivor that is not listed and an entry that matches no survivor.",
+  "equivalent": [
+    {
+      "file": "Genkan/Bytes.lean",
+      "line": 13,
+      "fragment": "1",
+      "replacement": "0",
+      "sha256": "7dca4e3002a5ed5d444ab9d7614db828be488d1d7316d445230a42a172b6537d",
+      "why": "beNat's last arm becomes `| _ + 0, _, [] => none`, which matches any count with no byte left; the first arm `| 0, acc, xs` is tried before it and takes the count 0, so the last arm only ever sees a count n + 1 with no byte left, exactly what `_ + 1` matched: beNat gives the same value on every count and every list, so no input can tell them apart."
+    },
+    {
+      "file": "Genkan/Bytes.lean",
+      "line": 32,
+      "fragment": "1",
+      "replacement": "0",
+      "sha256": "7dca4e3002a5ed5d444ab9d7614db828be488d1d7316d445230a42a172b6537d",
+      "why": "alphaBytes's last arm becomes `| _ + 0, _, [] => none`, which matches any count with no byte left; the first arm `| 0, acc, xs` is tried before it and takes the count 0, so the last arm only ever sees a count n + 1 with no byte left, exactly what `_ + 1` matched: alphaBytes gives the same value on every count and every list, so no input can tell them apart."
+    },
+    {
+      "file": "Genkan/Bytes.lean",
+      "line": 44,
+      "fragment": "1",
+      "replacement": "0",
+      "sha256": "7dca4e3002a5ed5d444ab9d7614db828be488d1d7316d445230a42a172b6537d",
+      "why": "takeBytes's last arm becomes `| _ + 0, _, [] => none`, which matches any count with no byte left; the first arm `| 0, acc, xs` is tried before it and takes the count 0, so the last arm only ever sees a count n + 1 with no byte left, exactly what `_ + 1` matched: takeBytes gives the same value on every count and every list, so no input can tell them apart."
+    },
+    {
+      "file": "Genkan/Format.lean",
+      "line": 66,
+      "fragment": "1",
+      "replacement": "0",
+      "sha256": "d39b91dc8736524a65e5fbeef785aaac4aab4b121f03777988690ace109ee859",
+      "why": "digits's second arm becomes `| fuel + 0, n, acc`, which keeps the fuel instead of lowering it by one. Its one caller, decimal n = digits n n [], starts the fuel at n: for n = 0 both take the first arm and give 0; for n > 0 the real kernel's fuel stays at least n while n goes to n / 10 (the comment of digits), so it never reaches the first arm before n < 10, and the mutant's fuel stays n > 0, so it never does either; both end on the same digit with the same list, so every number of an order prints the same and no input can tell them apart."
+    }
+  ]
+}

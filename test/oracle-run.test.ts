@@ -147,39 +147,46 @@ test("oracle_ci_only_withdraws_the_two_sudo_blocks_of_the_handoff_job_only — a
 // killer: scripts/oracle/run.mjs:32 CONST "status=0\\n" -> "status=1\\n"
 // killer: scripts/oracle/run.mjs:32 CONST "mkdir -p \"\\$RUNNER_TEMP\\/(?:" -> "mkdir -p \"\\$\\w+\\/(?:"
 // killer: scripts/oracle/run.mjs:32 CONST "|ELAN_HOME=\"\\$RUNNER_TEMP\\/elan\" node apps" -> "|(?:ELAN_HOME=\"\\$RUNNER_TEMP\\/elan\" )?node apps"
-// killer: scripts/oracle/run.mjs:32 CONST "genkan-kernel \\|\\|" -> "\\w+ \\|\\|"
-// killer: .github/workflows/ci.yml:287 CONST "run: node apps/genkan/scripts/audit.mjs --source-only" -> "run: node apps/genkan/scripts/audit.mjs"
+// killer: scripts/oracle/run.mjs:32 CONST "genkan-kernel < \\/dev\\/null \\|\\|" -> "\\w+ < \\/dev\\/null \\|\\|"
+// killer: .github/workflows/ci.yml:285 CONST "run: node apps/genkan/scripts/audit.mjs --source-only" -> "run: node apps/genkan/scripts/audit.mjs"
 // killer: .github/workflows/ci.yml:318 SDL "ELAN_HOME: ${{ runner.temp }}/elan" -> ""
 test("oracle_ci_only_withdraws_the_runner_toolchain_steps_of_the_genkan_job — fetch, hold, unpack, temp, build, the skeleton's exit code; the tools check, the tests and three near misses stay gates", () => withFx((fx) => {
   // The job g3-genkan, copied from the real ci.yml, then a foreign job of near misses: the wrapper's build without the runner's ELAN_HOME,
-  // a temp dir that is not the runner's, a block that starts as the skeleton's and runs another binary. --static-only: none of them runs
-  // here (outside the static lane); each must be absent from ci_only, where it would never run.
+  // a temp dir that is not the runner's, a block that starts as the kernel's and runs another binary, and a block in the kernel's old form
+  // (its binary run without the empty request). --static-only: none of them runs here (outside the static lane); each must be absent from
+  // ci_only, where it would never run.
   const real = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8").replace(/\r\n/g, "\n"), at = real.indexOf("\n  g3-genkan:\n");
   assert.ok(at > 0, "the real ci.yml holds the job g3-genkan");
   const end = real.slice(at + 1).search(/\n {2}[\w-]+:\n/), job = real.slice(at + 1, end < 0 ? undefined : at + 1 + end + 1);
-  appendFileSync(join(fx.repo, ".github", "workflows", "ci.yml"), `${job}  foreign:\n    steps:\n      - run: node apps/genkan/scripts/lake.mjs build\n      - run: mkdir -p "$TMPDIR/genkan"\n      - run: |\n          status=0\n          apps/genkan/kernel/.lake/build/bin/other || status=$?\n          echo done\n`);
-  git(fx.repo, "commit", "-qam", "the genkan job and three near misses");
+  appendFileSync(join(fx.repo, ".github", "workflows", "ci.yml"), `${job}  foreign:\n    steps:\n      - run: node apps/genkan/scripts/lake.mjs build\n      - run: mkdir -p "$TMPDIR/genkan"\n` +
+    "      - run: |\n          status=0\n          apps/genkan/kernel/.lake/build/bin/other < /dev/null || status=$?\n          echo done\n" +
+    "      - run: |\n          status=0\n          apps/genkan/kernel/.lake/build/bin/genkan-kernel || status=$?\n          echo done\n");
+  git(fx.repo, "commit", "-qam", "the genkan job and four near misses");
   const a = oracle(fx, ["--role", "G1", "--static-only"]);
   assert.deepEqual(a.rec?.ci_only?.map((c) => c.cmd.split("\n")[0]), ["npm ci", "npm audit --audit-level=high",
     'curl --fail --location --silent --show-error --retry 5 --retry-all-errors --retry-delay 5 --output "$RUNNER_TEMP/lean-4.32.1-linux.tar.zst" https://github.com/leanprover/lean4/releases/download/v4.32.1/lean-4.32.1-linux.tar.zst',
     'echo "57d5c062a6b4bae6fba511a1704aa124dff461c37d0fc94585637fbb7d951b50  $RUNNER_TEMP/lean-4.32.1-linux.tar.zst" | sha256sum -c -',
     'mkdir -p "$RUNNER_TEMP/elan/toolchains/leanprover--lean4---v4.32.1"', 'mkdir -p "$RUNNER_TEMP/genkan"',
     'ELAN_HOME="$RUNNER_TEMP/elan" node apps/genkan/scripts/lake.mjs build',
+    'ELAN_HOME="$RUNNER_TEMP/elan" node apps/genkan/scripts/records.mjs --replay',
     'ELAN_HOME="$RUNNER_TEMP/elan" node apps/genkan/scripts/records.mjs --out "$RUNNER_TEMP/genkan/axioms.txt"',
     'node apps/genkan/scripts/audit.mjs --axioms-from "$RUNNER_TEMP/genkan/axioms.txt"', "status=0"],
-  `the eight runner steps of the job only, never the source audit, the tools check, the tests nor a near miss: ${a.out}`);
-  const withdrawn = a.rec?.ci_only?.map((c) => c.cmd) ?? []; // the near miss block starts as the skeleton's: its first line alone cannot tell them apart
-  assert.ok(withdrawn.some((c) => c.includes("bin/genkan-kernel || status=$?")) && !withdrawn.some((c) => c.includes("bin/other")),
-    `the skeleton's block is withdrawn, never the near miss that starts as it does: ${a.out}`);
-  // The job's composition, read in the real ci.yml: the source audit before any Lean runs (before the fetch), then the build, the records
-  // and the audit of those records, in that order; the test step runs test:genkan with the toolchain's home in its env.
+  `the nine runner steps of the job only (the replay after the build), never the source audit, the tools check, the tests nor a near miss: ${a.out}`);
+  const withdrawn = a.rec?.ci_only?.map((c) => c.cmd) ?? []; // the near miss blocks start as the kernel's: their first line alone cannot tell them apart
+  assert.ok(withdrawn.some((c) => c.includes("bin/genkan-kernel < /dev/null || status=$?")), `the kernel's block, on an empty request, is withdrawn: ${a.out}`);
+  assert.ok(!withdrawn.some((c) => c.includes("bin/other")), `the near miss that runs another binary stays a gate: ${a.out}`);
+  assert.ok(!withdrawn.some((c) => c.includes("bin/genkan-kernel || status=$?")), `the kernel's block in its old form stays a gate: ${a.out}`);
+  // The job's composition, read in the real ci.yml: the source audit before any Lean runs (before the fetch), then the build, the replay,
+  // the records and the audit of those records, in that order; the test step runs test:genkan with the toolchain's home in its env.
   const lines = job.split("\n"), runAt = (cmd: string, prefix = false): number => lines.findIndex((l) => (prefix ? l.startsWith(`        run: ${cmd}`) : l === `        run: ${cmd}`));
   const steps: [string, number][] = [["the source audit", runAt("node apps/genkan/scripts/audit.mjs --source-only")], ["the fetch", runAt("curl ", true)],
     ["the build", runAt('ELAN_HOME="$RUNNER_TEMP/elan" node apps/genkan/scripts/lake.mjs build')],
+    ["the replay", runAt('ELAN_HOME="$RUNNER_TEMP/elan" node apps/genkan/scripts/records.mjs --replay')],
     ["the records", runAt('ELAN_HOME="$RUNNER_TEMP/elan" node apps/genkan/scripts/records.mjs --out "$RUNNER_TEMP/genkan/axioms.txt"')],
     ["the audit of the records", runAt('node apps/genkan/scripts/audit.mjs --axioms-from "$RUNNER_TEMP/genkan/axioms.txt"')]];
   assert.ok(steps.every(([, i], k) => i >= 0 && (k === 0 || i > steps[k - 1]![1])), `the job runs ${steps.map(([w]) => w).join(", then ")}: ${JSON.stringify(steps)}`);
   assert.match(job, /^ {6}- name: [^\n]*\n {8}env:\n {10}ELAN_HOME: \$\{\{ runner\.temp \}\}\/elan\n {8}run: npm run test:genkan$/m, "the test step runs test:genkan with ELAN_HOME, the toolchain's home, in its env");
+  assert.doesNotMatch(job, /skeleton/, "the job names the kernel, no skeleton");
 }));
 
 // Genkan lot 1c: the records writer and the audit of its file run on the runner's paths (RUNNER_TEMP, the unpacked toolchain), so two
@@ -211,6 +218,37 @@ test("oracle_ci_only_withdraws_the_two_records_steps_of_the_genkan_job - the rec
     'node apps/genkan/scripts/audit.mjs --axioms-from "$RUNNER_TEMP/axioms.txt"',
     `${AXIOMS} --x`,
     `ELAN_HOME="$RUNNER_TEMP/elan" ${AXIOMS}`,
+  ];
+  for (const step of refused) {
+    writeFileSync(ci, `${own}      - run: ${step}\n`);
+    git(fx.repo, "commit", "-qam", `a near miss on the runner: ${step}`);
+    const r = oracle(fx, ["--role", "G1", "--static-only"]);
+    assert.equal(r.status, 2, `${step}: the derivation is refused: ${r.out}`);
+    assert.equal(r.rec, null, `${step}: no record`);
+    assert.ok(r.out.includes(`the gate "${step}" names the runner's environment`), `${step}: the refusal names the gate and the runner: ${r.out}`);
+  }
+}));
+
+// Genkan lot 2b-i: the replay of the kernel's modules by the pinned leanchecker runs on the runner's toolchain (RUNNER_TEMP), so the CI_ONLY
+// entry of g3-genkan withdraws exactly that command. The same command off the runner stays a gate; near misses that name the runner but not
+// the exact command refuse the derivation (ORACLE-RUNNER-GATE-1), exit 2, no record.
+// killer: scripts/oracle/run.mjs:32 CONST "records\\.mjs --replay$" -> "records\\.mjs --replay-x$"
+test("oracle_ci_only_withdraws_the_replay_step_of_the_genkan_job", () => withFx((fx) => {
+  const ci = join(fx.repo, ".github", "workflows", "ci.yml"), own = readFileSync(ci, "utf8");
+  const REPLAY = 'ELAN_HOME="$RUNNER_TEMP/elan" node apps/genkan/scripts/records.mjs --replay';
+  const gate = "node apps/genkan/scripts/records.mjs --replay";
+  // --static-only: no gate outside the static lane runs, so the gate is never executed here; it must be absent from ci_only.
+  writeFileSync(ci, `${own}  genkan:\n    steps:\n${[gate, REPLAY].map((c) => `      - run: ${c}\n`).join("")}`);
+  git(fx.repo, "commit", "-qam", "the replay step and the same command off the runner, which stays a gate");
+  const a = oracle(fx, ["--role", "G1", "--static-only"]);
+  assert.notEqual(a.status, 2, `the replay step and the gate derive: ${a.out}`);
+  assert.deepEqual(a.rec?.ci_only?.map((c) => c.cmd), ["npm ci", "npm audit --audit-level=high", REPLAY], `the replay step withdrawn, never the gate: ${a.out}`);
+  const refused = [
+    'ELAN_HOME="$RUNNER_TEMP/other" node apps/genkan/scripts/records.mjs --replay',
+    `${REPLAY} --x`,
+    'ELAN_HOME="$RUNNER_TEMP/elan" node apps/genkan/scripts/records.mjs --replayx',
+    'ELAN_HOME="$RUNNER_TEMP/elan" node apps/genkan/scripts/records.mjs',
+    'ELAN_HOME="$RUNNER_TEMP/elan" node apps/genkan/scripts/lake.mjs --replay',
   ];
   for (const step of refused) {
     writeFileSync(ci, `${own}      - run: ${step}\n`);
