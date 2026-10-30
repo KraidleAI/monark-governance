@@ -13,7 +13,8 @@
  * Each run draws from the studies' LCG, seed (1664525 seed + 1013904223) mod 2^32, value seed / 2^32, jumped by the affine map composed in
  * bigint; all the labels of a trajectory are drawn first, then each loop stops at its first crossing; one run per stream, kept for its
  * tests.
- * Category: new-module (red at base by the load of ../src/suivi/detector.ts, which this change adds).
+ * Category: new-module (red at base by the load of ../src/suivi/detector.ts, which this change adds). The mean run length test of (C),
+ * added later, is a pin: green at base, since the library it runs is unchanged by its change, with one named killer.
  */
 import { alarm, detInit, detStep, srReading } from "../src/suivi/detector.ts";
 import type { DetState } from "../src/suivi/detector.ts";
