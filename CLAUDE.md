@@ -21,7 +21,7 @@ stratégie du fondateur ──signal──▶ HIKAE ──COMMIT / DEFER / ABSTA
 |---|---|
 | `packages/hikae` | la porte conforme : L1 split conforme par classe, L2 moniteur et budget `B_t`, L3 politique → `GateDecision` |
 | `packages/contracts`, `schemas/` | les contrats : `AttestedPrice`, `Prediction`, `CoverageVerdict`, `GateDecision` (les schémas JSON font foi) |
-| `apps/harness` | le moteur servi (serveur MCP : `gate`, `calibrate`, `judge`) |
+| `apps/harness` | le moteur servi (serveur MCP : `gate`, `calibrate`, `judge`) et l'exécuteur papier (`src/paper.ts`, non servi) |
 | `apps/genkan` | la porte d'ordres : noyau Lean 4, chaîne d'outils épinglée `leanprover/lean4:v4.32.1` |
 | `fixtures/`, `tools/kata-recalc/` | les données et vérificateurs que le moteur lit |
 
