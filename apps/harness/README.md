@@ -108,8 +108,9 @@ replayed budget)`. The tracking only lowers the caller's budget: it moves a deci
 The replay's cost. It reduces exact fractions at every label, and at t labels a capital of K or W has about t·L bits, where L is the
 bit size of the least common denominator of its mixture's betting factors (`suiviDenBits` of `@monark/hikae`; L = 7 for the USDe
 cell). So n labels cost about n·(n·L)². The gate refuses an evidence whose evaluations times L passes `SUIVI_MAX_WORK_BITS` (3600 bits),
-before any replay. Measured on 2026-11-04 on the development machine: 0.7 s for the USDe cell at 500 labels (3500 bits), and about 1 s
-at the bound with 500 labels. Without that bound, a policy of large or distinct denominators cost 7.7 s at 200 labels (L = 82), and a
+before any replay. Under both bounds the largest n·(n·L)² is the USDe cell's own case, L = 7 at 500 labels (3500 bits; L = 8 stops
+at 450 labels): 0.7 s, measured on 2026-11-04 on the development machine, and up to about 0.2 s more for a detector of 8 bets with
+large denominators (it runs in fixed point and is not counted in L; 196 ms measured at 500 labels). Without that bound, a policy of large or distinct denominators cost 7.7 s at 200 labels (L = 82), and a
 text of thousands of digits would cost far more: hence also the 20 characters of a rational text, checked before any parse.
 
 Refusals:
@@ -131,7 +132,7 @@ Not done at this step:
 - the replay's cost is the reduction of its fractions (from 91 % to nearly all of a capital's time at 500 labels, measured):
   comparing a capital with its level without reducing it would cut that cost tenfold or more and let the bounds grow. That is a
   change of the betting library (`packages/hikae/src/pari`, `suivi/o4.ts`), for a lot of its own;
-- the server is synchronous: a call at the work bound holds it for about 1 s.
+- the server is synchronous: a call at the work bound holds it for up to about 0.9 s.
 
 ## Committed calibrations
 
