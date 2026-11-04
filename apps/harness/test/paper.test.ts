@@ -196,3 +196,24 @@ test("paper_replay_alone_holds_no_journal_cut_at_a_line_or_rewritten_whole_the_k
   assert.equal(rewritten.steps, 3, "a journal rewritten whole under another total replays");
   assert.notEqual(rewritten.head, kept, "and its head is not the head kept");
 });
+
+test("paper_replay_refuses_a_step_that_stops_the_executor_on_the_kernel_it_runs", async () => {
+  // Recorded on a kernel that denies the second OPEN, over the rest of the total.
+  const ex = new PaperExecutor(TRIAL, kernelSaying("allow\n", "deny over-cap\n").runner);
+  await ex.submit(sub("o-1", 0, open("600")));
+  const denied = await ex.submit(sub("o-2", 1, open("600")));
+  assert.deepEqual([denied.limits?.assets, denied.judge?.kernel_reason, denied.fill], [[{ asset: "usde", cap: "400" }], "over-cap", null]);
+  const text = ex.journal();
+  const atStep = (e: unknown, line: number): e is PaperReplayError => e instanceof PaperReplayError && e.line === line && e.field === "step";
+  // Replayed on a kernel that allows it: the executor stops on that step (an OPEN above the rest), so the replay refuses its line.
+  await assert.rejects(replayPaperJournal(text, kernelSaying("allow\n").runner), (e: unknown) => atStep(e, 3) && /above the rest of the total/.test(e.message));
+  // A kernel runner that throws: the mirror answers 500, neither a verdict nor a refusal, and the executor stops at the first step.
+  const throwing: KernelRunner = () => {
+    throw new Error("no kernel");
+  };
+  await assert.rejects(replayPaperJournal(text, throwing), (e: unknown) => atStep(e, 2) && /neither a verdict nor a refusal/.test(e.message));
+  const live = new PaperExecutor(TRIAL, throwing);
+  await assert.rejects(live.submit(sub("o-1", 0, open("1"))), (e: unknown) => e instanceof PaperHalt && /answered 500/.test(e.message));
+  assert.equal(live.journal().split("\n").length, 2, "only the header is journaled");
+  await assert.rejects(live.submit(sub("o-2", 1, open("1"))), (e: unknown) => e instanceof PaperHalt && /has stopped/.test(e.message), "it takes no other order");
+});
