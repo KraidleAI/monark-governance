@@ -1,9 +1,12 @@
 /**
- * HIKAE betting library: a fixed mixture of bets, its capital from the counts, and the crossing table of a test.
+ * HIKAE betting library: a fixed mixture of bets, its capital from the counts, its test and its budget, and the crossing table of a test.
  *
  *   - a Mixture holds bets lambda_j and weights w_j > 0 summing to exactly 1;
  *   - capitalOfCounts(mix, side, a, t, k) = sum_j w_j f1_j^k f0_j^(t - k), f1_j and f0_j the betting factors at x = 1 and x = 0:
  *     with fixed bets, the capital after t labels depends on the count k of ones alone;
+ *   - capitalCrosses(mix, side, a, delta, t, k) is capital * delta >= 1 and capitalBudget(mix, side, a, delta, t, k, scale) is
+ *     floor(scale (1 - delta capital)), both on the unreduced integers of the capital at the counts (t, k): the decision of crosses
+ *     and the value of floorScaled on the reduced capital, without the gcd of any reduction;
  *   - crossingTable(mix, side, a, delta, tMax): for each t in [0, tMax], the frontier k at which capital * delta >= 1. Side "above"
  *     grows in k: the entry is the smallest crossing k of [0, t], or t + 1 when none crosses. Side "below" falls in k: the entry is the
  *     largest crossing k, or -1. The table is built from the exact rationals of the factors, scaled to integers over one common
@@ -11,7 +14,7 @@
  * Pure: no clock, no network, no file, no environment. Every refusal throws a RangeError.
  */
 import { betFactor, checkBet, checkSide, type BetSide } from "./bet.ts";
-import { add, checkQ, lcm, q, type Q } from "./rational.ts";
+import { add, checkQ, floorQuotient, lcm, q, type Q } from "./rational.ts";
 import { checkDelta } from "./threshold.ts";
 
 /** A fixed mixture: bets lambdas[j] with weights weights[j] > 0 summing to exactly 1. */
@@ -64,10 +67,10 @@ function checkTest(mix: Mixture, side: BetSide, a: Q, what: string): void {
   }, what);
 }
 
-export function capitalOfCounts(mix: Mixture, side: BetSide, a: Q, t: number, k: number): Q {
-  checkTest(mix, side, a, "capitalOfCounts");
+/** The capital at the counts (t, k) of a checked test, over its unreduced integers: num / den with den = scale den^t > 0. */
+function capitalTerms(mix: Mixture, side: BetSide, a: Q, t: number, k: number, what: string): { readonly num: bigint; readonly den: bigint } {
   if (!Number.isSafeInteger(t) || !Number.isSafeInteger(k) || k < 0 || k > t) {
-    throw new RangeError(`capitalOfCounts: counts t ${String(t)} and k ${String(k)} outside 0 <= k <= t`);
+    throw new RangeError(`${what}: counts t ${String(t)} and k ${String(k)} outside 0 <= k <= t`);
   }
   const { omega, scale } = integerWeights(mix);
   const { one, zero, den } = integerFactors(mix, side, a);
@@ -76,7 +79,30 @@ export function capitalOfCounts(mix: Mixture, side: BetSide, a: Q, t: number, k:
   omega.forEach((w, j) => {
     num += w * item(one, j) ** ones * item(zero, j) ** zeros;
   });
-  return q(num, scale * den ** BigInt(t));
+  return { num, den: scale * den ** BigInt(t) };
+}
+
+export function capitalOfCounts(mix: Mixture, side: BetSide, a: Q, t: number, k: number): Q {
+  checkTest(mix, side, a, "capitalOfCounts");
+  const { num, den } = capitalTerms(mix, side, a, t, k, "capitalOfCounts");
+  return q(num, den);
+}
+
+export function capitalCrosses(mix: Mixture, side: BetSide, a: Q, delta: Q, t: number, k: number): boolean {
+  checkTest(mix, side, a, "capitalCrosses");
+  checkDelta(delta, "capitalCrosses");
+  const { num, den } = capitalTerms(mix, side, a, t, k, "capitalCrosses");
+  // The reduction by g = gcd(num, den) > 0 would multiply both sides alike: the decision of crosses(capitalOfCounts(...), delta).
+  return num * delta.n >= den * delta.d;
+}
+
+export function capitalBudget(mix: Mixture, side: BetSide, a: Q, delta: Q, t: number, k: number, scale: bigint): bigint {
+  checkTest(mix, side, a, "capitalBudget");
+  checkDelta(delta, "capitalBudget");
+  if (typeof scale !== "bigint" || scale < 1n) throw new RangeError("capitalBudget: scale must be a bigint >= 1");
+  const { num, den } = capitalTerms(mix, side, a, t, k, "capitalBudget");
+  // 1 - delta num / den = (delta.d den - delta.n num) / (delta.d den), and the floor of scale times a fraction depends on its value alone.
+  return floorQuotient(scale * (delta.d * den - delta.n * num), delta.d * den);
 }
 
 export function crossingTable(mix: Mixture, side: BetSide, a: Q, delta: Q, tMax: number): readonly number[] {

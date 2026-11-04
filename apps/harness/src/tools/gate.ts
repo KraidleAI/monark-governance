@@ -1070,10 +1070,10 @@ function admittedSplit(cell: VerdictCell): { readonly qhat: number; readonly alp
   return row === undefined || row.qhat === null ? { reason: "under_calib" } : { qhat: row.qhat, alpha: Number(row.alpha) };
 }
 
-/** Step 6 of ROADMAP.md: the bounds of a caller's tracking evidence; the first three also at the SDK boundary. The replay reduces
- *  exact fractions of about t L bits at each label t (L = suiviDenBits of the policy), so n labels cost about n (n L)^2. The work
- *  bound keeps n L at most 3600 bits: about 1 s at 500 labels, 0.7 s for the USDe cell (L = 7), measured on 2026-11-04. A rational
- *  text of at most 20 characters (nine digits on each side of the slash) keeps the parse itself cheap. */
+/** Step 6 of ROADMAP.md: the bounds of a caller's tracking evidence; the first three also at the SDK boundary. The replay compares
+ *  unreduced integers of about t L bits at each label t (L = suiviDenBits of the policy), about n products of n L bits per bet. The
+ *  work bound keeps n L at most 3600 bits: 0.12 s at 500 labels for the USDe cell (L = 7), 0.3 s with 8 bets a mixture, measured
+ *  on 2026-11-04. A rational text of at most 20 characters (nine digits on each side of the slash) keeps the parse itself cheap. */
 export const SUIVI_MAX_N = 500;
 export const SUIVI_MAX_BETS = 8;
 export const SUIVI_MAX_TEXT = 20;

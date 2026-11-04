@@ -8,13 +8,21 @@
  * S <- (S + 1/(t (t + 1))) g gives, over consecutive misses, S = 1, 7/3, 29/6, 293/30, 98/5, 4121/105 (about 1, 2.33, 4.83, 9.77,
  * 19.6, 39.25): with alpha_arl = 1/8 the alarm rings at the fourth miss, with alpha_arl = 1/25 at the sixth, the label at which W closes.
  * The licence bet of PK has the factors 7/6 (no miss) and 2/3 (miss), and K licenses at K >= 49/36.
+ * The comparison with the old calculation: the O4 rules stepped by this file, each crossing decided as the library did before
+ * capitalCrosses, crosses(capitalOfCounts(...), delta) on the reduced capital, the budget computed as before capitalBudget, on reduced
+ * fractions, and the detector stepped by the library; label by label against o4Step, and at the end against suiviReplay, on varied
+ * policies, adversarial ones included.
  * Category: new-module (red at base by the load of ../src/suivi/replay.ts, which this change adds).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { capitalOfCounts, crosses, floorScaled, mul, q, qParse, qString, sub } from "../src/pari/index.ts";
+import { mixtureOf } from "../src/suivi/policy.ts";
 import type { BetsText, SuiviPolicy } from "../src/suivi/policy.ts";
 import type { Outcome, RefEvaluation } from "../src/suivi/label.ts";
-import { suiviDenBits, suiviReplay } from "../src/suivi/replay.ts";
+import { alarm, detInit, detStep } from "../src/suivi/detector.ts";
+import { o4CloseOnAlarm, o4Init, o4Step, type O4State } from "../src/suivi/o4.ts";
+import { suiviDenBits, suiviReplay, type SuiviReplay } from "../src/suivi/replay.ts";
 import * as hikae from "../src/index.ts";
 
 const s = String;
@@ -143,6 +151,112 @@ test("den_bits_is_the_lcm_of_the_k_and_w_factor_denominators", () => {
   // W counts as much as K: lambda 1/97 on W gives 484/485 and 489/485 (9 bits), K's 1/2 gives 11/10 and 3/5.
   assert.equal(suiviDenBits({ ...FIX, bets_k: oneBet("1/2"), bets_w: oneBet("1/97") }), 9);
   assert.throws(() => suiviDenBits({ ...FIX, a: "2" }), RangeError, "the policy is checked first");
+});
+
+/** The state after a label, as the old calculation and o4Step both give it. */
+interface Snapshot {
+  readonly licensed_at: number | null;
+  readonly segment: SuiviReplay["segment"];
+  readonly closed_at: number | null;
+  readonly closed_by: SuiviReplay["closed_by"];
+  readonly w_t: number;
+  readonly w_k: number;
+}
+const snapshotOf = (o: O4State): Snapshot => ({ licensed_at: o.licensed_at, segment: o.segment.kind,
+  closed_at: o.segment.kind === "closed" ? o.segment.closed_at : null, closed_by: o.segment.kind === "closed" ? o.segment.closed_by : null,
+  w_t: o.w_t, w_k: o.w_k });
+
+/** The old calculation: the O4 rules stepped here, each crossing decided on the reduced capital, crosses(capitalOfCounts(...), delta),
+ *  and the budget on reduced fractions, floorScaled(sub(q(1n), mul(delta_exh, W)), 10^9), as o4.ts did before capitalCrosses and
+ *  capitalBudget; the detector stepped by the library. */
+function oldReplay(policy: SuiviPolicy, E: readonly (0 | 1)[], open: boolean): { readonly steps: Snapshot[];
+  readonly end: Pick<SuiviReplay, "segment" | "closed_by" | "alarm" | "budget_nano"> } {
+  const a = qParse(policy.a), mixK = mixtureOf(policy.bets_k), mixW = mixtureOf(policy.bets_w);
+  const deltaAdm = qParse(policy.delta_adm), deltaExh = qParse(policy.delta_exh);
+  let k_t = 0, k_k = 0, w_t = 0, w_k = 0, licensed_at: number | null = null, closed_at: number | null = null, det = detInit(policy);
+  let segment: SuiviReplay["segment"] = open ? "open" : "no_license", closed_by: SuiviReplay["closed_by"] = null;
+  const steps = E.map((x, seq): Snapshot => {
+    k_t += 1;
+    k_k += x;
+    const licenses = licensed_at === null && crosses(capitalOfCounts(mixK, "below", a, k_t, k_k), deltaAdm);
+    if (licenses) licensed_at = k_t;
+    if (segment === "no_license") {
+      if (licenses) segment = "open";
+    } else if (segment === "open") {
+      w_t += 1;
+      w_k += x;
+      if (crosses(capitalOfCounts(mixW, "above", a, w_t, w_k), deltaExh)) [segment, closed_by, closed_at] = ["closed", "w_exhausted", k_t];
+    }
+    det = detStep(det, { seq, E: x }, policy);
+    if (segment === "open" && det.alarm_at !== null) [segment, closed_by, closed_at] = ["closed", "alarm", k_t];
+    return { licensed_at, segment, closed_at, closed_by, w_t, w_k };
+  });
+  const budget_nano = segment !== "open" ? -1n
+    : floorScaled(sub(q(1n), mul(deltaExh, capitalOfCounts(mixW, "above", a, w_t, w_k))), 10n ** 9n);
+  return { steps, end: { segment, closed_by, alarm: det.alarm_at !== null, budget_nano } };
+}
+
+/** The same labels through the library, in the order of suiviReplay: o4Step, detStep, then the closure of an open segment on the alarm. */
+function newSteps(policy: SuiviPolicy, E: readonly (0 | 1)[], open: boolean): Snapshot[] {
+  let o4 = o4Init(policy, open), det = detInit(policy);
+  return E.map((x, seq) => {
+    o4 = o4Step(o4, { seq, E: x }, policy);
+    det = detStep(det, { seq, E: x }, policy);
+    if (o4.segment.kind === "open" && alarm(det, policy)) o4 = o4CloseOnAlarm(o4, policy);
+    return snapshotOf(o4);
+  });
+}
+
+/** Nine-digit rationals over P9, the largest nine-digit prime: eight lambdas j top / 9 (j = 1..8) under the bound top / P9 of their
+ *  side, and the weights floor(P9 / 8) / P9 seven times and their rest. */
+const P9 = 999999937n;
+const over = (x: bigint): string => qString(q(x, P9));
+const nineBets = (top: bigint): BetsText => ({ lambdas: [1n, 2n, 3n, 4n, 5n, 6n, 7n, 8n].map((j) => over((top * j) / 9n)),
+  weights: [...new Array<string>(7).fill(over(P9 / 8n)), over(P9 - 7n * (P9 / 8n))] });
+const A9 = over(P9 / 5n);
+const NINE9: SuiviPolicy = { ...FIX, a: A9, m: A9, delta_adm: over(P9 / 20n), delta_exh: over(P9 / 100n), alpha_arl: over(P9 / 100n),
+  eta_m1: over(P9 / 20n), sr_reading_threshold: "999999999", bets_k: nineBets(P9 + P9 / 4n), bets_w: nineBets(5n * P9), bets_sr: nineBets(P9) };
+/** Eight lambdas (j + 1)/p on distinct primes p, weights 117/941 seven times and 122/941, on K, W and the detector (L = 82). */
+const PRIMES = [997, 991, 983, 977, 971, 967, 953, 947];
+const ADV: BetsText = { lambdas: PRIMES.map((p, j) => `${s(j + 1)}/${s(p)}`), weights: PRIMES.map((_, j) => (j < 7 ? "117/941" : "122/941")) };
+const ADV82: SuiviPolicy = { ...FIX, bets_k: ADV, bets_w: ADV, bets_sr: ADV };
+/** Bets near both ends of their open intervals at a = 1/2: lambdas 1999/1000 and 1/1000 under 2 on K and W, 999/1000 and 1/1000 on the
+ *  detector. */
+const EDGE: SuiviPolicy = { ...FIX, a: "1/2", m: "1/2", bets_k: { lambdas: ["1999/1000", "1/1000"], weights: ["1/2", "1/2"] },
+  bets_w: { lambdas: ["1999/1000", "1/1000"], weights: ["1/2", "1/2"] }, bets_sr: { lambdas: ["999/1000", "1/1000"], weights: ["1/2", "1/2"] } };
+/** Thresholds met with equality deep in a run: K delta_adm = 1 at the 30th zero, W delta_exh = 1 at the 12th one (alarm out of reach). */
+const inverseText = (c: { readonly n: bigint; readonly d: bigint }): string => qString(q(c.d, c.n));
+const EQK: SuiviPolicy = { ...FIX, delta_adm: inverseText(capitalOfCounts(mixtureOf(FIX.bets_k), "below", qParse(FIX.a), 30, 0)) };
+const EQW: SuiviPolicy = { ...FIX, alpha_arl: "1/1000000000000",
+  delta_exh: inverseText(capitalOfCounts(mixtureOf(FIX.bets_w), "above", qParse(FIX.a), 12, 12)) };
+
+test("replay_takes_the_decisions_of_the_old_calculation", () => {
+  const N = 36, bits = (text: string): (0 | 1)[] => [...text].map((c) => (c === "1" ? 1 : 0));
+  const paths: readonly [string, (0 | 1)[]][] = [["fifth", Array.from({ length: N }, (_, i) => (i % 5 === 4 ? 1 : 0))], ["ones", ones(N)],
+    ["zeros", zeros(N)], ["burst", Array.from({ length: N }, (_, i) => (i % 5 === 4 || (i >= 12 && i < 20) ? 1 : 0))],
+    ["mixed", bits("000100100000010000100010000001000000")]];
+  const policies: readonly [string, SuiviPolicy][] = [["USDe", FIX], ["PW", PW], ["PA", PA], ["PT", PT], ["PKA", PKA], ["nine digits", NINE9],
+    ["L 82", ADV82], ["near the bounds", EDGE], ["K equality", EQK], ["W equality", EQW]];
+  const seen = new Set<string>();
+  for (const [name, policy] of policies) {
+    for (const [path, E] of paths) {
+      for (const open of [true, false]) {
+        const what = `${name}, ${path}, open ${s(open)}`, old = oldReplay(policy, E, open), r = replayOf(policy, E, open);
+        assert.deepEqual(newSteps(policy, E, open), old.steps, `${what}: label by label`);
+        const end = { segment: r.segment, closed_by: r.closed_by, alarm: r.alarm, budget_nano: r.budget_nano };
+        assert.deepEqual(end, old.end, `${what}: the replay`);
+        const last = old.steps.at(-1);
+        if (last !== undefined && last.licensed_at !== null && !open) seen.add("licence");
+        if (last !== undefined && last.closed_by !== null) seen.add(last.closed_by);
+        if (old.end.budget_nano >= 0n) seen.add("open budget");
+      }
+    }
+  }
+  assert.deepEqual([...seen].sort(), ["alarm", "licence", "open budget", "w_exhausted"], "every decision is met");
+  // The equalities: at the 30th zero K delta_adm = 1 licenses, at the 12th one W delta_exh = 1 closes.
+  assert.equal(oldReplay(EQK, zeros(N), false).steps.at(-1)?.licensed_at, 30, "K equality licenses at 30");
+  assert.deepEqual(oldReplay(EQW, ones(N), true).steps.at(-1)?.closed_at, 12, "W equality closes at 12");
+  assert.equal(oldReplay(EQW, ones(N), true).steps.at(-1)?.closed_by, "w_exhausted");
 });
 
 test("replay_is_exported_by_the_package", () => {
