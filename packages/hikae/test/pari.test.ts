@@ -2,7 +2,8 @@
  * HIKAE betting library (packages/hikae/src/pari/) - oracle tests.
  * What the library computes. Exact rationals over bigint (Q: positive denominator, coprime, zero as 0/1); the betting factor on a
  * variable x in {0, 1}, side "below" 1 + lambda (a - x) and side "above" 1 + lambda (x - a), with open bounds on lambda and on a; the
- * capital of a fixed mixture of bets, which depends on the counts (t, k) alone; the crossing table, for each t the frontier k at which
+ * capital of a fixed mixture of bets, which depends on the counts (t, k) alone, and its test capital * delta >= 1 at given counts,
+ * decided on the unreduced integers of the capital; the crossing table, for each t the frontier k at which
  * capital * delta >= 1 (the smallest crossing k for "above", the largest for "below"); in fixed point at 2^-64 rounded down, a
  * Shiryaev-Roberts reading (R <- (1 + R) g) and a detector with weighted restarts (S <- (S + w_t) g, w_t = 1/(t (t + 1)) rounded down
  * first), g being 1 + lambda (x/m - 1); and an integer threshold test, value * delta >= 1.
@@ -10,7 +11,8 @@
  * (each factor from its formula, the products along every path, the powers of the factors over one common denominator, the fixed-point
  * recurrences, the exact rational recurrences and their error bounds B_t and B'_t), and by literals printed by a separate exact bigint
  * script (the frontiers for t <= 12 and at a few later t, the rounding witnesses, the first crossing steps of the fixed sequence below).
- * Every test-side rational is reduced by the gcd written here.
+ * The test on unreduced integers is also held to the decision the library took before it, crosses(capitalOfCounts(...), delta), which
+ * reduces the capital first: the comparison of the old and the new calculation. Every test-side rational is reduced by the gcd written here.
  * Category: new-module (red at base by the load of ../src/pari/index.ts, which this change adds). No clock, no seed; the only files read
  * are the library sources, by the purity sweep.
  */
@@ -24,8 +26,8 @@ import { forbiddenLoads, importSpecifiers } from "../../../apps/harness/test/hel
 import * as pari from "../src/pari/index.ts";
 import type { BetSide, Mixture, Q } from "../src/pari/index.ts";
 
-const { add, betFactor, capitalOfCounts, cmp, crosses, crossingTable, floorScaled, mul, pow, q, qParse, qString, srIncrement, srStep,
-  srValue, sub, weightedStep, weightedValue } = pari;
+const { add, betFactor, capitalBudget, capitalCrosses, capitalOfCounts, cmp, crosses, crossingTable, floorScaled, mul, pow, q, qParse, qString,
+  srIncrement, srStep, srValue, sub, weightedStep, weightedValue } = pari;
 
 /** Test-side rationals, the same shape as Q, reduced by the gcd below and never by the library. */
 type Frac = { readonly n: bigint; readonly d: bigint };
@@ -139,6 +141,54 @@ function pathCapital(mix: TMix, side: BetSide, a: Frac, path: readonly (0 | 1)[]
   return total;
 }
 
+/** The mixtures of the tests on unreduced integers, beside the sealed ones. */
+const HALF = rq(1n, 2n), A3 = rq(1n, 3n);
+/** One bet of 3/2 at a = 1/3, above: the factors 2 and 1/2, so the capital is 2^(2k - t), its fraction 4^k / 2^t reduced by 2^min(2k, t). */
+const POW2: TMix = { lambdas: [rq(3n, 2n)], weights: [ONE] };
+/** One bet of 1 at a = 1/2: the factors 3/2 and 1/2, so the capital is 3^c / 2^t, c the count of the winning label. */
+const EQ: TMix = { lambdas: [ONE], weights: [ONE] };
+/** Eight bets 1/p of distinct primes p; the weights 1/3, 1/5, ..., 1/19 and their remainder to 1, 215926/4849845. */
+const FIRST_WEIGHTS = [3n, 5n, 7n, 11n, 13n, 17n, 19n].map((d) => rq(1n, d));
+const PRIME8: TMix = { lambdas: [7n, 11n, 13n, 17n, 19n, 23n, 29n, 31n].map((p) => rq(1n, p)),
+  weights: [...FIRST_WEIGHTS, FIRST_WEIGHTS.reduce((acc, w) => tSub(acc, w), ONE)] };
+/** Two bets near both ends of (0, 2) at a = 1/2: the factors 3999/2000 and 1/2000, then 2001/2000 and 1999/2000. */
+const EDGE: TMix = { lambdas: [rq(1999n, 1000n), rq(1n, 1000n)], weights: [HALF, HALF] };
+/** The tests compared on unreduced integers, each with its delta. */
+const UNREDUCED: readonly (readonly [TMix, BetSide, Frac, Frac, string])[] = [[MIX_K, "below", A, DELTA_ADM, "K sealed"],
+  [MIX_W, "above", A, DELTA_EXH, "W sealed"], [MIX_K2, "below", A2, DELTA_2, "K second"], [EQ, "above", A2, rq(4n, 9n), "3/2 and 1/2 above"],
+  [EQ, "below", A2, rq(4n, 9n), "3/2 and 1/2 below"], [POW2, "above", A3, rq(1n, 64n), "2^(2k - t)"],
+  [PRIME8, "below", A, DELTA_ADM, "eight primes below"], [PRIME8, "above", A, DELTA_EXH, "eight primes above"],
+  [EDGE, "above", A2, rq(1n, 8n), "near the bounds above"], [EDGE, "below", A2, rq(1n, 8n), "near the bounds below"]];
+/** Every count (t, k) of t <= 12, then four counts at t = 300. */
+const GRID = 12, DEEP = 300;
+const COUNTS: readonly (readonly [number, number])[] = [
+  ...Array.from({ length: GRID + 1 }, (_, t) => Array.from({ length: t + 1 }, (_, k): [number, number] => [t, k])).flat(),
+  ...[0, DEEP / 5, DEEP / 2, DEEP].map((k): [number, number] => [DEEP, k])];
+/** A delta of a test and the count at which it meets the threshold with equality, or null. */
+interface Threshold { readonly delta: Frac; readonly what: string; readonly at: readonly [number, number] | null }
+/** The delta of a test, then four thresholds met with equality: delta = 1/C for the closed-form capital C > 1 at the first three
+ *  counts of the grid at which C > 1 and at one deep count (k = 300 above, 0 below). */
+function thresholds(mix: TMix, side: BetSide, a: Frac, delta: Frac, what: string): readonly Threshold[] {
+  const above1 = ([t, k]: readonly [number, number]): boolean => {
+    const c = capitalClosed(mix, side, a, t, k);
+    return c.n > c.d;
+  };
+  const deep: readonly [number, number] = [DEEP, side === "above" ? DEEP : 0];
+  const witnesses = [...COUNTS.filter(([t]) => t <= GRID).filter(above1).slice(0, 3), deep];
+  const out: Threshold[] = [{ delta, what: "its delta", at: null }];
+  for (const [t, k] of witnesses) {
+    const c = capitalClosed(mix, side, a, t, k);
+    assert.ok(c.n > c.d, `${what}: C(${s(t)}, ${s(k)}) > 1`);
+    out.push({ delta: rq(c.d, c.n), what: `delta 1/C(${s(t)}, ${s(k)})`, at: [t, k] });
+  }
+  return out;
+}
+/** floor(scale (1 - delta capital)) as scale - ceil(scale delta capital), on the unreduced integers of the closed form (num > 0). */
+const budgetClosed = (mix: TMix, side: BetSide, a: Frac, delta: Frac, t: number, k: number, scale: bigint): bigint => {
+  const c = capitalTerms(mix, side, a, t, k), d = delta.d * c.den;
+  return scale - (scale * delta.n * c.num + d - 1n) / d;
+};
+
 const PARI = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "pari");
 const PARI_FILES = ["bet.ts", "index.ts", "mixture.ts", "rational.ts", "sr.ts", "threshold.ts", "weighted.ts"];
 const BANNED_NAMES = new Set(["fetch", "Date", "performance", "process", "globalThis", "setTimeout", "setInterval", "setImmediate",
@@ -165,7 +215,7 @@ function impurities(text: string): string[] {
   return found;
 }
 
-// killer: packages/hikae/src/pari/rational.ts:107 CONST "truncated - 1n" -> "truncated + 1n"
+// killer: packages/hikae/src/pari/rational.ts:105 CONST "truncated - 1n" -> "truncated + 1n"
 test("pari_rational_exact", () => {
   same(q(6n, 4n), { n: 3n, d: 2n }, "q(6, 4)");
   same(q(3n, -6n), { n: -1n, d: 2n }, "q(3, -6)");
@@ -267,7 +317,7 @@ test("pari_bet_factor_bounds", () => {
   }
 });
 
-// killer: packages/hikae/src/pari/mixture.ts:79 CONST "scale * den" -> "den"
+// killer: packages/hikae/src/pari/mixture.ts:82 CONST "scale * den" -> "den"
 test("pari_capital_counts_equal_product", () => {
   for (const [mix, side] of [[MIX_K, "below"], [MIX_W, "above"]] as const) {
     for (let t = 0; t <= 10; t++) {
@@ -303,7 +353,7 @@ test("pari_capital_counts_equal_product", () => {
   assert.throws(() => capitalOfCounts(outW, "above", A, 3, 1), RangeError, "above lambda 5");
 });
 
-// killer: packages/hikae/src/pari/mixture.ts:121 CONST "front = t + 1" -> "front = t"
+// killer: packages/hikae/src/pari/mixture.ts:147 CONST "front = t + 1" -> "front = t"
 test("pari_crossing_table_exact", () => {
   assert.deepEqual([...crossingTable(MIX_W, "above", A, DELTA_EXH, 0)], [1], "W at tMax 0: no crossing is t + 1");
   assert.deepEqual([...crossingTable(MIX_K, "below", A, DELTA_ADM, 0)], [-1], "K at tMax 0: no crossing is -1");
@@ -345,9 +395,98 @@ test("pari_crossing_table_exact", () => {
   // One bet, lambda 1, a = 1/2: the factors are 3/2 and 1/2, so the capital is 3^c / 2^t with c the count of the winning label, and
   // capital * 4/9 >= 1 iff 4 * 3^c >= 9 * 2^t: c = 2 at t = 2 is an equality (36 = 36), c = 3 at t = 3 and c = 4 at t = 4 cross.
   assert.equal(4n * 3n ** 2n, 9n * 2n ** 2n, "4 * 3^2 = 9 * 2^2");
-  const EQ: Mixture = { lambdas: [ONE], weights: [ONE] }, DELTA_EQ = rq(4n, 9n);
+  const DELTA_EQ = rq(4n, 9n);
   assert.deepEqual([...crossingTable(EQ, "above", A2, DELTA_EQ, 4)], [1, 2, 2, 3, 4], "above, equality at t = 2 crosses");
   assert.deepEqual([...crossingTable(EQ, "below", A2, DELTA_EQ, 4)], [-1, -1, 0, 0, 0], "below, equality at t = 2 crosses");
+});
+
+// killer: packages/hikae/src/pari/mixture.ts:96 ROR "num * delta.n >= den * delta.d" -> "num * delta.n > den * delta.d"
+test("pari_capital_crosses_unreduced", () => {
+  assert.deepEqual(at(PRIME8.weights, 7), { n: 215926n, d: 4849845n }, "the remainder weight");
+  for (const [mix, side, a, delta, what] of UNREDUCED) {
+    for (const th of thresholds(mix, side, a, delta, what)) {
+      const where = `${what}, ${th.what}`;
+      if (th.at !== null) assert.ok(capitalCrosses(mix, side, a, th.delta, th.at[0], th.at[1]), `${where}: the equality crosses`);
+      for (const [t, k] of COUNTS) {
+        const fast = capitalCrosses(mix, side, a, th.delta, t, k), here = `${where}, t ${s(t)} k ${s(k)}`;
+        assert.equal(fast, crosses(capitalOfCounts(mix, side, a, t, k), th.delta), `${here}: the old calculation`);
+        assert.equal(fast, crossesClosed(mix, side, a, th.delta, t, k), `${here}: the closed form`);
+      }
+    }
+  }
+  const counts = refusal(/^capitalCrosses: counts t \S+ and k \S+ outside 0 <= k <= t$/);
+  for (const [t, k] of [[3, 4], [3, -1], [-1, 0], [1.5, 1], [3, 0.5]] as const) {
+    assert.throws(() => capitalCrosses(MIX_K, "below", A, DELTA_ADM, t, k), counts, `t ${s(t)} k ${s(k)}`);
+  }
+  const outside = refusal(/^capitalCrosses: delta outside \(0, 1\)$/);
+  for (const d of [ZERO, ONE, rq(3n, 2n), rq(-1n, 2n)]) {
+    assert.throws(() => capitalCrosses(MIX_W, "above", A, d, 3, 1), outside, `delta ${s(d.n)}/${s(d.d)}`);
+  }
+  const notQ = refusal(/^capitalCrosses delta: not a rational with d > 0$/);
+  assert.throws(() => capitalCrosses(MIX_W, "above", A, { n: 1n, d: 0n }, 3, 1), notQ, "delta 1/0");
+  // The order of crossingTable: the mixture and its bets, then delta, then the counts.
+  const sumHalf: Mixture = { lambdas: [rq(1n, 4n)], weights: [HALF] }, notOne = refusal(/^capitalCrosses: the weights do not sum to 1$/);
+  assert.throws(() => capitalCrosses(sumHalf, "above", A, ZERO, 3, 4), notOne, "the mixture first");
+  assert.throws(() => capitalCrosses(MIX_W, "above", A, ZERO, 3, 4), outside, "delta before the counts");
+  const outW: Mixture = { lambdas: [rq(1n, 4n), rq(5n)], weights: [HALF, HALF] };
+  const outAbove = refusal(/^betFactor: lambda outside the open interval of above$/);
+  assert.throws(() => capitalCrosses(outW, "above", A, DELTA_EXH, 3, 1), outAbove, "above lambda 5");
+});
+
+// killer: packages/hikae/src/pari/mixture.ts:105 CONST "delta.n * num)," -> "delta.n * num) - 1n,"
+test("pari_capital_budget_unreduced", () => {
+  const SCALES = [1n, 7n, 10n ** 9n];
+  // By hand, EQ above at a = 1/2, whose capital at (2, 2) is 9/4: delta 4/9 meets 1 with equality, delta 2/3 leaves 1 - 3/2 = -1/2.
+  for (const scale of SCALES) assert.equal(capitalBudget(EQ, "above", A2, rq(4n, 9n), 2, 2, scale), 0n, `1 - 1 at scale ${s(scale)}`);
+  const halves: readonly [bigint, bigint][] = [[1n, -1n], [7n, -4n], [10n ** 9n, -500000000n]];
+  for (const [scale, want] of halves) assert.equal(capitalBudget(EQ, "above", A2, rq(2n, 3n), 2, 2, scale), want, `-1/2 at scale ${s(scale)}`);
+  assert.equal(capitalBudget(EQ, "above", A2, rq(1n, 3n), 0, 0, 7n), 4n, "floor(7 (1 - 1/3)) at the capital 1");
+  assert.equal(capitalBudget(EQ, "above", A2, rq(1n, 3n), 1, 1, 7n), 3n, "floor(7 (1 - 1/2)) at the capital 3/2");
+  assert.equal(capitalBudget(MIX_W, "above", A, DELTA_EXH, 0, 0, 10n ** 9n), 990000000n, "floor(10^9 (1 - 1/100)) at W = 1");
+  for (const [mix, side, a, delta, what] of UNREDUCED) {
+    for (const th of thresholds(mix, side, a, delta, what)) {
+      const where = `${what}, ${th.what}`;
+      if (th.at !== null) {
+        const [te, ke] = th.at;
+        for (const scale of SCALES) {
+          assert.equal(capitalBudget(mix, side, a, th.delta, te, ke, scale), 0n, `${where}, scale ${s(scale)}: the equality leaves 0`);
+        }
+      }
+      for (const [t, k] of COUNTS) {
+        // The old calculation reduces three fractions: the capital, delta C and 1 - delta C, of up to some twenty thousand bits at t = 300.
+        // It is compared with the delta of the test at every count, and with a delta met with equality in its own range: the grid or t = 300.
+        const ownRange = th.at === null || (th.at[0] === DEEP) === (t === DEEP);
+        const old = ownRange ? sub(q(1n), mul(th.delta, capitalOfCounts(mix, side, a, t, k))) : null;
+        for (const scale of SCALES) {
+          const fast = capitalBudget(mix, side, a, th.delta, t, k, scale), here = `${where}, t ${s(t)} k ${s(k)}, scale ${s(scale)}`;
+          if (old !== null) assert.equal(fast, floorScaled(old, scale), `${here}: the old calculation`);
+          assert.equal(fast, budgetClosed(mix, side, a, th.delta, t, k, scale), `${here}: the closed form`);
+        }
+      }
+    }
+  }
+  const counts = refusal(/^capitalBudget: counts t \S+ and k \S+ outside 0 <= k <= t$/);
+  for (const [t, k] of [[3, 4], [3, -1], [-1, 0], [1.5, 1], [3, 0.5]] as const) {
+    assert.throws(() => capitalBudget(MIX_W, "above", A, DELTA_EXH, t, k, 10n ** 9n), counts, `t ${s(t)} k ${s(k)}`);
+  }
+  const badScale = refusal(/^capitalBudget: scale must be a bigint >= 1$/);
+  for (const scale of [0n, -1n, asBig(2)]) {
+    assert.throws(() => capitalBudget(MIX_W, "above", A, DELTA_EXH, 3, 1, scale), badScale, `scale ${s(scale)}`);
+  }
+  const outside = refusal(/^capitalBudget: delta outside \(0, 1\)$/);
+  for (const d of [ZERO, ONE, rq(3n, 2n), rq(-1n, 2n)]) {
+    assert.throws(() => capitalBudget(MIX_W, "above", A, d, 3, 1, 1n), outside, `delta ${s(d.n)}/${s(d.d)}`);
+  }
+  const notQ = refusal(/^capitalBudget delta: not a rational with d > 0$/);
+  assert.throws(() => capitalBudget(MIX_W, "above", A, { n: 1n, d: 0n }, 3, 1, 1n), notQ, "delta 1/0");
+  // The mixture and its bets, then delta, then the scale, then the counts.
+  const sumHalf: Mixture = { lambdas: [rq(1n, 4n)], weights: [HALF] }, notOne = refusal(/^capitalBudget: the weights do not sum to 1$/);
+  assert.throws(() => capitalBudget(sumHalf, "above", A, ZERO, 3, 4, 0n), notOne, "the mixture first");
+  assert.throws(() => capitalBudget(MIX_W, "above", A, ZERO, 3, 4, 0n), outside, "delta before the scale");
+  assert.throws(() => capitalBudget(MIX_W, "above", A, DELTA_EXH, 3, 4, 0n), badScale, "the scale before the counts");
+  const outW: Mixture = { lambdas: [rq(1n, 4n), rq(5n)], weights: [HALF, HALF] };
+  const outAbove = refusal(/^betFactor: lambda outside the open interval of above$/);
+  assert.throws(() => capitalBudget(outW, "above", A, DELTA_EXH, 3, 1, 1n), outAbove, "above lambda 5");
 });
 
 // killer: packages/hikae/src/pari/weighted.ts:19 CONST "BigInt(t) * BigInt(t + 1)" -> "BigInt(t) * BigInt(t)"
@@ -492,8 +631,10 @@ test("pari_purity_sweep", () => {
   const witnesses: readonly [string, string][] = [["import { readFileSync } from \"node:fs\";\nexport const r = readFileSync;\n", "node:fs"],
     ["export const f = (): Promise<Response> => fetch(\"x\");\n", "fetch"], ["export const g = (): number => Date.now();\n", "Date"]];
   for (const [text, name] of witnesses) assert.ok(impurities(text).some((hit) => hit.includes(name)), `the sweep refuses ${name}`);
-  assert.deepEqual(Object.keys(pari).sort(), ["add", "betFactor", "capitalOfCounts", "cmp", "crosses", "crossingTable", "floorScaled", "mul",
-    "pow", "q", "qParse", "qString", "srIncrement", "srStep", "srValue", "sub", "weightedStep", "weightedValue"], "the values of index.ts");
+  assert.deepEqual(Object.keys(pari).sort(), ["add", "betFactor", "capitalBudget", "capitalCrosses", "capitalOfCounts", "cmp", "crosses",
+    "crossingTable", "floorScaled", "mul", "pow", "q", "qParse", "qString", "srIncrement", "srStep", "srValue", "sub", "weightedStep",
+    "weightedValue"],
+  "the values of index.ts");
   for (const [name, value] of Object.entries(pari)) assert.equal(typeof value, "function", `${name} is a function`);
   const index = ts.createSourceFile("index.ts", readFileSync(join(PARI, "index.ts"), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const typeNames: string[] = [];

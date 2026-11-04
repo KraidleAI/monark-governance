@@ -203,7 +203,7 @@ test("o4_exact_dp_oracle", (t) => {
   assert.ok(Math.abs(pk - 0.03106722) <= 1e-7 && pk < flt(FIX.delta_adm), `K ${s(pk)}`);
 });
 
-// killer: packages/hikae/src/suivi/o4.ts:136 CONST "10n ** 9n);" -> "10n ** 9n) - 1n;"
+// killer: packages/hikae/src/suivi/o4.ts:50 CONST "t, k, 10n ** 9n)" -> "t, k, 10n ** 9n) - 1n"
 test("o4_budget_nano_floor", () => {
   let x = o4Init(FIX, false);
   for (let i = 1; i <= 44; i++) {
@@ -226,7 +226,7 @@ test("o4_budget_nano_floor", () => {
   assert.equal(budgetOf(FIX, 45, 0), 999729470n, "W(45, 0) by the closed form");
 });
 
-// killer: packages/hikae/src/suivi/o4.ts:135 CONST "return -1n;" -> "return 0n;"
+// killer: packages/hikae/src/suivi/o4.ts:137 CONST "return -1n;" -> "return 0n;"
 test("o4_closure_returns_minus_one", () => {
   let x = run(PW, o4Init(PW, true), [1, 1, 1, 1, 1]);
   assert.deepEqual(x, st(5, 5, null, 5, 5, 4, OPEN(0, null)), "five ones, W = 32");
@@ -249,7 +249,7 @@ test("o4_closure_returns_minus_one", () => {
   assert.deepEqual(o4Step(k1, { seq: 1, E: 0 }, PK), st(2, 0, 2, 0, 0, 1, OPEN(2, 1)), "K = 49/36 = 1/delta_adm licenses at 2");
 });
 
-// killer: packages/hikae/src/suivi/o4.ts:126 CONST "s.segment.kind !== \"open\"" -> "s.segment.kind === \"no_license\""
+// killer: packages/hikae/src/suivi/o4.ts:128 CONST "s.segment.kind !== \"open\"" -> "s.segment.kind === \"no_license\""
 test("o4_alarm_closes_segment", () => {
   const x = run(PW, o4Init(PW, true), [1, 0, 1]), a = o4CloseOnAlarm(x, PW);
   assert.deepEqual(a, st(3, 2, null, 3, 2, 2, CL(0, null, 3, 2, "alarm")), "the alarm closes at k_t, closed_seq = last_seq");
@@ -270,7 +270,7 @@ test("o4_alarm_closes_segment", () => {
   assert.throws(() => o4CloseOnAlarm(x, { ...PW, m: "1/4" }), RangeError, "a refused policy");
 });
 
-// killer: packages/hikae/src/suivi/o4.ts:70 SDL "if (g.opened_at > 0 && licensed_at !== g.opened_at)" -> ""
+// killer: packages/hikae/src/suivi/o4.ts:72 SDL "if (g.opened_at > 0 && licensed_at !== g.opened_at)" -> ""
 test("o4_state_invariants_refused", () => {
   // Under PW: K(t, k) = (7/6)^(t - k) (2/3)^k against 20, W = 2^(2k - t) against 64.
   const valid: readonly [string, O4State][] = [["no licence", st(3, 1, null, 0, 0, 4, NOL)], ["open at 0", st(3, 1, null, 3, 1, 4, OPEN(0, null))],

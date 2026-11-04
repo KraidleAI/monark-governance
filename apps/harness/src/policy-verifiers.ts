@@ -1,11 +1,11 @@
 /**
- * The pinned list of verifiers, format monark-verifiers-v1 (VERIFIERS-LIST-F5A-1 lot 1f; docs/G0-lot-verifiers-list-f5a-1.md section
- * 3.2 as amended by lot 1f; docs/G0-lot-verifiers-list-1f.md). The list lives in apps/harness/data/verifiers.json, canonical, with no
+ * The pinned list of verifiers, format monark-verifiers-v1.
+ * The list lives in apps/harness/data/verifiers.json, canonical, with no
  * final newline; this module holds its sha256 (VERIFIERS_SHA256), its closed reader, the one identity rule of a verifier or generator,
  * the digest rule of a tool tree, the prefix rule of a carried copy and the date rule of a revocation.
  * Two closed entry forms, in the order they were appended (never sorted): a list entry {commit, identity, repository, tree, tree_sha256}
  * and a revocation {commit, identity, revoked: <YYYY-MM-DD>}. A (identity, commit) pair is unique among the list entries; a revocation
- * names a list entry above it, at most once; its date is a record and commands nothing. Only list entries attest a row (A-1, the guard).
+ * names a list entry above it, at most once; its date is a record and commands nothing. Only list entries attest a row (the guard).
  * The reader is closed on the bytes as on the form (a text that is not the canonical writing of its list is refused); it renders frozen.
  * Imports: node:crypto, and node:fs and node:url for pinnedVerifiers() alone, which reads the file lazily, on its first call, never at
  * load (apps/harness/src is exported, apps/harness/data is not). Nothing from scripts/ and nothing from policy-guard.ts: no cycle.
@@ -31,7 +31,7 @@ const fail = (what: string): never => {
   throw new Error(`MONARK verifier list: ${what}.`);
 };
 
-/** The identity of a verifier or generator: the name before its first "@" (the revision), ASCII lower case (G0 G-2.6). */
+/** The identity of a verifier or generator: the name before its first "@" (the revision), ASCII lower case. */
 export const identityOf = (name: string): string => (name.split("@")[0] ?? "").replace(/[A-Z]/g, (c) => c.toLowerCase());
 
 /** A YYYY-MM-DD string naming a real calendar day: the expression and the calendar check of validDate in scripts/spec-publish.mjs. */
@@ -45,7 +45,7 @@ const COMMIT = /^[0-9a-f]{40}$/, HEX64 = /^[0-9a-f]{64}$/;
 const LIST_KEYS = ["commit", "identity", "repository", "tree", "tree_sha256"], REVOKE_KEYS = ["commit", "identity", "revoked"];
 const exactly = (o: object, keys: readonly string[]): boolean => Object.keys(o).length === keys.length && keys.every((k) => Object.hasOwn(o, k));
 export const isListEntry = (v: Verifier): v is ListEntry => !Object.hasOwn(v, "revoked");
-/** The list entries alone: what A-1 and the guard retain (a revocation never attests). */
+/** The list entries alone: what the guard retains (a revocation never attests). */
 export const listEntries = (vs: readonly Verifier[]): readonly ListEntry[] => vs.filter(isListEntry);
 
 /** The closed reader: the elements of the list in file order, each in its closed form (keys sorted) and frozen, in a frozen array; or a
@@ -92,19 +92,19 @@ export function checkedVerifiers(bytes: Uint8Array, pin: string = VERIFIERS_SHA2
 }
 
 let pinned: readonly Verifier[] | undefined;
-/** The pinned list (Q-P3-7): read on the first call, then the same array. A missing, unreadable or altered file throws on every call. */
+/** The pinned list: read on the first call, then the same array. A missing, unreadable or altered file throws on every call. */
 export function pinnedVerifiers(): readonly Verifier[] {
   pinned ??= checkedVerifiers(readFileSync(fileURLToPath(new URL("../data/verifiers.json", import.meta.url))));
   return pinned;
 }
 
-/** A copy carried in a dated folder: its elements are, in order, the first elements of the pinned list (Q-4). */
+/** A copy carried in a dated folder: its elements are, in order, the first elements of the pinned list. */
 export function isPrefix(copy: readonly Verifier[], list: readonly Verifier[]): boolean {
   const same = (a: Verifier, b: Verifier | undefined): boolean => b !== undefined && exactly(b, Object.keys(a)) && Object.entries(a).every(([k, x]) => (b as Record<string, unknown>)[k] === x);
   return copy.length <= list.length && copy.every((v, i) => same(v, list[i]));
 }
 
-/** The tree digest of section 3.2: every blob under TOOL_ROOT a regular file (100644), one "<sha256>  <path under TOOL_ROOT>" line per
+/** The tree digest: every blob under TOOL_ROOT a regular file (100644), one "<sha256>  <path under TOOL_ROOT>" line per
  *  file sorted by path, LF ended (manifestText of scripts/spec-publish.mjs), and the sha256 of that text. */
 export function toolTreeSha256(blobs: readonly { readonly mode: string; readonly path: string; readonly bytes: Uint8Array }[]): string {
   const lines = blobs.map(({ mode, path: p, bytes }) => {
@@ -115,8 +115,8 @@ export function toolTreeSha256(blobs: readonly { readonly mode: string; readonly
   return sha256(lines.sort((a, b) => (a.path < b.path ? -1 : 1)).map((l) => `${l.digest}  ${l.path}\n`).join(""));
 }
 
-// ---- The recompute report, format monark-recompute-report-v1 (lot 2a; docs/G0-lot-e2a-2a-report-reader.md): written by report.py of the
-// listed tool, one report per release (form (a)). readRecomputeReport judges the closed form and the canonical writing, and nothing else: it
+// ---- The recompute report, format monark-recompute-report-v1: written by report.py of the
+// listed tool, one report per release. readRecomputeReport judges the closed form and the canonical writing, and nothing else: it
 // binds the report neither to the list, nor to the registry, nor to a row, nor its scope to its cells. Those bindings are the gate's and
 // the guard's, so a report of another registry, tree or verifier reads here and is a mismatch there, never an invalid report.
 export const REPORT_FORMAT = "monark-recompute-report-v1";
@@ -162,7 +162,7 @@ const REPORT: Cols = {
   cells: (v, at) => each(nest(CELL))(v, at) && ((v as ReportCell[]).every((c, i, cs) => i === 0 || before(cs[i - 1] as ReportCell, c)) || rfail("cells are not unique and sorted by (task_class, cell_key)")),
   differences: each((v, at) => closed(v, isObj(v) && v.kind === "digest" ? DIGEST : VALUE, at) !== undefined), explanation: free, fields: free,
   format: (v) => v === REPORT_FORMAT, inputs: nest({ compare: each(nest(INPUT)), recompute: each(nest(INPUT)) }), oracles: free, platform: (v) => isObj(v) && isObj(v.libm) && fits(HEX64)(v.libm.sha256),
-  registry: nest({ cells: count, generator_identity: text, sha256: fits(HEX64) }), replay: text, // no file (N-6): the input name is inputs.compare[].name
+  registry: nest({ cells: count, generator_identity: text, sha256: fits(HEX64) }), replay: text, // no file: the input name is inputs.compare[].name
   scope: (v) => Array.isArray(v) && v.every((c, i) => fits(CLASS)(c) && (i === 0 || (v[i - 1] as string) < (c as string))), summary: free,
   tool: nest({ commit: fits(COMMIT), tree: text, tree_sha256: fits(HEX64) }),
   verifier: (v) => typeof v === "string" && /^[^@]+@[0-9a-f]{40}$/.test(v) && v.split("@")[0] === identityOf(v),

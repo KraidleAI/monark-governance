@@ -1,13 +1,13 @@
 /**
- * Harness — tool REGISTRY (ADR-M005 D1/D9/D11, K-8).
+ * Harness — tool REGISTRY.
  *
  * The registry is DATA (`HARNESS_TOOLS`) so the closed allowlist and the descriptions are inspectable
- * without standing up a server (the K-8 oracle and the vocab oracle read this table directly).
+ * without standing up a server (the oracle of registry.test.ts and the vocab oracle read this table directly).
  *
- * `ALLOWED_TOOL_NAMES` is the closed universe of the surface (`gate`·`calibrate`·`judge`). H1 wired `gate`, C1 added
- * `calibrate` (ADR-M007), and step 5 of ROADMAP.md (the founder's go of 2026-11-04) added `judge`, the link to Genkan's
+ * `ALLOWED_TOOL_NAMES` is the closed universe of the surface (`gate`·`calibrate`·`judge`). `gate` came first, then
+ * `calibrate`, and step 5 of ROADMAP.md (the founder's go of 2026-11-04) added `judge`, the link to Genkan's
  * kernel. Step 7 (the founder's go of the same day) removed `cascade` (UKEMI) and `attest` (Shōgen): the harness serves
- * HIKAE and Genkan only. The K-8 oracle asserts BOTH: (a) the CLOSED ALLOWLIST `REGISTERED_TOOL_NAMES ⊆ ALLOWED_TOOL_NAMES`,
+ * HIKAE and Genkan only. registry.test.ts asserts BOTH: (a) the CLOSED ALLOWLIST `REGISTERED_TOOL_NAMES ⊆ ALLOWED_TOOL_NAMES`,
  * and (b) the EXACT set `{gate,calibrate,judge}`. Plus a static side-effect scan of `src/tools/**`.
  *
  * Like everything under `src/tools/`, this file does no I/O: it imports the frozen-schema PROJECTION (`../schema-projection.ts`,
@@ -25,16 +25,16 @@ import { runCalibrate, calibrateHonestyText, calibrateVerdictSummary, CALIBRATE_
 import { judgeInputStandardSchema, judgeOutputStandardSchema, JUDGE_INPUT_SCHEMA, JUDGE_OUTPUT_SCHEMA } from "../schema-projection.ts";
 import { runJudge, judgeHonestyText, judgeVerdictSummary, JUDGE_TOOL_NAME, JUDGE_TOOL_DESCRIPTION, type JudgeInput, type KernelRunner } from "./judge.ts";
 
-/** Closed universe of the tool surface (ADR-M005 D1, EXPANDED by ADR-M007 to 4, by step 5 of ROADMAP.md to 5, then REDUCED by
+/** Closed universe of the tool surface (EXPANDED to 4, by step 5 of ROADMAP.md to 5, then REDUCED by
  *  its step 7 to 3: `cascade` and `attest` were removed). */
 export const ALLOWED_TOOL_NAMES = ["gate", "calibrate", "judge"] as const;
 export type AllowedToolName = (typeof ALLOWED_TOOL_NAMES)[number];
 
-/** The tool input envelope (D8 + ADR-M017 D1): frozen `Prediction` + non-frozen params + OPTIONAL frozen `AttestedPrice`. */
+/** The tool input envelope: frozen `Prediction` + non-frozen params + OPTIONAL frozen `AttestedPrice`. */
 export interface GateEnvelope {
   readonly prediction: Prediction;
   readonly params: HarnessParams;
-  /** OPTIONAL caller-carried attestation (ADR-M017 D1): `required` stays `{prediction,params}`; absent ⇒ byte-identical behaviour. */
+  /** OPTIONAL caller-carried attestation: `required` stays `{prediction,params}`; absent ⇒ byte-identical behaviour. */
   readonly attested?: AttestedPrice;
 }
 
@@ -43,21 +43,21 @@ export interface HarnessToolDescriptor {
   readonly description: string;
   readonly inputSchemaJson: Json;
   readonly outputSchemaJson: Json;
-  /** Per-tool projected SDK schemas (H2): each tool owns its own input/output shape (gate: envelope -> GateDecision;
+  /** Per-tool projected SDK schemas: each tool owns its own input/output shape (gate: envelope -> GateDecision;
    *  calibrate: scores -> its envelope; judge: envelope, order and limits -> its verdict). registerTools hardcodes none. */
   readonly inputStandardSchema: StandardSchemaWithJSON;
   readonly outputStandardSchema: StandardSchemaWithJSON;
   /** Executes the tool: caller-carried args (validated at the SDK boundary) -> structured content + text. `ctx.nowMs`
-   *  is the current instant injected by the entry point (src/, K-8); `gate` and `judge` read it (ADR-CM B-4). `ctx.kernel`
+   *  is the current instant injected by the entry point (src/); `gate` and `judge` read it. `ctx.kernel`
    *  is the kernel runner, which only `judge` reads. */
   readonly run: (args: unknown, ctx?: ToolRunContext) => { readonly text: string; readonly structured: Record<string, unknown> };
 }
 
-/** What an entry point injects into a tool run (ADR-CM B-4): the current instant, read in src/, never under src/tools/; and the
+/** What an entry point injects into a tool run: the current instant, read in src/, never under src/tools/; and the
  *  runner of Genkan's kernel (src/kernel.ts), started in src/, never under src/tools/. */
 export type ToolRunContext = Pick<RunGateOptions, "nowMs"> & { readonly kernel?: KernelRunner };
 
-/** The tools registered (H1: `gate`; C1: `calibrate`, ADR-M007; step 5 of ROADMAP.md: `judge`). */
+/** The tools registered (`gate`; `calibrate`; step 5 of ROADMAP.md: `judge`). */
 export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
   {
     name: GATE_TOOL_NAME,
@@ -69,8 +69,8 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
     run: (args, ctx) => {
       const env = args as GateEnvelope;
       const decision = runGate(env.prediction, env.params, env.attested, ctx);
-      // structuredContent = the closed GateDecision ONLY (K-1); honesty prose rides in `content` text.
-      // B-1: the honesty text is keyed on the PRESENCE of a BYO calibration, not task_class alone; S-8: on the resolved cell. The
+      // structuredContent = the closed GateDecision ONLY; honesty prose rides in `content` text.
+      // The honesty text is keyed on the PRESENCE of a BYO calibration, not task_class alone, and on the resolved cell. The
       // verdict summary (a delivery aid for text-only clients, derived from `decision`) follows the prose.
       const text = `${honestyText(env.prediction.task_class, decision.verdict.cell_key ?? env.prediction.predictor_id, env.params.calibration !== undefined)} ${gateVerdictSummary(decision)}`;
       return { text, structured: decision as unknown as Record<string, unknown> };
@@ -87,7 +87,7 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
       const input = args as CalibrateInput;
       const result = runCalibrate(input);
       // structuredContent = the calibrate envelope {qhat,n,alpha,method,scores_sha256,label,reason}; the
-      // K-1 honesty label rides IN the output (carrier 3/3, ADR-M007 D3/D5) and ALSO in `content` text,
+      // honesty label rides IN the output and ALSO in `content` text,
       // followed by the verdict summary (a delivery aid for text-only clients, derived from `result`).
       const text = `${calibrateHonestyText()} ${calibrateVerdictSummary(result)}`;
       return { text, structured: result as unknown as Record<string, unknown> };
@@ -103,7 +103,7 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
     run: (args, ctx) => {
       const output = runJudge(args as JudgeInput, ctx);
       // structuredContent = {decision, gate_error, kernel_verdict, kernel_reason, reduce_only, kernel_request_sha256}; the honesty prose and
-      // the verdict summary (derived from the output) ride in `content` text (K-1).
+      // the verdict summary (derived from the output) ride in `content` text.
       return { text: `${judgeHonestyText(output)} ${judgeVerdictSummary(output)}`, structured: output as unknown as Record<string, unknown> };
     },
   },
@@ -113,13 +113,13 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
 export const REGISTERED_TOOL_NAMES: readonly string[] = HARNESS_TOOLS.map((t) => t.name);
 
 /**
- * Register every harness tool on a fresh `McpServer` instance (the stateless per-request factory, D6).
- * Input/output are the PROJECTED frozen schemas (D8); the SDK enforces `additionalProperties:false`
- * at the boundary (measured), and `runGate` re-asserts the closed contract on the way out (D9).
- * `clock` is the entry point's clock (server.ts, ADR-CM B-4): read per call, never here by itself (K-8); absent,
+ * Register every harness tool on a fresh `McpServer` instance (the stateless per-request factory).
+ * Input/output are the PROJECTED frozen schemas; the SDK enforces `additionalProperties:false`
+ * at the boundary (measured), and `runGate` re-asserts the closed contract on the way out.
+ * `clock` is the entry point's clock (server.ts): read per call, never here by itself; absent,
  * the tools run without `nowMs`. `kernel` is the runner of Genkan's kernel (server.ts hands src/kernel.ts's); absent, `judge`
  * denies every order `unavailable`. A tool error keeps the SDK's own error result, first content byte-identical (the
- * error message), and adds its stable code in `_meta` (ADR-CM B-3); any other throw takes the SDK path unchanged.
+ * error message), and adds its stable code in `_meta`; any other throw takes the SDK path unchanged.
  */
 export function registerTools(server: McpServer, clock?: () => number, kernel?: KernelRunner): void {
   for (const tool of HARNESS_TOOLS) {

@@ -158,7 +158,7 @@ export function runJudge(input: JudgeInput, options: JudgeRunOptions = {}): Judg
 }
 
 /** The honesty text of an answer that carries the kernel's verdict on the order (an allow, or a deny with one of the kernel's
- *  own reasons), served in `content` (K-1): what an allow says, and what it does not. */
+ *  own reasons), served in `content`: what an allow says, and what it does not. */
 export const JUDGE_LABEL =
   "Genkan's Lean kernel judged this order under a context made of this call's own gate decision (its action) and the caller's " +
   "limits (venues, assets and caps). An allow says the order passes the kernel's rules and nothing more: the kernel knows no " +

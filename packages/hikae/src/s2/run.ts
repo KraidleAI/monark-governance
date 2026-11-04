@@ -1,12 +1,12 @@
 /**
- * HIKAE — full run of the S2 instrument (ADR-M002 D10; review corr. 1 and 4).
+ * HIKAE — full run of the S2 instrument.
  *
  * A single pure function `runS2(params)` produces the REPORT and the per-point RAW JOURNAL.
  * It is called (i) by `scripts/s2-report.mjs`, which writes both files into `docs/`,
  * and (ii) by the `s2_report_reproducible` test, which regenerates the report in memory and requires
  * byte-for-byte equality with the committed file (non-recalculable figures = bug).
  *
- * REAL provenance (corr. 1): §4/§6a = `internal:momentum-4c` run on a candle series
+ * REAL provenance: §4/§6a = `internal:momentum-4c` run on a candle series
  * seeded via `extractMomentumFeatures → momentum4c`, label by `labelOf`; §6b = `internal:
  * oracle-didactique` run on the SAME series. Each point passes through a frozen-contract
  * `Prediction`. No clock read: `generatedOn` is injected.
@@ -43,11 +43,11 @@ export interface S2Params {
     readonly nCalibPerStratum: number;
     readonly nCalibPooled: number;
   };
-  /** Generation date, INJECTED (D10 line), never read. */
+  /** Generation date, INJECTED (written in the `D10` lines), never read. */
   readonly generatedOn: string;
 }
 
-/** v0 parameters (declared, unfounded — they change by ADR). */
+/** v0 parameters (declared, unfounded). */
 export const S2_DEFAULT: S2Params = {
   alpha: 0.1,
   nMin: 50,

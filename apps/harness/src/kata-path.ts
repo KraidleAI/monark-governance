@@ -1,8 +1,8 @@
 /**
- * The kata path of contract 1.1.0 (lot CM-4b-a, pure; served since block D, lot D-2: docs/G0-bloc-d.md; spec sections 9
- * and 11; plan r3 section 5.4; delegated decision CM-4b C-1 to C-11). The kata request contract, the served table files
+ * The kata path of contract 1.1.0 (pure, served).
+ * The kata request contract, the served table files
  * built in process, the cell lookup with the fields of a kata verdict, and the verdict itself, assembled here from the
- * row's fields (Q-D9: the harness holds no kata scores). tools/gate.ts imports this file (test kata_path_is_served); this
+ * row's fields (the harness holds no kata scores). tools/gate.ts imports this file (test kata_path_is_served); this
  * file uses the exports of tools/gate.ts at call time only, never while loading, so the import cycle is safe.
  */
 import { sha256Canonical, type ClassEntry, type CoverageReason, type CoverageVerdict, type PolicyTable, type Prediction, type PredictionRegion } from "@monark/contracts";
@@ -15,7 +15,7 @@ import { buildPolicyTable, policyTableSha256 } from "./policy-table-file.ts";
 import { HarnessToolError, PRODUCED_AT_FUTURE_TOLERANCE_MS, rfc3339Instant, type HarnessErrorCode, type HarnessParams } from "./tools/gate.ts";
 
 
-/** The fields of a kata verdict (spec section 5) that the class's table file determines. */
+/** The fields of a kata verdict that the class's table file determines. */
 export interface KataVerdictFields {
   readonly method: "risk-control" | "split";
   readonly alpha: number;
@@ -39,7 +39,7 @@ const CALIB_REASONS: Partial<Record<string, CoverageReason>> = { silence: "calib
 const TIME_FIELDS = /[Tt]\d{2}:\d{2}:(\d{2})(?:\.(\d+))?(?:[Zz]|[+-]\d{2}:\d{2})$/;
 
 /** produced_at on a kata class, after the grammar and future checks: the grid on the string's fields (seconds 00, every
- *  fraction digit 0, the instant a multiple of h), then, with nowMs only, the lateness bound (the 300 s of B-4). */
+ *  fraction digit 0, the instant a multiple of h), then, with nowMs only, the lateness bound (300 s). */
 export function assertKataProducedAt(producedAt: string, cls: ClassEntry, nowMs?: number): void {
   const at = rfc3339Instant(producedAt) ?? refuse("produced_at_invalid", `invalid prediction.produced_at ${JSON.stringify(producedAt)}: expected an RFC 3339 date-time`);
   const f = TIME_FIELDS.exec(producedAt);
@@ -62,14 +62,14 @@ export function assertKataRequest(p: Prediction, params: HarnessParams, cls: Cla
   if (dir && !(params.tau <= KATA_DIR_TAU_CAP)) refuse("policy_tau_cap", `task_class '${cls.task_class}' requires params.tau <= ${String(KATA_DIR_TAU_CAP)}, got ${String(params.tau)}`);
 }
 
-/** The cell lookup (spec sections 9 and 11): the key, then the current row of that key in the class's table, if any. */
+/** The cell lookup: the key, then the current row of that key in the class's table, if any. */
 export function kataVerdictFields(table: PolicyTable, p: Prediction, tau: number): KataVerdictFields {
   const cls = table.class;
   const y = p.yhat as number;
   const dir = cls.region_rule === "sign-set";
   const side = y > 0 ? "up" : "down";
   const current = table.rows.filter((r) => r.current);
-  // C-8: the thresholds of the first current row of the side, in the table's order (equal on the side under the guard).
+  // The thresholds of the first current row of the side, in the table's order (equal on the side under the guard).
   const thr = current.find((r) => r.cell_key.startsWith(`${p.predictor_id}/${side}-`))?.thresholds ?? null;
   const m = Math.abs(y);
   const key = !dir ? `${p.predictor_id}/b0` : y === 0 ? p.predictor_id : thr === null ? `${p.predictor_id}/${side}` : `${p.predictor_id}/${side}-b${m <= Number(thr.t1) ? "1" : m <= Number(thr.t2) ? "2" : "3"}`;
@@ -97,13 +97,13 @@ export function kataVerdictFields(table: PolicyTable, p: Prediction, tau: number
   return h === null || h === 0 ? { ...at, reason: "region_degenerate" } : { ...at, region: { kind: "interval", lo: 0, hi: h }, qhat: row.qhat, abstain: false, reason: "covered" };
 }
 
-/** The kata path: the request contract first, so a lean of 0 answers non_evaluable only after every 400 check (C-7). */
+/** The kata path: the request contract first, so a lean of 0 answers non_evaluable only after every 400 check. */
 export function kataPath(p: Prediction, params: HarnessParams, table: PolicyTable, nowMs?: number): KataVerdictFields {
   assertKataRequest(p, params, table.class, nowMs);
   return kataVerdictFields(table, p, params.tau);
 }
 
-/** The served kata verdict (block D, Q-D9): the cell's fields, with the request's class and produced_at, no residual. */
+/** The served kata verdict: the cell's fields, with the request's class and produced_at, no residual. */
 export function kataVerdict(f: KataVerdictFields, p: Prediction, schemaVersion: string): CoverageVerdict {
   return {
     schema_version: schemaVersion, task_class: p.task_class, method: f.method, alpha: f.alpha, n_calib: f.n_calib, region: f.region, qhat: f.qhat, qhat_unit: f.qhat_unit,
@@ -112,14 +112,14 @@ export function kataVerdict(f: KataVerdictFields, p: Prediction, schemaVersion: 
   };
 }
 
-/** The served table files (C-10), built in process: each of the 32 wave 1 kata classes from its committed table when one is
- *  read (policy-committed.ts), else with no row (B-9), then the three marginal tables of policy-served.ts (Q-C3). Pure, sorted. */
+/** The served table files, built in process: each of the 32 wave 1 kata classes from its committed table when one is
+ *  read (policy-committed.ts), else with no row, then the three marginal tables of policy-served.ts. Pure, sorted. */
 export function servedPolicyTables(texts: ServedTableTexts, committed: ReadonlyMap<string, PolicyTable>): readonly ServedTable[] {
   const kata = kataClassEntries(texts.classText).map((c) => committed.get(c.task_class) ?? buildPolicyTable(c, [])).map((table) => ({ task_class: table.class.task_class, table, policy_table_sha256: policyTableSha256(table) }));
   return [...kata, ...servedMarginalTables(texts)].sort((a, b) => (a.task_class < b.task_class ? -1 : 1));
 }
 
-/** The tripwire of KATA-CLAUSE-COMMITTED-STATE-1 (E-2a): the kata tables with rows are the pinned ones at their sha256, no held class has a row. */
+/** The tripwire: the kata tables with rows are the pinned ones at their sha256, no held class has a row. */
 export function kataTablesMatchPins(tables: readonly ServedTable[], committed: Readonly<Record<string, string>>, held: readonly string[]): readonly ServedTable[] {
   const kata = tables.filter((t) => t.table.class.cell_key_rule === "kata-bucket"), rows = (c: string): number => kata.find((t) => t.task_class === c)?.table.rows.length ?? 0;
   if (held.some((c) => rows(c) > 0)) throw new Error(`KATA-CLAUSE-COMMITTED-STATE-1: a held class holds rows: ${held.filter((c) => rows(c) > 0).join(", ")}`);

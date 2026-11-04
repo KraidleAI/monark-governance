@@ -63,7 +63,7 @@ const toOrder = (f: JsonFields): OrderFields => ({
   ...(f.minOut !== undefined ? { minOut: BigInt(f.minOut) } : {}),
 });
 
-// killer: apps/genkan/src/frame.ts:45 CONST "kind === KIND_CODE.EXIT ? 1 : 0" -> "0"
+// killer: apps/genkan/src/frame.ts:49 CONST "kind === KIND_CODE.EXIT ? 1 : 0" -> "0"
 test("gnk1_vectors_encode", async () => {
   // (1) The vector file on its own: it exists, it parses, its names are unique, its hex is lowercase and of even length, and
   // each valid vector's line is the one the formats give for its fields.

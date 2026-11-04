@@ -1,13 +1,13 @@
 /**
- * HIKAE binomial core (worksite 2 of the conformal alignment, lot L2-1; ADR draft 0004 v3, D3 and D4).
+ * HIKAE binomial core.
  *
  * Exact one-sided binomial arithmetic for the per-calibration statement of a Mondrian cell:
- *   - decimal strings (alpha, test_delta) are parsed to integer ratios, with the refusals of D4;
+ *   - decimal strings (alpha, test_delta) are parsed to integer ratios, with the refusals below;
  *   - P(Bin(n, a) <= k) <= delta is decided in big integers, never in floating point;
  *   - k* = the largest k >= 0 with P(Bin(n, alpha) <= k) <= delta (or -1 when none exists);
  *   - n0 = the smallest n at which zero misses meet the rule, (1 - alpha)^n <= delta;
  *   - U(n, k*, delta) = the one-sided Clopper-Pearson upper bound, on a 1e-7 grid, rounded up;
- *   - four-decimal rounding up of a ratio, and the halving test_delta spend of D5.
+ *   - four-decimal rounding up of a ratio, and the halving test_delta spend (attempts 1 to 4).
  * Pure: no clock, no network, no file, no environment. Every refusal throws a RangeError.
  */
 
@@ -15,7 +15,7 @@
 export type Ratio = { readonly num: bigint; readonly den: bigint };
 
 const GRID = 10_000_000n; // 1e-7 grid of the published bound (7 decimals)
-const MAX_ATTEMPT = 4; // calib_attempt cap (D5)
+const MAX_ATTEMPT = 4; // calib_attempt cap
 
 function gcd(a: bigint, b: bigint): bigint {
   let x = a < 0n ? -a : a;
@@ -50,7 +50,7 @@ export function parseAlpha(dec: string): Ratio {
   return r;
 }
 
-/** Parses test_delta: a plain decimal in (0, 1) strictly below 0.25 (hypothesis of the rank ordering, D3). */
+/** Parses test_delta: a plain decimal in (0, 1) strictly below 0.25 (hypothesis of the rank ordering). */
 export function parseTestDelta(dec: string): Ratio {
   const r = parseUnitDecimal(dec);
   if (4n * r.num >= r.den) throw new RangeError(`test_delta must be below 0.25: "${dec}"`);
@@ -88,9 +88,9 @@ export function binomCdfLeq(n: number, k: number, a: Ratio, delta: Ratio): boole
 
 /**
  * k*: the largest k >= 0 with P(Bin(n, alpha) <= k) <= test_delta, or -1 when (1 - alpha)^n > test_delta.
- * Audit P3 E-9 (ADR-CM CM-3a): one linear pass over the exact terms (largestCdfIndexLeq, end of this file)
- * instead of one exact CDF per k (8.7 s at n 4368, alpha 0.45, test_delta 0.05); same decision as binomCdfLeq.
- * The lines below this function keep their numbers (killers of earlier lots are anchored on them).
+ * One linear pass over the exact terms (largestCdfIndexLeq, end of this file) instead of one exact CDF per k:
+ * 0.009 s against 4.4 s at n 4368, alpha 0.45, test_delta 0.05 (measured 2026-11-04, Node 24.21, Windows x64); same decision as binomCdfLeq.
+ * The lines below this function keep their numbers (test killers are anchored on them).
  */
 export function riskControlMaxExceedances(n: number, alphaDec: string, deltaDec: string): number {
   assertCount("n", n);
@@ -144,7 +144,7 @@ export function ceilDecimal4(r: Ratio): string {
   return fixed(m, 10000n, 4);
 }
 
-/** test_delta spend (D5): base / 2^(attempt - 1) for calib_attempt 1 to 4, as an exact decimal string without trailing zeros. */
+/** test_delta spend: base / 2^(attempt - 1) for calib_attempt 1 to 4, as an exact decimal string without trailing zeros. */
 export function spendDelta(baseDec: string, attempt: number): string {
   if (!Number.isSafeInteger(attempt) || attempt < 1 || attempt > MAX_ATTEMPT) throw new RangeError(`calib_attempt must be 1 to ${String(MAX_ATTEMPT)}, got ${String(attempt)}`);
   parseTestDelta(baseDec);
@@ -158,7 +158,7 @@ export function spendDelta(baseDec: string, attempt: number): string {
 }
 
 /**
- * E-9: the largest k in -1..n-1 with P(Bin(n, a) <= k) <= delta (delta < 1, 0 < a < 1), in one pass over the exact
+ * largestCdfIndexLeq: the largest k in -1..n-1 with P(Bin(n, a) <= k) <= delta (delta < 1, 0 < a < 1), in one pass over the exact
  * terms t_i = C(n, i) a.num^i q^(n - i), q = a.den - a.num, with t_(i+1) = t_i (n - i) a.num / ((i + 1) q) (an exact
  * integer division); the running sum is compared with delta x a.den^n at each i: the decision of binomCdfLeq(n, i, a, delta).
  */

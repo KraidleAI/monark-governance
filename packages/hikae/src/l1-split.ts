@@ -1,22 +1,22 @@
 /**
- * HIKAE L1 — per-task-class split conformal (ADR-M002 D3, type-(i) guarantee).
+ * HIKAE L1 — per-task-class split conformal (type-(i) guarantee).
  *
  * DECLARED guarantee: marginal, finite-sample, UNDER exchangeability within
  * class κ; NO coverage conditional on x; NEVER `p_correct`.
- * Sources [lu] (our archives): `(n+1)` correction — Barber, Candes, Ramdas, Tibshirani,
- * *Predictive inference with the jackknife+*, AoS 2021, note 1 p.4 (hikae/lecture/
- * L6-jackknife-lei.md:103 ; R2-cp-distfree.md:218); marginal split-CP validity — Barber
- * et al. 2020, Thm 2.1 p.5 (R2-cp-distfree.md:40,85); partition/strata — Thm 4.1 p.11.
- * Score WITHOUT logits — Su et al. *API Is Enough* (VERDICT-TASKCLASS-GROK §1).
+ * Sources: `(n+1)` correction — Barber, Candes, Ramdas, Tibshirani,
+ * *Predictive inference with the jackknife+*, AoS 2021, note 1 p.4; marginal
+ * split-CP validity — Barber et al. 2020, Thm 2.1 p.5;
+ * partition/strata — Thm 4.1 p.11.
+ * Score WITHOUT logits — Su et al. *API Is Enough*.
  *
  * Beachhead: INDICATOR score `s(x,ŷ)=0, s(x,other)=1` (k=1). At this score `q̂ ∈ {0,1}`:
  * `q̂=0 ⇒ C={ŷ}` (singleton), `q̂=1 ⇒ C={up,down}`. CP richness does not show
- * on a binary — it is calibrated silence, not a defect (GROK-DECORTICATION §2).
+ * on a binary — it is calibrated silence, not a defect.
  */
 
 import { missUpperBound, parseAlpha, parseTestDelta, riskControlMaxExceedances, spendDelta, zeroErrorFloor } from "./binomial.ts";
 
-/** Indicator score k=1 (D3): 0 if `y === yhat`, 1 otherwise. */
+/** Indicator score k=1: 0 if `y === yhat`, 1 otherwise. */
 export function indicatorScore(yhat: string, y: string): 0 | 1 {
   return y === yhat ? 0 : 1;
 }
@@ -25,7 +25,7 @@ export function indicatorScore(yhat: string, y: string): 0 | 1 {
 export type SplitResult = { qhat: number } | { reason: "under_calib" };
 
 /**
- * Split conformal quantile (D3): `p = ceil((n+1)(1-alpha))`, `q̂` = p-th smallest
+ * Split conformal quantile: `p = ceil((n+1)(1-alpha))`, `q̂` = p-th smallest
  * score. FAIL-CLOSED (never a silently clamped `+inf`): `n < nMin` OR `p > n`
  * ⇒ `under_calib` (no `q̂` produced).
  */
@@ -50,7 +50,7 @@ export type RiskControlResult =
   | { readonly reason: "under_calib" };
 
 /**
- * Risk-controlling quantile of a per-calibration row (worksite 2, lot L2-2; ADR draft 0004 v3.1 D2 and D3).
+ * Risk-controlling quantile of a per-calibration row.
  * kStar = the largest k >= 0 with P(Bin(n, alpha) <= k) <= test_delta, decided in exact rationals (binomial.ts);
  * served rank = n - kStar; qhat = the rank-th smallest score (with ties, the order statistic at that rank);
  * kObs = the count of scores strictly above qhat (descriptive, kObs <= kStar); missBound = U(n, kStar, test_delta),
@@ -80,7 +80,7 @@ export function riskControlQuantile(scores: readonly number[], alphaDec: string,
 }
 
 /**
- * Conformal set `C(x) = { y : s(x,y) <= qhat }` (D3). `scoresByLabel` carries the indicator
+ * Conformal set `C(x) = { y : s(x,y) <= qhat }`. `scoresByLabel` carries the indicator
  * score of EVERY candidate label for this x; the Map's iteration order is
  * preserved (serialization determinism).
  */
@@ -109,23 +109,23 @@ export function indicatorScores(
 }
 
 /*
- * CM-3a (ADR-CM chantier moteur, audit P3 E-4, E-5, E-6, E-12): additions for the kata path only. splitQuantile and
- * riskControlQuantile above are unchanged, byte for byte (rule R-2: the served BYO, USDe, liq and cascade paths call
- * splitQuantile; no served path calls riskControlQuantile).
+ * The functions below add score domains, integer split ranks, the calibration row of the kata path
+ * (riskControlRow) and the served quantile (splitQuantileShortest). splitQuantile and riskControlQuantile above keep
+ * their code: scripts/record-u4b-calib.mjs calls splitQuantile, and tools/kata-recalc cites their line numbers.
  */
 
-/** Score domain of a calibration row (E-4): "finite" refuses NaN and the infinities; "band" also refuses negative scores. */
+/** Score domain of a calibration row: "finite" refuses NaN and the infinities; "band" also refuses negative scores. */
 export type ScoreDomain = "finite" | "band";
 
-/** E-4: true iff every score is a finite number and, for "band", not below 0 (-0 passes). An empty row passes. */
+/** True iff every score is a finite number and, for "band", not below 0 (-0 passes). An empty row passes. */
 export function scoresInDomain(scores: readonly number[], domain: ScoreDomain): boolean {
   return scores.every((s) => Number.isFinite(s) && (domain === "finite" || s >= 0));
 }
 
-/** Three-way comparator (E-5): -1, 0 or 1, never NaN, unlike `a - b` (Infinity - Infinity). */
+/** Three-way comparator: -1, 0 or 1, never NaN, unlike `a - b` (Infinity - Infinity). */
 const ascending = (x: number, y: number): number => (x < y ? -1 : x > y ? 1 : 0);
 
-/** E-5: the split rank ceil((n + 1)(1 - alpha)) in integer arithmetic, alpha a decimal string (parseAlpha refusals throw). */
+/** The split rank ceil((n + 1)(1 - alpha)) in integer arithmetic, alpha a decimal string (parseAlpha refusals throw). */
 export function splitRankExact(n: number, alphaDec: string): number {
   if (!Number.isSafeInteger(n) || n < 0) throw new RangeError(`n must be a non-negative integer, got ${String(n)}`);
   const a = parseAlpha(alphaDec);
@@ -133,7 +133,7 @@ export function splitRankExact(n: number, alphaDec: string): number {
 }
 
 /**
- * E-5: split conformal quantile at the exact integer rank p = ceil((n + 1)(1 - alpha)) (splitRankExact), the scores
+ * Split conformal quantile at the exact integer rank p = ceil((n + 1)(1 - alpha)) (splitRankExact), the scores
  * sorted by a three-way comparator. FAIL-CLOSED `under_calib`: n < nMin, a nMin that is not an integer, a refused alpha,
  * a score outside `domain` (default "finite": NaN and the infinities), p > n. splitQuantile (float rank) is unchanged.
  */
@@ -151,22 +151,22 @@ export function splitQuantileExact(scores: readonly number[], alphaDec: string, 
   return q === undefined ? under : { qhat: q };
 }
 
-/** Options of riskControlRow (E-4, E-6, E-12); every field is optional. */
+/** Options of riskControlRow; every field is optional. */
 export interface RiskControlRowOptions {
-  /** Score domain (E-4), default "finite"; "band" for the scaled bands of the kata path. */
+  /** Score domain, default "finite"; "band" for the scaled bands of the kata path. */
   readonly domain?: ScoreDomain;
-  /** calib_attempt (E-12), 1 to 4, default 1; returned with the row. */
+  /** calib_attempt, 1 to 4, default 1; returned with the row. */
   readonly attempt?: number;
   /**
-   * E-12 under amendment A-1: h + 1, h the count of NON-exempt recalibrations, an integer in 1..attempt, default attempt;
+   * The spend index, an integer in 1..attempt, default attempt;
    * the test delta is spendDelta(base, spendIndex).
    */
   readonly spendIndex?: number;
-  /** E-6: the score at which the region is the whole label space (1 for the indicator score of a direction cell). */
+  /** The score at which the region is the whole label space (1 for the indicator score of a direction cell). */
   readonly silenceAt?: number;
 }
 
-/** Fields shared by the served and the silent rows (E-6, E-12). */
+/** Fields shared by the served and the silent rows. */
 interface RowCore {
   readonly qhat: number;
   readonly rank: number;
@@ -179,7 +179,7 @@ interface RowCore {
   readonly testDelta: string;
 }
 
-/** riskControlRow result: a row with its bound, a silent row (no missBound, E-6), or fail-closed under-calibration. */
+/** riskControlRow result: a row with its bound, a silent row (no missBound), or fail-closed under-calibration. */
 export type RiskControlRow =
   | (RowCore & { readonly silence: false; readonly missBound: string })
   | (RowCore & { readonly silence: true })
@@ -187,8 +187,8 @@ export type RiskControlRow =
 
 /**
  * Risk-controlling quantile of one calibration row for the kata path: riskControlQuantile at the test delta
- * spendDelta(baseDelta, spendIndex) (E-12, amendment A-1; returned with spendIndex and the attempt), after the score
- * domain check (E-4), with the CALIB misses counted apart and a silence flag (E-6): silenceAt is the largest score of the
+ * spendDelta(baseDelta, spendIndex) (returned with spendIndex and the attempt), after the score
+ * domain check, with the CALIB misses counted apart and a silence flag: silenceAt is the largest score of the
  * label space, so no score may exceed it; silence iff qhat >= silenceAt (then qhat = silenceAt and kObs is 0, while
  * calibMisses counts the scores at silenceAt). A silent row carries no missBound (it would describe a region that is not
  * served). FAIL-CLOSED `under_calib`: every refusal of riskControlQuantile, a score outside the domain, a refused attempt,
@@ -216,7 +216,7 @@ export function riskControlRow(scores: readonly number[], alphaDec: string, base
 }
 
 /**
- * B-12 (ADR-CM, spec section 7): the split rank ceil((n + 1)(1 - a)) in integer arithmetic, where a is the exact rational
+ * The split rank ceil((n + 1)(1 - a)) in integer arithmetic, where a is the exact rational
  * of String(alpha), the shortest round-trip writing of the number received (exponent included, no limit on the number of
  * decimals: 0.12345 is 12345/100000, 1e-7 is 1/10^7). Throws a RangeError on an n that is not a non-negative integer or a
  * non-finite alpha; the rank of an alpha outside (0, 1) is returned as computed (p > n or p < 1).
@@ -234,7 +234,7 @@ export function splitRankShortest(n: number, alpha: number): number {
 }
 
 /**
- * B-12: split conformal quantile of the served paths at the rank of splitRankShortest. FAIL-CLOSED `under_calib`, as
+ * Split conformal quantile of the served paths at the rank of splitRankShortest. FAIL-CLOSED `under_calib`, as
  * splitQuantile and with no new refusal: n < nMin, a non-finite alpha, p > n or p < 1. Scores sorted three-way.
  */
 export function splitQuantileShortest(scores: readonly number[], alpha: number, nMin: number): SplitResult {

@@ -1,27 +1,27 @@
 /**
- * Wave 2 admission of a kata band row from its counts, and the calib_parent chain of a table (lot CM-4a-ii-b, block B2 of
- * 1.1.0; docs/G0-lot-cm-4a-ii-b.md; ADR 0006 D1, D2, D6 and addendum 8 sections 1 and 4; A-2 section 2.2 points 4 to 6;
- * amendment A-1 point 4; wave 2b: the mark and refusals of FORMAT-wave2b). The one seam of the guard to packages/hikae/src/tail.ts. Fails closed.
+ * Wave 2 admission of a kata band row from its counts, and the calib_parent chain of a table
+ * (wave 2b: the mark and refusals of FORMAT-wave2b).
+ * The one seam of the guard to packages/hikae/src/tail.ts. Fails closed.
  */
 import { canonicalJson, sha256Canonical, type PolicyRow } from "@monark/contracts";
 import { adjacencyTailFromCounts, tailRank, TailCountsError, type AdjacencyCountsTail } from "@monark/hikae";
 
-/** tail_frac pinned per horizon (ADR 0006 D2). */
+/** tail_frac pinned per horizon. */
 export const W2_TAIL_FRAC: Readonly<Record<string, string>> = { "1h": "0.95", "4h": "0.90" };
-/** Points of the CALIB-2 block (D6, 2022-10-01 to 2023-10-01) per horizon: the bound on n before any tail arithmetic (G2 of #135, m-2). */
+/** Points of the CALIB-2 block (2022-10-01 to 2023-10-01) per horizon: the bound on n before any tail arithmetic. */
 export const W2_CALIB_N_MAX: Readonly<Record<string, number>> = { "1h": 8760, "4h": 2190 };
-/** Points of the bridge (365 days), TEST-2 and FWD-2 (183 days each) blocks of D6 per horizon: the bound on n_test before any bound or veto (G2 of lot b, m-2). */
+/** Points of the bridge (365 days), TEST-2 and FWD-2 (183 days each) blocks per horizon: the bound on n_test before any bound or veto. */
 export const W2_BLOCK_N_MAX: Readonly<Record<"bridge" | "test" | "fwd", Readonly<Record<string, number>>>> = { bridge: W2_CALIB_N_MAX, test: { "1h": 4392, "4h": 1098 }, fwd: { "1h": 4392, "4h": 1098 } };
-/** Points of the longest UTC civil quarter (92 days) per horizon: the bound on the n_test of a live:<k> retire, refused before any bound or veto (ADR 0006 addendum 9 point 5; R-a of ENGINE-ROW-RETIRE-PATH-1). */
+/** Points of the longest UTC civil quarter (92 days) per horizon: the bound on the n_test of a live:<k> retire, refused before any bound or veto. */
 export const LIVE_N_MAX: Readonly<Record<string, number>> = { "1h": 2208, "4h": 552 };
 
 type Is = (ok: boolean, what: string) => void;
 
 /**
- * Addendum 8 section 1 on a calibrated wave 2 band row (n, tail_frac and runs_level already pinned by the caller): tail_m at most
- * n - r, and misses at most tail_m (every miss is a tail point, W2-GUARD-MISSES-TAIL-1); both tails recomputed by the exact null and
+ * On a calibrated wave 2 band row (n, tail_frac and runs_level already pinned by the caller): tail_m at most
+ * n - r, and misses at most tail_m (every miss is a tail point); both tails recomputed by the exact null and
  * equal byte for byte to the row's unreduced strings, a null pair when m = 0; a TailCountsError is a named refusal of the row, never
- * under_calib (G2 of #135, m-3). `reject`: either tail at or below runs_level; `empty`: tail_m = 0 (an empty check 1 is no refusal, D2).
+ * under_calib. `reject`: either tail at or below runs_level; `empty`: tail_m = 0 (an empty check 1 is no refusal).
  */
 export function wave2Admission(r: PolicyRow, is: Is): { reject: boolean; empty: boolean } {
   const exact = <T>(f: () => T): T => {
@@ -45,10 +45,10 @@ export function wave2Admission(r: PolicyRow, is: Is): { reject: boolean; empty: 
 const CELL = ["kata_id", "w", "venue", "symbol", "horizon", "side", "bucket", "thresholds", "scale_table"] as const;
 
 /**
- * A-1 point 4 on the per-calibration rows of a table: per cell, attempts 1..k without a gap, attempt 1 on wave 1 and 2 on
- * wave 2 (D1; G2 of lot b, B-1); the calib_parent of attempt j >= 2 is the digest of the canonical writing of row j - 1 as
- * written in the table, current false (the policy_row_sha256 digest; declared reading, G2 of lot b, m-1); the same kata cell
- * and factor table as the parent (D1); only the last attempt is current (spec section 10).
+ * On the per-calibration rows of a table: per cell, attempts 1..k without a gap, attempt 1 on wave 1 and 2 on
+ * wave 2; the calib_parent of attempt j >= 2 is the digest of the canonical writing of row j - 1 as
+ * written in the table, current false (the policy_row_sha256 digest; declared reading); the same kata cell
+ * and factor table as the parent; only the last attempt is current (spec section 10).
  */
 export function guardCalibChain(rows: readonly PolicyRow[]): void {
   const cells = new Map<string, PolicyRow[]>();
@@ -67,7 +67,7 @@ export function guardCalibChain(rows: readonly PolicyRow[]): void {
 export const W2B_REGISTRY_FILE = "wave3.json";
 /** The wave 2b mark: a wave 2 row of the pinned wave3.json. */
 export const isWave2b = (r: PolicyRow): boolean => r.source.wave === 2 && r.source.registry_file === W2B_REGISTRY_FILE;
-/** The base test_delta of a wave 2b row, its only attempt (addendum 2 rules 3 and 4): exact strings, null off 1h and 4h. */
+/** The base test_delta of a wave 2b row, its only attempt: exact strings, null off 1h and 4h. */
 export const w2bDelta = (h: string | null): string | null => (h === "1h" ? "0.025" : h === "4h" ? "0.05" : null);
 /** The window of a wave 2b estimator (FORMAT-wave2b, "The window W"), by explicit comparisons: no lookup in an object, whose prototype a kata_id could name. */
 const w2bWindow = (k: string | null, w: number | null, h: string | null): boolean =>

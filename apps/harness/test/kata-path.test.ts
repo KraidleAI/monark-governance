@@ -349,7 +349,7 @@ function servedModules(read = (file: string): string => readFileSync(file, "utf8
 // guard (policy-guard.ts) stays outside the served graph.
 // killer: apps/harness/src/tools/gate.ts:62 CONST "\"../kata-path.ts\";" -> "\"../kata-path.ts?served\";"
 test("kata_path_is_served", () => {
-  // killer: apps/harness/src/server.ts:32 CONST "\"./version.ts\";" -> "\"./version.ts?served\";"
+  // killer: apps/harness/src/server.ts:38 CONST "\"./version.ts\";" -> "\"./version.ts?served\";"
   const seen = servedModules();
   assert.ok(seen.size > 6 && seen.has(join(SRC, "tools/gate.ts")));
   for (const f of ["kata-path.ts", "policy-classes.ts", "policy-served.ts"]) assert.ok(seen.has(join(SRC, f)), `${f} is served`);

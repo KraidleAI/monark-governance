@@ -1,16 +1,16 @@
 /**
- * HIKAE — S2 instrument (ADR-M002 D10; design ADOPTED from Grok doc 11 §2/§5.1/§7/§8,
- * input never lifted, rewritten for our contracts). DISPOSABLE harness (does not promote itself).
+ * HIKAE — S2 instrument, on seeded synthetic data only, written for the frozen contracts
+ * of `@monark/contracts`. DISPOSABLE harness (does not promote itself).
  *
  * S2a plumbing (declared synthetic binary class): "are the quantile and the gate
- * wired?". S2b beachhead `btc-dir-15m` (synthetic fixtures here — the J0 probe on
- * Coinbase, decided by a product decision (a), comes later; NO network fetch here).
+ * wired?". S2b beachhead `btc-dir-15m` (synthetic fixtures here — no J0 probe on
+ * Coinbase is run; NO network fetch here).
  *
  * Determinism: SEEDED `mulberry32` PRNG (no `Math.random`, no clock read — hash
- * stability, D7). COMMITTED split (seed + "chronological first-n" rule). EX ANTE strata.
+ * stability). COMMITTED split (seed + "chronological first-n" rule). EX ANTE strata.
  *
  * `harness_version = "fixtures-synth"`. A negative result = a result: an S2b at ~100 %
- * abstention is written with n, m, q̂ (D10), never softened.
+ * abstention is written with n, m, q̂, never softened.
  */
 import { indicatorScore, indicatorScores, conformalSet, splitQuantile } from "../l1-split.ts";
 import type { SplitResult } from "../l1-split.ts";
@@ -48,7 +48,7 @@ export function mulberry32(seed: number): () => number {
 
 export type Stratum = "asia" | "americas" | "mid";
 
-/** EX ANTE strata (D10): `asia` 00-08 UTC, `americas` 13-21 UTC, rest `mid` (outside per-stratum inference). */
+/** EX ANTE strata: `asia` 00-08 UTC, `americas` 13-21 UTC, rest `mid` (outside per-stratum inference). */
 export function strataOf(hourUtc: number): Stratum {
   if (hourUtc >= 0 && hourUtc < 8) return "asia";
   if (hourUtc >= 13 && hourUtc < 21) return "americas";
@@ -98,7 +98,7 @@ export function generateLabeledSeries(params: GenParams): LabeledPoint[] {
 }
 
 // ---------------------------------------------------------------------------
-// Synthetic CANDLE series + REAL wiring of the D7 predictors (review corr. 1):
+// Synthetic CANDLE series + REAL wiring of the two predictors of predictor.ts:
 // the frozen chain is entered at step 1 — `predictor → Prediction → conformer`.
 // ---------------------------------------------------------------------------
 
@@ -143,7 +143,7 @@ export interface PredictorRun {
 }
 
 /**
- * Applies a D7 predictor to a candle series: at each decision `t = close_time` of the
+ * Applies a predictor to a candle series: at each decision `t = close_time` of the
  * last completed candle, features = 5 closes ≤ t (`extractMomentumFeatures`, anti-look-ahead
  * guard), `ŷ = momentum4c(features)` or `ŷ = oracleDidactique(candle [t,t+15))` (ŷ=y by
  * construction — didactic mutant, NOT a product), `y = labelOf(candle [t,t+15))`.
@@ -202,7 +202,7 @@ export interface CampaignParams {
   readonly nCalib: number;
 }
 
-/** One RAW JOURNAL line per point (D10: every figure recomputes without trusting HIKAE). */
+/** One RAW JOURNAL line per point (every figure recomputes without trusting HIKAE). */
 export interface PointTrace {
   readonly index: number;
   readonly closeTime: number;
@@ -227,7 +227,7 @@ export interface CampaignResult {
   readonly nCalib: number;
   readonly mHoldout: number;
   readonly split: SplitResult;
-  /** Empirical coverage INCLUDING abstentions (the CP guarantee, D10 step 4). */
+  /** Empirical coverage INCLUDING abstentions (the CP guarantee). */
   readonly coverageAll: number | null;
   /** Action-CONDITIONAL coverage (|C|<=tau) — desk figure, "not the CP guarantee". */
   readonly coverageConditional: number | null;
@@ -334,9 +334,9 @@ export function runSplitCampaign(params: CampaignParams): CampaignResult {
 }
 
 // ---------------------------------------------------------------------------
-// The 9 MECHANISM states (block "mechanism demo" of (e); oracle of test 14).
+// The 9 MECHANISM states (block "mechanism demo", section 6 of the report; oracle of test 14).
 // 3 COMMIT / 2 DEFER / 3 ABSTAIN / 1 under_calib, all produced by the REAL `gate()`.
-// Verdicts built with DECLARED scores (not ŷ=y — review corr. 1): the COMMIT from a
+// Verdicts built with DECLARED scores (not ŷ=y): the COMMIT from a
 // 47/50 calibration (3 errors ⇒ q̂=0 ⇒ singleton); the DEFER from a half-wrong
 // calibration (25/50 ⇒ q̂=1 ⇒ {up,down}); the ABSTAIN from the mutants (timeout, intent outside region,
 // budget exhausted); under_calib from n<n_min. The REAL didactic oracle is run in `run.ts`
@@ -385,7 +385,7 @@ function baseInput(over: Partial<GateInput> & { verdict: GateInput["verdict"]; i
     remainingBudget: 0.1,
     bFloor: 0,
     tau: 1,
-    tauInterval: 1, // inert here: these demo states are all `set` (M003 D6.1 interval path not exercised)
+    tauInterval: 1, // inert here: these demo states are all `set` (the `interval` path is not exercised)
     nCalib: 50,
     nMin: 50,
     clockOpen: true,
@@ -443,14 +443,14 @@ export interface MutantOutcome {
 }
 
 /**
- * Seeded negative controls (D10 step 7) — an instrument that never rejected has shown
+ * Seeded negative controls — an instrument that never rejected has shown
  * nothing. M5 (`p_correct` in serialization ⇒ throws) is verified in the dedicated test
  * (`no_p_correct_field`) since it exercises the frozen contract; here we carry the mechanical M1-M4.
  */
 /** DECLARED parameters of the M2 mutant (block 1 of the report) — recalculable. */
 export const M2_PARAMS = { seed: 42, n: 120, accuracy: 0.95, nCalib: 60 } as const;
 
-/** The two M2 campaigns (clean / flipped labels), exposed for the raw journal (G2 delta 5.2). */
+/** The two M2 campaigns (clean / flipped labels), exposed for the raw journal. */
 export function m2Campaigns(): { clean: CampaignResult; broken: CampaignResult } {
   const base = generateLabeledSeries({ seed: M2_PARAMS.seed, n: M2_PARAMS.n, accuracy: M2_PARAMS.accuracy });
   const clean = runSplitCampaign({ label: "M2-clean", points: base, alpha: 0.1, nMin: 50, tau: 1, nCalib: M2_PARAMS.nCalib });

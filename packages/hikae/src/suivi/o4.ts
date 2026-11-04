@@ -5,12 +5,13 @@
  *   - K(i, j) = capitalOfCounts(bets_k, "below", a, i, j) counts every label since the start; it licenses once, at the first label
  *     at which K delta_adm >= 1. W(i, j) = capitalOfCounts(bets_w, "above", a, i, j) counts the labels of an open segment after its
  *     opening; it closes the segment at the first label at which W delta_exh >= 1. A closed segment is absorbing for the policy version;
- *   - budgetNano = floor(10^9 (1 - delta_exh W)) in an open segment, -1 elsewhere;
+ *   - each crossing is decided by capitalCrosses, and budgetNano = floor(10^9 (1 - delta_exh W)) in an open segment (-1 elsewhere) is
+ *     computed by capitalBudget, both on the unreduced integers of K or W: no label pays for the gcd of a reduction;
  *   - o4Step, o4CloseOnAlarm and budgetNano refuse a policy that assertSuiviPolicy refuses and a malformed state: its form first
  *     (counts, ranks and seqs, segment fields), then its capital (K under 1/delta_adm without licence, W against 1/delta_exh by segment).
  * Every decision is taken on exact rationals. Pure: no clock, no network, no file, no environment. Every refusal throws a RangeError.
  */
-import { capitalOfCounts, crosses, floorScaled, mul, q, qParse, sub, type Q } from "../pari/index.ts";
+import { capitalBudget, capitalCrosses, qParse } from "../pari/index.ts";
 import type { Label } from "./label.ts";
 import { assertSuiviPolicy, mixtureOf, type SuiviPolicy } from "./policy.ts";
 
@@ -30,12 +31,11 @@ export interface O4State {
   readonly segment: O4Segment;
 }
 
-/** The two capitals and the two deltas of an accepted policy. */
+/** The two tests of an accepted policy at the counts (t, k), K delta_adm >= 1 and W delta_exh >= 1, and floor(10^9 (1 - delta_exh W)). */
 interface Tests {
-  readonly K: (t: number, k: number) => Q;
-  readonly W: (t: number, k: number) => Q;
-  readonly deltaAdm: Q;
-  readonly deltaExh: Q;
+  readonly kCrosses: (t: number, k: number) => boolean;
+  readonly wCrosses: (t: number, k: number) => boolean;
+  readonly wBudget: (t: number, k: number) => bigint;
 }
 
 const nat = (v: unknown): boolean => Number.isSafeInteger(v) && (v as number) >= 0;
@@ -44,11 +44,13 @@ const natOrNull = (v: unknown): boolean => v === null || nat(v);
 function testsOf(policy: SuiviPolicy): Tests {
   assertSuiviPolicy(policy);
   const a = qParse(policy.a), mixK = mixtureOf(policy.bets_k), mixW = mixtureOf(policy.bets_w);
-  return { K: (t, k) => capitalOfCounts(mixK, "below", a, t, k), W: (t, k) => capitalOfCounts(mixW, "above", a, t, k),
-    deltaAdm: qParse(policy.delta_adm), deltaExh: qParse(policy.delta_exh) };
+  const deltaAdm = qParse(policy.delta_adm), deltaExh = qParse(policy.delta_exh);
+  return { kCrosses: (t, k) => capitalCrosses(mixK, "below", a, deltaAdm, t, k),
+    wCrosses: (t, k) => capitalCrosses(mixW, "above", a, deltaExh, t, k),
+    wBudget: (t, k) => capitalBudget(mixW, "above", a, deltaExh, t, k, 10n ** 9n) };
 }
 
-/** Refuses a malformed state, form before capital, so that capitalOfCounts sees only safe integers >= 0. */
+/** Refuses a malformed state, form before capital, so that the tests see only safe integers >= 0. */
 function checkState(s: O4State, x: Tests, what: string): void {
   const bad = (rule: string): never => {
     throw new RangeError(`${what}: malformed state, ${rule}`);
@@ -81,10 +83,10 @@ function checkState(s: O4State, x: Tests, what: string): void {
       if (g.closed_by === "w_exhausted" && g.opened_seq !== null && g.opened_seq >= g.closed_seq) bad("closed by W at the opening seq");
     }
   }
-  if (licensed_at === null && crosses(x.K(k_t, k_k), x.deltaAdm)) bad("K at 1/delta_adm without a licence");
+  if (licensed_at === null && x.kCrosses(k_t, k_k)) bad("K at 1/delta_adm without a licence");
   if (g.kind === "no_license") return;
-  // W is evaluated in every segment; capitalOfCounts refuses w_k above w_t.
-  const wCrossed = crosses(x.W(w_t, w_k), x.deltaExh);
+  // W is evaluated in every segment; capitalCrosses refuses w_k above w_t.
+  const wCrossed = x.wCrosses(w_t, w_k);
   if (g.kind === "open" && wCrossed) bad("open with W at 1/delta_exh");
   if (g.kind === "closed" && g.closed_by === "w_exhausted" && !wCrossed) bad("closed by W under 1/delta_exh");
   if (g.kind === "closed" && g.closed_by === "alarm" && wCrossed) bad("closed by an alarm with W at 1/delta_exh");
@@ -104,7 +106,7 @@ export function o4Step(s: O4State, label: Label, policy: SuiviPolicy): O4State {
   }
   // K first, whatever the segment.
   const k_t = s.k_t + 1, k_k = s.k_k + label.E;
-  const licenses = s.licensed_at === null && crosses(x.K(k_t, k_k), x.deltaAdm);
+  const licenses = s.licensed_at === null && x.kCrosses(k_t, k_k);
   const licensed_at = licenses ? k_t : s.licensed_at;
   let { w_t, w_k } = s, segment: O4Segment = { ...s.segment };
   if (s.segment.kind === "no_license") {
@@ -113,7 +115,7 @@ export function o4Step(s: O4State, label: Label, policy: SuiviPolicy): O4State {
   } else if (s.segment.kind === "open") {
     w_t += 1;
     w_k += label.E;
-    if (crosses(x.W(w_t, w_k), x.deltaExh)) {
+    if (x.wCrosses(w_t, w_k)) {
       segment = { kind: "closed", opened_at: s.segment.opened_at, opened_seq: s.segment.opened_seq, closed_at: k_t, closed_seq: label.seq,
         closed_by: "w_exhausted" };
     }
@@ -133,5 +135,5 @@ export function budgetNano(s: O4State, policy: SuiviPolicy): bigint {
   const x = testsOf(policy);
   checkState(s, x, "budgetNano");
   if (s.segment.kind !== "open") return -1n;
-  return floorScaled(sub(q(1n), mul(x.deltaExh, x.W(s.w_t, s.w_k))), 10n ** 9n);
+  return x.wBudget(s.w_t, s.w_k);
 }
