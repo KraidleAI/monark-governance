@@ -10,8 +10,8 @@
  *     after a closure, never 0.
  * The evidence is the caller's: no signature is read (the policy's keyring is checked for its shape only), and nothing is stored.
  * The cost: at t labels a capital of K or W is a fraction of about t L bits, L the bits of the common denominator of its mixture's
- * factors (suiviDenBits), and each label reduces such fractions, so the replay of n labels costs about n (n L)^2; a served caller
- * bounds n L (apps/harness).
+ * factors (suiviDenBits). Each label compares such integers without reducing them (capitalCrosses, capitalBudget), so the replay of
+ * n labels costs about n products of n L bits per bet, and no gcd of a capital; a served caller bounds n L (apps/harness).
  * Pure: no clock, no network, no file, no environment. Every refusal throws a RangeError.
  */
 import { betFactor, q, qParse, type BetSide } from "../pari/index.ts";
