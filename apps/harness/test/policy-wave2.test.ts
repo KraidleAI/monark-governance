@@ -177,7 +177,7 @@ test("w2_guard_calib_parent_chain", () => {
   chain([PARENT, { ...w2(), calib_attempt: 3, test_delta: "0.0125" }]);
 });
 
-// killer: apps/harness/src/server.ts:31 CONST "./http.ts" -> "./policy-wave2.ts"
+// killer: apps/harness/src/server.ts:37 CONST "./http.ts" -> "./policy-wave2.ts"
 test("w2_module_is_not_served", () => {
   const src = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
   const seen = new Set<string>();

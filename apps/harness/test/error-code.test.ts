@@ -214,7 +214,7 @@ test("gate_refusals_carry_their_code", () => {
 
 // Test E-4 (F2P): the HTTP error body is {error, operation, message, code}, in that order, status 400, for the
 // gate and for the other tools' error classes (default code per class).
-// killer: apps/harness/src/http.ts:106 SDL ", code: toolErrorCode(error)" -> ""
+// killer: apps/harness/src/http.ts:108 SDL ", code: toolErrorCode(error)" -> ""
 test("http_tool_error_body_carries_the_code", async () => {
   const gateBody = (p: Prediction, params: HarnessParams): unknown => ({ prediction: p, params });
   const cases: [string, unknown, string, string, string][] = [
@@ -238,7 +238,7 @@ test("http_tool_error_body_carries_the_code", async () => {
 
 // Test E-5 (F2P): an MCP tool error keeps today's text as its first (and only) content, isError, and adds the code
 // in _meta.
-// killer: apps/harness/src/tools/registry.ts:155 SDL ", _meta: { [ERROR_CODE_META_KEY]: code }" -> ""
+// killer: apps/harness/src/tools/registry.ts:141 SDL ", _meta: { [ERROR_CODE_META_KEY]: code }" -> ""
 test("mcp_tool_error_keeps_its_text_and_adds_the_code", async () => {
   const cases: [string, Obj, string, string][] = [
     ["gate", { prediction: pred("nope-class", 1), params: PARAMS }, UNKNOWN_MESSAGE, "task_class_unknown"],
@@ -255,7 +255,7 @@ test("mcp_tool_error_keeps_its_text_and_adds_the_code", async () => {
 
 // Test E-6 (F2P): the HTTP mirror validates its output against the tool's output schema: an invalid output is a 500
 // with code output_invalid, never served; a valid one stays 200.
-// killer: apps/harness/src/http.ts:112 CONST "checked.issues !== undefined" -> "false"
+// killer: apps/harness/src/http.ts:114 CONST "checked.issues !== undefined" -> "false"
 test("http_mirror_validates_its_output", async () => {
   const body = { prediction: pred("stable-run-velocity-24h", 0.0001, USDE_STABLE_RUN_PREDICTOR_ID), params: { ...PARAMS, intent: 0 } };
   const retired = await mirror("/gate", { ...body, prediction: pred("btc-dir-15m", "up", "internal:momentum-4c") });
@@ -281,7 +281,7 @@ test("http_mirror_validates_its_output", async () => {
 // Q-C5 condition 2 (decision of block C), with the cut of C2 (Q-3a-5, lot CM-3c-4a): every 400 body of the mirror validates the
 // root of schemas/tool-error.schema.json (invalid_json and invalid_input carry their message and code), every 500 body its
 // $defs/InternalError, and the 404 and 405 bodies do not validate the root.
-// killer: apps/harness/src/http.ts:97 CONST "code: \"input_invalid\", " -> ""
+// killer: apps/harness/src/http.ts:99 CONST "code: \"input_invalid\", " -> ""
 test("http_400_bodies_validate_the_tool_error_root", async () => {
   const schema = JSON.parse(readFileSync(fileURLToPath(new URL("../../../schemas/tool-error.schema.json", import.meta.url)), "utf8")) as Obj;
   const Ajv = (createRequire(import.meta.url)("ajv/dist/2020.js") as { default: new (o: object) => { compile: (s: unknown) => (v: unknown) => boolean } }).default;
@@ -322,7 +322,7 @@ test("http_400_bodies_validate_the_tool_error_root", async () => {
 // C-11 condition 2 (decision CM-4b; cut Q-3b-5 to C'): the form of features_digest is the input schema's, served: a digest of
 // 63 hex characters is a 400 input_invalid on the HTTP mirror, and an MCP tool error without a code (the SDK refuses it
 // before the tool runs, so no _meta code rides).
-// killer: apps/harness/src/http.ts:97 CONST "\"input_invalid\"" -> "\"json_invalid\""
+// killer: apps/harness/src/http.ts:99 CONST "\"input_invalid\"" -> "\"json_invalid\""
 test("features_digest_of_63_chars_is_input_invalid", async () => {
   const body = { prediction: { ...pred("stable-run-velocity-24h", 0.0001, USDE_STABLE_RUN_PREDICTOR_ID), features_digest: "a".repeat(63) }, params: { ...PARAMS, intent: 0 } };
   const http = await mirror("/gate", body);

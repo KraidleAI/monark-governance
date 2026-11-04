@@ -51,7 +51,7 @@ function guard(origin: string | null): Response | undefined {
 // Test — a present, non-allowlisted (or malformed) Origin is rejected with 403 (K-9/C-1), BOTH as a
 // unit and ON THE WIRED HTTP PATH (C-2). Mutants: `isHarnessOriginAllowed` returns `true` ⇒ red (unit);
 // drop the `originGuard(request)` call in `handleNodeRequest` (before dispatch) ⇒ red (wired).
-// killer: apps/harness/src/server.ts:188 CONST "(port, host)" -> "(0, host)"
+// killer: apps/harness/src/server.ts:196 CONST "(port, host)" -> "(0, host)"
 test("origin_invalid_returns_403", async () => {
   // (a) unit — the guard function itself.
   const evil = guard("https://evil.example.com");
@@ -104,7 +104,7 @@ test("origin_absent_is_accepted", () => {
 // Mutants: (a) drop the bounded read (buffer the whole body) ⇒ the oversized POST is no longer 413 ⇒ red;
 // (b) `>=` instead of `>` ⇒ the exactly-at-cap control becomes 413 ⇒ red; (c) truncate/alter the body in
 // the reader ⇒ the mirror yhat===100 assertion (c1) AND the MCP SSE result assertion (c2) both red.
-// killer: apps/harness/src/server.ts:188 CONST "(port, host)" -> "(0, host)"
+// killer: apps/harness/src/server.ts:196 CONST "(port, host)" -> "(0, host)"
 test("oversized_body_413_and_normal_tools_call_unaffected", async () => {
   const server = await startLoopback((port) => startServer(port));
   try {
@@ -199,7 +199,7 @@ test("oversized_body_413_and_normal_tools_call_unaffected", async () => {
 });
 
 // Test — the server binds 127.0.0.1 ONLY (K-8/C-10). Mutant: HOST = "0.0.0.0" ⇒ red.
-// killer: apps/harness/src/server.ts:188 CONST "(port, host)" -> "(0, host)"
+// killer: apps/harness/src/server.ts:196 CONST "(port, host)" -> "(0, host)"
 test("harness_binds_localhost_only", async () => {
   assert.equal(HOST, "127.0.0.1", "the bind host constant is localhost");
   const server = await startLoopback((port) => startServer(port)); // drawn port, DEFAULT host = the security property under test
@@ -222,7 +222,7 @@ test("harness_binds_localhost_only", async () => {
 //   (a) server.ts `version: HARNESS_VERSION` -> `"1.0.0"` ⇒ the wired serverInfo assertion reds;
 //   (b) version.ts HARNESS_VERSION -> "1.0.0" ⇒ the equality passes (both "1.0.0") but the
 //       startsWith("1.") doctrinal guard reds — the guard's non-vacuity proof.
-// killer: apps/harness/src/server.ts:188 CONST "(port, host)" -> "(0, host)"
+// killer: apps/harness/src/server.ts:196 CONST "(port, host)" -> "(0, host)"
 test("serverInfo_version_is_single_source_and_never_one", async () => {
   // Doctrinal guard: the advertised version is a 0.MINOR.PATCH release aligned on the git tag, never a
   // 1.x — "1.0.0 is a human decision, never an agent's; the interface contracts do not thaw"
@@ -274,7 +274,7 @@ test("serverInfo_version_is_single_source_and_never_one", async () => {
 // a socket leak; the drain reduces socket handles but does NOT close it. The ×100 matrix therefore does NOT reach
 // 0 (~4% residual, matrix-clean-82/) => D4 "0-flake" escalated to config-CI (orchestrator). No deterministic MUTANT
 // reddens here. Test 18 (universe) is already drained; test 22 is spawnSync (no server handle) — untouched.
-// killer: apps/harness/src/server.ts:188 CONST "(port, host)" -> "(0, host)"
+// killer: apps/harness/src/server.ts:196 CONST "(port, host)" -> "(0, host)"
 test("harness_server_drain_leaves_no_server_handle", async () => {
   const server = await startLoopback((port) => startServer(port));
   try {
@@ -303,7 +303,7 @@ test("harness_server_drain_leaves_no_server_handle", async () => {
 // publishes (the same for the three operations, compiled by Ajv 2020 in strict mode), over the wire: the two 500 of an operation
 // (output outside its schema, the tool threw) and the transport-level 500 of server.ts, thrown around the mirror (POST /calibrate)
 // or before routing (an unparseable Host), whose body is exactly {"error":"internal_error"}. The schema stays closed.
-// killer: apps/harness/src/schema-projection.ts:200 CONST "[internal, transport]" -> "[internal]"
+// killer: apps/harness/src/schema-projection.ts:197 CONST "[internal, transport]" -> "[internal]"
 test("every_500_of_the_server_validates_the_published_500_schema", async () => {
   type Rec = Record<string, unknown>;
   const at = (node: unknown, ...keys: string[]): unknown => keys.reduce<unknown>((n, k) => (n as Rec | undefined)?.[k], node);
