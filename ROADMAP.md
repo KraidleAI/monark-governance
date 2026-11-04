@@ -5,7 +5,7 @@ Mis à jour le 2026-11-04. Une ligne qui change remplace l'ancienne ; l'historiq
 ## Où on en est (vérifié sur le code le 2026-11-04)
 
 - **Tests** : `npm run ci` est vert sur une installation fraîche (vocabulaire, typecheck strict, 582 tests sur 582, hors
-  noyau Lean) ; `npm run test:genkan` aussi, noyau compris (37 tests sur 37, dont l'outil `judge` sur le noyau construit).
+  noyau Lean) ; `npm run test:genkan` aussi, noyau compris (38 tests sur 38, dont l'outil `judge` sur le noyau construit).
   `npm run lint` et `npm run lint:ratchet` sont verts ; le plafond de dette de typage des tests est à 45.
 - **HIKAE** (`packages/hikae`) : les trois couches sont là. L1 fait le split conforme par classe, L2 le moniteur et le
   budget `B_t`, L3 la politique qui rend une `GateDecision`. Le suivi en ligne aussi : une bibliothèque de paris en
@@ -21,10 +21,13 @@ Mis à jour le 2026-11-04. Une ligne qui change remplace l'ancienne ; l'historiq
   HIKAE, les places et les actifs autorisés, leurs plafonds) et rend `allow` ou `deny <raison>` ; le mode 2 décode un ordre
   `GNK1` ; le mode 3 calcule un SHA-256 ; toute autre requête est refusée (code de sortie 3). 30 théorèmes prouvent les
   règles du juge et la réponse du noyau : quelle que soit l'entrée, `allow` ne sort que d'un verdict allow du juge. La CI
-  rejoue chaque module par `leanchecker` et audite l'enregistrement d'axiomes de `main` et de chaque théorème ; les mutants
-  du décodeur sont tués. Le harness le lance : l'outil `judge` (étape 5) passe l'ordre au noyau construit, sous l'action de
-  la `GateDecision` qu'il calcule lui-même sur le même appel (sous abstain pour une EXIT dont le gate refuse l'enveloppe),
-  et lit sa réponse sans rien supposer (`readVerdict`).
+  rejoue chaque module par `leanchecker` et audite l'enregistrement d'axiomes de `main` et de chaque théorème. Les mutants
+  du décodeur et ceux du juge sont tués (`apps/genkan/test/mutants.kernel.test.ts`) : des 55 mutants de
+  `Genkan/Judge.lean`, 49 sont tués chacun par un cas de `judge.json`, 6 ne compilent pas (Lean les refuse : cas
+  manquants, terminaison non prouvée) et aucun ne survit ; le test dure 200 s seul, 162 s dans `test:genkan`, sous Windows
+  (le 2026-11-04). Le harness le lance : l'outil `judge` (étape 5) passe l'ordre au noyau construit, sous l'action de la
+  `GateDecision` qu'il calcule lui-même sur le même appel (sous abstain pour une EXIT dont le gate refuse l'enveloppe), et
+  lit sa réponse sans rien supposer (`readVerdict`).
 - **PR** : #355 (l'étape 5) et #356 (l'étape 7) fusionnées dans `lot/etude-suite` le 2026-11-04 ; #345 et #323 fermées le
   même jour, sur décision du fondateur. L'étape 6 est sur la branche `lot/etape-6-suivi`, partie de `c331e276` (la tête de
   l'étape 7), avec sa PR vers `lot/etude-suite`.

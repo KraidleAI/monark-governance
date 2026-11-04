@@ -1,5 +1,5 @@
 {
-  "format": "The mutants of the decoder (apps/genkan/test/helpers/mutants.ts) that build and that no input of the formats tells from the real kernel: each names its file, the line of its fragment, the fragment and its replacement, the sha256 of the file it mutates, and why no input of the formats can tell them apart; decoder_mutants_killed_in_bytes and decoder_mutants_killed_in_format refuse a survivor that is not listed and an entry that matches no survivor.",
+  "format": "The mutants of the kernel (apps/genkan/test/helpers/mutants.ts) that build and that no input of their file's set tells from the real kernel (the inputs of the formats for Genkan/Bytes.lean and Genkan/Format.lean, those of mode 1 for Genkan/Judge.lean): each names its file, the line of its fragment, the fragment and its replacement, the sha256 of the file it mutates, and why no input can tell them apart; decoder_mutants_killed_in_bytes, decoder_mutants_killed_in_format and judge_mutants_killed refuse a survivor that is not listed and an entry that matches no survivor.",
   "equivalent": [
     {
       "file": "Genkan/Bytes.lean",
