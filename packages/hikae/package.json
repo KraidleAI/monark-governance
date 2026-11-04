@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "HIKAE — HAC-CP conformal engine (Phase 1). Phase 0: stub only.",
+  "description": "HIKAE — the HAC-CP conformal gate: split conformal per task class (L1), a monitor and its budget B_t (L2), a closed policy that answers COMMIT, DEFER or ABSTAIN (L3). Marginal coverage, in finite sample, under exchangeability within the class; never a probability of being right.",
   "dependencies": { "@monark/contracts": "*" },
   "exports": { ".": "./src/index.ts" }
 }

@@ -20,8 +20,8 @@
  * A count of flats under which the stated outcomes cannot occur is not the cell's; a row that no count admits is refused.
  *
  * N(n, k, o) is the closed form of packages/hikae/src/runs.ts l.60-62, summed in one pass, with the decision of its l.77 at the level
- * 0.05. runs.ts exposes the test on a sequence only (runsLowerTailLeq) and an entry by counts there needs a zone exception (header of
- * tail.ts), so the form lives here and test/short-digest-floor.test.ts holds it to runsLowerTailLeq by complete enumeration.
+ * 0.05. runs.ts exposes the test on a sequence only (runsLowerTailLeq), with no entry by counts, so the form lives
+ * here and test/short-digest-floor.test.ts holds it to runsLowerTailLeq by complete enumeration.
  */
 
 /** The floor in bits (RECHERCHES Q-2). */

@@ -1,11 +1,11 @@
 /**
  * HIKAE tracker — quantile tracker primitive (ABB 2024, rule (4)) over the L2 IM-OCP step.
  *
- * *** TRACKER — (i)-(ii) delivered by the sentinel (ADR-M012), T counted from its first step; (iii)
- * pre-registered, unmet. NO GUARANTEE CLAIMED beyond ABB 2024 Thm 1 long-run bound. ***
- * The sentinel (apps/sentinel/, off-tool, D8 (iv) caller) carries the state and feeds the daily attested
- * outcome; this file stays the pure primitive and its byte-level oracle — no wire byte, no frozen contract
- * touched, tracker logic unchanged (the header alone moved from "unmet" to "delivered", ADR-M012 D9).
+ * *** TRACKER — nothing in this repository calls it outside HIKAE's own tests (index.ts only re-exports it).
+ * NO GUARANTEE CLAIMED beyond ABB 2024 Thm 1 long-run bound. ***
+ * The caller carries the state (TrackerState) and feeds each score; this file is the pure primitive and
+ * its byte-level digest (trackerDigest), outside the frozen contracts: no clock, no file, no network.
+ * T counts the live steps from trackerInit (state `t`, see the index convention below).
  *
  * Mechanism (Angelopoulos, Barber, Bates 2024, arXiv:2402.01139, rule (4), cited not
  * republished): q_{t+1} = q_t + eta_t * (1{s_t > q_t} - alpha), which is EXACTLY
@@ -29,7 +29,7 @@ import { createHash } from "node:crypto";
 import { imocpStep } from "./l2-monitor.ts";
 import type { Miscover } from "./l2-monitor.ts";
 
-/** Tracker parameters. `c, eps, t0` carry NO default (ADR-M009 D5): the caller declares them. */
+/** Tracker parameters. `c, eps, t0` carry NO default: the caller declares them. */
 export interface TrackerParams {
   readonly alpha: number;
   readonly c: number;
@@ -72,7 +72,7 @@ export function trackerInit(q1: number, params: TrackerParams): TrackerState {
 /**
  * Step size applied to state `t`: eta_{t+1} = c * (t + 1 + t0) ^ (-1/2 - eps). Throws on a
  * non-finite eta (e.g. a hand-built state whose base t + 1 + t0 <= 0), so the recursion never
- * consumes an infinite or NaN step (ADR-M009 C-1).
+ * consumes an infinite or NaN step.
  */
 export function trackerStepSize(t: number, params: TrackerParams): number {
   const base = t + 1 + params.t0;

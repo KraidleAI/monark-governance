@@ -1,27 +1,27 @@
 /**
  * HIKAE — `ukemi-liquidable-24h` class: generator of seeded SYNTHETIC pairs for the
- * calibration of the `interval` conformer (ADR-M003 D6.2). n=300, α=0.01.
+ * calibration of the `interval` conformer. n=300, α=0.01.
  *
  * PRNG: `mulberry32` REUSED from the S2 instrument (`./s2/instrument.ts`) — no `Math.random`,
  * no clock read (determinism, hash stability). The calibration/test split derives from the
  * SAME seeded stream (exchangeability: calibration and test drawn from the same law).
  *
- * DECLARED, UNFOUNDED MODEL (ADR-M003 pre-verif 3, D6.2): `ŷ_i` = predicted liquidatable amount of
+ * DECLARED, UNFOUNDED MODEL: `ŷ_i` = predicted liquidatable amount of
  * a noised reference; `y_i = ŷ_i + ε_i`, `ε_i` a declared SYMMETRIC residual. NO source of realized
  * 24 h liquidated-debt label exists in the corpus ⇒ the coverage guarantee holds only
- * on these synthetic pairs; "real data" is NOT claimed. The real 24 h label remains
- * a formed pending item (ADR-M003 §4: "real 24h label = no source").
+ * on these synthetic pairs; "real data" is NOT claimed. The real 24 h label is
+ * not read by this code.
  *
- * IMPOSED (D6.2, item 6): every output (report/journal/panel) of this class carries the D10 line
+ * IMPOSED: every output (report/journal/panel) of this class carries the `D10` line
  * with `harness_version = fixtures-synth` and the word "synthetic" next to the identifier —
  * see `liquidable24hProvenanceLine`.
  */
 import { mulberry32 } from "./s2/instrument.ts";
 import type { CalibPair } from "./interval-conformer.ts";
 
-/** Class identifier (names the UKEMI upstream predictor; conformed by HIKAE). */
+/** Class identifier, conformed by HIKAE. */
 export const LIQUIDABLE_24H_CLASS = "ukemi-liquidable-24h";
-/** Harness version imposed on every output of the class (D6.2). */
+/** Harness version imposed on every output of the class. */
 export const LIQUIDABLE_24H_HARNESS = "fixtures-synth";
 export const LIQUIDABLE_24H_ALPHA = 0.01;
 export const LIQUIDABLE_24H_N = 300;
@@ -52,7 +52,7 @@ export function generateLiquidable24hPairs(seed: number, n: number = LIQUIDABLE_
 }
 
 /**
- * D10 provenance line (D6.2) — `harness_version=fixtures-synth`, "synthetic" next to the
+ * The `D10` provenance line — `harness_version=fixtures-synth`, "synthetic" next to the
  * identifier. `generatedOn` is INJECTED (never a clock read), for output stability.
  */
 export function liquidable24hProvenanceLine(

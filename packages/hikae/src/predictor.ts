@@ -1,8 +1,8 @@
 /**
- * HIKAE — Phase 1 predictors (ADR-M002 D7: DECLARED momentum baseline; the UsePod/Hermes
- * LLM predictor, Python + API key, is Phase 2).
+ * HIKAE — the two internal predictors on 15-minute candles (a DECLARED momentum baseline
+ * and a didactic oracle); this file holds no other predictor.
  *
- * D7/D8 index convention (anti look-ahead): `close[k]` = close of the candle CLOSED
+ * Index convention (anti look-ahead): `close[k]` = close of the candle CLOSED
  * at instant `k`. For the window `[t, t+15)`, the features are `close[t], close[t-15],
  * close[t-30], close[t-45], close[t-60]` (candles closed at an instant <= t) and
  * `ŷ = sign of close[t] - close[t-60]`. The label `sign(close - open)` of `[t, t+15)`
@@ -13,7 +13,7 @@
  * every instant (`close_time`, `t`) is carried data / an injected parameter.
  */
 
-/** Predictor identifiers (`internal:` prefix kept from ADR-M001). */
+/** Predictor identifiers (the `internal:` prefix). */
 export const MOMENTUM_4C_ID = "internal:momentum-4c";
 export const ORACLE_DIDACTIQUE_ID = "internal:oracle-didactique";
 
@@ -36,7 +36,7 @@ export function signDirection(a: number, b: number): Direction {
 }
 
 /**
- * Realized label of the candle `[t, t+15)`: `y = sign(close - open)` (D8).
+ * Realized label of the candle `[t, t+15)`: `y = sign(close - open)`.
  * `close === open` ⇒ `non_evaluable` (the point is excluded, counted; no 3rd label).
  */
 export function labelOf(candle: Candle): Direction {
@@ -49,7 +49,7 @@ export interface MomentumFeatures {
 }
 
 /**
- * close of the candle closed at `t - offsetMinutes*60`, with an anti look-ahead GUARD (D7):
+ * close of the candle closed at `t - offsetMinutes*60`, with an anti look-ahead GUARD:
  * an `offsetMinutes < 0` (hence `close_time > t`, candle closed AFTER `t`) is a
  * look-ahead — that is an INTEGRITY violation, not a data gap: we THROW.
  * `offsetMinutes = 0` (`close[t]`) is accepted.
@@ -89,7 +89,7 @@ export function extractMomentumFeatures(
 }
 
 /**
- * Baseline `internal:momentum-4c` (D7): `ŷ = sign of close[t] - close[t-60]`.
+ * Baseline `internal:momentum-4c`: `ŷ = sign of close[t] - close[t-60]`.
  * Equality ⇒ `non_evaluable`. No candle closed AFTER `t` enters (guard `featureCloseAt`).
  */
 export function momentum4c(f: MomentumFeatures): Direction {
@@ -97,7 +97,7 @@ export function momentum4c(f: MomentumFeatures): Direction {
 }
 
 /**
- * Mutant `internal:oracle-didactique` (D7): `ŷ = y` BY CONSTRUCTION (via `labelOf`).
+ * Mutant `internal:oracle-didactique`: `ŷ = y` BY CONSTRUCTION (via `labelOf`).
  * This is NOT a product — it makes the COMMIT path visible for the MECHANISM demo
  * (S2b), never a performance claim.
  */
