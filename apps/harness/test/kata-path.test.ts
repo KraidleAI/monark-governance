@@ -357,15 +357,18 @@ test("kata_path_is_served", () => {
 });
 
 // Step 5 of ROADMAP.md: node:child_process is in SERVED_IMPORTS for src/kernel.ts alone. Among the served modules, kernel.ts is the one
-// that names it, and it calls spawnSync once, with no shell and an empty environment; server.ts imports it, so it is served.
+// that names it, and it calls spawn once (asynchronous: a kernel does not hold the event loop), by the binary's path, with no
+// argument, no shell, an empty environment, and stdin and stdout only; server.ts imports it, so it is served. The served runner is
+// that spawn under the limit of KERNEL_MAX_CONCURRENT kernels at once.
 test("served_child_process_is_kernel_ts_alone", () => {
   const seen = servedModules();
   const naming = [...seen].filter((f) => importSpecifiers(readFileSync(f, "utf8")).includes("node:child_process")).map((f) => f.slice(SRC.length + 1).split("\\").join("/"));
   assert.deepEqual(naming, ["kernel.ts"], "only kernel.ts imports node:child_process");
   const text = readFileSync(join(SRC, "kernel.ts"), "utf8");
-  assert.equal(text.match(/\bspawnSync\(/g)?.length, 1, "one spawnSync call");
-  assert.ok(text.includes("spawnSync(binary, [], { input: request, env: {}, shell: false,"), "by its path, no argument, an empty environment, no shell");
-  assert.doesNotMatch(text, /\b(exec|execSync|execFile|execFileSync|spawn|fork)\(/, "no other child_process call");
+  assert.equal(text.match(/\bspawn\(/g)?.length, 1, "one spawn call");
+  assert.ok(text.includes(`spawn(binary, [], { env: {}, shell: false, windowsHide: true, stdio: ["pipe", "pipe", "ignore"] })`), "by its path, no argument, an empty environment, no shell, no stderr");
+  assert.doesNotMatch(text, /\b(exec|execSync|execFile|execFileSync|spawnSync|fork)\(/, "no other child_process call");
+  assert.ok(text.includes("export const runKernel: KernelRunner = limitedKernel(kernelRunner(KERNEL_BINARY), KERNEL_MAX_CONCURRENT);"), "the served runner is the built kernel under the limit");
 });
 
 // SERVED-WALK-LOADS-1 (MONARK's decision of 2026-10-07; extended for execve and setEngine by finding m-4 of the delta review): the walk

@@ -93,15 +93,15 @@ test("http_mirror_matches_mcp_surface", async () => {
   assert.ok(gateTool && calibrateTool, "gate and calibrate are registered");
 
   const gateRes = await call(API_HOST, "POST", "/gate", GATE_BODY);
-  assert.deepEqual(gateRes.body.structuredContent, gateTool.run(GATE_BODY).structured, "gate mirror == MCP structured output");
+  assert.deepEqual(gateRes.body.structuredContent, (await gateTool.run(GATE_BODY)).structured, "gate mirror == MCP structured output");
   assertClosedGateDecision(gateRes.body.structuredContent);
   // honesty parity (K-1): the mirror's `content` text is byte-for-byte the tool's MCP honesty envelope.
-  assert.deepEqual(gateRes.body.content, [{ type: "text", text: gateTool.run(GATE_BODY).text }], "gate mirror content == MCP honesty text");
+  assert.deepEqual(gateRes.body.content, [{ type: "text", text: (await gateTool.run(GATE_BODY)).text }], "gate mirror content == MCP honesty text");
 
   // calibrate: the mirror returns the SAME structuredContent + honesty content as the MCP tool.
   const calibrateRes = await call(API_HOST, "POST", "/calibrate", CALIBRATE_BODY);
-  assert.deepEqual(calibrateRes.body.structuredContent, calibrateTool.run(CALIBRATE_BODY).structured, "calibrate mirror == MCP structured output");
-  assert.deepEqual(calibrateRes.body.content, [{ type: "text", text: calibrateTool.run(CALIBRATE_BODY).text }], "calibrate mirror content == MCP honesty text");
+  assert.deepEqual(calibrateRes.body.structuredContent, (await calibrateTool.run(CALIBRATE_BODY)).structured, "calibrate mirror == MCP structured output");
+  assert.deepEqual(calibrateRes.body.content, [{ type: "text", text: (await calibrateTool.run(CALIBRATE_BODY)).text }], "calibrate mirror content == MCP honesty text");
 });
 
 /** Wired POST via node:http so the `Host` header can be set explicitly (fetch forbids setting Host). */
@@ -204,7 +204,7 @@ test("http_gate_byo_calibration", async () => {
   // content parity with the MCP tool (K-1): the BYO honesty carrier, not the cascade sentence.
   const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
   assert.ok(gateTool, "the gate tool is registered");
-  assert.deepEqual(ok.body.content, [{ type: "text", text: gateTool.run(GATE_BYO_BODY).text }], "BYO mirror content == MCP honesty text");
+  assert.deepEqual(ok.body.content, [{ type: "text", text: (await gateTool.run(GATE_BYO_BODY)).text }], "BYO mirror content == MCP honesty text");
   // RES-1 (G2 C2): an ABSOLUTE oracle so the HTTP layer itself kills a B-1 regression (the deepEqual above is
   // an identity and would stay green under a mutant that renders the cascade sentence on BOTH sides).
   const byoPart = (ok.body.content as ReadonlyArray<{ text: string }>)[0];

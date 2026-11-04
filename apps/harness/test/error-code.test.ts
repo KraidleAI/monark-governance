@@ -238,7 +238,7 @@ test("http_tool_error_body_carries_the_code", async () => {
 
 // Test E-5 (F2P): an MCP tool error keeps today's text as its first (and only) content, isError, and adds the code
 // in _meta.
-// killer: apps/harness/src/tools/registry.ts:141 SDL ", _meta: { [ERROR_CODE_META_KEY]: code }" -> ""
+// killer: apps/harness/src/tools/registry.ts:148 SDL ", _meta: { [ERROR_CODE_META_KEY]: code }" -> ""
 test("mcp_tool_error_keeps_its_text_and_adds_the_code", async () => {
   const cases: [string, Obj, string, string][] = [
     ["gate", { prediction: pred("nope-class", 1), params: PARAMS }, UNKNOWN_MESSAGE, "task_class_unknown"],

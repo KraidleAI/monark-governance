@@ -49,8 +49,15 @@ export interface HarnessToolDescriptor {
   readonly outputStandardSchema: StandardSchemaWithJSON;
   /** Executes the tool: caller-carried args (validated at the SDK boundary) -> structured content + text. `ctx.nowMs`
    *  is the current instant injected by the entry point (src/); `gate` and `judge` read it. `ctx.kernel`
-   *  is the kernel runner, which only `judge` reads. */
-  readonly run: (args: unknown, ctx?: ToolRunContext) => { readonly text: string; readonly structured: Record<string, unknown> };
+   *  is the kernel runner, which only `judge` reads. `gate` and `calibrate` answer at once; `judge` answers when its kernel
+   *  has (a promise), and the entry points await both alike. */
+  readonly run: (args: unknown, ctx?: ToolRunContext) => ToolRunResult | Promise<ToolRunResult>;
+}
+
+/** What a tool run answers: the structured content and the text of `content`. */
+export interface ToolRunResult {
+  readonly text: string;
+  readonly structured: Record<string, unknown>;
 }
 
 /** What an entry point injects into a tool run: the current instant, read in src/, never under src/tools/; and the
@@ -100,8 +107,8 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
     outputSchemaJson: JUDGE_OUTPUT_SCHEMA,
     inputStandardSchema: judgeInputStandardSchema,
     outputStandardSchema: judgeOutputStandardSchema,
-    run: (args, ctx) => {
-      const output = runJudge(args as JudgeInput, ctx);
+    run: async (args, ctx) => {
+      const output = await runJudge(args as JudgeInput, ctx);
       // structuredContent = {decision, gate_error, kernel_verdict, kernel_reason, reduce_only, kernel_request_sha256}; the honesty prose and
       // the verdict summary (derived from the output) ride in `content` text.
       return { text: `${judgeHonestyText(output)} ${judgeVerdictSummary(output)}`, structured: output as unknown as Record<string, unknown> };
@@ -130,10 +137,10 @@ export function registerTools(server: McpServer, clock?: () => number, kernel?: 
         inputSchema: tool.inputStandardSchema,
         outputSchema: tool.outputStandardSchema,
       },
-      (args: unknown) => {
+      async (args: unknown) => {
         try {
           const ctx: ToolRunContext = { ...(clock === undefined ? {} : { nowMs: clock() }), ...(kernel === undefined ? {} : { kernel }) };
-          const { text, structured } = tool.run(args, ctx);
+          const { text, structured } = await tool.run(args, ctx);
           return { content: [{ type: "text" as const, text }], structuredContent: structured };
         } catch (error) {
           const code = toolErrorCode(error);

@@ -34,7 +34,7 @@ function kernelSaying(...lines: string[]): { readonly runner: KernelRunner; read
   const requests: Uint8Array[] = [];
   const runner: KernelRunner = (request) => {
     requests.push(request);
-    return { status: 0, stdout: new TextEncoder().encode(lines[Math.min(requests.length, lines.length) - 1] ?? "") };
+    return Promise.resolve({ status: 0, stdout: new TextEncoder().encode(lines[Math.min(requests.length, lines.length) - 1] ?? "") });
   };
   return { runner, requests };
 }
