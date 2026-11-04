@@ -38,7 +38,7 @@ Mis à jour le 2026-11-04. Une ligne qui change remplace l'ancienne ; l'historiq
 
 | # | Étape | Finie quand |
 |---|---|---|
-| 1 | Le recentrage : archive, cinq documents, CI réduite | faite le 2026-11-04 ; reste à réécrire le README de `apps/harness`, qui cite encore des ADR archivés |
+| 1 | Le recentrage : archive, cinq documents, CI réduite | faite le 2026-11-04, README de `apps/harness` réécrit à partir du code |
 | 2 | La stratégie du fondateur, écrite dans `STRATEGIE.md` | ses signaux, ses marchés, ses horizons et ses règles de sortie sont écrits |
 | 3 | L'adaptateur stratégie → `Prediction`, puis la calibration de ses classes | `gate` rend COMMIT, DEFER ou ABSTAIN sur un signal réel de la stratégie, avec son test |
 | 4 | Le juge de Genkan en Lean, avec ses théorèmes | fait le 2026-11-04 (mode 1, 30 théorèmes rejoués en CI) ; la règle de l'EXIT confirmée par le fondateur le même jour |
