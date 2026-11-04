@@ -212,6 +212,26 @@ on a listed venue passes whatever the gate decided, so whoever executes it must 
 order. Tests: `test/judge.test.ts` (a fake kernel) and `test/judge.kernel.test.ts` (the real kernel through the served
 server, in `npm run test:genkan`).
 
+## The paper executor (step 8 of `ROADMAP.md`)
+
+`src/paper.ts` runs the chain end to end on paper: a signal goes through `judge` as the HTTP mirror serves it, in process
+(the input schema, HIKAE's gate, Genkan's kernel, the output schema), and out as an order filled on paper. It is not
+served: no tool, no route, and the server stays stateless. `PaperExecutor` keeps the state: the size open on each venue
+and asset, the amount engaged on each asset (the OPEN amounts filled since the journal began; an EXIT does not lower it),
+the order ids already submitted, the last instant. It hands the kernel, as each asset's cap, the rest of that asset's
+total, so the cap holds all the orders of a journal together, the kernel unchanged. An allowed OPEN fills its amount; an
+allowed EXIT, which `judge` marks `reduce_only`, fills at most the size open on its venue and asset, never more; a deny
+fills nothing. A replayed id (`duplicate_id`), an instant before the last (`time_backwards`) and any kind but OPEN and
+EXIT (`kind_not_paper`) are refused before the gate; a refusal of the engine (its input schema, a tool error) is
+journaled with its code; every journaled step takes its id. An allow that breaks the kernel's rules as the executor reads
+them stops it (`PaperHalt`). No clock is read: each submission carries its instant (`at_ms`), which is the gate's clock.
+Each step is one line of the journal, written canonically and chained to the line before it by its sha256;
+`replayPaperJournal` recomputes each step on the kernel and refuses the first line whose bytes differ, naming the line and
+the field. A journal cut after a line, or rewritten whole, still replays: keep its head (`head()`) apart. The executor
+fills no SWAP, reads no price and places no order on any venue; its totals are the caller's, a trial value in the tests.
+Tests: `test/paper.test.ts` (a scripted kernel) and `test/paper.kernel.test.ts` (the real kernel, built in a temp copy,
+in `npm run test:genkan`).
+
 ## HTTP/JSON mirror & deployment
 
 One `127.0.0.1:3001` listener serves two surfaces, routed by Host: `mcp.monarkgate.tech` → the MCP tools
