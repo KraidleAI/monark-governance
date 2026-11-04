@@ -105,6 +105,17 @@ test("judge_runs_the_built_kernel_through_the_served_server", { skip: SKIP, time
       assert.equal((out["decision"] as { action: string }).action, action, `${name}: the gate's action`);
       assert.equal(out["kernel_request_sha256"], createHash("sha256").update(judgeRequest(action, order, LIMITS)).digest("hex"), `${name}: the request handed to the kernel`);
     }
+    // All the cases at once, twice over (26 calls, past the limit of KERNEL_MAX_CONCURRENT kernels at once): the calls past the
+    // limit wait their turn, and each gets its own kernel's verdict, as one at a time.
+    const burst = await Promise.all([...CASES, ...CASES].map(([, params, order]) => wiredPost(addr.port, "api.monarkgate.tech", "/judge", JSON.stringify({ prediction: PRED, params, order, limits: LIMITS }))));
+    burst.forEach((res, i) => {
+      const c = CASES[i % CASES.length];
+      assert.ok(c !== undefined);
+      const [name, , , verdict, reason, reduceOnly] = c;
+      assert.equal(res.status, 200, `${name}, at once: served\n${res.raw}`);
+      const out = (JSON.parse(res.raw) as { structuredContent: Record<string, unknown> }).structuredContent;
+      assert.deepEqual([out["kernel_verdict"], out["kernel_reason"], out["reduce_only"]], [verdict, reason, reduceOnly], `${name}, at once: the kernel's verdict`);
+    });
     // An EXIT under an envelope the gate refuses (a produced_at long after the server clock) is judged by the kernel with no gate
     // decision, under abstain; an OPEN under it is the gate's tool error, and no kernel runs.
     const future = { ...PRED, produced_at: "2999-01-01T00:00:00Z" };

@@ -68,14 +68,14 @@ test("calibrate_hand_rolled_split_conformal_oracle", () => {
 // summary DERIVED from the SAME result — q̂ and a truncated scores_sha256 on success (no `reason=`), and
 // `reason=under_calib` + `qhat=null` when the calibration is insufficient (so under_calib is visibly
 // distinct in the prose channel). Mutant that hardcodes the summary or drops `reason` on under_calib reds.
-test("calibrate_content_carries_verdict_summary", () => {
+test("calibrate_content_carries_verdict_summary", async () => {
   const calibrateTool = HARNESS_TOOLS.find((t) => t.name === CALIBRATE_TOOL_NAME);
   assert.ok(calibrateTool, "the calibrate tool is registered");
 
   // Success: n=9, α=0.2, nMin=5 ⇒ q̂=0.8 (hand oracle above), reason:null ⇒ no `reason=` in the summary.
   const okScores = [0.5, 0.1, 0.9, 0.3, 0.7, 0.2, 0.8, 0.4, 0.6];
   const okResult = runCalibrate({ scores: okScores, alpha: 0.2, nMin: 5 });
-  const okText = calibrateTool.run({ scores: okScores, alpha: 0.2, nMin: 5 }).text;
+  const okText = (await calibrateTool.run({ scores: okScores, alpha: 0.2, nMin: 5 })).text;
   assert.ok(okText.startsWith(CALIBRATE_LABEL), "calibrate content leads with the K-1 honesty label (carrier 2/3)");
   assert.equal(
     calibrateVerdictSummary(okResult),
@@ -86,7 +86,7 @@ test("calibrate_content_carries_verdict_summary", () => {
   assert.ok(!okText.includes("reason="), "a covered calibrate summary carries NO reason= (reason is null)");
 
   // Under-calibration: n=3 < nMin=5 ⇒ q̂=null, reason=under_calib ⇒ both surface in the text.
-  const underText = calibrateTool.run({ scores: [0.1, 0.2, 0.3], alpha: 0.1, nMin: 5 }).text;
+  const underText = (await calibrateTool.run({ scores: [0.1, 0.2, 0.3], alpha: 0.1, nMin: 5 })).text;
   assert.ok(underText.includes("qhat=null"), "an under-calibrated summary shows qhat=null");
   assert.ok(underText.includes("reason=under_calib"), "an under-calibrated summary surfaces reason=under_calib (visibly distinct from covered)");
 });

@@ -99,9 +99,9 @@ export async function handleJsonMirror(request: Request, clock: () => number = D
     return json({ error: "invalid_input", operation: name, message: `the body of POST /${name} does not match its input schema`, code: "input_invalid", issues: validated.issues }, 400);
   }
 
-  let result: ReturnType<HarnessToolDescriptor["run"]>;
+  let result: Awaited<ReturnType<HarnessToolDescriptor["run"]>>;
   try {
-    result = tool.run(validated.value, kernel === undefined ? { nowMs: clock() } : { nowMs: clock(), kernel });
+    result = await tool.run(validated.value, kernel === undefined ? { nowMs: clock() } : { nowMs: clock(), kernel });
   } catch (error) {
     // A tool-level refusal (bad params / refused witness) is a client error, never a leaked stack.
     if (error instanceof Error && TOOL_ERROR_NAMES.has(error.name)) {

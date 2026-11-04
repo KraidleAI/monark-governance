@@ -45,7 +45,7 @@ const NO_CALIBRATION: HarnessParams = { remainingBudget: 0.1, bFloor: 0, tau: 1,
 /** A fake kernel: it records each request and answers `answer`. */
 function fake(answer: KernelAnswer): { readonly runner: KernelRunner; readonly requests: Uint8Array[] } {
   const requests: Uint8Array[] = [];
-  return { runner: (r) => { requests.push(r); return answer; }, requests };
+  return { runner: (r) => { requests.push(r); return Promise.resolve(answer); }, requests };
 }
 const line = (text: string, status: number | null = 0): KernelAnswer => ({ status, stdout: new TextEncoder().encode(text) });
 const sha256 = (b: Uint8Array): string => createHash("sha256").update(b).digest("hex");
@@ -57,12 +57,12 @@ function expected(action: "commit" | "defer" | "abstain", order: OrderFields): U
 
 // The kernel is handed the gate's own action, never the caller's word, and the caller's limits as they are; the decision served is
 // runGate's on the same envelope. The context's action byte is the 14th of the request ("GNKQ", mode, the ctx length, "GNKC").
-test("judge_hands_the_kernel_the_gate_action_and_the_caller_limits", () => {
+test("judge_hands_the_kernel_the_gate_action_and_the_caller_limits", async () => {
   for (const [params, action, code] of [[COMMIT, "commit", 1], [DEFER, "defer", 2], [ABSTAIN, "abstain", 3]] as const) {
     const decision = runGate(PRED, params, undefined, { nowMs: NOW });
     assert.equal(decision.action, action, `the envelope gives ${action}`);
     const k = fake(line("allow\n"));
-    const out = runJudge(input({ params }), { nowMs: NOW, kernel: k.runner });
+    const out = await runJudge(input({ params }), { nowMs: NOW, kernel: k.runner });
     assert.deepEqual(out.decision, decision, `${action}: the decision is runGate's`);
     const want = expected(action, { kind: "OPEN", target: "venue:a", asset: "btc", amount: 100n });
     assert.equal(k.requests.length, 1, `${action}: one kernel run`);
@@ -72,13 +72,13 @@ test("judge_hands_the_kernel_the_gate_action_and_the_caller_limits", () => {
   }
   const swap: JudgeOrder = { kind: "SWAP", target: "venue:a", asset: "usdc", amount: "5000", assetOut: "btc", minOut: "1" };
   const k = fake(line("allow\n"));
-  runJudge(input({ order: swap }), { nowMs: NOW, kernel: k.runner });
+  await runJudge(input({ order: swap }), { nowMs: NOW, kernel: k.runner });
   assert.deepEqual([...(k.requests[0] ?? [])], [...expected("commit", { kind: "SWAP", target: "venue:a", asset: "usdc", amount: 5000n, assetOut: "btc", minOut: 1n })], "a SWAP's assetOut and minOut are in the request");
 });
 
 // An allow only for exit 0 and exactly the line "allow": every other answer is a deny, with the kernel's reason when its line is one,
 // refused for exit 3 with nothing written, unreadable otherwise, and unavailable when no kernel ran.
-test("judge_reads_the_kernel_answer_fail_closed", () => {
+test("judge_reads_the_kernel_answer_fail_closed", async () => {
   const cases: [string, KernelAnswer | undefined, "allow" | "deny", string | null][] = [
     ["allow", line("allow\n"), "allow", null],
     ["deny over-cap", line("deny over-cap\n"), "deny", "over-cap"],
@@ -96,13 +96,13 @@ test("judge_reads_the_kernel_answer_fail_closed", () => {
     ["no runner", undefined, "deny", "unavailable"],
   ];
   for (const [name, answer, verdict, reason] of cases) {
-    const out = runJudge(input(), answer === undefined ? { nowMs: NOW } : { nowMs: NOW, kernel: fake(answer).runner });
+    const out = await runJudge(input(), answer === undefined ? { nowMs: NOW } : { nowMs: NOW, kernel: fake(answer).runner });
     assert.deepEqual([out.kernel_verdict, out.kernel_reason, out.reduce_only], [verdict, reason, false], name);
   }
 });
 
 // reduce_only is true for an allowed EXIT only: the kernel lets an EXIT pass on a listed venue whatever the action.
-test("judge_marks_reduce_only_an_allowed_exit_alone", () => {
+test("judge_marks_reduce_only_an_allowed_exit_alone", async () => {
   const exit: JudgeOrder = { kind: "EXIT", target: "vault", asset: "eth", amount: MAX_U128 };
   const swap: JudgeOrder = { kind: "SWAP", target: "venue:a", asset: "usdc", amount: "1", assetOut: "btc", minOut: "1" };
   const cases: [string, JudgeInput, KernelAnswer, boolean][] = [
@@ -113,13 +113,13 @@ test("judge_marks_reduce_only_an_allowed_exit_alone", () => {
     ["an allowed OPEN", input(), line("allow\n"), false],
     ["an allowed SWAP", input({ order: swap }), line("allow\n"), false],
   ];
-  for (const [name, i, answer, reduceOnly] of cases) assert.equal(runJudge(i, { nowMs: NOW, kernel: fake(answer).runner }).reduce_only, reduceOnly, name);
+  for (const [name, i, answer, reduceOnly] of cases) assert.equal((await runJudge(i, { nowMs: NOW, kernel: fake(answer).runner })).reduce_only, reduceOnly, name);
 });
 
 // A field outside the frames, and every refusal of the gate for an order other than an EXIT (these are OPEN orders), is a tool
 // error before any kernel runs: param_invalid for the frames (the frozen tool-error contract has no code of its own for judge),
 // the gate's own code for the gate.
-test("judge_refuses_before_the_kernel_runs", () => {
+test("judge_refuses_before_the_kernel_runs", async () => {
   const cases: [string, JudgeInput, string, RegExp][] = [
     ["an amount of 2^128", input({ order: { ...OPEN, amount: "340282366920938463463374607431768211456" } }), "param_invalid", /^invalid order: amount must be within 0 to 2\^128 - 1/],
     ["an amount with a leading 0", input({ order: { ...OPEN, amount: "0100" } }), "param_invalid", /^invalid order\.amount: expected the decimal string/],
@@ -139,7 +139,7 @@ test("judge_refuses_before_the_kernel_runs", () => {
     const k = fake(line("allow\n"));
     let thrown: unknown;
     try {
-      runJudge(i, { nowMs: NOW, kernel: k.runner });
+      await runJudge(i, { nowMs: NOW, kernel: k.runner });
     } catch (e) {
       thrown = e;
     }
@@ -153,7 +153,7 @@ test("judge_refuses_before_the_kernel_runs", () => {
 // An EXIT is judged whatever the gate decides, so a refusal of the gate does not stop it (the founder's decision of 2026-11-04): the
 // kernel judges it under the action abstain, `decision` is null, and `gate_error` carries the gate's code and message. An OPEN under
 // the same envelope is the gate's tool error, and no kernel runs.
-test("judge_judges_an_exit_the_gate_refuses", () => {
+test("judge_judges_an_exit_the_gate_refuses", async () => {
   const cases: [string, Partial<JudgeInput>, string][] = [
     ["a produced_at in the future", { prediction: FUTURE }, "produced_at_future"],
     ["an unknown class", { prediction: { ...PRED, task_class: "nope-class" }, params: NO_CALIBRATION }, "task_class_unknown"],
@@ -169,7 +169,7 @@ test("judge_judges_an_exit_the_gate_refuses", () => {
     }
     assert.ok(gateError instanceof Error && toolErrorCode(gateError) === code, `${name}: the gate refuses the envelope with ${code}`);
     const k = fake(line("allow\n"));
-    const out = runJudge(i, { nowMs: NOW, kernel: k.runner });
+    const out = await runJudge(i, { nowMs: NOW, kernel: k.runner });
     assert.equal(out.decision, null, `${name}: no gate decision`);
     assert.deepEqual(out.gate_error, { code, message: gateError.message }, `${name}: the gate's refusal, as it is`);
     const want = expected("abstain", { kind: "EXIT", target: "vault", asset: "btc", amount: 7n });
@@ -178,16 +178,16 @@ test("judge_judges_an_exit_the_gate_refuses", () => {
     assert.equal(k.requests[0]?.[13], 3, `${name}: the context's action byte is abstain's`);
     assert.deepEqual([out.kernel_verdict, out.kernel_reason, out.reduce_only, out.kernel_request_sha256], ["allow", null, true, sha256(want)], `${name}: the kernel's allow, reduce_only`);
     assert.ok(judgeVerdictSummary(out).startsWith(`verdict kernel=allow reason=none reduce_only=true action=none gate_error=${code} kernel_request_sha256=`), `${name}: the summary names the gate's refusal`);
-    const denied = runJudge(i, { nowMs: NOW, kernel: fake(line("deny venue\n")).runner });
+    const denied = await runJudge(i, { nowMs: NOW, kernel: fake(line("deny venue\n")).runner });
     assert.deepEqual([denied.kernel_verdict, denied.kernel_reason, denied.reduce_only], ["deny", "venue", false], `${name}: the kernel's deny`);
     for (const other of OTHER_KINDS) {
       const k2 = fake(line("allow\n"));
-      assert.throws(() => runJudge(input({ ...over, order: other }), { nowMs: NOW, kernel: k2.runner }), (e: unknown) => toolErrorCode(e) === code, `${name}: a ${other.kind} is the gate's tool error`);
+      await assert.rejects(() => runJudge(input({ ...over, order: other }), { nowMs: NOW, kernel: k2.runner }), (e: unknown) => toolErrorCode(e) === code, `${name}: a ${other.kind} is the gate's tool error`);
       assert.equal(k2.requests.length, 0, `${name}: and no kernel ran for the ${other.kind}`);
     }
   }
   assert.deepEqual(OTHER_KINDS.map((o) => o.kind).sort(), ["APPROVE", "OPEN", "SWAP", "TRANSFER"], "every kind but EXIT is checked");
-  assert.ok(judgeHonestyText(runJudge(input({ prediction: FUTURE, order: EXIT }), { nowMs: NOW, kernel: fake(line("allow\n")).runner })).startsWith("The gate refused this call's envelope"), "the text says the gate refused the envelope");
+  assert.ok(judgeHonestyText(await runJudge(input({ prediction: FUTURE, order: EXIT }), { nowMs: NOW, kernel: fake(line("allow\n")).runner })).startsWith("The gate refused this call's envelope"), "the text says the gate refused the envelope");
 });
 
 const API = "http://api.monarkgate.tech/judge";
@@ -214,7 +214,7 @@ async function mcpJudge(args: unknown, kernel?: KernelRunner): Promise<Obj> {
 test("judge_is_served_by_the_mirror_and_by_mcp", async () => {
   const body = input();
   const allows = fake(line("allow\n")).runner;
-  const direct = runJudge(body, { nowMs: NOW, kernel: allows });
+  const direct = await runJudge(body, { nowMs: NOW, kernel: allows });
   const text = `${judgeHonestyText(direct)} ${judgeVerdictSummary(direct)}`;
   const res = await post(body, allows);
   assert.equal(res.status, 200, "the mirror serves judge");
@@ -237,7 +237,7 @@ test("judge_is_served_by_the_mirror_and_by_mcp", async () => {
   // An EXIT under an envelope the gate refuses is served on both surfaces (a 200, no tool error); an OPEN under it is the gate's
   // tool error on both.
   const exitBody = { ...body, prediction: FUTURE, order: EXIT };
-  const exitDirect = runJudge(exitBody, { nowMs: NOW, kernel: allows });
+  const exitDirect = await runJudge(exitBody, { nowMs: NOW, kernel: allows });
   const exitText = `${judgeHonestyText(exitDirect)} ${judgeVerdictSummary(exitDirect)}`;
   const exitRes = await post(exitBody, allows);
   assert.equal(exitRes.status, 200, "the mirror serves an EXIT the gate refused");
@@ -275,12 +275,12 @@ test("judge_output_schema_ties_the_verdict_fields", async () => {
   const tool = HARNESS_TOOLS.find((t) => t.name === JUDGE_TOOL_NAME);
   assert.ok(tool !== undefined, "judge is registered");
   const valid = async (o: unknown): Promise<boolean> => (await tool.outputStandardSchema["~standard"].validate(o)).issues === undefined;
-  const allowed = runJudge(input(), { nowMs: NOW, kernel: fake(line("allow\n")).runner });
-  const exit = runJudge(input({ params: ABSTAIN, order: { kind: "EXIT", target: "vault", asset: "btc", amount: "1" } }), { nowMs: NOW, kernel: fake(line("allow\n")).runner });
-  const denied = runJudge(input(), { nowMs: NOW, kernel: fake(line("deny venue\n")).runner });
-  const none = runJudge(input(), { nowMs: NOW });
-  const refused = runJudge(input({ prediction: FUTURE, order: EXIT }), { nowMs: NOW, kernel: fake(line("allow\n")).runner });
-  const refusedDenied = runJudge(input({ prediction: FUTURE, order: EXIT }), { nowMs: NOW, kernel: fake(line("deny venue\n")).runner });
+  const allowed = await runJudge(input(), { nowMs: NOW, kernel: fake(line("allow\n")).runner });
+  const exit = await runJudge(input({ params: ABSTAIN, order: { kind: "EXIT", target: "vault", asset: "btc", amount: "1" } }), { nowMs: NOW, kernel: fake(line("allow\n")).runner });
+  const denied = await runJudge(input(), { nowMs: NOW, kernel: fake(line("deny venue\n")).runner });
+  const none = await runJudge(input(), { nowMs: NOW });
+  const refused = await runJudge(input({ prediction: FUTURE, order: EXIT }), { nowMs: NOW, kernel: fake(line("allow\n")).runner });
+  const refusedDenied = await runJudge(input({ prediction: FUTURE, order: EXIT }), { nowMs: NOW, kernel: fake(line("deny venue\n")).runner });
   for (const [name, o] of [["an allow", allowed], ["an allowed EXIT, reduce_only", exit], ["a deny of the kernel", denied], ["a deny unavailable", none], ["an EXIT the gate refused", refused], ["an EXIT the gate refused, denied", refusedDenied]] as const) {
     assert.equal(await valid(o), true, `${name} validates`);
   }
@@ -302,7 +302,7 @@ test("judge_output_schema_ties_the_verdict_fields", async () => {
 
 // A binary that no process can be made of (absent, a directory, a file that is not a program) is no run, so a deny
 // `unavailable`: no kernel ran. Measured on Windows: ENOENT for the first two, UNKNOWN for the third, each with pid 0.
-test("kernel_runner_runs_the_built_binary_and_no_binary_it_cannot_start", () => {
+test("kernel_runner_runs_the_built_binary_and_no_binary_it_cannot_start", async () => {
   const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
   assert.equal(KERNEL_BINARY, join(repo, "apps", "genkan", "kernel", ".lake", "build", "bin", process.platform === "win32" ? "genkan-kernel.exe" : "genkan-kernel"));
   const dir = mkdtempSync(join(tmpdir(), "harness-judge-runner-"));
@@ -311,8 +311,8 @@ test("kernel_runner_runs_the_built_binary_and_no_binary_it_cannot_start", () => 
     const notAProgram = join(dir, process.platform === "win32" ? "not-a-kernel.exe" : "not-a-kernel");
     writeFileSync(notAProgram, "not a program\n");
     for (const [name, binary] of [["an absent binary", absent], ["a directory", dir], ["a file that is not a program", notAProgram]] as const) {
-      assert.equal(kernelRunner(binary)(new Uint8Array([1])), null, `${name} is no run`);
-      const out = runJudge(input(), { nowMs: NOW, kernel: kernelRunner(binary) });
+      assert.equal(await kernelRunner(binary)(new Uint8Array([1])), null, `${name} is no run`);
+      const out = await runJudge(input(), { nowMs: NOW, kernel: kernelRunner(binary) });
       assert.deepEqual([out.kernel_verdict, out.kernel_reason], ["deny", "unavailable"], `${name}: a deny unavailable`);
     }
   } finally {
@@ -324,7 +324,7 @@ test("kernel_runner_runs_the_built_binary_and_no_binary_it_cannot_start", () => 
 // script it reads on stdin, so each case's script is the request the runner writes. A run killed past its timeout, or past
 // KERNEL_STDOUT_MAX bytes of stdout, has status null although its stdout begins with the allow line (asserted): only the status
 // keeps it a deny, so a runner that read a null status as 0 reds here.
-test("kernel_runner_reads_a_run_that_fails_as_no_allow", () => {
+test("kernel_runner_reads_a_run_that_fails_as_no_allow", async () => {
   const NL = "\\n";
   const script = (s: string, timeoutMs?: number): KernelRunner => () => kernelRunner(process.execPath, timeoutMs)(new TextEncoder().encode(s));
   const CASES: [string, KernelRunner, "allow" | "deny", string | null, number | null | undefined][] = [
@@ -337,11 +337,11 @@ test("kernel_runner_reads_a_run_that_fails_as_no_allow", () => {
     ["exit 3 and nothing written", script(`process.exit(3)`), "deny", "refused", 3],
   ];
   for (const [name, runner, verdict, reason, status] of CASES) {
-    const answer = runner(new Uint8Array(0));
+    const answer = await runner(new Uint8Array(0));
     assert.ok(answer !== null, `${name}: the run started`);
     if (status !== undefined) assert.equal(answer.status, status, `${name}: its exit status`);
     if (reason === "unreadable") assert.ok(new TextDecoder().decode(answer.stdout).startsWith("allow\n"), `${name}: its stdout begins with the allow line`);
-    const out = runJudge(input(), { nowMs: NOW, kernel: runner });
+    const out = await runJudge(input(), { nowMs: NOW, kernel: runner });
     assert.deepEqual([out.kernel_verdict, out.kernel_reason, out.reduce_only], [verdict, reason, false], `${name}: the verdict read`);
   }
 });

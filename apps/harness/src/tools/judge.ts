@@ -62,8 +62,9 @@ export interface JudgeInput {
 
 /** What the kernel answered to one request: its exit status (null after a signal) and its stdout; null when no kernel ran. */
 export type KernelAnswer = { readonly status: number | null; readonly stdout: Uint8Array } | null;
-/** Runs the kernel on one request (src/kernel.ts). The entry point injects it; nothing under src/tools/ starts a process. */
-export type KernelRunner = (request: Uint8Array) => KernelAnswer;
+/** Runs the kernel on one request (src/kernel.ts), asynchronously. The entry point injects it; nothing under src/tools/ starts a
+ *  process. */
+export type KernelRunner = (request: Uint8Array) => Promise<KernelAnswer>;
 
 /** What the entry point hands a run: the current instant (as for `gate`) and the kernel runner. */
 export interface JudgeRunOptions {
@@ -139,12 +140,12 @@ function gateOrRefusal(input: JudgeInput, nowMs: number | undefined): { readonly
 }
 
 /** Runs the gate, then the kernel on the order under the gate's action (abstain for an EXIT whose envelope the gate refused).
- *  Throws the gate's tool errors for any order but an EXIT, and `param_invalid` for a field outside the frames, before any kernel
- *  runs. */
-export function runJudge(input: JudgeInput, options: JudgeRunOptions = {}): JudgeOutput {
+ *  Rejects with the gate's tool errors for any order but an EXIT, and `param_invalid` for a field outside the frames, before any
+ *  kernel runs. */
+export async function runJudge(input: JudgeInput, options: JudgeRunOptions = {}): Promise<JudgeOutput> {
   const gate = gateOrRefusal(input, options.nowMs);
   const request = judgeRequest(gate.decision === null ? "abstain" : gate.decision.action, input.order, input.limits);
-  const answer = options.kernel === undefined ? null : options.kernel(request);
+  const answer = options.kernel === undefined ? null : await options.kernel(request);
   const verdict = answer === null ? undefined : readVerdict(answer.status, answer.stdout);
   const allow = verdict?.allow === true;
   return {
