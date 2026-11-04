@@ -30,7 +30,7 @@
       "line": 66,
       "fragment": "1",
       "replacement": "0",
-      "sha256": "d39b91dc8736524a65e5fbeef785aaac4aab4b121f03777988690ace109ee859",
+      "sha256": "6b10eaa3c758055b792e328a3b52fadf471fd7cf7e094dc2b05cce64c2769bd8",
       "why": "digits's second arm becomes `| fuel + 0, n, acc`, which keeps the fuel instead of lowering it by one. Its one caller, decimal n = digits n n [], starts the fuel at n: for n = 0 both take the first arm and give 0; for n > 0 the real kernel's fuel stays at least n while n goes to n / 10 (the comment of digits), so it never reaches the first arm before n < 10, and the mutant's fuel stays n > 0, so it never does either; both end on the same digit with the same list, so every number of an order prints the same and no input can tell them apart."
     }
   ]

@@ -3,13 +3,15 @@
 // scripts/lake.mjs and of the real kernel (its root .lake left out), builds it once, and records the real binary's answer
 // (exit code, stdout, stderr) on every input, built from apps/genkan/kernel/vectors/gnk1.json as formats.kernel.test.ts
 // builds them, cheapest first. Then each mutant of helpers/mutants.ts: its text written over the copy's file, `lake.mjs
-// build` (not exit 0, or no exit within 120 s: « not built », counted, never run), the inputs in order until one answer
-// differs from the real one or a run times out (killed), then the original bytes restored, their sha256 checked. A mutant
-// that no input kills must be listed in kernel/vectors/mutants-equivalent.json, with the sha256 of its source file and
-// why no input of the formats tells it from the real kernel. One test per mutated file (the measured duration of the two
-// together passed 200 s). It runs in test:genkan only (the file name ends .kernel.test.ts, which test and test:main leave
-// out). With ELAN_HOME unset or blank and CI unset or false, every test is skipped; with CI set, a missing ELAN_HOME or a
-// home without the pinned lake fails. The temp dir of the wrapper is GENKAN_TMP, a dir of the tree.
+// build genkan-kernel` (not exit 0, or no exit within 120 s: « not built », counted, never run), the inputs in order until
+// one answer differs from the real one or a run times out (killed), then the original bytes restored, their sha256 checked.
+// A mutant that no input kills must be listed in kernel/vectors/mutants-equivalent.json, with the sha256 of its source file
+// and why no input of the formats tells it from the real kernel. Each build is the executable alone: a mutant that breaks a
+// theorem of Genkan/Theorems.lean must still be told from the real kernel by an input; the theorems are built and replayed
+// by the other kernel tests and CI. One test per mutated file (the measured duration of the two together passed 200 s). It
+// runs in test:genkan only (the file name ends .kernel.test.ts, which test and test:main leave out). With ELAN_HOME unset or
+// blank and CI unset or false, every test is skipped; with CI set, a missing ELAN_HOME or a home without the pinned lake
+// fails. The temp dir of the wrapper is GENKAN_TMP, a dir of the tree.
 import { test, after, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -185,7 +187,7 @@ function realTree(): Tree {
   copyKernel(KERNEL_DIR, kernel);
   const env: NodeJS.ProcessEnv = { ...process.env, ELAN_HOME: home, GENKAN_TMP: tmp };
   const build = (): SpawnSyncReturns<string> =>
-    spawnSync(process.execPath, [join(scripts, "lake.mjs"), "build"], { env, encoding: "utf8", stdio: "pipe", timeout: BUILD_MS });
+    spawnSync(process.execPath, [join(scripts, "lake.mjs"), "build", "genkan-kernel"], { env, encoding: "utf8", stdio: "pipe", timeout: BUILD_MS });
   const b = build();
   assert.equal(b.status, 0, `the real kernel builds with the pinned lake\n${show(b)}`);
   const binary = join(kernel, ".lake", "build", "bin", BINARY);
@@ -303,7 +305,7 @@ test("decoder_mutants_killed_in_bytes", BYTES_OPTIONS, (t: TestContext) => {
   killMutants(t, "Genkan/Bytes.lean");
 });
 
-// killer: apps/genkan/kernel/vectors/mutants-equivalent.json:33 CONST "d39b91dc8736524a" -> "d39b91dc8736524b"
+// killer: apps/genkan/kernel/vectors/mutants-equivalent.json:33 CONST "6b10eaa3c758055b" -> "6b10eaa3c758055c"
 test("decoder_mutants_killed_in_format", FORMAT_OPTIONS, (t: TestContext) => {
   killMutants(t, "Genkan/Format.lean");
 });

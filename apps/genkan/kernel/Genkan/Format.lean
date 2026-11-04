@@ -2,8 +2,8 @@
 The formats of the gate and the kernel's answer, pure. An `order` is "GNK1" kind:u8 flags:u8 target:str asset:str
 amount:u128, then assetOut:str minOut:u128 if and only if kind = 3, with no byte after; kinds 1 TRANSFER, 2 APPROVE, 3 SWAP,
 4 EXIT, 5 OPEN, and flags = 1 if and only if kind = 4, else 0. A request is "GNKQ" mode:u8, then its `sec`s, with no byte
-after: mode 1 (the judge, which does not exist yet) ctx:sec order:sec, mode 2 (decode) order:sec, mode 3 (sha256) bytes:sec.
-`answer` decides on the whole input: `none` is a refusal (exit 3, nothing written); `some out` is the bytes of stdout.
+after: mode 1 (the judge, Genkan/Judge.lean) ctx:sec order:sec, mode 2 (decode) order:sec, mode 3 (sha256) bytes:sec.
+`answer` decides modes 2 and 3 on the whole input: `none` is a refusal (exit 3, nothing written), `some out` stdout.
 -/
 import Genkan.Bytes
 import Genkan.Sha256

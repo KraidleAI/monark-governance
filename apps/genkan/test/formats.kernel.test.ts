@@ -1,9 +1,10 @@
 // GENKAN - the formats read by the real kernel under the pinned toolchain (Lean 4.32.1). The file builds one temporary tree
 // under os.tmpdir() with a copy of scripts/lake.mjs and of the real kernel (its root .lake left out), builds it once with
-// `lake.mjs build`, and runs the binary on requests: `"GNKQ" mode:u8` then one `sec` (`len:u32` big-endian, then len bytes),
-// mode 2 to decode an order, mode 3 to hash bytes with SHA-256. A malformed request, or one over 1 048 576 bytes, exits 3
-// with nothing on stdout or stderr; mode 2 prints one line ended by a single 0x0a, mode 3 the 32 bytes of the digest. The
-// vectors are apps/genkan/kernel/vectors/gnk1.json. It runs in test:genkan only (the file name ends .kernel.test.ts, which
+// `lake.mjs build`, and runs the binary on requests: `"GNKQ" mode:u8` then its `sec`s (`len:u32` big-endian, then len bytes),
+// mode 1 to judge an order under a context (two secs), mode 2 to decode an order, mode 3 to hash bytes with SHA-256 (one sec
+// each). A malformed request, or one over 1 048 576 bytes, exits 3 with nothing on stdout or stderr; modes 1 and 2 print one
+// line ended by a single 0x0a, mode 3 the 32 bytes of the digest. The vectors are apps/genkan/kernel/vectors/gnk1.json and,
+// for mode 1, apps/genkan/kernel/vectors/judge.json. It runs in test:genkan only (the file name ends .kernel.test.ts, which
 // test and test:main leave out). With ELAN_HOME unset or blank and CI unset or false, every test is skipped; with CI set,
 // a missing ELAN_HOME or a home without the pinned lake fails. The temp dir of the wrapper is GENKAN_TMP, a dir of the tree.
 import { test, after, type TestContext } from "node:test";
@@ -196,8 +197,9 @@ test("gnk1_vectors_decode_by_kernel", OPTIONS, (t: TestContext) => {
       for (let n = 0; n < q.length; n++) assertRefused(kr.run(q.subarray(0, n)), `the mode 2 request of ${x.name} cut to ${String(n)} bytes`);
       assertRefused(kr.run(Buffer.concat([q, ZERO])), `the mode 2 request of ${x.name} followed by one byte`);
     }
-    // Mode 1, a ctx sec then the first valid order's sec: refused. This holds until the judge of L3 serves mode 1.
-    assertRefused(kr.run(request(1, Buffer.from("ctx", "latin1"), Buffer.from(first.hex, "hex"))), "a mode 1 request, before the judge of L3");
+    // Mode 1, a ctx sec that holds no context then the first valid order's sec: the judge's line `deny bad-ctx` (its vectors
+    // are judge_vectors_by_kernel's).
+    assertAnswers(kr.run(request(1, Buffer.from("ctx", "latin1"), Buffer.from(first.hex, "hex"))), line("deny bad-ctx"), "a mode 1 request whose ctx is not one");
     // The cap: a well-formed mode 2 request of exactly 1 048 576 bytes is read (its order of 1 048 567 bytes 0x00 is
     // invalid); a mode 3 request of 1 048 577 bytes is refused.
     const atCap = request(2, Buffer.alloc(CAP - 9));
@@ -241,5 +243,64 @@ test("sha256_kernel_equals_node_crypto", OPTIONS, (t: TestContext) => {
     assertAnswers(r, createHash("sha256").update(bytes).digest(), "a mode 3 request of exactly 1 048 576 bytes");
   } finally {
     t.diagnostic(`kernel runs: ${String(kr.runs)} in ${String(Date.now() - start)} ms; the request at the cap: ${capMs < 0 ? "not run" : `${String(capMs)} ms`}`);
+  }
+});
+
+interface JudgeVectors {
+  contexts: { valid: { name: string; hex: string }[]; invalid: { name: string; hex: string }[] };
+  orders: { name: string; hex: string }[];
+  cases: { ctx: string; order: string; line: string }[];
+  requests: { name: string; hex: string }[];
+}
+const JUDGE_VECTORS = join(KERNEL_DIR, "vectors", "judge.json");
+
+test("judge_vectors_by_kernel", OPTIONS, (t: TestContext) => {
+  // Mode 1, the judge: each case of judge.json answered with its line; under a valid context, every order that does not
+  // decode answered `deny bad-order`; every context that does not decode answered `deny bad-ctx`, whatever the order; every
+  // mode 1 request that is not "GNKQ" 1 then exactly two secs refused.
+  assert.ok(existsSync(JUDGE_VECTORS), `the judge vectors must exist: ${JUDGE_VECTORS}`);
+  const v = vectors();
+  const j = JSON.parse(readFileSync(JUDGE_VECTORS, "utf8")) as JudgeVectors;
+  const k = buildKernel();
+  const kr = runner(k.binary);
+  const bytesOf = new Map<string, Buffer>();
+  for (const x of [...j.contexts.valid, ...j.contexts.invalid, ...j.orders, ...v.orders.valid, ...v.orders.invalid]) bytesOf.set(x.name, Buffer.from(x.hex, "hex"));
+  const named = (name: string): Buffer => {
+    const b = bytesOf.get(name);
+    assert.ok(b !== undefined, `the vectors hold ${name}`);
+    return b;
+  };
+  const start = Date.now();
+  try {
+    for (const c of j.cases) assertAnswers(kr.run(request(1, named(c.ctx), named(c.order))), line(c.line), `the case ${c.ctx} x ${c.order}`);
+    // Under ctx-commit: each invalid order of gnk1.json, each proper prefix of a valid OPEN and that OPEN followed by one byte.
+    const commit = named("ctx-commit");
+    const open = named("open-flags-0-amount-256");
+    for (const x of v.orders.invalid) assertAnswers(kr.run(request(1, commit, Buffer.from(x.hex, "hex"))), line("deny bad-order"), `ctx-commit x the invalid order ${x.name}`);
+    for (let n = 0; n < open.length; n++) assertAnswers(kr.run(request(1, commit, open.subarray(0, n))), line("deny bad-order"), `ctx-commit x the OPEN cut to ${String(n)} bytes`);
+    assertAnswers(kr.run(request(1, commit, Buffer.concat([open, ZERO]))), line("deny bad-order"), "ctx-commit x the OPEN followed by one byte 0x00");
+    // Each proper prefix of three valid contexts, and each followed by one byte, with the OPEN: deny bad-ctx; so too with an
+    // order that does not decode, the context being judged first.
+    for (const name of ["ctx-commit", "ctx-commit-nothing-listed", "ctx-commit-btc-cap-255"]) {
+      const c = named(name);
+      for (let n = 0; n < c.length; n++) assertAnswers(kr.run(request(1, c.subarray(0, n), open)), line("deny bad-ctx"), `${name} cut to ${String(n)} bytes x the OPEN`);
+      assertAnswers(kr.run(request(1, Buffer.concat([c, ZERO]), open)), line("deny bad-ctx"), `${name} followed by one byte 0x00 x the OPEN`);
+    }
+    assertAnswers(kr.run(request(1, named("ctx-text"), named("empty"))), line("deny bad-ctx"), "a ctx and an order that do not decode: the ctx first");
+    // The stored mode 1 requests, every proper prefix of a well-formed one and that one followed by one byte: refused.
+    for (const x of j.requests) assertRefused(kr.run(Buffer.from(x.hex, "hex")), `request ${x.name}`);
+    const q = request(1, commit, open);
+    for (let n = 0; n < q.length; n++) assertRefused(kr.run(q.subarray(0, n)), `the mode 1 request ctx-commit x the OPEN cut to ${String(n)} bytes`);
+    assertRefused(kr.run(Buffer.concat([q, ZERO])), "the mode 1 request ctx-commit x the OPEN followed by one byte");
+    // The cap: a mode 1 request of exactly 1 048 576 bytes is read (its ctx of 1 048 563 bytes 0x00 is not one); a mode 1
+    // request of 1 048 577 bytes is refused.
+    const atCap = request(1, Buffer.alloc(CAP - 13), Buffer.alloc(0));
+    assert.equal(atCap.length, CAP, "the mode 1 request at the cap is 1 048 576 bytes");
+    assertAnswers(kr.run(atCap), line("deny bad-ctx"), "a mode 1 request of exactly 1 048 576 bytes");
+    const overCap = request(1, Buffer.alloc(CAP - 12), Buffer.alloc(0));
+    assert.equal(overCap.length, CAP + 1, "the mode 1 request over the cap is 1 048 577 bytes");
+    assertRefused(kr.run(overCap), "a mode 1 request of 1 048 577 bytes");
+  } finally {
+    t.diagnostic(`kernel runs: ${String(kr.runs)} in ${String(Date.now() - start)} ms`);
   }
 });

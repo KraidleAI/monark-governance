@@ -4,7 +4,9 @@ Ce dépôt construit le moteur qui accueillera une stratégie de trading réelle
 
 - **HIKAE** reçoit un signal et décide s'il est permis d'agir : `COMMIT`, `DEFER` ou `ABSTAIN`, sous une couverture
   contrôlée. Il sait se taire. Il ne rend jamais une probabilité d'avoir raison.
-- **Genkan** vérifie chaque ordre par un noyau Lean avant qu'il parte.
+- **Genkan** vérifie chaque ordre par un noyau Lean avant qu'il parte : un TRANSFER ou un APPROVE ne passe jamais ; une
+  EXIT passe sur une place autorisée ; tout autre ordre exige un COMMIT de HIKAE, un actif autorisé et un montant au
+  plus égal à son plafond. Ces règles sont des théorèmes du noyau.
 
 État vérifié, étapes et choix en vigueur : [`ROADMAP.md`](ROADMAP.md). Règles de travail : [`CLAUDE.md`](CLAUDE.md).
 
@@ -15,7 +17,7 @@ Ce dépôt construit le moteur qui accueillera une stratégie de trading réelle
 | `packages/hikae` | la porte conforme, en trois couches (ci-dessous), plus le suivi en ligne (détecteur de changement par paris, moniteur, budget `B_t`) | testé |
 | `packages/contracts`, `schemas/` | les contrats gelés : `AttestedPrice`, `Prediction`, `CoverageVerdict`, `GateDecision` ; les schémas JSON font foi, le paquet en est la liaison TypeScript | testé |
 | `apps/harness` | le moteur servi : un serveur MCP sans état (`gate`, `calibrate`, et encore `attest` de Shōgen et `cascade` d'UKEMI) | testé ; à réduire à HIKAE |
-| `apps/genkan` | la porte d'ordres : noyau Lean 4 (`leanprover/lean4:v4.32.1`) qui décode un ordre au format `GNK1` et calcule un SHA-256 | noyau testé ; juge et théorèmes à venir |
+| `apps/genkan` | la porte d'ordres : noyau Lean 4 (`leanprover/lean4:v4.32.1`) qui juge un ordre sous un contexte (mode 1 : la décision de HIKAE, les places et les actifs autorisés, leurs plafonds), décode un ordre `GNK1` et calcule un SHA-256 | juge testé et prouvé (théorèmes rejoués en CI) ; le harness ne l'appelle pas encore |
 | `packages/ukemi`, `packages/monark` | dépendances du harness (cascade UKEMI, adaptateurs Shōgen), gardées le temps de le réduire | testé |
 | `fixtures/`, `tools/kata-recalc/` | données lues par le moteur et vérificateurs Python des tables de politique | — |
 

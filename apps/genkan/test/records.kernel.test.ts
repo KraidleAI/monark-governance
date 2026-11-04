@@ -92,18 +92,32 @@ function makeTree(): Tree {
   return { root, scripts, kernel, tmp, out: join(root, "axioms.txt") };
 }
 
-/** Builds the tree's kernel, writes its records, audits it with them. Generous bounds, all three well under 300 s. */
-function buildRecordAudit(t: Tree, home: string): { records: string; audit: SpawnSyncReturns<string> } {
+/** Builds the tree's kernel, writes its records, audits it with them. Generous bounds, all four well under 300 s. The roots are
+ * the audit's (`--roots`): main, then each theorem. */
+function buildRecordAudit(t: Tree, home: string): { roots: string[]; records: string; audit: SpawnSyncReturns<string> } {
   const env: NodeJS.ProcessEnv = { ...process.env, ELAN_HOME: home, GENKAN_TMP: t.tmp };
   const node = (script: string, args: string[], timeout: number): SpawnSyncReturns<string> =>
     spawnSync(process.execPath, [join(t.scripts, script), ...args], { env, encoding: "utf8", stdio: "pipe", timeout });
+  const rr = node("audit.mjs", ["--roots"], 60_000);
+  assert.equal(rr.status, 0, `the audit names the roots\n${show(rr)}`);
+  const roots = linesOf(rr.stdout).map((l) => l.split(" ")[1] ?? "");
+  assert.equal(roots[0], "main", `main is the first root: ${roots.join(", ")}`);
   const b = node("lake.mjs", ["build"], 120_000);
   assert.equal(b.status, 0, `the kernel builds with the pinned lake\n${show(b)}`);
   const r = node("records.mjs", ["--out", t.out], 120_000);
   assert.equal(r.status, 0, `records.mjs writes the records\n${show(r)}`);
-  assert.deepEqual(linesOf(r.stdout), [`records: 1 roots, written to ${resolve(t.out)}`], `the success line\n${show(r)}`);
+  assert.deepEqual(linesOf(r.stdout), [`records: ${String(roots.length)} roots, written to ${resolve(t.out)}`], `the success line\n${show(r)}`);
   const records = readFileSync(t.out, "utf8").replace(/\r\n/g, "\n");
-  return { records, audit: node("audit.mjs", ["--axioms-from", t.out], 30_000) };
+  return { roots, records, audit: node("audit.mjs", ["--axioms-from", t.out], 30_000) };
+}
+
+/** The records, one per root, in one of Lean's two forms (Lean may wrap a list over lines, its next lines indented). */
+function parseRecords(records: string): { name: string; axioms: string[] }[] {
+  return linesOf(records.replace(/\r?\n[ \t]+/g, " ")).map((l) => {
+    const m = /^'([^']+)' (?:does not depend on any axioms|depends on axioms: \[([^\]]+)\])$/.exec(l);
+    assert.ok(m !== null, `a record in one of Lean's two forms: ${l}\n${records}`);
+    return { name: m[1]!, axioms: (m[2] ?? "").split(",").map((x) => x.trim()).filter((x) => x !== "") };
+  });
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -124,8 +138,12 @@ test("records_kernel_refuses_the_planted_native_axiom", OPTIONS, () => {
     ].join("\n");
     copyKernel(KERNEL_DIR, t.kernel);
     writeFileSync(join(t.kernel, "Main.lean"), planted);
-    const { records, audit } = buildRecordAudit(t, home);
-    assert.equal(records, "'main' depends on axioms: [big._native.decide.ax_1]\n", "main's record names the axiom of decide's native mode");
+    const { roots, records, audit } = buildRecordAudit(t, home);
+    // main's record first, naming the axiom of decide's native mode; then one record per theorem, all admitted.
+    const parsed = parseRecords(records);
+    assert.deepEqual(parsed[0], { name: "main", axioms: ["big._native.decide.ax_1"] }, `main's record names the axiom of decide's native mode\n${records}`);
+    assert.deepEqual(parsed.map((p) => p.name), roots, `one record per root, in the order of the roots:\n${records}`);
+    for (const p of parsed.slice(1)) for (const a of p.axioms) assert.ok(ADMITTED_AXIOMS.has(a), `${p.name}'s axiom ${a} is admitted:\n${records}`);
     assert.equal(audit.status, 1, `the audit refuses the planted kernel\n${show(audit)}`);
     assert.deepEqual(
       linesOf(audit.stderr),
@@ -146,16 +164,17 @@ test("records_kernel_passes_the_real_kernel", OPTIONS, () => {
     for (const f of ["Main.lean", "lakefile.lean", "lean-toolchain", "lake-manifest.json"]) {
       assert.ok(existsSync(join(t.kernel, f)), `the copy of the real kernel holds ${f}`);
     }
-    const { records, audit } = buildRecordAudit(t, home);
-    // One record, main's: no axiom, or axioms all admitted (Lean may wrap the list over lines).
-    const m = /^'main' (?:does not depend on any axioms|depends on axioms: \[([^\]]+)\])\n$/.exec(records);
-    assert.ok(m !== null, `the records are one record, main's, in one of Lean's two forms:\n${records}`);
-    const axioms = (m[1] ?? "").split(",").map((a) => a.trim()).filter((a) => a !== "");
-    for (const a of axioms) assert.ok(ADMITTED_AXIOMS.has(a), `main's axiom ${a} is one of propext, Classical.choice, Quot.sound:\n${records}`);
+    const { roots, records, audit } = buildRecordAudit(t, home);
+    // The roots, main's first, then each theorem of the judge: one record each, in their order, with no axiom or axioms all
+    // admitted.
+    assert.ok(roots.length >= 2, `non-vacuity: the real kernel holds the judge's theorems (roots: ${roots.join(", ")})`);
+    const parsed = parseRecords(records);
+    for (const p of parsed) for (const a of p.axioms) assert.ok(ADMITTED_AXIOMS.has(a), `${p.name}'s axiom ${a} is one of propext, Classical.choice, Quot.sound:\n${records}`);
+    assert.deepEqual(parsed.map((p) => p.name), roots, `one record per root, in the order of the roots:\n${records}`);
     assert.equal(audit.status, 0, `the audit passes the real kernel with its records\n${show(audit)}`);
     const files = leanFiles(t.kernel);
     assert.ok(files >= 2, `the copy holds Main.lean and lakefile.lean at least (found ${String(files)})`);
-    assert.deepEqual(linesOf(audit.stdout), [`audit: ${String(files)} Lean files, 0 theorems, no finding`], `the success line\n${show(audit)}`);
+    assert.deepEqual(linesOf(audit.stdout), [`audit: ${String(files)} Lean files, ${String(roots.length - 1)} theorems, no finding`], `the success line\n${show(audit)}`);
     assert.deepEqual(linesOf(audit.stderr), [], `nothing on stderr\n${show(audit)}`);
   } finally {
     rmSync(t.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
