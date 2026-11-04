@@ -65,7 +65,7 @@ export function buildIntervalRegion(lo: number, hi: number): IntervalRegionResul
   }
   if (lo > hi) {
     throw new Error(
-      `buildIntervalRegion: lo (${lo}) > hi (${hi}) — M5 invariant (lo <= hi) violated (ADR-M002 D9/C4).`,
+      `buildIntervalRegion: lo (${lo}) > hi (${hi}) — order invariant (lo <= hi) violated.`,
     );
   }
   if (lo === hi) {

@@ -62,7 +62,7 @@ export function featureCloseAt(
   const closeTime = t - offsetMinutes * 60;
   if (closeTime > t) {
     throw new Error(
-      `featureCloseAt: look-ahead forbidden — offset ${offsetMinutes}m gives close_time=${closeTime} > t=${t} (D7).`,
+      `featureCloseAt: look-ahead forbidden — offset ${offsetMinutes}m gives close_time=${closeTime} > t=${t}.`,
     );
   }
   const c = candlesByCloseTime.get(closeTime);
