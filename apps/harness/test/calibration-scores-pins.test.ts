@@ -1,7 +1,7 @@
 /**
  * Harness: the load guard of the committed calibrations in contract 1.1.0 (block C, lot CM-3c-3b1; decision Q-3b-2).
  * At import, scores_sha256 of each committed entry, over its scores in the stored order, must equal a pin held outside
- * the block that scripts/emit-u4b-calibration.mjs generates: USDe (time order; the sha256 of fixtures/usde-calib-scores.json),
+ * the block that scripts/emit-u4b-calibration.mjs generated (archived): USDe (time order; the sha256 of fixtures/usde-calib-scores.json),
  * liq stratum s0 (ascending), and the retired btc-dir draw. The C5 pins (digestPinned) stay provenance values, checked
  * by the other tests through the provenance tool. A drifted copy, a reordered copy (scores_sha256 keeps the order, unlike
  * C5) or an entry with no pin is refused by name.
