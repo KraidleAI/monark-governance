@@ -28,7 +28,7 @@ ELAN_HOME=F:/elan npm run test:genkan                        # the Genkan tests,
 ```
 
 `apps/genkan/scripts/lake.mjs` builds in a temp folder that must exist: `GENKAN_TMP` when it is set; else, on Windows, the folder
-`tmpgenkan` of drive F:; else `<RUNNER_TEMP, or the system temp folder>/genkan`.
+`tmp\genkan` of drive F:; else `<RUNNER_TEMP, or the system temp folder>/genkan`.
 
 `node apps/harness/src/server.ts` starts the listener only when the file is run directly; importing a module of `src/` has no
 side effect. `startServer(port, host, clock, kernel)` returns the `http.Server`; its defaults are `127.0.0.1`, port `3001`,
