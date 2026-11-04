@@ -323,9 +323,9 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
  *  the change that needs it, with its reason. Step 5 of ROADMAP.md (the founder's go of 2026-11-04) adds two: @monark/genkan/frame, the
  *  frames of Genkan's kernel, which the judge tool encodes and reads (pure, Node built-ins only); and node:child_process, for
  *  src/kernel.ts alone, which runs the kernel binary by its path, with no shell, no argument and an empty environment
- *  (served_child_process_is_kernel_ts_alone holds it to that one module). */
+ *  (served_child_process_is_kernel_ts_alone holds it to that one module). Step 7 drops @monark/monark and @monark/ukemi with attest and cascade. */
 const SERVED_IMPORTS = new Set(["node:child_process", "node:crypto", "node:fs", "node:http", "node:path", "node:stream", "node:url", "@modelcontextprotocol/server",
-  "@monark/contracts", "@monark/genkan/frame", "@monark/hikae", "@monark/monark", "@monark/ukemi"]);
+  "@monark/contracts", "@monark/genkan/frame", "@monark/hikae"]);
 /** The served import graph: the modules reached from the entry points and the tools by a relative specifier, as importSpecifiers lists it,
  *  each text given by read (the file itself, or a copy that a test hands in). The walk stops by assertion on a relative specifier that
  *  names no file (a query suffix such as ?served names none, and Node 24 evaluates that file again as a second module instance), on a
@@ -418,6 +418,9 @@ test("served_walk_refuses_an_import_outside_its_closed_list", () => {
 /** C-3 (delegated decision CM-4b): the codes with no served thrower yet, exact; none since block D (lot D-2), whose served
  *  kata path throws the 6 kata codes together. */
 const PENDING: readonly string[] = [];
+/** The codes whose tool step 7 of ROADMAP.md archived (attest, cascade, and the never registered ukemi-predict): they stay in the
+ *  frozen list, never reused, and no served module throws them (error-code.test.ts holds the same three in NO_SERVED_REQUEST). */
+const ARCHIVED_TOOL_CODES: readonly string[] = ["attest_refused", "cascade_input_invalid", "ukemi_predict_input_invalid"];
 
 // killer: apps/harness/src/tools/gate.ts:966 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("every_listed_code_has_a_served_thrower_or_is_pending", () => {
@@ -425,7 +428,7 @@ test("every_listed_code_has_a_served_thrower_or_is_pending", () => {
   // output_invalid has its 500 path. The G7 of the last lot of block D adds the dynamic form (a served request per code).
   const text = [...servedModules()].map((f) => codeLines(readFileSync(f, "utf8"))).join("\n");
   const unthrown = TOOL_ERROR_CODES.filter((c) => c !== "output_invalid" && !text.includes(`"${c}"`));
-  assert.deepEqual(unthrown, PENDING);
+  assert.deepEqual(unthrown, [...PENDING, ...ARCHIVED_TOOL_CODES]);
   assert.ok(servedModules().has(join(SRC, "kata-path.ts")) && readFileSync(join(SRC, "kata-path.ts"), "utf8").includes("\"kata_key_invalid\""), "the kata codes are thrown in the served graph");
 });
 

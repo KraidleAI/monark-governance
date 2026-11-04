@@ -8,7 +8,6 @@ import { request as httpRequest, type IncomingMessage, type ServerResponse } fro
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createRequire } from "node:module";
-import { assertClosedPrediction } from "@monark/contracts";
 import { HOST, PORT, originGuard, startServer, MAX_REQUEST_BODY_BYTES } from "../src/server.ts";
 import { HARNESS_VERSION } from "../src/version.ts";
 import { buildOpenApi } from "../src/openapi.ts";
@@ -178,22 +177,21 @@ test("oversized_body_413_and_normal_tools_call_unaffected", async () => {
     assert.notEqual(atCap.status, 413, "a body exactly at the cap is NOT capped (the cap is an inclusive upper bound)");
 
     // (c) NORMAL requests still flow through the bounded reader on BOTH surfaces — the reader hands the same
-    // bytes to the same downstream handlers as before. The demo cascade (L=[[0,100],[50,0]], e=[40,20],
-    // shock 0) computes yhat=100 either way.
-    const cascadeBody = JSON.stringify({ L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" });
-    // (c1) HTTP/JSON mirror (`api.` host): a valid cascade POST returns 200 + the frozen closed Prediction.
-    const mirror = await wiredPost(port, "api.monarkgate.tech", "/cascade", cascadeBody, "application/json");
-    assert.equal(mirror.status, 200, "the api. mirror serves a normal cascade POST through the bounded reader");
+    // bytes to the same downstream handlers as before. The calibration of the ten scores 0.1…1.0 at alpha 0.1
+    // computes qhat=1 (the 10th of the 10 sorted scores) either way.
+    const calibrateBody = JSON.stringify({ scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 });
+    // (c1) HTTP/JSON mirror (`api.` host): a valid calibrate POST returns 200 and the computed quantile.
+    const mirror = await wiredPost(port, "api.monarkgate.tech", "/calibrate", calibrateBody, "application/json");
+    assert.equal(mirror.status, 200, "the api. mirror serves a normal calibrate POST through the bounded reader");
     const mirrorBody = JSON.parse(mirror.raw) as { structuredContent: Record<string, unknown> };
-    assertClosedPrediction(mirrorBody.structuredContent);
-    assert.equal(mirrorBody.structuredContent["yhat"], 100, "the mirror cascade still computes yhat=100 through the reader");
-    // (c2) MCP `tools/call` (SSE, `mcp.` host): the streamable-HTTP path is UNAFFECTED — a real cascade call
-    // returns 200 and the SSE body carries the computed result (yhat). Stateless: no `initialize` needed
+    assert.equal(mirrorBody.structuredContent["qhat"], 1, "the mirror calibrate still computes qhat=1 through the reader");
+    // (c2) MCP `tools/call` (SSE, `mcp.` host): the streamable-HTTP path is UNAFFECTED — a real calibrate call
+    // returns 200 and the SSE body carries the computed result (qhat). Stateless: no `initialize` needed
     // (the probe drives the same seam). This is what proves the reorder+reader did not break the SSE path.
-    const rpc = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "cascade", arguments: JSON.parse(cascadeBody) as unknown } });
+    const rpc = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "calibrate", arguments: JSON.parse(calibrateBody) as unknown } });
     const mcp = await wiredPost(port, "mcp.monarkgate.tech", "/", rpc, "application/json, text/event-stream");
     assert.equal(mcp.status, 200, "the MCP tools/call (SSE) path still returns 200 through the bounded reader");
-    assert.ok(mcp.raw.includes("\"yhat\""), "the MCP tools/call SSE body carries the computed cascade result (yhat)");
+    assert.ok(mcp.raw.includes("\"qhat\":1"), "the MCP tools/call SSE body carries the computed calibrate result (qhat=1)");
   } finally {
     server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
@@ -283,8 +281,8 @@ test("harness_server_drain_leaves_no_server_handle", async () => {
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     // Open a real connection so closeAllConnections() has a live socket to destroy.
-    const cascade = JSON.stringify({ L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" });
-    await wiredPost(addr.port, "api.monarkgate.tech", "/cascade", cascade, "application/json");
+    const calibrate = JSON.stringify({ scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 });
+    await wiredPost(addr.port, "api.monarkgate.tech", "/calibrate", calibrate, "application/json");
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
@@ -302,7 +300,7 @@ test("harness_server_drain_leaves_no_server_handle", async () => {
 });
 
 // TRANSPORT-500-SCHEMA-1 (N-4 of the G2 of C' 3c-4a): every 500 the server can send validates the 500 schema that /openapi.json
-// publishes (the same for the five operations, compiled by Ajv 2020 in strict mode), over the wire: the two 500 of an operation
+// publishes (the same for the three operations, compiled by Ajv 2020 in strict mode), over the wire: the two 500 of an operation
 // (output outside its schema, the tool threw) and the transport-level 500 of server.ts, thrown around the mirror (POST /calibrate)
 // or before routing (an unparseable Host), whose body is exactly {"error":"internal_error"}. The schema stays closed.
 // killer: apps/harness/src/schema-projection.ts:200 CONST "[internal, transport]" -> "[internal]"
@@ -311,7 +309,7 @@ test("every_500_of_the_server_validates_the_published_500_schema", async () => {
   const at = (node: unknown, ...keys: string[]): unknown => keys.reduce<unknown>((n, k) => (n as Rec | undefined)?.[k], node);
   const spec = buildOpenApi(), ops = Object.keys(at(spec, "paths") as Rec);
   const schemas = ops.map((p) => at(spec, "paths", p, "post", "responses", "500", "content", "application/json", "schema"));
-  assert.ok(ops.length === 5 && schemas.every((x) => JSON.stringify(x) === JSON.stringify(schemas[0])), "one 500 schema for the five operations");
+  assert.ok(ops.length === 3 && schemas.every((x) => JSON.stringify(x) === JSON.stringify(schemas[0])), "one 500 schema for the three operations");
   const Ajv = (createRequire(import.meta.url)("ajv/dist/2020.js") as { default: new (o: object) => { compile: (s: unknown) => (v: unknown) => boolean } }).default;
   const valid = new Ajv({ strict: true }).compile(schemas[0]);
   assert.deepEqual([{ error: "internal_error", operation: "" }, { error: "internal_error", x: 1 }, { error: "tool_error" }].map(valid), [false, false, false], "the 500 schema stays closed");
@@ -348,12 +346,12 @@ test("every_500_of_the_server_validates_the_published_500_schema", async () => {
 // TRANSPORT-500-SCHEMA-1, fold of its review (R-1): every status the server can answer on a described operation is listed by
 // /openapi.json, and nothing else: 200, 400 (not JSON), 403 (an Origin outside monarkgate.tech), 413 (a body one byte over the
 // cap, read in full so no reset races the answer) and 500 (the tool threw). The 404 and 405 of undescribed paths and methods
-// are out of scope. The same list for the five operations.
+// are out of scope. The same list for the three operations.
 // killer: apps/harness/src/openapi.ts:91 SDL "\"413\": {" -> ""
 test("every_status_of_a_described_operation_is_listed_by_openapi", async () => {
   const spec = buildOpenApi() as { paths: Record<string, { post: { responses: Record<string, unknown> } }> };
   const listed = Object.values(spec.paths).map((p) => Object.keys(p.post.responses).sort().join(","));
-  assert.ok(listed.length === 5 && listed.every((l) => l === listed[0]), `one status list for the five operations: ${listed.join(" | ")}`);
+  assert.ok(listed.length === 3 && listed.every((l) => l === listed[0]), `one status list for the three operations: ${listed.join(" | ")}`);
   const tool = HARNESS_TOOLS.find((t) => t.name === "calibrate");
   assert.ok(tool !== undefined, "the calibrate tool is registered");
   const mutable = tool as { run: typeof tool.run }, original = tool.run;

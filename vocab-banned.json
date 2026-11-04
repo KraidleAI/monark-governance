@@ -77,19 +77,17 @@
         { "re": "adaptive(ly)?\\s+(cover|guarantee|region|gate)", "why": "\"adaptive coverage/guarantee/region/gate\" surclaim — the Narabi tracker is adaptive, the committed gate region is NOT (ADR-M012 D8, C-3; catches \"adaptively covers\")" },
         { "re": "(coverage|region|gate)\\s+adapt", "why": "\"the gate/region/coverage adapts\" surclaim — the gate does not adapt before the pre-registered drift criterion fires (ADR-M012 D8, C-3; catches \"the gate adapts\")" },
         {
-          "re": "(?<!\\bnot re-)(?<!\\bcommitted Sh[o\\u014D\\u0304]{1,2}gen-)(?<!\\bcommitted, previously Sh[o\\u014D\\u0304]{1,2}gen-)\\bverified\\b",
-          "why": "naked \"verified\" on the harness surface (A-9-OUTILLE; ADR-M017 D2(iv), K-8: no verifier runs in the harness at call time); the technical words verify/verifier/verification are never banned; exempt ONLY after the three named prefixes below (the fourth, `committed, previously `, retired by IF-1 at U-4b-2b: the h5 step-6 note now reads previously Shogen-verified, with the macron, under the third prefix)",
+          "re": "(?<!\\bnot re-)\\bverified\\b",
+          "why": "naked \"verified\" on the harness surface (A-9-OUTILLE; ADR-M017 D2(iv), K-8: no verifier runs in the harness at call time); the technical words verify/verifier/verification are never banned; exempt ONLY after the one named prefix below (the two `committed Shogen-` prefixes, carried by the attest tool, left with it at step 7 of ROADMAP.md; the fourth, `committed, previously `, was retired by IF-1 at U-4b-2b)",
           "exemptions": [
-            { "after": "not re-", "lookbehind": "(?<!\\bnot re-)", "carrier": "apps/harness/src/tools/gate.ts", "sample": "is not re-verified at call time", "why": "negation: the caller-carried attestation is NOT re-verified at call time (GATE_NON_REVERIFICATION_SENTENCE, served in the gate tools/list description; also UKEMI_PREDICT_LABEL and the h5 trace step 7)" },
-            { "after": "committed Sh\u014dgen-", "lookbehind": "(?<!\\bcommitted Sh[o\\u014D\\u0304]{1,2}gen-)", "carrier": "apps/harness/src/tools/attest.ts", "sample": "a committed Sh\u014dgen-verified witness", "why": "past-tense descriptor of the ONE committed witness, checked once at capture by the offline Shogen verifier; the same sentence declares the verifier is NOT executed at call time (ATTEST_TOOL_DESCRIPTION, served in tools/list; N-4/K-9)" },
-            { "after": "committed, previously Sh\u014dgen-", "lookbehind": "(?<!\\bcommitted, previously Sh[o\\u014D\\u0304]{1,2}gen-)", "carrier": "apps/harness/src/tools/attest.ts", "sample": "a committed, previously Sh\u014dgen-verified witness", "why": "the same descriptor in the attest MCP content text (attestHonestyText, served by tools/call) and in the pinned h5 trace" }
+            { "after": "not re-", "lookbehind": "(?<!\\bnot re-)", "carrier": "apps/harness/src/tools/gate.ts", "sample": "is not re-verified at call time", "why": "negation: the caller-carried attestation is NOT re-verified at call time (GATE_NON_REVERIFICATION_SENTENCE, served in the gate tools/list description)" }
           ]
         },
         {
           "re": "(?<!\\bnever a )(?<!\\bnot a )(?<!\\bno )\\bprobabilit\\w*",
           "why": "\"probability\" outside a named negation on the harness surface (A-9-OUTILLE; the gate emits commit/defer/abstain over a region, never a probability of being right, ADR-M007 D5)",
           "exemptions": [
-            { "after": "never a ", "lookbehind": "(?<!\\bnever a )", "carrier": "apps/harness/src/tools/calibrate.ts", "sample": "Never a probability of being right.", "why": "negation carried by CALIBRATE_LABEL (calibrate description/content/label and the gate BYO clause) and UKEMI_PREDICT_LABEL" },
+            { "after": "never a ", "lookbehind": "(?<!\\bnever a )", "carrier": "apps/harness/src/tools/calibrate.ts", "sample": "Never a probability of being right.", "why": "negation carried by CALIBRATE_LABEL (calibrate description/content/label and the gate BYO clause)" },
             { "after": "not a ", "lookbehind": "(?<!\\bnot a )", "carrier": "fixtures/byo-demo-trace.json", "sample": "This is not a probability of being right.", "why": "negation in the pinned BYO demo trace note (scanned with the harness patterns by test/byo-demo-probe.test.ts) and in the ADR-M012 D8 public sentence" },
             { "after": "no ", "lookbehind": "(?<!\\bno )", "carrier": "apps/harness/src/tools/gate.ts", "sample": "No probability, no width/tightness claim.", "why": "negation in harness source comments (same form as the scope's no-guarantee convention); never a served phrase today" }
           ]

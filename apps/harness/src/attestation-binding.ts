@@ -3,9 +3,9 @@
  *
  * P1 DECLARES — it never VERIFIES — the consistency between a caller-carried `AttestedPrice.subject`
  * and the served `task_class`. The subject is the exact URL string the Shogen witness attested (e.g.
- * the Binance BTCUSDT ticker, fixtures/h5-e2e-trace.json:292); the rule is EXACT string membership in
+ * the Binance BTCUSDT ticker, the WITNESS of apps/harness/test/gate-cm2b.test.ts); the rule is EXACT string membership in
  * a static, committed table, TOTAL over the three served classes plus the retired btc-dir-15m (ADR-M017 D2(i); ADR-CM B-5):
- *   - btc-dir-15m (retired)   -> [ the Binance BTCUSDT ticker URL of the committed h5 fixture ] (the only subject; refused as retired)
+ *   - btc-dir-15m (retired)   -> [ the Binance BTCUSDT ticker URL of the archived Shogen witness ] (the only subject; refused as retired)
  *   - stable-run-velocity-24h -> [] (Narabi attests flows, not prices; any attested is inconsistent, declared)
  *   - cascade-liquidable-24h  -> [] (a fixture class with no subject URL; any attested is inconsistent, declared)
  *   - liquidation-eligible-coverage -> [] (the book is not an attested price feed; any attested is inconsistent, declared — ADR-U4b D5)
@@ -20,7 +20,7 @@
  * `task_class` (e.g. "__proto__"/"constructor") from ever resolving to a prototype member.
  */
 
-/** The exact URL string the committed h5 Shogen witness attested (fixtures/h5-e2e-trace.json:292). */
+/** The exact URL string the Shogen witness attested (archived at step 7 of ROADMAP.md; recorded in gate-cm2b.test.ts). */
 export const BINANCE_BTCUSDT_TICKER_URL = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT";
 
 /**

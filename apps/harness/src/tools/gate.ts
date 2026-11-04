@@ -187,13 +187,13 @@ export const GATE_TOOL_NAME = "gate";
 
 /**
  * ADR-M017 D2(iv) — the non-re-verification sentence carried VERBATIM in the tool description (phrase C-8):
- * the attestation is DECLARED-consistent and not re-verified at call time (no verifier runs here, K-8); `attest`
- * has no input and cannot recompute or verify a caller-carried attestation. Kept as one constant so the
+ * the attestation is DECLARED-consistent and not re-verified at call time (no verifier runs here, K-8). Since step 7 of
+ * ROADMAP.md the harness has no `attest` tool, so the sentence names none. Kept as one constant so the
  * "non-re-verification phrase removed from the description" mutant reddens `gate_description_declares_non_reverification` (test (4)).
  */
 export const GATE_NON_REVERIFICATION_SENTENCE =
   "the attestation is carried by the caller and is not re-verified at call time (the verifier is not executed here); " +
-  "`attest` only projects the committed witness — verify a caller-carried attestation offline with the Shōgen verifier";
+  "verify a caller-carried attestation offline with the Shōgen verifier";
 
 /**
  * Tool description (K-4e / C-2): declares the retired btc-dir class (ADR-CM B-5), the cascade sentence, AND the BYO path.
@@ -302,8 +302,8 @@ export interface HarnessParams {
 
 /**
  * Stable error codes (ADR-CM section 5 B-3, audit P3 S-6; plan docs/G0-lot-cm-2a.md): a closed list. The HTTP mirror
- * carries the code in its error body, MCP in `_meta[ERROR_CODE_META_KEY]`. The four class defaults (attest,
- * calibrate, cascade, ukemi-predict) follow the gate codes; `task_class_retired` is thrown for `btc-dir-15m` since
+ * carries the code in its error body, MCP in `_meta[ERROR_CODE_META_KEY]`. The four class defaults (attest, calibrate, cascade,
+ * ukemi-predict; only calibrate is served since step 7) follow the gate codes; `task_class_retired` is thrown for `btc-dir-15m` since
  * CM-2b (ADR-CM B-5). A code is never renamed nor reused for another refusal.
  * Since contract 1.1.0 block A (lot CM-3c-1, spec section 13) the list is TOOL_ERROR_CODES of @monark/contracts,
  * re-exported here: the 24 codes above in their order, then 8 codes added by 1.1.0: input_invalid and json_invalid,

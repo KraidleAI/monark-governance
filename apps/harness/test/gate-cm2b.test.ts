@@ -10,19 +10,36 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import type { Prediction } from "@monark/contracts";
+import type { AttestedPrice, Prediction } from "@monark/contracts";
 import { runGate, HarnessToolError, GATE_TOOL_DESCRIPTION, STABLE_RUN_COMMITTED_SENTENCE, type HarnessParams } from "../src/tools/gate.ts";
 import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { handleJsonMirror } from "../src/http.ts";
 import { createHarnessHandler } from "../src/server.ts";
 import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 import { HARNESS_TOOLS } from "../src/tools/registry.ts";
-import { runAttest } from "../src/tools/attest.ts";
 import { ATTESTATION_BINDING, BINANCE_BTCUSDT_TICKER_URL } from "../src/attestation-binding.ts";
 import { readFileSync } from "node:fs";
 
 const PARAMS: HarnessParams = { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0, tool: "perps_order_preview", clockOpen: true };
 const AT = "2026-09-04T00:00:00Z";
+/** The price the attest tool projected from the committed Shōgen witness (Binance BTCUSDT, self-notarized; fromShogen over the
+ *  three s3-binance fixtures), recorded before step 7 of ROADMAP.md archived the tool, its adapter and the fixtures. Every field
+ *  is the projected one but the optional `utterance.bytes` (the 1.9 kB HTTP response), left out: the gate reads the subject. */
+const WITNESS: AttestedPrice = {
+  schema_version: "1.0.0",
+  subject: "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+  attestor: [{
+    identity: "shogen:attestateur-de-demonstration-s3",
+    key: "6b32353620303336616165636232313162616466326633353933326164633231323638626561353833616431613334623965306630663437383135353763666539343832323731",
+  }],
+  residual: ["A(notary-neutrality)", "A(self-attestation)", "A(transport-check-delegated)"],
+  transport: "tlsn-mpc/1",
+  utterance: { hash: "c28a41ce87dafcd313d301ab56472b6f3cd1b3d81d903da787b0ca9dfffbeea0" },
+  observed_at: { clock: "tlsn-mpc/1:connection_info.time", instant: 1786594228 },
+  octets_recalcules: true,
+  verifier_revision: "0fe3c32d35382b3f290a43c4156399ca4512bb89",
+  sens_emis_digest: "4ad0e84b4f078e7ee62482ca86853c09e3c17bf074274168d65c024d1777e24b",
+};
 const USDE = "stable-run-velocity-24h";
 const LIQ = "liquidation-eligible-coverage";
 const RETIRED_MESSAGE =
@@ -181,7 +198,7 @@ test("usde_band_full_bytes_are_pinned_at_1_1_0", () => {
 test("attested_concordant_meets_the_btc_dir_retirement", () => {
   const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
   assert.ok(gateTool, "the gate tool is registered");
-  const price = runAttest().price;
+  const price = WITNESS;
   assert.equal(price.subject, BINANCE_BTCUSDT_TICKER_URL, "the committed witness subject is the Binance BTCUSDT URL");
   assert.deepEqual(price.residual, ["A(notary-neutrality)", "A(self-attestation)", "A(transport-check-delegated)"], "the committed witness residual");
   const btc = pred("btc-dir-15m", "up", "internal:momentum-4c");
@@ -213,7 +230,7 @@ test("served_description_says_no_served_class_takes_attested", async () => {
   const oa = (await (await handleJsonMirror(new Request("http://api.monarkgate.tech/openapi.json"))).json()) as { paths: Record<string, { post: { description: string } }> };
   assert.ok(oa.paths["/gate"]?.post.description.includes(SENTENCE), "/openapi.json serves the sentence");
   assert.equal(GATE_TOOL_DESCRIPTION.split(SENTENCE).length, 2, "the description carries the sentence once");
-  const price = runAttest().price;
+  const price = WITNESS;
   const withSubject = [...ATTESTATION_BINDING].filter(([, subjects]) => subjects.length > 0).map(([c]) => c);
   assert.deepEqual(withSubject, ["btc-dir-15m"], "the retired class holds the only committed subject");
   const codes = [...ATTESTATION_BINDING.keys(), "caller-owned-class"].map((c) => {

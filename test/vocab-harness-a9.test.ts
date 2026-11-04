@@ -36,10 +36,10 @@ const V5 = "verified 95% probability of liquidation within the interval.";
 
 // The CLOSED list (checkpoint-1 C-4): each A-9 rule, named by the naked probe it must redden, with its exact exempt
 // prefixes in declaration order. Adding a rule or an exemption = an ADR line AND this table (else red here).
-const O_MACRON = String.fromCharCode(0x14d);
 const CLOSED: ReadonlyArray<readonly [string, readonly string[]]> = [
-  // IF-1 (ADR-U5a G7 addendum; closed at U-4b-2b): the fourth prefix "committed, previously " is retired (8 -> 7 exemptions).
-  ["the price is verified", ["not re-", `committed Sh${O_MACRON}gen-`, `committed, previously Sh${O_MACRON}gen-`]],
+  // IF-1 (ADR-U5a G7 addendum; closed at U-4b-2b): the fourth prefix "committed, previously " is retired (8 -> 7 exemptions);
+  // step 7 of ROADMAP.md: the two `committed Shōgen-` prefixes leave with the attest tool, their carrier (7 -> 5).
+  ["the price is verified", ["not re-"]],
   ["a probability of being right", ["never a ", "not a ", "no "]],
   ["95% of the time", []],
   ["the accuracy is high", ["seed, n, "]],

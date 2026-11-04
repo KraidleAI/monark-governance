@@ -1,5 +1,5 @@
 {
-  "ceiling": 60,
+  "ceiling": 45,
   "measured_on": "2026-11-04",
   "rules": [
     "@typescript-eslint/no-unsafe-member-access",

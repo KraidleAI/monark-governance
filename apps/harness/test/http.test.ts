@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { request as httpRequest } from "node:http";
-import { assertClosedGateDecision, assertClosedPrediction, assertClosedAttestedPrice, scoresSha256 } from "@monark/contracts";
+import { assertClosedGateDecision, scoresSha256 } from "@monark/contracts";
 import { handleJsonMirror, MIRROR_OPERATIONS } from "../src/http.ts";
 import { HARNESS_TOOLS, REGISTERED_TOOL_NAMES } from "../src/tools/registry.ts";
 import { CALIBRATE_MAX_N } from "../src/tools/calibrate.ts";
@@ -22,7 +22,6 @@ const GATE_BODY = {
   prediction: { schema_version: SCHEMA_VERSION, task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3", produced_at: "2026-09-04T00:00:00Z" },
   params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0, tool: "perps_order_preview", clockOpen: true },
 } as const;
-const CASCADE_BODY = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" } as const;
 /** A valid calibrate body: n=10 >= nMin, p=⌈11·0.9⌉=10 <= n ⇒ q̂ is a number (a covered, not under_calib, result). */
 const CALIBRATE_BODY = { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 } as const;
 /** A valid judge body: a BYO gate envelope that commits, an OPEN within its cap (no kernel is handed to the mirror here: it
@@ -33,8 +32,8 @@ const JUDGE_BODY = {
   order: { kind: "OPEN", target: "venue:a", asset: "btc", amount: "100" },
   limits: { venues: ["venue:a"], assets: [{ asset: "btc", cap: "100" }] },
 } as const;
-/** A valid body per operation (attest takes none). */
-const BODIES: Readonly<Record<string, unknown>> = { gate: GATE_BODY, cascade: CASCADE_BODY, attest: {}, calibrate: CALIBRATE_BODY, judge: JUDGE_BODY };
+/** A valid body per operation. */
+const BODIES: Readonly<Record<string, unknown>> = { gate: GATE_BODY, calibrate: CALIBRATE_BODY, judge: JUDGE_BODY };
 
 interface MirrorResult { structuredContent: unknown; content: unknown; error?: string }
 
@@ -45,15 +44,15 @@ async function call(host: string, method: string, path: string, body?: unknown):
   return { status: res.status, body: (await res.json()) as MirrorResult };
 }
 
-// Test — the mirror exposes EXACTLY the five MCP tools, returns the SAME frozen structuredContent, and
+// Test — the mirror exposes EXACTLY the three MCP tools, returns the SAME frozen structuredContent, and
 // enforces the SAME frozen input schema as the MCP boundary. Mutants: (a) hardcode the route table (drop
-// cascade/attest, or add a 4th route) instead of deriving from HARNESS_TOOLS ⇒ the served set ≠ registry
+// calibrate, or add a 4th route) instead of deriving from HARNESS_TOOLS ⇒ the served set ≠ registry
 // ⇒ red; (b) skip `~standard.validate` in http.ts ⇒ an extra key slips through ⇒ 200 ⇒ red; (c) alter the
 // returned structuredContent ⇒ the parity deep-equal reds; (d) drop/empty the `content` honesty `text`
 // (http.ts:85) ⇒ the content-parity deep-equal reds (K-1: the mirror text must equal the MCP text byte-for-byte).
 test("http_mirror_matches_mcp_surface", async () => {
-  // (a) the mirror's operation set IS the registry — the set {attest,gate,cascade,calibrate,judge}, no drift.
-  assert.deepEqual([...MIRROR_OPERATIONS].sort(), ["attest", "calibrate", "cascade", "gate", "judge"], "mirror ops == the MCP set");
+  // (a) the mirror's operation set IS the registry — the set {gate,calibrate,judge}, no drift.
+  assert.deepEqual([...MIRROR_OPERATIONS].sort(), ["calibrate", "gate", "judge"], "mirror ops == the MCP set");
   assert.deepEqual([...MIRROR_OPERATIONS].sort(), [...REGISTERED_TOOL_NAMES].sort(), "mirror ops == REGISTERED_TOOL_NAMES");
 
   // every registered tool has a live route (200); a non-registered operation is 404.
@@ -90,28 +89,14 @@ test("http_mirror_matches_mcp_surface", async () => {
   // (c) same FROZEN OUTPUT as the MCP tool: structuredContent deep-equals the registry run() output and
   // is a closed frozen contract. Drive both off the SAME HARNESS_TOOLS descriptor (no re-implementation).
   const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
-  const cascadeTool = HARNESS_TOOLS.find((t) => t.name === "cascade");
-  const attestTool = HARNESS_TOOLS.find((t) => t.name === "attest");
   const calibrateTool = HARNESS_TOOLS.find((t) => t.name === "calibrate");
-  assert.ok(gateTool && cascadeTool && attestTool && calibrateTool, "the four tools are registered");
+  assert.ok(gateTool && calibrateTool, "gate and calibrate are registered");
 
   const gateRes = await call(API_HOST, "POST", "/gate", GATE_BODY);
   assert.deepEqual(gateRes.body.structuredContent, gateTool.run(GATE_BODY).structured, "gate mirror == MCP structured output");
   assertClosedGateDecision(gateRes.body.structuredContent);
   // honesty parity (K-1): the mirror's `content` text is byte-for-byte the tool's MCP honesty envelope.
   assert.deepEqual(gateRes.body.content, [{ type: "text", text: gateTool.run(GATE_BODY).text }], "gate mirror content == MCP honesty text");
-
-  const cascadeRes = await call(API_HOST, "POST", "/cascade", CASCADE_BODY);
-  assert.deepEqual(cascadeRes.body.structuredContent, cascadeTool.run(CASCADE_BODY).structured, "cascade mirror == MCP structured output");
-  assertClosedPrediction(cascadeRes.body.structuredContent);
-  assert.deepEqual(cascadeRes.body.content, [{ type: "text", text: cascadeTool.run(CASCADE_BODY).text }], "cascade mirror content == MCP honesty text");
-
-  const attestRes = await call(API_HOST, "POST", "/attest", {});
-  const attestStructured = attestRes.body.structuredContent;
-  assert.ok(attestStructured !== null && typeof attestStructured === "object", "attest returns the K-1 envelope");
-  // the frozen `price` alone is the closed contract; label/provenance ride the envelope (K-1).
-  assertClosedAttestedPrice((attestStructured as { price: unknown }).price);
-  assert.deepEqual(attestRes.body.content, [{ type: "text", text: attestTool.run({}).text }], "attest mirror content == MCP honesty text");
 
   // calibrate: the mirror returns the SAME structuredContent + honesty content as the MCP tool.
   const calibrateRes = await call(API_HOST, "POST", "/calibrate", CALIBRATE_BODY);

@@ -3,7 +3,7 @@
 Traceable origin for `fixtures/byo-demo-trace.json`, the committed recording of the MONARK harness
 driven END-TO-END over its real MCP surface through the **bring-your-own (BYO)** loop (ADR-M006 D10;
 the BYO loop of `skills/monark/SKILL.md`). This file is English by ADR-M003 D0.5. The trace is a NEW
-English artifact (not a Shōgen verbatim), so — unlike the `s3-binance.*` fixtures — it is NOT
+English artifact (not a Shōgen verbatim), so — unlike the `s3-binance.*` fixtures, archived at step 7 — it is NOT
 path-exempt: it passes `lang-gate --scope root` and `grep-forbidden.mjs`. The pinned digest below is
 what `fixtures/manifest.json` does for the nine `*.gate-decision.json` states; that manifest is a
 closed set (enforced by `test/fixtures_root_valid`), so this trace is pinned HERE instead, the same way

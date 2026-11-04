@@ -14,8 +14,6 @@ import { ALLOWED_TOOL_NAMES, REGISTERED_TOOL_NAMES, HARNESS_TOOLS } from "../src
 import { createHarnessHandler } from "../src/server.ts";
 import { honestyText, TASK_BTC_DIR, TASK_CASCADE, TASK_STABLE_RUN, TASK_LIQ_ELIGIBLE, LIQ_ALPHA, LIQ_NMIN } from "../src/tools/gate.ts";
 import { SCHEMA_VERSION } from "../src/tools/gate.ts";
-import { cascadeHonestyText, CASCADE_PREDICTOR_ID } from "../src/tools/cascade.ts";
-import { attestHonestyText } from "../src/tools/attest.ts";
 import { calibrateHonestyText } from "../src/tools/calibrate.ts";
 import { JUDGE_EXIT_LABEL, JUDGE_LABEL, JUDGE_NO_VERDICT_LABEL, type KernelRunner } from "../src/tools/judge.ts";
 import { UKEMI_LIQ_PREDICTOR_BASE, USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
@@ -46,24 +44,22 @@ const FORBIDDEN: { re: RegExp; why: string }[] = [
   { re: /\bDate\.now\b|new Date\(\s*\)|\bperformance\.now\b/, why: "clock read (a call or a reference, CM-2a C-7)" },
 ];
 
-// Test — the registry is (a) within the closed allowlist and (b) EXACTLY the set {attest,gate,cascade,calibrate,judge}
-// (ADR-M005 D9 at H3, ADR-M007 at C1, step 5 of ROADMAP.md for judge), and no tool implementation has a side effect.
+// Test — the registry is (a) within the closed allowlist and (b) EXACTLY the set {gate,calibrate,judge} (ADR-M007 at C1,
+// step 5 of ROADMAP.md for judge, its step 7 for the removal of cascade and attest), and no tool implementation has a side effect.
 // Mutants: a tool outside the allowlist, a stray/premature registration, or a `node:fs` import in a tools file ⇒ red.
 test("mcp_tools_have_no_side_effects", () => {
-  // (1) closed allowlist (K-8): registered ⊆ {attest, gate, cascade, calibrate, judge}, and all five are present.
+  // (1) closed allowlist (K-8): registered ⊆ {gate, calibrate, judge}, and all three are present.
   assert.ok(REGISTERED_TOOL_NAMES.length >= 1, "at least one tool registered");
   for (const name of REGISTERED_TOOL_NAMES) {
     assert.ok((ALLOWED_TOOL_NAMES as readonly string[]).includes(name), `tool '${name}' outside the closed allowlist`);
   }
   assert.ok(REGISTERED_TOOL_NAMES.includes("gate"), "the `gate` tool stays registered");
-  assert.ok(REGISTERED_TOOL_NAMES.includes("cascade"), "the `cascade` tool stays registered");
-  assert.ok(REGISTERED_TOOL_NAMES.includes("attest"), "the `attest` tool stays registered");
   assert.ok(REGISTERED_TOOL_NAMES.includes("calibrate"), "the `calibrate` tool is registered in C1");
   assert.ok(REGISTERED_TOOL_NAMES.includes("judge"), "the `judge` tool is registered (step 5 of ROADMAP.md)");
-  // (1b) EXACT registry: exactly `attest` + `cascade` + `gate` + `calibrate` + `judge`, reached incrementally (H1 `gate`,
-  // H2 `cascade`, H3 `attest`, C1 `calibrate`, step 5 `judge`). A premature or stray registration reddens here, where the
-  // subset allowlist above would tolerate it.
-  assert.deepEqual([...REGISTERED_TOOL_NAMES].sort(), ["attest", "calibrate", "cascade", "gate", "judge"], "the registry is exactly attest + calibrate + cascade + gate + judge");
+  // (1b) EXACT registry: exactly `gate` + `calibrate` + `judge` (H1 `gate`, C1 `calibrate`, step 5 `judge`; step 7 removed
+  // `cascade` and `attest`). A premature or stray registration reddens here, where the subset allowlist above would tolerate it.
+  assert.deepEqual([...REGISTERED_TOOL_NAMES].sort(), ["calibrate", "gate", "judge"], "the registry is exactly calibrate + gate + judge");
+  assert.deepEqual([...ALLOWED_TOOL_NAMES].sort(), ["calibrate", "gate", "judge"], "the allowlist names no removed tool");
 
   // (2) static side-effect scan of src/tools/**.
   const files = collectTs(TOOLS_DIR);
@@ -185,8 +181,8 @@ test("harness_tool_descriptions_pass_vocab", async () => {
 
 // Test (A-9-OUTILLE, checkpoint-1 C-1/C-3) -- the four honesty carriers AS SERVED: one real tools/call per served
 // branch (createHarnessHandler), in the DELIVERED state (empty liq registry, under_calib, BYO, the committed USDe key).
-// Each served content text IS its carrier (honestyText / cascadeHonestyText / attestHonestyText /
-// calibrateHonestyText, followed by the verdict summary the registry appends for gate/calibrate), and every served
+// Each served content text IS its carrier (honestyText / calibrateHonestyText / the judge labels, followed by the verdict
+// summary the registry appends for gate/calibrate/judge), and every served
 // honesty text (content + the output `label`) is vocab-clean AND never says "interval" (C-1: the wire vocabulary is
 // kept out of the honesty prose, precedent u4b_liq_class_text_says_upper_bound_never_interval). Mutants:
 // `stable-run-uncalibrated-interval` (C-1) and `demonstrative-label-accuracy` (a served text born OUTSIDE
@@ -206,6 +202,9 @@ test("harness_served_honesty_carriers_pass_vocab", async () => {
   const JUDGE: Obj = { prediction: pred(BYO, 1, "caller:model"), params: { ...P, tauInterval: 2, calibration: { scores: TEN, mode: "interval" } }, order: { kind: "OPEN", target: "venue:a", asset: "btc", amount: "100" }, limits: LIMITS };
   const answers = (status: number | null, out: string): KernelRunner => () => ({ status, stdout: new TextEncoder().encode(out) });
   const allows = answers(0, "allow\n");
+  // The predictor id the cascade tool emitted for the gate's class cascade-liquidable-24h (the tool is archived since step 7; the
+  // class stays served and abstains under_calib).
+  const CASCADE_PREDICTOR_ID = "internal:ukemi-cascade-v0";
   const CALLS: { label: string; tool: string; args: Obj; carrier: string; kernel?: KernelRunner }[] = [
     { label: "gate cascade class", tool: "gate", args: { prediction: pred(TASK_CASCADE, 100, CASCADE_PREDICTOR_ID), params: P }, carrier: honestyText(TASK_CASCADE, CASCADE_PREDICTOR_ID, false) },
     { label: "gate stable-run committed key", tool: "gate", args: { prediction: pred(TASK_STABLE_RUN, 0.0001, USDE_STABLE_RUN_PREDICTOR_ID), params: { ...P, nMin: 50 } }, carrier: honestyText(TASK_STABLE_RUN, USDE_STABLE_RUN_PREDICTOR_ID, false) },
@@ -213,8 +212,6 @@ test("harness_served_honesty_carriers_pass_vocab", async () => {
     { label: "gate liq s0", tool: "gate", args: { prediction: pred(TASK_LIQ_ELIGIBLE, 5000, "ukemi:any"), params: { ...P, alpha: LIQ_ALPHA, nMin: LIQ_NMIN } }, carrier: honestyText(TASK_LIQ_ELIGIBLE, `${UKEMI_LIQ_PREDICTOR_BASE}/s0`, false) },
     { label: "gate byo interval", tool: "gate", args: { prediction: pred(BYO, 1, "caller:model"), params: { ...P, calibration: { scores: TEN, mode: "interval" } } }, carrier: honestyText(BYO, "caller:model", true) },
     { label: "gate byo set", tool: "gate", args: { prediction: pred(BYO, "a", "caller:model"), params: { ...P, intent: "a", calibration: { scores: TEN, mode: "set", candidates: [{ label: "a", score: 0.1 }, { label: "b", score: 0.9 }] } } }, carrier: honestyText(BYO, "caller:model", true) },
-    { label: "cascade", tool: "cascade", args: { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: AT }, carrier: cascadeHonestyText() },
-    { label: "attest", tool: "attest", args: {}, carrier: attestHonestyText() },
     { label: "calibrate", tool: "calibrate", args: { scores: TEN, alpha: 0.1, nMin: 5 }, carrier: calibrateHonestyText() },
     { label: "calibrate under_calib", tool: "calibrate", args: { scores: [0.1, 0.2], alpha: 0.1, nMin: 5 }, carrier: calibrateHonestyText() },
     // judge: the label of a verdict of the kernel (an allow, or a deny with one of its reasons), and the label of no verdict

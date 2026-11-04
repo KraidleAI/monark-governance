@@ -17,7 +17,6 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { calibDigest } from "../../../scripts/lib/calib-digest-provenance.mjs";
 import { splitQuantile } from "@monark/hikae";
-import { narabiPredictorId } from "@monark/monark";
 import {
   USDE_STABLE_RUN_CALIB,
   USDE_STABLE_RUN_CALIB_DIGEST_PINNED,
@@ -85,6 +84,8 @@ test("usde_committed_key_is_the_ratified_value (ADR-M008 Amendement bis)", () =>
     "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
     "the committed key is the ratified <formula>@<chain>/<token>",
   );
-  // derived by the SAME shared function the adapter emits (no duplicated registry).
-  assert.equal(USDE_STABLE_RUN_PREDICTOR_ID, narabiPredictorId(USDE_STABLE_RUN_CHAIN, USDE_STABLE_RUN_SUBJECT));
+  // The Narabi adapter's derivation (narabiPredictorId, archived at step 7 of ROADMAP.md): the formula, then chain and token
+  // lower-cased. The checksum-case token of the source is the same population.
+  assert.equal(USDE_STABLE_RUN_PREDICTOR_ID, `narabi:persistence-v2@${USDE_STABLE_RUN_CHAIN}/${USDE_STABLE_RUN_SUBJECT}`.toLowerCase());
+  assert.notEqual(USDE_STABLE_RUN_SUBJECT, USDE_STABLE_RUN_SUBJECT.toLowerCase(), "the source token is checksum-case");
 });
