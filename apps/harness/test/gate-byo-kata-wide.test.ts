@@ -127,7 +127,7 @@ test("byo_confusable_wide_kata_names_refused", () => {
 test("byo_reserved_kata_body_names_the_wide_pattern", async () => {
   const message =
     "task_class 'my-range-1h' / predictor_id 'caller:model' takes a name reserved for MONARK kata classes (pattern " +
-    "^[a-z0-9]{2,10}-(dir|range|mae-down|mae-up)-(15m|1h|4h|24h)$, key prefix 'kata:'): use a caller-owned name for BYO (ADR-CM B-1)";
+    "^[a-z0-9]{2,10}-(dir|range|mae-down|mae-up)-(15m|1h|4h|24h)$, key prefix 'kata:'): use a caller-owned name for BYO";
   const res = await handleJsonMirror(new Request("http://api.monarkgate.tech/gate", { method: "POST", body: JSON.stringify({ prediction: pred("my-range-1h", "caller:model"), params: PARAMS }) }));
   assert.equal(res.status, 400, "HTTP 400");
   assert.equal(await res.text(), JSON.stringify({ error: "tool_error", operation: "gate", message, code: "byo_reserved_kata" }), "exact body");

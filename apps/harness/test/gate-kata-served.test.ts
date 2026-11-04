@@ -99,7 +99,16 @@ test("served_kata_request_contract", async () => {
     const m = await mcp(p, params, now);
     assert.deepEqual([m["isError"], (m["_meta"] as Obj | undefined)?.["monarkgate.tech/error_code"], (m["content"] as { text: string }[] | undefined)?.[0]?.text], [true, code, h.body["message"]], `MCP ${code}`);
   }
-  assert.equal(sha(messages.join("\n")), "0670875ec020ce2ec17a7848073e0195ad6d1d4b247988a638a685da6af44aea", "the 8 served messages, byte for byte (listed in docs/G7-lot-d-2.md)");
+  assert.deepEqual(messages, [
+    "kata_key_invalid prediction.predictor_id \"kata:vote4@venue/ETHUSDT/1h\" does not match its class 'btc-dir-1h' (SYMBOL starting with 'BTC', <h> '1h') (contract 1.1.0 kata request rules)",
+    "kata_yhat_domain yhat 1.5 is outside the domain of 'btc-dir-1h' (a lean in [-1, 1]) (contract 1.1.0 kata request rules)",
+    "features_digest_required task_class 'btc-dir-1h' requires prediction.features_digest (contract 1.1.0 kata request rules)",
+    "policy_tau_cap task_class 'btc-dir-1h' requires params.tau <= 1, got 1.5 (contract 1.1.0 kata request rules)",
+    "policy_alpha_mismatch task_class 'btc-range-4h' requires params.alpha = 0.01, got 0.02 (contract 1.1.0 kata request rules)",
+    "policy_nmin_mismatch task_class 'btc-range-4h' requires params.nMin = 299, got 300 (contract 1.1.0 kata request rules)",
+    "produced_at_off_grid prediction.produced_at '2026-10-04T05:00:00Z' is not on the 14400000 ms grid of 'btc-range-4h' (contract 1.1.0 kata request rules)",
+    "produced_at_stale prediction.produced_at '2026-10-04T04:00:00Z' is more than 300 s before the server clock (contract 1.1.0 kata request rules)",
+  ], "the 8 served messages, byte for byte");
 });
 
 // Test T-9 (F2P): a well-formed kata call abstains with no region (spec section 2.2.1), direction and band; a dir lean of
@@ -289,12 +298,12 @@ test("kata_tables_match_the_pins", () => {
   const seam = [...all.filter((t) => t.task_class !== "btc-dir-1h"), ...withRow("region")];
   const pin = { ...PINS.COMMITTED_TABLES, "btc-dir-1h": withRow("region")[0]?.policy_table_sha256 ?? "" };
   assert.equal(check(seam, pin, ["eth-dir-4h"]), seam, "a pinned class at its sha256 passes");
-  assert.throws(() => check(seam, PINS.COMMITTED_TABLES, []), /KATA-CLAUSE-COMMITTED-STATE-1: the kata tables with rows are not the pinned tables: btc-dir-1h$/, "a row outside the pins");
-  assert.throws(() => check(seam, { ...pin, "btc-dir-1h": withRow("silence")[0]?.policy_table_sha256 ?? "" }, []), /not the pinned tables: btc-dir-1h$/, "another sha256");
+  assert.throws(() => check(seam, PINS.COMMITTED_TABLES, []), { message: "kata tripwire: the kata tables with rows are not the pinned tables: btc-dir-1h" }, "a row outside the pins");
+  assert.throws(() => check(seam, { ...pin, "btc-dir-1h": withRow("silence")[0]?.policy_table_sha256 ?? "" }, []), { message: "kata tripwire: the kata tables with rows are not the pinned tables: btc-dir-1h" }, "another sha256");
   const empty = all.find((t) => t.task_class === "eth-dir-4h") ?? assert.fail("eth-dir-4h is served");
-  assert.throws(() => check(seam, { ...pin, "eth-dir-4h": empty.policy_table_sha256 }, []), /not the pinned tables: eth-dir-4h$/, "a pinned class with no row, even at its sha256");
-  assert.throws(() => check(seam, { ...pin, "btc-dir-2h": "ab".repeat(32) }, []), /not the pinned tables: btc-dir-2h$/, "a pin that is no served kata class");
-  assert.throws(() => check(seam, pin, ["btc-dir-1h"]), /KATA-CLAUSE-COMMITTED-STATE-1: a held class holds rows: btc-dir-1h$/, "a held class with a row, though pinned");
+  assert.throws(() => check(seam, { ...pin, "eth-dir-4h": empty.policy_table_sha256 }, []), { message: "kata tripwire: the kata tables with rows are not the pinned tables: eth-dir-4h" }, "a pinned class with no row, even at its sha256");
+  assert.throws(() => check(seam, { ...pin, "btc-dir-2h": "ab".repeat(32) }, []), { message: "kata tripwire: the kata tables with rows are not the pinned tables: btc-dir-2h" }, "a pin that is no served kata class");
+  assert.throws(() => check(seam, pin, ["btc-dir-1h"]), { message: "kata tripwire: a held class holds rows: btc-dir-1h" }, "a held class with a row, though pinned");
   const d = runGate(pred(), P_DIR, undefined, { nowMs: T + 1000, policyTables: check(seam, pin, []) });
   const row = withRow("region")[0]?.table.rows[0] ?? assert.fail("the pinned row");
   assert.deepEqual([d.verdict.policy_table_sha256, d.verdict.policy_row_sha256], [pin["btc-dir-1h"], sha256Canonical(row)], "the verdict carries the pinned table and its row");

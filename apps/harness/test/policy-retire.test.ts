@@ -77,7 +77,7 @@ test("retire_list_reader_closed", () => {
   const p = listOf(ok);
   assert.throws(() => readRetireList({ ...p, sha256: "00".repeat(32) }, SYN.bytes), /the bytes do not have the pinned sha256/);
   for (const bytes of [Buffer.concat([p.bytes, Buffer.from("\n")]), Buffer.from(JSON.stringify({ format: "kata-retire-v1", entries: ok })), Buffer.from("{")]) {
-    assert.throws(() => readRetireList({ ...p, bytes, sha256: sha(bytes) }, SYN.bytes), /not one canonical JSON line/);
+    assert.throws(() => readRetireList({ ...p, bytes, sha256: sha(bytes) }, SYN.bytes), /: the bytes are not one canonical JSON line\.$/);
   }
   for (const file of ["retire.json", "retire-2027-02-30.json", "retire-2027-1-05.json", "x-retire-2027-01-05.json", "apps/harness/data/kata/retire/retire-2027-01-05.json"]) {
     assert.throws(() => readRetireList({ ...p, file }, SYN.bytes), /not named retire-<YYYY-MM-DD>\.json \(no directory\) on a real day/);
@@ -179,9 +179,9 @@ test("retire_live_n_test_bounded", () => {
     const r = find((x) => x.status === "region" && x.horizon === h);
     const row = (n: number, k: number): PolicyRow => retireOverlay(r, { ...entryOf(r, "live:1", n), k_test: k });
     admit(() => guardKataRow(row(max, max), entry(r.task_class), PINS)); // at the bound, a k_test that fires is admitted
-    for (const k of [max + 1, 0]) assert.throws(() => guardKataRow(row(max + 1, k), entry(r.task_class), PINS), /has a live:<k> n_test above LIVE_N_MAX \(2208 at 1h, 552 at 4h/); // the bound, before the veto
+    for (const k of [max + 1, 0]) assert.throws(() => guardKataRow(row(max + 1, k), entry(r.task_class), PINS), /^Error: MONARK import guard: \S+ \S+ has a live:<k> n_test above LIVE_N_MAX \(2208 at 1h, 552 at 4h, the longest quarter\), refused before any bound or veto\.$/); // the bound, before the veto
     admit(() => read([entryOf(r, "live:1", max)]));
-    assert.throws(() => read([entryOf(r, "live:1", max + 1)]), new RegExp(`has an n_test above LIVE_N_MAX at ${h}`));
+    assert.throws(() => read([entryOf(r, "live:1", max + 1)]), new RegExp(`: has an n_test above LIVE_N_MAX at ${h}, the longest quarter\\.$`));
   }
   admit(() => guardKataRow(retireOverlay(DIR, entryOf(DIR, ADR)), entry(DIR.task_class), PINS)); // adr: causes unchanged
   assert.throws(() => guardKataRow(retireOverlay(DIR, { ...entryOf(DIR, ADR), k_test: 100, n_test: 100, u_test: "1" }), entry(DIR.task_class), PINS), /retire counts off its cause/);
@@ -204,7 +204,7 @@ test("retire_live_entry_waits_for_its_quarter_end", () => {
   for (const [cause, end] of [["live:1", "2027-01-01"], ["live:2", "2027-04-01"], ["live:5", "2028-01-01"]] as const) {
     admit(() => read([{ ...entryOf(DIR), cause }], `retire-${end}.json`));
     const eve = new Date(Date.parse(`${end}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
-    assert.throws(() => read([{ ...entryOf(DIR), cause }], `retire-${eve}.json`), new RegExp(`names ${cause}, a quarter that ends after the list's date ${eve}`));
+    assert.throws(() => read([{ ...entryOf(DIR), cause }], `retire-${eve}.json`), new RegExp(`: names ${cause}, a quarter that ends after the list's date ${eve}\\.$`));
   }
   assert.throws(() => read([{ ...entryOf(DIR), cause: `live:${"9".repeat(20)}` }]), /a quarter that ends after the list's date/);
   admit(() => read([entryOf(DIR, ADR)], "retire-2026-10-06.json")); // an adr: retire has no quarter

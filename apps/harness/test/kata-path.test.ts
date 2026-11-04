@@ -297,7 +297,7 @@ test("kata_served_tables_digests", () => {
   const real = (gate as Record<string, unknown>)["SERVED_POLICY_TABLES"] as readonly { task_class: string; policy_table_sha256: string }[] | undefined;
   assert.ok(real !== undefined, "gate.ts serves SERVED_POLICY_TABLES");
   assert.equal(real.length, 35);
-  assert.equal(sha(canonicalJson(real.map((s) => [s.task_class, s.policy_table_sha256]))), "8da5dd421260d96e4b3dafa48733185b377df64261480aa92cdbeec9b462d2eb");
+  assert.equal(sha(canonicalJson(real.map((s) => [s.task_class, s.policy_table_sha256]))), "ccde2691e2f88ed7cdee2264dffe75b92fe85da360baf2f9cf298a4ab364fe83", "the liq table moves with its row text (was 8da5dd42...)");
   assert.equal(real.find((s) => s.task_class === "btc-dir-1h")?.policy_table_sha256, "c04ae2921430968857350fd2fa663d0931f92c1a9bfeb595a7d341d3a02cc6e1", "btc-dir-1h, empty, its class text");
   // Spec section 10: the table of one class does not depend on another class.
   const moved = servedPolicyTables({ ...texts, classText: (c) => (c === "eth-range-1h" ? "other text" : texts.classText(c)) }, new Map());
@@ -309,8 +309,8 @@ test("guard_thresholds_agree_per_side", () => {
   const refused = (edit: (cells: Cell[]) => void): string => code(() => table("sol-dir-1h", edit));
   const upB2 = (c: Cell): boolean => c.taskClass === "sol-dir-1h" && String(c.key).endsWith("/up-b2");
   assert.equal(refused(() => undefined), "ok");
-  assert.match(refused((cells) => cells.filter(upB2).forEach((c) => (c.thresholds = { t1: "0.11", t2: "0.5" }))), /side .*thresholds that differ.*\(C-8\)/);
-  assert.match(refused((cells) => cells.filter(upB2).forEach((c) => (c.thresholds = { t1: c.thresholds?.t1 ?? "", t2: "0.69" }))), /side .*thresholds that differ.*\(C-8\)/, "t2 alone");
+  assert.match(refused((cells) => cells.filter(upB2).forEach((c) => (c.thresholds = { t1: "0.11", t2: "0.5" }))), /^Error: MONARK import guard: \S+ is a direction side without its three buckets or with thresholds that differ between its rows\.$/);
+  assert.match(refused((cells) => cells.filter(upB2).forEach((c) => (c.thresholds = { t1: c.thresholds?.t1 ?? "", t2: "0.69" }))), /^Error: MONARK import guard: \S+ is a direction side without its three buckets or with thresholds that differ between its rows\.$/, "t2 alone");
   const dropped = refused((cells) => cells.splice(cells.findIndex(upB2), 1));
   assert.match(dropped, /without its three buckets/);
 });

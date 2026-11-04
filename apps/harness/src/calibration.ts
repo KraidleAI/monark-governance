@@ -34,7 +34,7 @@ export const BTC_DIR_CALIB_DIGEST: string = scoresSha256(BTC_DIR_CALIB);
 if (BTC_DIR_CALIB_DIGEST !== CALIB_DIGEST_PINNED) {
   throw new Error(
     `calibration: synthetic btc-dir digest drift — derived ${BTC_DIR_CALIB_DIGEST} != pinned ${CALIB_DIGEST_PINNED} ` +
-      `(ADR-M005 D5/C-8; re-derive from HIKAE S2a and re-pin, do not silently accept).`,
+      `(re-derive from HIKAE S2a and re-pin, do not silently accept).`,
   );
 }
 
@@ -42,7 +42,7 @@ if (BTC_DIR_CALIB_DIGEST !== CALIB_DIGEST_PINNED) {
 export const BTC_DIR_CALIB_PROVENANCE =
   `synthetic — HIKAE S2a instrument draw (harness_version=${HARNESS_VERSION}, seed=${seed}, n=${n}, ` +
   `nCalib=${nCalib}); 0/1 indicator scores; scores_sha256=${CALIB_DIGEST_PINNED}; declared synthetic, ` +
-  `a plumbing fixture, not a measured predictor (ADR-M005 D5, C-8).`;
+  `a plumbing fixture, not a measured predictor.`;
 
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────

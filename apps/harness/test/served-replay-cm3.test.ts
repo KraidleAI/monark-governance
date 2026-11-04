@@ -97,7 +97,7 @@ test("served_replay_full_bytes_are_pinned_at_1_1_0", () => {
     }
   });
   assert.equal(lines.length, 111);
-  assert.equal(createHash("sha256").update(lines.join("\n")).digest("hex"), "1aab90a8c81af1cbc7a97681c4032402d4dc51cdedbfc09ad1dba0538965682d", "served bytes of the replay (1.1.0; CM-3c-4b, was cb6a4e4f...)");
+  assert.equal(createHash("sha256").update(lines.join("\n")).digest("hex"), "0425480482d3735b9de7f871e08828ff04257063e899b700a0cb341b27b17eca", "served bytes of the replay (1.1.0; the texts without archived ids move one message and the two liq table digests of 36 calls, was 1aab90a8..., cb6a4e4f...)");
 });
 
 // G2 m-6 of 3c-3a (spec r3 section 5, constraints the closed check does not hold): on every served verdict of the replay,

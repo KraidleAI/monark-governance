@@ -45,7 +45,7 @@ function canonical(pin: RetirePin): unknown {
   } catch {
     // JSON.parse or canonicalJson refuses the text: no canonical line, refused below
   }
-  return fail(`${pin.file}: the bytes are not one canonical JSON line (spec section 2)`);
+  return fail(`${pin.file}: the bytes are not one canonical JSON line`);
 }
 
 /** The cause grammar, one source for this reader and guardKataRow: live:<k> (k >= 1, no leading zero) gives k, adr:decisions/<file>.md gives 0, any other cause undefined (epoch:<id> needs the pinned epoch log). */
@@ -76,8 +76,8 @@ export function readRetireList(pin: RetirePin, registryBytes: Uint8Array, previo
     const st = e.calib_attempt === 1 ? c.status : (child?.status ?? ""); if (st !== "region") fail(`${at}: retires a cell that serves no region (registry status ${st})`);
     const k = retireQuarter(e.cause) ?? fail(`${at}: has a cause outside live:<k> and adr:decisions/<file>.md (epoch:<id> needs the pinned epoch log)`);
     if (k > 0 ? !(e.n_test !== null && e.k_test !== null && e.u_test !== null && e.n_test >= 1 && e.k_test <= e.n_test) : [e.k_test, e.n_test, e.u_test].some((x) => x !== null)) fail(`${at}: has counts off its cause (live:<k>: 1 <= n_test, k_test <= n_test, u_test set; adr: none)`);
-    if (k > 0 && (e.n_test ?? 0) > (LIVE_N_MAX[c.horizon] ?? 0)) fail(`${at}: has an n_test above LIVE_N_MAX at ${c.horizon}, the longest quarter (ADR 0006 addendum 9 point 5)`);
-    if (k > 0 && !(Date.UTC(2026, 9 + 3 * k, 1) <= day)) fail(`${at}: names live:${String(k)}, a quarter that ends after the list's date ${date} (ADR 0006 addendum 9 points 1 and 6)`);
+    if (k > 0 && (e.n_test ?? 0) > (LIVE_N_MAX[c.horizon] ?? 0)) fail(`${at}: has an n_test above LIVE_N_MAX at ${c.horizon}, the longest quarter`);
+    if (k > 0 && !(Date.UTC(2026, 9 + 3 * k, 1) <= day)) fail(`${at}: names live:${String(k)}, a quarter that ends after the list's date ${date}`);
   }
   const kept = new Set(entries.map((e) => canonicalJson(e)));
   if (previous !== undefined && !(previous.date < date && previous.entries.every((e) => kept.has(canonicalJson(e))))) fail(`${pin.file}: drops or changes an entry of the list of ${previous.date}, or is not dated after it (a list cumulates every earlier retire)`);

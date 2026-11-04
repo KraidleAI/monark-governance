@@ -104,7 +104,7 @@ const under = (b: Bound, low: Bound | null): Bound | null => (b[0] >= FLOOR * b[
 /** The floor of a sign-set row: its scores digest and, when published, its labels digest. */
 function floorProblems(r: DigestRow, labels: boolean): string[] {
   const wave = typeof r.source === "object" && r.source !== null ? (r.source as { readonly wave?: unknown }).wave : undefined;
-  if (wave !== 1 || r.runs_level !== "0.05") return ["sign-set off wave 1 or runs_level 0.05, no flat cap pinned (FLAT-CAP-NEXT-WAVE-1)"];
+  if (wave !== 1 || r.runs_level !== "0.05") return ["sign-set off wave 1 or runs_level 0.05, no flat cap pinned"];
   const { n, misses: m, qhat, runs_miss: om, runs_aux: oa, side } = r;
   if (!isCount(n) || !isCount(m) || m > n || !isOutcome(oa) || (side !== "up" && side !== "down") || !(qhat === 1 || (qhat === 0 && isOutcome(om)))) return ["sign-set counts unreadable (n, misses, qhat, runs_miss, runs_aux, side)"];
   const own = qhat === 0 && isOutcome(om) ? om : null;

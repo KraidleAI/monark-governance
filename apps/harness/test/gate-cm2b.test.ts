@@ -43,7 +43,7 @@ const WITNESS: AttestedPrice = {
 const USDE = "stable-run-velocity-24h";
 const LIQ = "liquidation-eligible-coverage";
 const RETIRED_MESSAGE =
-  "task_class 'btc-dir-15m' is retired (ADR 0005, decided 2026-09-30): it is no longer served; the name stays reserved against BYO";
+  "task_class 'btc-dir-15m' is retired: it is no longer served; the name stays reserved against BYO";
 
 function pred(taskClass: string, yhat: string | number, predictorId: string): Prediction {
   return { schema_version: SCHEMA_VERSION, task_class: taskClass, yhat, predictor_id: predictorId, produced_at: AT };
@@ -88,7 +88,7 @@ test("btc_dir_is_retired_with_a_named_400", async () => {
   for (const p of [PARAMS, { ...PARAMS, alpha: 0.0464, intent: "up" }]) {
     const r = refused(() => runGate(btc, p), "btc-dir direct");
     assert.equal(r.code, "task_class_retired", "code task_class_retired");
-    assert.equal(r.message, RETIRED_MESSAGE, "the retirement message names ADR 0005");
+    assert.equal(r.message, RETIRED_MESSAGE, "the retirement message, byte for byte");
   }
   const h = await http({ prediction: btc, params: PARAMS });
   assert.equal(h.status, 400, "HTTP 400");
@@ -102,7 +102,7 @@ test("btc_dir_is_retired_with_a_named_400", async () => {
   const cal = { ...PARAMS, nMin: 5, calibration: { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], mode: "interval" as const } };
   const exact = refused(() => runGate(pred("btc-dir-15m", 0, "caller:model"), cal), "BYO on btc-dir");
   assert.equal(exact.code, "byo_overrides_committed");
-  assert.equal(exact.message, "calibration must not override the committed (task_class, predictor_id) 'btc-dir-15m' / 'caller:model': use a caller-owned key for BYO (ADR-M007 D7, ADR-M008 A6)");
+  assert.equal(exact.message, "calibration must not override the committed (task_class, predictor_id) 'btc-dir-15m' / 'caller:model': use a caller-owned key for BYO");
   assert.equal(refused(() => runGate(pred("BTC-DIR-15M", 0, "caller:model"), cal), "look-alike").code, "byo_lookalike_committed");
 
   const unknown = refused(() => runGate(pred("nope-class", 1, "x"), PARAMS), "unknown class");

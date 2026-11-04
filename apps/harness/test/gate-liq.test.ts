@@ -305,7 +305,7 @@ const EXPECTED_EMPTY_CLAUSE = `${LIQ_LEAD}${LIQ_EMPTY_REGISTRY_SENTENCE}; ${LIQ_
 const EXPECTED_COMMITTED_CLAUSE =
   `${LIQ_LEAD}the served region is ${LIQ_UPPER_BOUND_SENTENCE}; ${LIQ_REQUIREMENTS_SENTENCE}; ${LIQ_H3_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}. `;
 /** Closed list: committed-only words, none of which may appear in the liq clause of an EMPTY-registry description. */
-const COMMITTED_ONLY_WORDS = ["upper bound", "calibrated", "H-3", "no coverage is claimed", "the served region", "lower edge"];
+const COMMITTED_ONLY_WORDS = ["upper bound", "calibrated", "exchangeability check is a report", "no coverage is claimed", "the served region", "lower edge"];
 
 /** The liq clause of a gate description: from the class lead to the BYO clause (both anchors asserted, in order). */
 function liqSlice(description: string): string {
@@ -377,8 +377,8 @@ test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(listed, describeGate(true), "the served text is the committed-state description (describeGate(false) hard-coded reds here)");
   assert.equal(
     createHash("sha256").update(listed, "utf8").digest("hex"),
-    "2ae47425ba2eda201ebcbe3ebabeb9d2c65316def68e1a616074b0fe5b7d5253",
-    "the served description is byte for byte the committed text (ADR-CM B-5, B-2, C-2 of CM-2b, B-7 withdrawn by B-13, the kata clause of block D, step 7; was dd728779..., bfb474f3..., 4279a54d..., cb4029d2...)",
+    "3525fa6822e873f1b2be6c9b596c1df143162469294a0d923d60acb772bfd6be",
+    "the served description is byte for byte the committed text (ADR-CM B-5, B-2, C-2 of CM-2b, B-7 withdrawn by B-13, the kata clause of block D, step 7, the served texts without archived ids; was 2ae47425..., dd728779..., bfb474f3..., 4279a54d..., cb4029d2...)",
   );
   const slice = liqSlice(listed);
   assert.equal(slice, EXPECTED_COMMITTED_CLAUSE, "the served liq clause is EXACTLY the committed clause");

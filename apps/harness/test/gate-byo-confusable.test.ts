@@ -101,7 +101,7 @@ test("byo_confusable_committed_pair_refused", async () => {
 
   const message =
     "task_class 'btc_dir_15m' / predictor_id 'caller:model' reduces to a committed or reserved name once ASCII confusables are " +
-    "folded (l, I, 1; rn, m; 0, o; _ and . as -; repeated -; blanks): use a distinct caller-owned name for BYO (ADR-CM B-10)";
+    "folded (l, I, 1; rn, m; 0, o; _ and . as -; repeated -; blanks): use a distinct caller-owned name for BYO";
   const res = await handleJsonMirror(new Request("http://api.monarkgate.tech/gate", { method: "POST", body: JSON.stringify({ prediction: pred("btc_dir_15m", "caller:model"), params: PARAMS }) }));
   assert.equal(res.status, 400, "HTTP 400");
   assert.equal(await res.text(), JSON.stringify({ error: "tool_error", operation: "gate", message, code: "byo_lookalike_confusable" }), "exact body");

@@ -91,7 +91,7 @@ export const LIQ_NMIN = LIQ_POLICY.nMin;
 
 /** The retirement message of `btc-dir-15m`. */
 export const BTC_DIR_RETIRED_MESSAGE =
-  `task_class '${TASK_BTC_DIR}' is retired (ADR 0005, decided 2026-09-30): it is no longer served; the name stays reserved against BYO`;
+  `task_class '${TASK_BTC_DIR}' is retired: it is no longer served; the name stays reserved against BYO`;
 
 /** The one honesty sentence the `cascade` path MUST carry. */
 export const CASCADE_UNCALIBRATED_SENTENCE =
@@ -160,10 +160,10 @@ export const LIQ_UPPER_BOUND_SENTENCE =
 /** The SERVER-imposed params, declared in the class description. */
 export const LIQ_REQUIREMENTS_SENTENCE = "this class requires alpha = 0.01, nMin = 100";
 
-/** H-3 honesty: calibrated on ONE recorded episode, no coverage claimed on any other
+/** Honesty: calibrated on ONE recorded episode, no coverage claimed on any other
  *  event, a YES on the exchangeability check licenses nothing more. ASCII only. */
 export const LIQ_H3_SENTENCE =
-  "calibrated on one recorded episode; no coverage is claimed on any other event; the H-3 " +
+  "calibrated on one recorded episode; no coverage is claimed on any other event; the " +
   "exchangeability check is a report, a YES licenses nothing more";
 
 /** Conditional-coverage clause: the bound holds ONLY if yhat was produced by the frozen
@@ -256,9 +256,9 @@ export function describeGate(registryHasLiq: boolean): string {
     "⇒ region [yhat - q̂, yhat + q̂], or `set` ⇒ a conformal set over caller `candidates`), the gate " +
     `conformalizes against THOSE caller-supplied scores (BYO): ${CALIBRATE_LABEL} ` +
     "A caller-carried `attested` price must declare a subject consistent with the committed task class " +
-    "(exact committed-URL membership; BYO classes do not accept `attested` in P1); " +
+    "(exact committed-URL membership; BYO classes do not accept `attested`); " +
     GATE_NON_REVERIFICATION_SENTENCE +
-    `; no temporal binding in P1. ${NO_SERVED_ATTESTATION_SUBJECT_SENTENCE} ` +
+    `; no temporal binding. ${NO_SERVED_ATTESTATION_SUBJECT_SENTENCE} ` +
     "The gate only emits a decision; it never calls the named tool."
   );
 }
@@ -414,7 +414,7 @@ function validateCalibration(cal: ByoCalibration): void {
     // A negative nonconformity score would make q̂ negative ⇒ lo > hi ⇒ buildIntervalRegion throws.
     for (let i = 0; i < cal.scores.length; i++) {
       if ((cal.scores[i] ?? 0) < 0) {
-        throw new HarnessToolError(`invalid calibration.scores[${String(i)}]: interval mode requires non-negative nonconformity scores (B-6)`, "byo_calibration_invalid");
+        throw new HarnessToolError(`invalid calibration.scores[${String(i)}]: interval mode requires non-negative nonconformity scores`, "byo_calibration_invalid");
       }
     }
     return;
@@ -434,7 +434,7 @@ function validateCalibration(cal: ByoCalibration): void {
       throw new HarnessToolError(`invalid calibration.candidates[${String(i)}].label: expected a non-empty printable-ASCII string`, "byo_calibration_invalid");
     }
     if (c.label.includes("|")) {
-      throw new HarnessToolError(`invalid calibration.candidates[${String(i)}].label: must not contain '|' (label_schema separator, B-3)`, "byo_calibration_invalid");
+      throw new HarnessToolError(`invalid calibration.candidates[${String(i)}].label: must not contain '|' (label_schema separator)`, "byo_calibration_invalid");
     }
     if (seen.has(c.label)) {
       throw new HarnessToolError(`invalid calibration.candidates[${String(i)}].label: duplicate label '${c.label}'`, "byo_calibration_invalid");
@@ -812,7 +812,7 @@ function byoConfusable(taskClass: string, predictorId: string): string | undefin
   const lockedOrKata = CLASS_LOCKED.some((c) => confusableReduce(c) === cls) || KATA_CLASS_REDUCED_RE.test(cls);
   const kataKey = confusableReduce(predictorId).replace(/4/g, "a").startsWith(KATA_KEY_PREFIX);
   if (lockedOrKata || kataKey || matchesCommittedKeyWith(confusableReduce, taskClass, predictorId)) {
-    return `task_class '${taskClass}' / predictor_id '${predictorId}' reduces to a committed or reserved name once ASCII confusables are folded (l, I, 1; rn, m; 0, o; _ and . as -; repeated -; blanks): use a distinct caller-owned name for BYO (ADR-CM B-10)`;
+    return `task_class '${taskClass}' / predictor_id '${predictorId}' reduces to a committed or reserved name once ASCII confusables are folded (l, I, 1; rn, m; 0, o; _ and . as -; repeated -; blanks): use a distinct caller-owned name for BYO`;
   }
   return undefined;
 }
@@ -824,15 +824,15 @@ function byoConfusable(taskClass: string, predictorId: string): string | undefin
  */
 function byoLookAlike(taskClass: string, predictorId: string): { readonly message: string; readonly code: HarnessErrorCode } | undefined {
   if (EDGE_BLANK.test(taskClass) || EDGE_BLANK.test(predictorId)) {
-    return { code: "byo_edge_blank", message: `byo task_class and predictor_id must not start or end with a blank: ${JSON.stringify(taskClass)} / ${JSON.stringify(predictorId)} (ADR-CM B-1)` };
+    return { code: "byo_edge_blank", message: `byo task_class and predictor_id must not start or end with a blank: ${JSON.stringify(taskClass)} / ${JSON.stringify(predictorId)}` };
   }
   const cls = asciiLower(taskClass);
   const key = asciiLower(predictorId);
   if ((CLASS_LOCKED as readonly string[]).includes(cls) || matchesCommittedKeyFolded(taskClass, predictorId)) {
-    return { code: "byo_lookalike_committed", message: `calibration must not override the committed (task_class, predictor_id) '${taskClass}' / '${predictorId}', compared without ASCII case: use a caller-owned key for BYO (ADR-CM B-1, ADR-M008 A6)` };
+    return { code: "byo_lookalike_committed", message: `calibration must not override the committed (task_class, predictor_id) '${taskClass}' / '${predictorId}', compared without ASCII case: use a caller-owned key for BYO` };
   }
   if (KATA_CLASS_RE.test(cls) || key.startsWith(KATA_KEY_PREFIX)) {
-    return { code: "byo_reserved_kata", message: `task_class '${taskClass}' / predictor_id '${predictorId}' takes a name reserved for MONARK kata classes (pattern ${KATA_CLASS_RE.source}, key prefix '${KATA_KEY_PREFIX}'): use a caller-owned name for BYO (ADR-CM B-1)` };
+    return { code: "byo_reserved_kata", message: `task_class '${taskClass}' / predictor_id '${predictorId}' takes a name reserved for MONARK kata classes (pattern ${KATA_CLASS_RE.source}, key prefix '${KATA_KEY_PREFIX}'): use a caller-owned name for BYO` };
   }
   return undefined;
 }
@@ -881,11 +881,11 @@ export interface RunGateOptions {
 function assertProducedAt(producedAt: string, nowMs: number | undefined): void {
   const at = typeof producedAt === "string" ? rfc3339Instant(producedAt) : undefined;
   if (at === undefined) {
-    throw new HarnessToolError(`invalid prediction.produced_at ${JSON.stringify(producedAt)}: expected an RFC 3339 date-time (ADR-CM B-4)`, "produced_at_invalid");
+    throw new HarnessToolError(`invalid prediction.produced_at ${JSON.stringify(producedAt)}: expected an RFC 3339 date-time`, "produced_at_invalid");
   }
   if (nowMs !== undefined && at > nowMs + PRODUCED_AT_FUTURE_TOLERANCE_MS) {
     throw new HarnessToolError(
-      `prediction.produced_at '${producedAt}' is in the future: more than ${String(PRODUCED_AT_FUTURE_TOLERANCE_MS / 1000)} s after the server clock (ADR-CM B-4)`,
+      `prediction.produced_at '${producedAt}' is in the future: more than ${String(PRODUCED_AT_FUTURE_TOLERANCE_MS / 1000)} s after the server clock`,
       "produced_at_future",
     );
   }
@@ -925,7 +925,7 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
       lookupCommittedCalibration(taskClass, prediction.predictor_id) !== undefined;
     if (overridesCommitted) {
       throw new HarnessToolError(
-        `calibration must not override the committed (task_class, predictor_id) '${taskClass}' / '${prediction.predictor_id}': use a caller-owned key for BYO (ADR-M007 D7, ADR-M008 A6)`,
+        `calibration must not override the committed (task_class, predictor_id) '${taskClass}' / '${prediction.predictor_id}': use a caller-owned key for BYO`,
         "byo_overrides_committed",
       );
     }

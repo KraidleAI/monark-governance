@@ -94,8 +94,8 @@ test("projection_side_without_thresholds_has_no_row", () => {
   for (const c of sides) assert.equal(projectCell(c, INP), null);
   const c = sides[0] as RegistryCell;
   assert.equal(c.calib.reason, NO_THRESHOLDS);
-  assert.throws(() => projectCell({ ...c, status: "silence" }, INP), /L-1/);
-  assert.throws(() => projectCell({ ...c, calib: { ...c.calib, reason: "empty bucket" } }, INP), /L-1/);
+  assert.throws(() => projectCell({ ...c, status: "silence" }, INP), { message: `MONARK registry cell: ${c.key} has no thresholds on its side but is not under_calib with the reason '${NO_THRESHOLDS}'.` });
+  assert.throws(() => projectCell({ ...c, calib: { ...c.calib, reason: "empty bucket" } }, INP), { message: `MONARK registry cell: ${c.key} has no thresholds on its side but is not under_calib with the reason '${NO_THRESHOLDS}'.` });
 });
 
 // killer: apps/harness/src/policy-projection.ts:118 CONST "scores_sha256: c.scoresSha256" -> "scores_sha256: c.auxSha256"

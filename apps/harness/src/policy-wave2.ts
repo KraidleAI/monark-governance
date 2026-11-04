@@ -28,7 +28,7 @@ export function wave2Admission(r: PolicyRow, is: Is): { reject: boolean; empty: 
     try {
       return f();
     } catch (e) {
-      is(!(e instanceof TailCountsError), `has counts the exact null of D2 refuses (${e instanceof TailCountsError ? e.code : ""})`);
+      is(!(e instanceof TailCountsError), `has counts the exact null refuses (${e instanceof TailCountsError ? e.code : ""})`);
       throw e;
     }
   };

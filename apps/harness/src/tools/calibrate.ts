@@ -146,7 +146,7 @@ export function runCalibrate(input: CalibrateInput): CalibrateResult {
   // first line at the SDK boundary; this is the fail-closed backstop).
   if (n > CALIBRATE_MAX_N) {
     throw new CalibrateToolError(
-      `invalid 'scores': ${String(n)} scores exceeds the cap of ${String(CALIBRATE_MAX_N)} (resource guard, ADR-M007 D2)`,
+      `invalid 'scores': ${String(n)} scores exceeds the cap of ${String(CALIBRATE_MAX_N)} (resource guard)`,
     );
   }
   // Finiteness BEFORE scoresSha256: a non-finite score is a tool error with a message, not the bare

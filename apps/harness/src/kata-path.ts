@@ -33,7 +33,7 @@ export interface KataVerdictFields {
 }
 
 const refuse = (code: HarnessErrorCode, what: string): never => {
-  throw new HarnessToolError(`${what} (contract 1.1.0, spec section 9)`, code);
+  throw new HarnessToolError(`${what} (contract 1.1.0 kata request rules)`, code);
 };
 const CALIB_REASONS: Partial<Record<string, CoverageReason>> = { silence: "calib_silence", vetoed: "calib_vetoed", retired: "calib_retired" };
 const TIME_FIELDS = /[Tt]\d{2}:\d{2}:(\d{2})(?:\.(\d+))?(?:[Zz]|[+-]\d{2}:\d{2})$/;
@@ -122,8 +122,8 @@ export function servedPolicyTables(texts: ServedTableTexts, committed: ReadonlyM
 /** The tripwire: the kata tables with rows are the pinned ones at their sha256, no held class has a row. */
 export function kataTablesMatchPins(tables: readonly ServedTable[], committed: Readonly<Record<string, string>>, held: readonly string[]): readonly ServedTable[] {
   const kata = tables.filter((t) => t.table.class.cell_key_rule === "kata-bucket"), rows = (c: string): number => kata.find((t) => t.task_class === c)?.table.rows.length ?? 0;
-  if (held.some((c) => rows(c) > 0)) throw new Error(`KATA-CLAUSE-COMMITTED-STATE-1: a held class holds rows: ${held.filter((c) => rows(c) > 0).join(", ")}`);
+  if (held.some((c) => rows(c) > 0)) throw new Error(`kata tripwire: a held class holds rows: ${held.filter((c) => rows(c) > 0).join(", ")}`);
   const off = [...new Set([...kata.filter((t) => t.table.rows.length > 0).map((t) => t.task_class), ...Object.keys(committed)])].filter((c) => !(rows(c) > 0 && kata.find((t) => t.task_class === c)?.policy_table_sha256 === committed[c]));
-  if (off.length > 0) throw new Error(`KATA-CLAUSE-COMMITTED-STATE-1: the kata tables with rows are not the pinned tables: ${off.join(", ")}`);
+  if (off.length > 0) throw new Error(`kata tripwire: the kata tables with rows are not the pinned tables: ${off.join(", ")}`);
   return tables;
 }

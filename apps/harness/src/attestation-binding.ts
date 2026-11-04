@@ -43,7 +43,7 @@ export const ATTESTATION_BINDING: ReadonlyMap<string, readonly string[]> = new M
  * PURE. Returns `undefined` when the subject is declared-consistent with the class (exact membership),
  * else the fail-closed tool-error MESSAGE (the caller — gate.ts — raises it as a HarnessToolError => 400,
  * http.ts TOOL_ERROR_NAMES). The two texts are DISTINCT and both name the subject AND the class:
- *   - class NOT in the table (BYO / free) -> "attested is not accepted for BYO classes in P1: ..."
+ *   - class NOT in the table (BYO / free) -> "attested is not accepted for BYO classes: ..."
  *   - class in the table, subject absent  -> "attested.subject is not consistent with task_class: ..."
  * The TEXT (not the 400 alone) is what test (2) asserts, so the "table returns [] by default" mutant
  * (which would answer "not consistent" for a BYO class instead of "not accepted") reddens.
@@ -51,7 +51,7 @@ export const ATTESTATION_BINDING: ReadonlyMap<string, readonly string[]> = new M
 export function checkAttestedConsistency(taskClass: string, subject: string): string | undefined {
   const subjects = ATTESTATION_BINDING.get(taskClass);
   if (subjects === undefined) {
-    return `attested is not accepted for BYO classes in P1: task_class '${taskClass}' has no committed attestation subject (subject '${subject}')`;
+    return `attested is not accepted for BYO classes: task_class '${taskClass}' has no committed attestation subject (subject '${subject}')`;
   }
   if (!subjects.includes(subject)) {
     return `attested.subject is not consistent with task_class: subject '${subject}' is not a committed attestation subject for task_class '${taskClass}'`;

@@ -78,7 +78,7 @@ export function buildOpenApi(): JsonObject {
         },
         responses: {
           "200": {
-            description: "The frozen structuredContent plus the honesty content text (K-1).",
+            description: "The frozen structuredContent plus the honesty content text.",
             content: { "application/json": { schema: resultEnvelopeSchema(tool.outputSchemaJson) } },
           },
           "400": {
@@ -86,7 +86,7 @@ export function buildOpenApi(): JsonObject {
             content: { "application/json": { schema: TOOL_ERROR_400_SCHEMA } },
           },
           "403": {
-            description: "Origin present and not a monarkgate.tech origin (K-9).",
+            description: "Origin present and not a monarkgate.tech origin.",
           },
           "413": { description: "The request body is larger than the harness cap (payload_too_large); the connection is closed." },
           "500": {
