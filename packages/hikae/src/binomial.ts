@@ -88,8 +88,8 @@ export function binomCdfLeq(n: number, k: number, a: Ratio, delta: Ratio): boole
 
 /**
  * k*: the largest k >= 0 with P(Bin(n, alpha) <= k) <= test_delta, or -1 when (1 - alpha)^n > test_delta.
- * One linear pass over the exact terms (largestCdfIndexLeq, end of this file)
- * instead of one exact CDF per k (8.7 s at n 4368, alpha 0.45, test_delta 0.05); same decision as binomCdfLeq.
+ * One linear pass over the exact terms (largestCdfIndexLeq, end of this file) instead of one exact CDF per k:
+ * 0.009 s against 4.4 s at n 4368, alpha 0.45, test_delta 0.05 (measured 2026-11-04, Node 24.21, Windows x64); same decision as binomCdfLeq.
  * The lines below this function keep their numbers (test killers are anchored on them).
  */
 export function riskControlMaxExceedances(n: number, alphaDec: string, deltaDec: string): number {
