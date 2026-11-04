@@ -41,13 +41,15 @@ function deferred<T>(): { readonly promise: Promise<T>; readonly resolve: (v: T)
 
 // Each run the earlier runner made, the asynchronous one answers alike: the same exit status, the same verdict read, and the same
 // stdout when the run ends by itself. A run past the timeout or past KERNEL_STDOUT_MAX bytes has status null in both (spawnSync's
-// ETIMEDOUT and ENOBUFS), its stdout beginning with the allow line: only the status keeps it a deny.
+// ETIMEDOUT and ENOBUFS), its stdout beginning with the allow line: only the status keeps it a deny. One run the two answer apart,
+// held below (a_kernel_whose_stdout_outlives_it_is_cut_at_its_timeout): a kernel that exits 0 but leaves its stdout open past the
+// timeout, which spawnSync answered status 0 (an allow, had it written the allow line) and the runner answers status null.
 test("kernel_runner_answers_each_run_as_the_synchronous_runner_did", async () => {
   const CASES: [string, string, number | undefined][] = [
     ["the allow line and exit 0", `process.stdout.write("allow${NL}")`, undefined],
     ["a deny line and exit 0", `process.stdout.write("deny venue${NL}")`, undefined],
     ["exactly KERNEL_STDOUT_MAX bytes and exit 0", `process.stdout.write("allow${NL}" + "x".repeat(${String(KERNEL_STDOUT_MAX - 6)}))`, undefined],
-    ["the allow line, then no exit before the timeout", `process.stdout.write("allow${NL}"); setInterval(() => {}, 1000)`, 1500],
+    ["the allow line, then no exit before the timeout", `process.stdout.write("allow${NL}"); setInterval(() => {}, 1000)`, 3000],
     ["the allow line, then stdout past its cap", `process.stdout.write("allow${NL}" + "x".repeat(200))`, undefined],
     ["the allow line, then stdout far past its cap", `process.stdout.write("allow${NL}" + "x".repeat(200000))`, undefined],
     ["the allow line and exit 1", `process.stdout.write("allow${NL}"); process.exitCode = 1`, undefined],
@@ -82,12 +84,12 @@ test("a_kernel_run_does_not_hold_the_event_loop", async () => {
 test("the_timeout_kills_the_kernel_and_answers_as_before", async () => {
   const script = `process.stdout.write("allow${NL}" + String(process.pid) + "${NL}"); setInterval(() => {}, 1000)`;
   const t0 = Date.now();
-  const answer = await kernelRunner(process.execPath, 1000)(encode(script));
+  const answer = await kernelRunner(process.execPath, 3000)(encode(script));
   const took = Date.now() - t0;
   assert.ok(answer !== null, "the run started");
   assert.equal(answer.status, null, "a killed run has status null");
   assert.deepEqual(readVerdict(answer.status, answer.stdout), readVerdict(null, encode("allow\n")), "read as unreadable, never as an allow");
-  assert.ok(took >= 1000 && took < 1000 + 5000, `killed at its timeout (took ${String(took)} ms)`);
+  assert.ok(took >= 3000 && took < 3000 + 5000, `killed at its timeout (took ${String(took)} ms)`);
   const [first, pidText] = decode(answer.stdout).split("\n");
   assert.equal(first, "allow");
   const pid = Number(pidText);
@@ -102,6 +104,24 @@ test("the_timeout_kills_the_kernel_and_answers_as_before", async () => {
     }
   }
   assert.equal(alive, false, "the process is gone");
+});
+
+// A kernel that writes the allow line and exits 0, but leaves a descendant that holds its stdout open past the timeout: the run is
+// cut at its timeout, not when the pipe closes, and has status null, read as unreadable. Waiting for the pipe would hold the call
+// (and its place under the limit) for as long as the descendant lives; reading its exit 0 would serve an allow on a timed-out run.
+test("a_kernel_whose_stdout_outlives_it_is_cut_at_its_timeout", async () => {
+  const exe = JSON.stringify(process.execPath);
+  const script =
+    `const { spawn } = require("node:child_process");` +
+    `const d = spawn(${exe}, ["-e", "setTimeout(() => {}, 6000)"], { stdio: ["ignore", "inherit", "ignore"], detached: true, windowsHide: true });` +
+    `d.unref(); process.stdout.write("allow${NL}");`;
+  const t0 = Date.now();
+  const answer = await kernelRunner(process.execPath, 2000)(encode(script));
+  const took = Date.now() - t0;
+  assert.ok(answer !== null, "the run started");
+  assert.equal(answer.status, null, "a run cut at its timeout has status null, whatever its exit");
+  assert.deepEqual(readVerdict(answer.status, answer.stdout), readVerdict(null, encode("allow\n")), "read as unreadable, never as an allow");
+  assert.ok(took >= 2000 && took < 4500, `cut at its timeout, long before the descendant ends (took ${String(took)} ms)`);
 });
 
 // A kernel that exits without reading its stdin (here a program that reads none) makes the write of a long request fail (EPIPE):
@@ -182,14 +202,14 @@ function post(port: number, host: string, path: string, body: string): Promise<{
   });
 }
 
-// While one judge call's kernel runs (a process that answers after 1.5 s), the server answers gate on both surfaces, then the judge
+// While one judge call's kernel runs (a process that answers after 3 s), the server answers gate on both surfaces, then the judge
 // call gets its kernel's verdict.
 test("the_server_answers_another_call_while_a_kernel_runs", { timeout: 30_000 }, async () => {
   const started = deferred<undefined>();
   const slow: KernelRunner = (request) => {
     started.resolve(undefined);
     void request;
-    return kernelRunner(process.execPath)(encode(`setTimeout(() => process.stdout.write("allow${NL}"), 1500)`));
+    return kernelRunner(process.execPath)(encode(`setTimeout(() => process.stdout.write("allow${NL}"), 3000)`));
   };
   const server: Server = await startLoopback((port) => startServer(port, undefined, undefined, slow));
   try {
