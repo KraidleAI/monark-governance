@@ -165,7 +165,7 @@ test("guard_wave_couplings_and_grammars", () => {
   refuse({ ...retired("live:1", 100, 100, "1"), status_reason: "retired: live:2" }, /reason/);
 });
 
-// killer: apps/harness/src/server.ts:31 CONST "./http.ts" -> "./policy-guard.ts"
+// killer: apps/harness/src/server.ts:37 CONST "./http.ts" -> "./policy-guard.ts"
 test("guard_modules_are_not_served", () => {
   const src = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
   const seen = new Set<string>();

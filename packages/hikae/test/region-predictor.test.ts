@@ -11,7 +11,7 @@ import {
 } from "../src/index.ts";
 import type { Candle } from "../src/index.ts";
 
-// Test 15 — M5 (lo>hi ⇒ throw) + NDG-1 (ADR-M011): lo < hi STRICT for a valid region; lo === hi
+// Test 15 — order invariant (lo>hi ⇒ throw) + NDG-1 (ADR-M011): lo < hi STRICT for a valid region; lo === hi
 // (zero width) is degenerate ⇒ region_degenerate abstention (B-16), never a bounded `covered` region.
 // killer: packages/hikae/src/region.ts:75 CONST "reason: \"region_degenerate\"" -> "reason: \"under_calib\""
 test("interval_lo_le_hi", () => {
@@ -22,7 +22,7 @@ test("interval_lo_le_hi", () => {
     assert.equal(r.region.lo, -0.03);
     assert.equal(r.region.hi, 0.03);
   }
-  assert.throws(() => buildIntervalRegion(0.05, 0.01), /lo .* > hi|M5/, "lo>hi ⇒ throw (M5)");
+  assert.throws(() => buildIntervalRegion(0.05, 0.01), { message: "buildIntervalRegion: lo (0.05) > hi (0.01) — order invariant (lo <= hi) violated." }, "lo>hi ⇒ throw");
   // NDG-1 (ADR-M011): equal bounds (zero width) ⇒ abstention region_degenerate (B-16; was `abstain:false` pre-M011).
   const eq = buildIntervalRegion(1, 1);
   assert.equal(eq.abstain, true, "lo === hi ⇒ zero-width degenerate ⇒ abstain (NDG-1)");
@@ -41,11 +41,11 @@ test("unbounded_is_abstain", () => {
     assert.equal(r.abstain, true, `(${lo},${hi}) ⇒ abstention`);
     if (r.abstain) assert.equal(r.reason, "under_calib");
   }
-  // Finiteness takes precedence over lo>hi: (+Inf, 5) is "unbounded ⇒ abstention", not an M5 throw.
+  // Finiteness takes precedence over lo>hi: (+Inf, 5) is "unbounded ⇒ abstention", not an order-invariant throw.
   assert.equal(buildIntervalRegion(Infinity, 5).abstain, true);
 });
 
-// Test 17 — no feature indexed after t (anti look-ahead, D7).
+// Test 17 — no feature indexed after t (anti look-ahead).
 test("features_strictly_before_t", () => {
   const t = 60 * 60; // decision instant (seconds)
   const mk = (closeTime: number, close: number): Candle => ({ close_time: closeTime, open: close, close });
@@ -58,7 +58,7 @@ test("features_strictly_before_t", () => {
   assert.equal(featureCloseAt(byTime, t, 0), 100);
   // A candle completed AFTER t (negative offset ⇒ close_time>t) ⇒ throw (look-ahead forbidden).
   byTime.set(t + 15 * 60, mk(t + 15 * 60, 999));
-  assert.throws(() => featureCloseAt(byTime, t, -15), /look-ahead|D7/, "close completed after t rejected");
+  assert.throws(() => featureCloseAt(byTime, t, -15), { message: "featureCloseAt: look-ahead forbidden — offset -15m gives close_time=4500 > t=3600." }, "close completed after t rejected");
   // The sign(close-open) label is never a feature (design invariant).
   assert.equal(momentum4c(f), signDirection(f.closes[0], f.closes[4]));
   assert.equal(labelOf(mk(t, 100)), "non_evaluable", "close==open ⇒ non_evaluable");

@@ -136,7 +136,7 @@ function wiredPost(
 // mirror, and the Origin guard runs on that surface too. Mutants: (a) `isJsonMirrorHost` always false ⇒
 // the `api.` POST hits the MCP handler and is NOT a mirror 200 GateDecision ⇒ red; (b) drop the
 // originGuard before dispatch ⇒ the evil-Origin request is not 403 ⇒ red.
-// killer: apps/harness/src/server.ts:188 CONST "(port, host)" -> "(0, host)"
+// killer: apps/harness/src/server.ts:196 CONST "(port, host)" -> "(0, host)"
 test("http_mirror_routes_by_host_and_guards_origin", async () => {
   const server = await startLoopback((port) => startServer(port));
   try {

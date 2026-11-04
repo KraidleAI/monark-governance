@@ -1,9 +1,9 @@
 /**
- * Harness — schema PROJECTION (ADR-M005 D8).
+ * Harness — schema PROJECTION.
  *
- * The tool's input/output schemas are the FROZEN `schemas/*.json` (ADR-M001), loaded verbatim
+ * The tool's input/output schemas are the FROZEN `schemas/*.json`, loaded verbatim
  * and published as-is — NEVER re-written by hand. This module is the only place that reads the
- * frozen files (it sits at `src/`, NOT `src/tools/`, so the K-8 side-effect scan of the tool
+ * frozen files (it sits at `src/`, NOT `src/tools/`, so the side-effect scan of the tool
  * implementations stays meaningful: a tool never does I/O).
  *
  * Two mechanical, deterministic transforms are applied so `fromJsonSchema` (the SDK's ajv-backed
@@ -11,17 +11,17 @@
  * drift test (`tool_schema_equals_frozen_schema`), NOT a hand rewrite:
  *   (1) `stripMeta`  — drop the JSON-Schema identity/dialect keys `$schema`/`$id` AND the annotation
  *                      keys `description`/`title` of every schema node. ajv rejects an unresolved nested
- *                      `$id`; the annotation strip keeps the FROZEN schemas' French / RR-1-inverted prose
+ *                      `$id`; the annotation strip keeps the FROZEN schemas' French / inverted prose
  *                      (e.g. coverage-verdict's "alpha = couverture VISEE") OFF the MCP wire, on an
- *                      English-only external surface — the frozen bytes on disk are untouched (C-1,
- *                      the H1 review; "frozen != honest", RR-2). Position-aware: keys INSIDE a
+ *                      English-only external surface — the frozen bytes on disk are untouched.
+ *                      Position-aware: keys INSIDE a
  *                      subschema map (`properties`/`$defs`/…) are property NAMES, never annotations, so a
  *                      contract with a property literally named `description` survives.
  *   (2) `derefVerdict` — the frozen `GateDecision` carries `verdict: { $ref:
  *                      "coverage-verdict.schema.json" }`; there is no external resolver, so we
  *                      splice the (stripped) `CoverageVerdict` object in place of the `$ref` node.
  *
- * The INPUT is an envelope `{ prediction, params }` (ADR-M005 D8/D5): `prediction` is the frozen
+ * The INPUT is an envelope `{ prediction, params }`: `prediction` is the frozen
  * `Prediction` (spliced verbatim, `additionalProperties:false` — the SDK enforces the closed
  * contract AT THE BOUNDARY, measured), and `params` is the NON-frozen gate parameters, declared
  * here (never in `schemas/`).
@@ -31,7 +31,7 @@ import { fileURLToPath } from "node:url";
 import { fromJsonSchema } from "@modelcontextprotocol/server";
 import type { JsonSchemaType, StandardSchemaWithJSON } from "@modelcontextprotocol/server";
 // Resource cap: the single source for the calibrate score bound lives in the pure tool file. No cycle (this module ->
-// calibrate; calibrate does no I/O, imports no schema), and importing it moves no filesystem read out of this module (K-8).
+// calibrate; calibrate does no I/O, imports no schema), and importing it moves no filesystem read out of this module.
 import { CALIBRATE_MAX_N } from "./tools/calibrate.ts";
 import { SUIVI_MAX_BETS, SUIVI_MAX_N, SUIVI_MAX_TEXT, SUIVI_MAX_WORK_BITS } from "./tools/gate.ts";
 // The judge tool's closed lists and patterns: single source in the pure tool, as for calibrate. No cycle (this module ->
@@ -57,14 +57,14 @@ function loadFrozen(file: string): JsonObject {
 export const PREDICTION_SCHEMA: JsonObject = loadFrozen("prediction.schema.json");
 export const GATE_DECISION_SCHEMA: JsonObject = loadFrozen("gate-decision.schema.json");
 export const COVERAGE_VERDICT_SCHEMA: JsonObject = loadFrozen("coverage-verdict.schema.json");
-// The gate INPUT envelope `attested` (ADR-M017 D1) projects it, in TOOL_INPUT_SCHEMA (which JUDGE_INPUT_SCHEMA spreads).
+// The gate INPUT envelope `attested` projects it, in TOOL_INPUT_SCHEMA (which JUDGE_INPUT_SCHEMA spreads).
 export const ATTESTED_PRICE_SCHEMA: JsonObject = loadFrozen("attested-price.schema.json");
 
 /** Keywords whose VALUE is a map from arbitrary (author-chosen) names to subschemas. The child KEYS
  *  there are property names, NOT schema-node annotations, so they are never stripped by name. */
 const SUBSCHEMA_MAP_KEYWORDS = new Set(["properties", "patternProperties", "$defs", "definitions", "dependentSchemas"]);
 /** Keywords whose VALUE is data (a JSON instance), never a schema: copied verbatim and never descended into, so a `$ref`, `$defs`
- *  or `description` key inside a `const` stays data (SCHEMA-PROJECTION-FAIL-CLOSED-1). */
+ *  or `description` key inside a `const` stays data. */
 const DATA_KEYWORDS = new Set(["const", "enum", "default", "examples"]);
 /** Keywords that resolve against a dynamic scope or an anchor: none is inlined, so each is refused where a reference is resolved. */
 const DYNAMIC_KEYWORDS = new Set(["$dynamicRef", "$recursiveRef", "$anchor", "$dynamicAnchor", "$recursiveAnchor"]);
@@ -76,7 +76,7 @@ function setOwn(o: JsonObject, k: string, v: Json): void {
 }
 
 /** (1) Drop the identity keys `$schema`/`$id` and the annotation keys `description`/`title` of every
- *  schema node, at every depth. Pure; a function of the input bytes. Position-aware (C-1): inside a
+ *  schema node, at every depth. Pure; a function of the input bytes. Position-aware: inside a
  *  subschema map the keys are property names and are preserved (we still recurse into their subschemas);
  *  the value of a data keyword (`const`, `enum`, `default`, `examples`) is copied verbatim. */
 export function stripMeta(node: Json): Json {
@@ -145,7 +145,7 @@ export function derefVerdict(gateDecision: JsonObject, coverageVerdict: JsonObje
   return gd;
 }
 
-/** (3) OPENAPI-ERROR-CODE-1 (lot CM-3c-4a, Q-C5 condition 4): the frozen error bodies of the mirror, stripped, with every local
+/** (3) The frozen error bodies of the mirror, stripped, with every local
  *  `#/$defs/<name>` reference inlined (OpenAPI resolves `#` against its own document) and `$defs` dropped. Position-aware like
  *  `stripMeta`; the refusals are those of `defOfRef`, plus any dynamic keyword. */
 export function inlineDefs(node: Json, defs: JsonObject, via: readonly string[] = []): Json {
@@ -159,7 +159,7 @@ export function inlineDefs(node: Json, defs: JsonObject, via: readonly string[] 
   return Object.fromEntries(Object.entries(node).filter(([k]) => k !== "$defs").map(([k, v]) => [k, DATA_KEYWORDS.has(k) ? structuredClone(v) : SUBSCHEMA_MAP_KEYWORDS.has(k) ? sub(v) : inlineDefs(v, defs, via)]));
 }
 
-/** SCHEMA-PROJECTION-FAIL-CLOSED-1: the definition a `$ref` node of `inlineDefs` stands for, or a throw. Refused: a `$ref` that
+/** The definition a `$ref` node of `inlineDefs` stands for, or a throw. Refused: a `$ref` that
  *  is not a local `#/$defs/<name>` of a known object definition (another document, a deeper pointer, an escaped name, a
  *  non-string), a `$ref` with sibling keywords (inlining would drop them), and a definition reached again on its own path
  *  (recursive: inlining never ends). `via` is the path of definitions being inlined, so a definition used twice side by side
@@ -196,7 +196,7 @@ export function internal500Schema(internal: JsonObject): JsonObject {
   const transport: JsonObject = { ...picked, required: ["error"], properties: { error } };
   return { oneOf: [internal, transport] };
 }
-/** The 500 body: $defs/InternalError, or the transport-level 500 (TRANSPORT-500-SCHEMA-1). */
+/** The 500 body: $defs/InternalError, or the transport-level 500. */
 export const TOOL_ERROR_500_SCHEMA = internal500Schema(asObject(inlineDefs(TOOL_ERROR_DEFS["InternalError"] ?? null, TOOL_ERROR_DEFS), "ToolError 500"));
 
 /** Step 6 of ROADMAP.md: a mixture of the tracking policy, its rationals written n/d (or n). */
@@ -297,8 +297,8 @@ const SUIVI_SCHEMA: JsonObject = {
   },
 };
 
-/** Non-frozen gate parameters (ADR-M005 D5/D6, caller-carried). Declared here, never in schemas/.
- *  (ADR-M007 D7): the OPTIONAL `calibration` object opens the BYO loop — the caller supplies its
+/** Non-frozen gate parameters (caller-carried). Declared here, never in schemas/.
+ *  The OPTIONAL `calibration` object opens the BYO loop — the caller supplies its
  *  own nonconformity `scores` + a `mode` (interval|set), and the gate conformalizes against THOSE scores
  *  instead of a committed class. It stays OUT of `required` so the existing committed-class calls
  *  (cascade, USDe, liq) remain valid. `maxItems: CALIBRATE_MAX_N` bounds both `scores` and `candidates`
@@ -346,7 +346,7 @@ export const PARAMS_SCHEMA: JsonObject = {
 };
 
 /**
- * Projected tool INPUT schema (envelope, ADR-M005 D8 + ADR-M017 D1). `properties.prediction` is the frozen
+ * Projected tool INPUT schema (envelope). `properties.prediction` is the frozen
  * Prediction (stripped); `properties.attested` is the frozen `AttestedPrice` (stripped, the SAME mechanism
  * as `prediction`, byte-for-byte). `attested` is OPTIONAL, so `required` stays `["prediction","params"]` and
  * a `{prediction, params}` call is byte-identical (guarded by `gate_attested_is_frozen_attested_price`).
@@ -369,10 +369,10 @@ export const TOOL_OUTPUT_SCHEMA: JsonObject = derefVerdict(GATE_DECISION_SCHEMA,
 export const toolInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(TOOL_INPUT_SCHEMA as unknown as JsonSchemaType);
 export const toolOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(TOOL_OUTPUT_SCHEMA as unknown as JsonSchemaType);
 
-// ---------------------------------------------------------------------------- calibrate (D2/D3/D8)
+// ---------------------------------------------------------------------------- calibrate
 
 /**
- * calibrate INPUT (ADR-M007 D2): the NON-frozen BYO score array plus `alpha` and `nMin`. Declared HERE,
+ * calibrate INPUT: the NON-frozen BYO score array plus `alpha` and `nMin`. Declared HERE,
  * never in schemas/, as the gate `params` are. `maxItems` bounds the
  * score count at the SDK boundary, the first line of the fail-closed cap that
  * `runCalibrate` also enforces below the boundary (belt-and-suspenders).
@@ -394,9 +394,9 @@ export const CALIBRATE_INPUT_SCHEMA: JsonObject = {
 };
 
 /**
- * calibrate OUTPUT (ADR-M007 D3, NON-frozen envelope, a product decision "flexible, freeze after C2"): declared
- * HERE, never in schemas/. `reason` is IN the schema (M-5) so `additionalProperties:false` accepts the
- * fail-closed shape; `qhat` is nullable (number on success, null on under_calib). `label` is the K-1
+ * calibrate OUTPUT (NON-frozen envelope): declared
+ * HERE, never in schemas/. `reason` is IN the schema so `additionalProperties:false` accepts the
+ * fail-closed shape; `qhat` is nullable (number on success, null on under_calib). `label` is the
  * honesty carrier (outside any frozen contract). `scores_sha256` is the
  * 64-hex `scoresSha256`.
  */

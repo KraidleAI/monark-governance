@@ -1,36 +1,36 @@
 /**
- * HIKAE L3 — deferred-commitment policy 控え (ADR-M002 D5, CLOSED predicate).
+ * HIKAE L3 — deferred-commitment policy 控え (CLOSED predicate).
  *
  *   ABSTAIN  if parse non_evaluable | timeout | n<n_min | verdict under_calib | intent∉C | B_t<B_floor
  *            | (|C|>tau AND clock closed)          ← converted DEFER ⇒ clock_expired
  *   DEFER    if |C|>tau AND clock open
  *   COMMIT   if intent∈C, |C|<=tau, B_t>=B_floor
  *
- * Step 4 (contract 1.1.0, spec section 6; replaces the D6(b) `under_calib` guard, ADR-M011, at the same place): the
+ * Step 4 (contract 1.1.0): the
  * common ABSTAIN guard fires on `nCalib < nMin`, on a verdict without region, and on every no-region or `calib_*`
  * reason, with the verdict's reason (`under_calib` when that reason needs a region). A silent cell abstains, never defers.
  *
  * RETAINED clock reading (declared): the clock conditions ONLY the DEFER — an impossible
  * DEFER (clock closed) becomes ABSTAIN `clock_expired`; COMMIT has NO clock
- * condition (D5 literal: "COMMIT if intent∈C, |C|<=tau, B>=B_floor"). This is the only
+ * condition (the COMMIT line of the predicate above, "intent∈C, |C|<=tau, B_t>=B_floor", has no clock term). This is the only
  * reading where the three predicate lines hold simultaneously. DEFER waits, ABSTAIN
  * refuses; PnL does not enter π.
  *
  * Reason priority order (declared, deterministic overlap):
- *   non_evaluable → upstream_timeout → non_evaluable (a non-finite numeric field, E-8) → step 4 (n<n_min, no region, no-region or calib_* reason) →
+ *   non_evaluable → upstream_timeout → non_evaluable (a non-finite numeric field) → step 4 (n<n_min, no region, no-region or calib_* reason) →
  *   intent_not_in_region → budget_exhausted → [ |C|>tau ? (clock ? DEFER:set_too_large : ABSTAIN:clock_expired)
  *                       : COMMIT:covered ].
- *   `interval` sub-path only: region_degenerate on lo>=hi (NDG-1, ADR-CM B-16), tested first, before budget.
+ *   `interval` sub-path only: region_degenerate on lo>=hi (degenerate region), tested first, before budget.
  *
- * D0 (no trading in MONARK; future product = KAIZEN): the gated tools
- * `perps_order_preview` / `perps_order_execute` are NAMED here but NEVER called.
+ * No order is sent from here: the gated tools
+ * `perps_order_preview` / `perps_order_execute` are NAMED here but NEVER called (`decide` never calls `input.tool`).
  *
- * `interval` region (UKEMI regression, ADR-M003 D6.1): the Phase 1 throw is LIFTED. Dedicated path —
- *   ABSTAIN  if lo>=hi (zero-width / degenerate region ⇒ region_degenerate, NDG-1 ADR-M011, B-16) — FIRST, before budget
+ * `interval` region (regression): dedicated path —
+ *   ABSTAIN  if lo>=hi (zero-width / degenerate region ⇒ region_degenerate) — FIRST, before budget
  *   COMMIT   if intent ∈ [lo,hi] AND width (hi−lo) <= τ_interval
  *   DEFER    if width > τ_interval (clock open; otherwise ABSTAIN clock_expired)
  *   ABSTAIN  otherwise (intent ∉ [lo,hi]); + common upstream guards (parse/timeout/calib/budget).
- * `τ_interval` is DECLARED, UNFOUNDED (D6.1; same status as D6 M002; pending ADR-M003 §4).
+ * `τ_interval` is DECLARED, UNFOUNDED: the caller sets it.
  */
 import type { CoverageVerdict, GateDecision, GateAction, CoverageReason, PredictionRegion } from "@monark/contracts";
 import { intentInRegion, REASONS_WITHOUT_REGION } from "@monark/contracts";
@@ -38,7 +38,7 @@ import { intentInRegion, REASONS_WITHOUT_REGION } from "@monark/contracts";
 /** `interval` variant of the frozen region (regression), for the dedicated L3 path. */
 type IntervalRegion = Extract<PredictionRegion, { kind: "interval" }>;
 
-/** Gated market tools (D0) — NAMED, never invoked by MONARK (neither real nor paper). */
+/** Gated market tools — NAMED, never invoked by HIKAE (neither real nor paper). */
 export const GATED_TOOLS = ["perps_order_preview", "perps_order_execute"] as const;
 export type GatedTool = (typeof GATED_TOOLS)[number];
 
@@ -54,7 +54,7 @@ export interface GateInput {
   /**
    * WIDTH threshold for the `interval` path ((hi−lo) <= tauInterval ⇒ COMMIT). A quantity
    * DISTINCT from `tau` (a width in price units, not a cardinality) — DECLARED, UNFOUNDED
-   * (ADR-M003 D6.1). Required field; NOT frozen (GateInput is not one of the 4 contracts, cf. M003 D4).
+   * Required field; NOT frozen (GateInput is not one of the 4 frozen contracts).
    */
   tauInterval: number;
   nCalib: number;
@@ -65,7 +65,7 @@ export interface GateInput {
   timedOut: boolean;
   /** Is the ŷ parse evaluable? `false` ⇒ non_evaluable, fail-closed. */
   evaluable: boolean;
-  /** The targeted gated tool (NAMED, never called — D0). */
+  /** The targeted gated tool (NAMED, never called — `gate` only copies it). */
   tool: string;
   schemaVersion: string;
   /** Digest of the request envelope as received (contract 1.1.0), written as `request_sha256`. */
@@ -84,16 +84,16 @@ function decide(input: GateInput): Verdictum {
   // lines of the `set` path, so hoisting them before the branch is byte-neutral for `set`.
   if (!input.evaluable) return { action: "abstain", allow: false, reason: "non_evaluable" };
   if (input.timedOut) return { action: "abstain", allow: false, reason: "upstream_timeout" };
-  // Audit P3 E-8 (ADR-CM CM-3a): `x < NaN` and `x > NaN` are false, so a NaN in one of the six numeric fields used to
+  // `x < NaN` and `x > NaN` are false, so a NaN in one of the six numeric fields would otherwise
   // reach COMMIT. A non-finite field abstains `non_evaluable` (the decision cannot be evaluated), before every other
   // numeric guard. The served harness already refuses these values upstream (validateHarnessParams, nCalib a length).
   if (!finiteFields(input)) return { action: "abstain", allow: false, reason: "non_evaluable" };
-  // Step 4 (spec section 6, Q-3a-6): `nCalib < nMin`, a verdict without region, and every no-region or `calib_*` reason
+  // Step 4: `nCalib < nMin`, a verdict without region, and every no-region or `calib_*` reason
   // abstain with the verdict's reason (`under_calib` when that reason needs a region); a `calib_*` cell never defers.
   const noRegionReason = REASONS_WITHOUT_REGION.includes(input.verdict.reason);
   if (input.nCalib < input.nMin || region === null || noRegionReason) return { action: "abstain", allow: false, reason: noRegionReason ? input.verdict.reason : "under_calib" };
 
-  // `interval` path (UKEMI regression) — the Phase 1 throw is LIFTED (ADR-M003 D6.1).
+  // `interval` path (regression): its own declared order, in decideInterval.
   if (region.kind === "interval") return decideInterval(input, region);
 
   // `set` path (classification) — UNCHANGED: intent → budget → size.
@@ -114,16 +114,16 @@ function decide(input: GateInput): Verdictum {
 }
 
 /**
- * `interval` path (ADR-M003 D6.1; NDG-1 ADR-M011). DECLARED order: NDG-1 (`lo >= hi` ⇒ region_degenerate, a
+ * `interval` path. DECLARED order: degenerate region (`lo >= hi` ⇒ region_degenerate, a
  * zero-width/degenerate region, FIRST) → budget (fail-closed, takes precedence over DEFER — mirror of the
  * `set` path) → WIDTH (the DEFER is driven by the width, independently of the intent: literal reading
  * "DEFER if width > τ_interval, ABSTAIN otherwise") → intent. The DEFER obeys the module's clock
  * invariant (an impossible DEFER, clock closed, becomes ABSTAIN `clock_expired`).
  */
 function decideInterval(input: GateInput, region: IntervalRegion): Verdictum {
-  // NDG-1 (ADR-M011, D3(b)): a zero-width or inverted `interval` region reaching L3 — whatever its
+  // A zero-width or inverted `interval` region reaching L3 — whatever its
   // provenance, INCLUDING one hand-built past `buildIntervalRegion` — NEVER commits. FIRST, before the
-  // budget (priority region_degenerate > budget_exhausted, declared order D5). `>=` also captures `lo > hi`.
+  // budget (priority region_degenerate > budget_exhausted, the declared order above). `>=` also captures `lo > hi`.
   if (region.lo >= region.hi) {
     return { action: "abstain", allow: false, reason: "region_degenerate" };
   }
@@ -144,7 +144,7 @@ function decideInterval(input: GateInput, region: IntervalRegion): Verdictum {
 
 /**
  * L3 policy → `GateDecision` (frozen contract). The gate ONLY EMITS a decision;
- * it NEVER calls `input.tool` (D0: no trading in MONARK).
+ * it NEVER calls `input.tool` (it only copies it into the decision).
  */
 export function gate(input: GateInput): GateDecision {
   const { action, allow, reason } = decide(input);
@@ -161,7 +161,7 @@ export function gate(input: GateInput): GateDecision {
   };
 }
 
-/** E-8: true iff the six numeric fields read by `decide` are finite numbers. */
+/** True iff the six numeric fields read by `decide` are finite numbers. */
 function finiteFields(input: GateInput): boolean {
   return [input.remainingBudget, input.bFloor, input.tau, input.tauInterval, input.nCalib, input.nMin].every((v) => Number.isFinite(v));
 }

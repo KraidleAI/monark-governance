@@ -262,7 +262,7 @@ test("o4_study_parity_per_path", (t) => {
   t.diagnostic(`parity ${(performance.now() - t0).toFixed(0)} ms`);
 });
 
-// killer: packages/hikae/src/suivi/o4.ts:115 CONST "w_k += label.E;" -> "w_k += 1 - label.E;"
+// killer: packages/hikae/src/suivi/o4.ts:117 CONST "w_k += label.E;" -> "w_k += 1 - label.E;"
 test("o4_power_w_closes", (t) => {
   const t0 = performance.now(), out = chainMc("above", 1000, 0.3, 0.3, SEED_POWER_W, 1000, 3);
   t.diagnostic(`W at p = 0.30: ${s(out.n)} of 1000 close before 1000, ${(performance.now() - t0).toFixed(0)} ms`);
@@ -270,7 +270,7 @@ test("o4_power_w_closes", (t) => {
   agree(out.kept, true);
 });
 
-// killer: packages/hikae/src/suivi/o4.ts:106 CONST "k_k = s.k_k + label.E;" -> "k_k = s.k_k + 1 - label.E;"
+// killer: packages/hikae/src/suivi/o4.ts:108 CONST "k_k = s.k_k + label.E;" -> "k_k = s.k_k + 1 - label.E;"
 test("o4_power_k_licenses", (t) => {
   const t0 = performance.now(), out = chainMc("below", 300, 0.05, 0.05, SEED_POWER_K, 1000, 3);
   t.diagnostic(`K at p = 0.05: ${s(out.n)} of 1000 license before 300, ${(performance.now() - t0).toFixed(0)} ms`);

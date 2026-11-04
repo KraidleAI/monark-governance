@@ -1,23 +1,23 @@
 /**
- * Harness — the `calibrate` tool (ADR-M007 D0/D2/D3/D4/D5/D8, the 4th pure primitive).
+ * Harness — the `calibrate` tool (the 4th pure primitive).
  *
  * A PURE exposure of the REAL HIKAE split-conformal quantile (`splitQuantile`, imported from
  * `@monark/hikae`, NEVER re-implemented) over nonconformity scores APPORTED BY THE CALLER (BYO —
- * Bring Your Own predictor, ADR-M007 D2): the agent owns its nonconformity function and hands MONARK
+ * Bring Your Own predictor): the agent owns its nonconformity function and hands MONARK
  * the score array + the target miscoverage `alpha`; MONARK returns the conformal quantile q̂ that a
  * covered decision would use. `scores_sha256` = `scoresSha256(scores)` (imported from `@monark/contracts`,
- * NEVER re-implemented — B-7), so the audit `calibrate` ↔ `verdict.scores_sha256` closes.
+ * NEVER re-implemented), so the audit `calibrate` ↔ `verdict.scores_sha256` closes.
  *
- * NO side effects (K-8): this file — like everything under `src/tools/` — imports no
+ * NO side effects: this file — like everything under `src/tools/` — imports no
  * `node:fs`/`node:net`/`node:child_process`, calls no `fetch`, writes no `process.env`, and reads no
- * clock. MONARK stores NOTHING (D6): the caller carries q̂ downstream exactly as it carries B_t.
+ * clock. MONARK stores NOTHING: the caller carries q̂ downstream exactly as it carries B_t.
  *
- * HONESTY (K-1, three carriers — H3 OBS-2 / B-5): the exchangeability hypothesis is DECLARED, carried
+ * HONESTY (three carriers): the exchangeability hypothesis is DECLARED, carried
  * identically in (1) the tool DESCRIPTION, (2) the MCP text `content` (`calibrateHonestyText()`), and
  * (3) the output `label`. `calibrate` COMPUTES a real quantile — but only UNDER an external hypothesis the caller alone owns,
  * so the label says exactly that: never a probability of being right.
  *
- * FAIL-CLOSED (D4, inherited from `splitQuantile` and re-declared): `alpha ∉ (0,1)`, a non-finite
+ * FAIL-CLOSED (inherited from `splitQuantile` and re-declared): `alpha ∉ (0,1)`, a non-finite
  * score, a bad `nMin`, or `n > CALIBRATE_MAX_N` ⇒ a `CalibrateToolError` (surfaced by the MCP/HTTP
  * seam as a tool error, never a silent output); `n < nMin` OR `⌈(n+1)(1−alpha)⌉ > n` ⇒ the honest
  * `{ qhat: null, reason: "under_calib" }` (NEVER a silently clamped q̂). No success is invented.
@@ -37,16 +37,16 @@ export const CALIBRATE_TOOL_NAME = "calibrate";
  * this constant is the INNER fail-closed guard. Enforced TWICE, fail-closed: the tool-input projection
  * sets `maxItems` at the SDK boundary (`schema-projection.ts`, which imports THIS constant) AND
  * `runCalibrate` rejects `n > CALIBRATE_MAX_N` below — belt-and-suspenders behind the schema, so a
- * direct in-process tool call (the HTTP mirror or a test) is capped too. This file stays pure/no-I/O
- * (K-8), so `schema-projection.ts` -> `calibrate.ts` has no cycle back here.
+ * direct in-process tool call (the HTTP mirror or a test) is capped too. This file stays pure/no-I/O,
+ * so `schema-projection.ts` -> `calibrate.ts` has no cycle back here.
  */
 export const CALIBRATE_MAX_N = 10000;
 
 /**
- * The K-1 honesty label (ADR-M007 D5), VERBATIM — the declared exchangeability hypothesis. Carried
+ * The honesty label, VERBATIM — the declared exchangeability hypothesis. Carried
  * identically by all three carriers (description + MCP `content` + output `label`). Contains no banned
  * vocabulary: it names no probability/score of being right, only the marginal coverage that holds UNDER
- * exchangeability. The harness vocab gate polices the overclaim verbs negation-aware (ADR-M007 B-3);
+ * exchangeability. The harness vocab gate polices the overclaim verbs negation-aware;
  * this text carries none.
  */
 export const CALIBRATE_LABEL =
@@ -57,19 +57,19 @@ export const CALIBRATE_LABEL =
   "time-ordered) voids it. Never a probability of being right.";
 
 /**
- * Tool description (D5/K-1, carrier 1/3): the SAME honesty text as the output `label`. The
+ * Tool description (carrier 1/3): the SAME honesty text as the output `label`. The
  * exchangeability hypothesis rides here, on the tool surface, never inside a silent numeric output.
  */
 export const CALIBRATE_TOOL_DESCRIPTION = CALIBRATE_LABEL;
 
-/** The honesty text carried in the MCP tool result `content` (carrier 2/3), identical to the label (K-1). */
+/** The honesty text carried in the MCP tool result `content` (carrier 2/3), identical to the label. */
 export function calibrateHonestyText(): string {
   return CALIBRATE_LABEL;
 }
 
 /**
  * A compact, FACTUAL restatement of the calibrate result, carried in the MCP `content` text ALONGSIDE the
- * honesty label (a delivery aid, NOT a 4th K-1 carrier). Motivation: some MCP clients forward only
+ * honesty label (a delivery aid, NOT a 4th carrier). Motivation: some MCP clients forward only
  * `content` text and DROP `structuredContent` (measured on Hermes v0.21), so q̂ and the digest would never
  * reach the model. This line surfaces q̂, n, alpha, a TRUNCATED scores_sha256 (8 leading + 6 trailing; the
  * full value stays in `structuredContent`), and `reason` when the calibration is insufficient (so
@@ -83,9 +83,9 @@ export function calibrateVerdictSummary(r: CalibrateResult): string {
   return r.reason === null ? base : `${base} reason=${r.reason}`;
 }
 
-/** A tool-level error (K-4a analog): surfaced by the MCP/HTTP seam as a tool error, never a silent output. */
+/** A tool-level error: surfaced by the MCP/HTTP seam as a tool error, never a silent output. */
 export class CalibrateToolError extends Error {
-  /** Stable error code of this class (ADR-CM B-3, plan docs/G0-lot-cm-2a.md). */
+  /** Stable error code of this class. */
   readonly code: HarnessErrorCode = "calibrate_input_invalid";
   constructor(message: string) {
     super(message);
@@ -93,7 +93,7 @@ export class CalibrateToolError extends Error {
   }
 }
 
-/** Non-frozen tool input (ADR-M007 D2), declared field by field — NEVER in schemas/. BYO at the SCORE level. */
+/** Non-frozen tool input, declared field by field — NEVER in schemas/. BYO at the SCORE level. */
 export interface CalibrateInput {
   /** Caller-supplied nonconformity scores (the caller owns the score function; MONARK stays agnostic). */
   readonly scores: readonly number[];
@@ -103,7 +103,7 @@ export interface CalibrateInput {
   readonly nMin: number;
 }
 
-/** The `calibrate` result (ADR-M007 D3, non-frozen envelope). `qhat`/`reason` are the fail-closed pair. */
+/** The `calibrate` result (non-frozen envelope). `qhat`/`reason` are the fail-closed pair. */
 export interface CalibrateResult {
   /** The conformal quantile q̂, or `null` when the calibration is insufficient (fail-closed). */
   readonly qhat: number | null;
@@ -113,16 +113,16 @@ export interface CalibrateResult {
   readonly alpha: number;
   /** The conformal method — always `"split"` (the only quantile the repo implements). */
   readonly method: "split";
-  /** `scoresSha256(scores)` in the caller's order (B-17) — the audit tie to `verdict.scores_sha256` (C2). */
+  /** `scoresSha256(scores)` in the caller's order — the audit tie to `verdict.scores_sha256`. */
   readonly scores_sha256: string;
-  /** The K-1 honesty label (carrier 3/3), declaring the exchangeability hypothesis. */
+  /** The honesty label (carrier 3/3), declaring the exchangeability hypothesis. */
   readonly label: string;
-  /** `"under_calib"` when q̂ is null, else `null` on success. IN the schema (M-5) so the closed output validates. */
+  /** `"under_calib"` when q̂ is null, else `null` on success. IN the schema so the closed output validates. */
   readonly reason: string | null;
 }
 
 /**
- * Compose the real primitive into the `calibrate` result (D3/D4). Fail-closed order (D4): validate
+ * Compose the real primitive into the `calibrate` result. Fail-closed order: validate
  * `alpha`, `nMin`, and the cap FIRST; validate finiteness of every score BEFORE `scoresSha256` (so a
  * non-finite score is a `CalibrateToolError` with a tool message, not the bare error of `scoresSha256`);
  * then compute `scores_sha256` and the split quantile. `n < nMin` or `p > n` ⇒ `{ qhat: null,
@@ -135,7 +135,7 @@ export function runCalibrate(input: CalibrateInput): CalibrateResult {
     throw new CalibrateToolError("invalid 'alpha': expected a finite number in the open interval (0,1)");
   }
   // nMin validation is the cascade belt-and-suspenders motif (gate.ts:90 precedent): the schema enforces
-  // `integer` at the SDK boundary, this backstops a direct in-process call — beyond D4's literal list,
+  // `integer` at the SDK boundary, this backstops a direct in-process call — beyond the literal list,
   // strictly MORE fail-closed, never a silent output.
   if (typeof nMin !== "number" || !Number.isInteger(nMin) || nMin < 1) {
     throw new CalibrateToolError("invalid 'nMin': expected an integer >= 1");
@@ -149,7 +149,7 @@ export function runCalibrate(input: CalibrateInput): CalibrateResult {
       `invalid 'scores': ${String(n)} scores exceeds the cap of ${String(CALIBRATE_MAX_N)} (resource guard, ADR-M007 D2)`,
     );
   }
-  // Finiteness BEFORE scoresSha256 (D4): a non-finite score is a tool error with a message, not the bare
+  // Finiteness BEFORE scoresSha256: a non-finite score is a tool error with a message, not the bare
   // error `scoresSha256` throws — so the seam surfaces a 400, never a 500.
   for (let i = 0; i < n; i++) {
     const s = scores[i];
@@ -158,13 +158,13 @@ export function runCalibrate(input: CalibrateInput): CalibrateResult {
     }
   }
 
-  // B-17: the digest is scoresSha256, imported from @monark/contracts, NEVER re-implemented.
+  // The digest is scoresSha256, imported from @monark/contracts, NEVER re-implemented.
   const scores_sha256 = scoresSha256(scores);
-  // The quantile is splitQuantileShortest (exact rank of String(alpha), B-12), imported from @monark/hikae, NEVER re-implemented.
+  // The quantile is splitQuantileShortest (exact rank of String(alpha)), imported from @monark/hikae, NEVER re-implemented.
   const split = splitQuantileShortest(scores, alpha, nMin);
 
   if ("reason" in split) {
-    // Fail-closed: n < nMin OR p > n ⇒ honest under-calibration, NEVER a clamped q̂ (D4).
+    // Fail-closed: n < nMin OR p > n ⇒ honest under-calibration, NEVER a clamped q̂.
     return { qhat: null, n, alpha, method: "split", scores_sha256, label: CALIBRATE_LABEL, reason: "under_calib" };
   }
   return { qhat: split.qhat, n, alpha, method: "split", scores_sha256, label: CALIBRATE_LABEL, reason: null };

@@ -1,9 +1,9 @@
 /**
- * The marginal rows of 1.1.0 (lot CM-4a-ii-a, block B2; docs/G0-lot-cm-4a-ii.md G-4, G-5; A-2 section 2.3; plan r3
- * sections 5.1 and 5.2.1): the class entries of the stable-run, liquidation and cascade classes, their rows built from
- * the committed calibrations of calibration.ts, and the guard of their table files (each row equals the row rebuilt
- * from the scores the server holds; LIQ-BAND-EXACT-GUARD-1). The source and text values are parameters (dated line
- * before F-5a).
+ * The marginal rows of 1.1.0: the class entries of the stable-run, liquidation and cascade classes,
+ * their rows built from the committed calibrations of calibration.ts,
+ * and the guard of their table files (each row equals the row rebuilt
+ * from the scores the server holds).
+ * The source and text values are parameters.
  */
 import { assertClosedPolicyRow, canonicalJson, POLICY_ALLOWED_KEYS, scoresSha256, type ClassEntry, type PolicyRow, type PolicyTable } from "@monark/contracts";
 import { ceilDecimal4, splitQuantileExact, splitRankExact } from "@monark/hikae";
@@ -19,7 +19,7 @@ const fail = (what: string): never => {
   throw new Error(`MONARK marginal guard: ${what}.`);
 };
 
-/** The class entries of the stable-run, liquidation and cascade classes (plan r3 section 5.2.1). */
+/** The class entries of the stable-run, liquidation and cascade classes. */
 export function marginalClassEntries(text: (taskClass: string) => string): readonly ClassEntry[] {
   const base = { region_kind: "interval", qhat_unit: "label", statement: "marginal", method: "split", test_delta: null, h_ms: null, grid: false, label_schema: null } as const;
   const keyed = { region_rule: "additive-band", alpha: null, n_min: null, cell_key_rule: "committed-key", cell_key_base: null, strata_cuts: null } as const;
@@ -49,7 +49,7 @@ export function marginalRow(c: CommittedCalibration, cls: ClassEntry, policy: Cl
   return row as PolicyRow;
 }
 
-/** LIQ-BAND-EXACT-GUARD-1 (ADR-CM section 10): max yhat of the row's stratum + qhat <= 2^53, the stratum key from the class base. */
+/** Max yhat of the row's stratum + qhat <= 2^53, the stratum key from the class base. */
 export function assertLiqBandExact(row: PolicyRow, cls: ClassEntry): void {
   const cuts = cls.strata_cuts ?? [];
   const k = Number(/\/s([0-9]+)$/.exec(row.cell_key)?.[1]);

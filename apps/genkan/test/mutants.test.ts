@@ -1,4 +1,4 @@
-// GENKAN - the mutant generator of the decoder (helpers/mutants.ts), pure: no Lean runs here (mutants.kernel.test.ts builds
+// GENKAN - the mutant generator of the kernel (helpers/mutants.ts), pure: no Lean runs here (mutants.kernel.test.ts builds
 // and runs the mutants of the real kernel). A Lean text written below holds each of the eight operators at least once and
 // each case the rules skip: comments of the three kinds, a string, char literals, identifiers that end in digits or hold a
 // prime, a projection, the tokens that start as an operator does, a `some` in a match pattern and one before a non-atom,

@@ -5,7 +5,8 @@
  *   - q(n, d) reduces and carries the sign on the numerator;
  *   - qString writes "n" when d = 1 and "n/d" otherwise; qParse reads back only the texts that qString writes;
  *   - add, sub, mul and pow are exact; cmp is the sign of x - y;
- *   - floorScaled(x, scale) = floor(x * scale), rounded toward minus infinity, never toward zero.
+ *   - floorScaled(x, scale) = floor(x * scale), rounded toward minus infinity, never toward zero, by floorQuotient(n, d) = floor(n / d)
+ *     for d > 0, which the folder also applies to the unreduced fraction of a capital.
  * Pure: no clock, no network, no file, no environment. Every refusal throws a RangeError.
  */
 
@@ -98,11 +99,15 @@ export function cmp(x: Q, y: Q): -1 | 0 | 1 {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+/** floor(n / d) for d > 0, rounded toward minus infinity: the truncated quotient, minus 1 below 0 when d does not divide n. */
+export function floorQuotient(n: bigint, d: bigint): bigint {
+  const truncated = n / d;
+  return n % d !== 0n && n < 0n ? truncated - 1n : truncated;
+}
+
 /** floor(x * scale), rounded toward minus infinity; refuses scale < 1. */
 export function floorScaled(x: Q, scale: bigint): bigint {
   checkQ(x, "floorScaled");
   if (typeof scale !== "bigint" || scale < 1n) throw new RangeError("floorScaled: scale must be a bigint >= 1");
-  const product = x.n * scale;
-  const truncated = product / x.d;
-  return product % x.d !== 0n && product < 0n ? truncated - 1n : truncated;
+  return floorQuotient(x.n * scale, x.d);
 }
