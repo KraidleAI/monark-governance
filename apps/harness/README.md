@@ -132,9 +132,10 @@ Not done at this step:
 - the SR reading (`sr_reading_threshold`) and the M1 module are not served;
 - "no licence yet" and "closed" both answer `budget_exhausted`. A reason of their own would change the frozen `GateDecision` contract:
   that is the founder's call;
-- the work bound is still the 3600 bits of step 6, though the replay no longer reduces its fractions: at 500 labels, with 8 bets on
-  K, W and the detector and nine-digit weights, 0.58 s measured at n·L = 20 000 bits, 0.65 s at 23 500 and 0.81 s at 30 000
-  (2026-11-04). Raising it is the founder's call;
+- the work bound stays at the 3600 bits of step 6, by the founder's decision of 2026-11-04: no policy needs more today (the USDe
+  cell takes 3500 bits at 500 labels), and the bound will be reviewed at step 3, with the policies of the founder's strategy.
+  Measured the same day at 500 labels, with 8 bets on K, W and the detector and nine-digit weights: 0.58 s at n·L = 20 000 bits,
+  0.65 s at 23 500 and 0.81 s at 30 000;
 - the server is synchronous: a call at the work bound holds it for up to about 0.3 s.
 
 ## Committed calibrations
