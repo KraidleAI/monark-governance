@@ -1,7 +1,7 @@
 /**
- * Class table files `class-policy-v2` (lot CM-4a-i, block B1 of 1.1.0; docs/G0-lot-cm-4a-i.md; spec section 10; A-2
- * section 2.2 point 1): one table file per class and its digest, and the byte for byte comparison of a table with its
- * expected class entry and the projection of a pinned registry file (the 32 kata class entries go to block B2, G0 cut).
+ * Class table files `class-policy-v2` (spec section 10):
+ * one table file per class and its digest, and the byte for byte comparison of a table with its
+ * expected class entry and the projection of a pinned registry file.
  */
 import { createHash } from "node:crypto";
 import { assertClosedPolicyTable, canonicalJson, sha256Canonical, type ClassEntry, type PolicyRow, type PolicyTable } from "@monark/contracts";
@@ -37,8 +37,8 @@ export function buildPolicyTable(cls: ClassEntry, rows: readonly PolicyRow[]): P
 export const policyTableSha256 = (table: PolicyTable): string => sha256Canonical(table);
 
 /**
- * A-2 section 2.2 point 1: the class entry equals the expected one; the registry bytes have the pinned sha256; each
- * row equals, in canonical writing, the projection of its cell, overlaid by its retire list entry (R-a, pinned by the guard);
+ * The class entry equals the expected one; the registry bytes have the pinned sha256; each
+ * row equals, in canonical writing, the projection of its cell, overlaid by its retire list entry (pinned by the guard);
  * each projectable cell of the class has exactly one row; no row without a cell. Throws on the first difference, naming the class, the cell key and the column.
  */
 export function assertTableMatchesRegistry(table: PolicyTable, registryBytes: Uint8Array, inp: ProjectionInputs, expected: ClassEntry, retired: readonly RetiredCell[] = []): void {
@@ -59,7 +59,7 @@ export function assertTableMatchesRegistry(table: PolicyTable, registryBytes: Ui
   for (const key of want.keys()) fail(`${cls} ${key}: a projectable cell without its row`);
 }
 
-/** The registry pin alone, the refusal of assertTableMatchesRegistry above word for word: the import guard runs it before a retire list reads the registry bytes (R-a, m-2 of its verification). */
+/** The registry pin alone, the refusal of assertTableMatchesRegistry above word for word: the import guard runs it before a retire list reads the registry bytes. */
 export function assertRegistryPinned(cls: string, registryBytes: Uint8Array, inp: ProjectionInputs): void {
   if (createHash("sha256").update(registryBytes).digest("hex") !== inp.registrySha256) fail(`${cls}: the registry bytes do not have the pinned sha256`);
 }

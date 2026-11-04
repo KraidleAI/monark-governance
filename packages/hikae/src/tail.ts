@@ -1,13 +1,13 @@
 /**
- * W2-E engine: the tail indicator and the exact adjacency upper tail of ADR 0006 v8.1 D2 (wave 2, Design 1), from the scores, from
- * the bits, or from the counts alone (addendum 8 §1: the import guard recomputes the tails from a row's counts).
+ * The tail indicator and the exact adjacency upper tail, from the scores, from
+ * the bits, or from the counts alone (the harness's wave2Admission, apps/harness/src/policy-wave2.ts, recomputes the tails from a row's counts).
  *
- * Written by MONARK under the zone exception of Q-F3 (addendum 8, P0 line `ec202d00` of KraidleAI/monark-precommitments); the
- * W2-E tests and killers stay with RECHERCHES. Counts entry: piece `coordination/pieces/2026-10-04-tail-ts-entree-comptes/` of
- * the recherches repository (SPEC-tail-ts.md sha256 af5f5b19…, vectors.json sha256 4c7b8fb2…).
+ * The harness imports tailRank, adjacencyTailFromCounts and TailCountsError; the tests of this module live in
+ * apps/harness/test/policy-wave2.test.ts (adjacencyUpperTail included). tailExceedance has no caller in this repository
+ * outside its export in index.ts.
  *
  * Pure: no clock, no file, no floating point in a decision. Exact integers (bigint); a tail is never reduced, so a guard that
- * compares a row's strings to these byte for byte refuses a reduced tail. `runs.ts` is unchanged.
+ * compares a row's strings to these byte for byte refuses a reduced tail. The runs test is in `runs.ts`.
  */
 import { parseUnitDecimal } from "./binomial.ts";
 import type { Ratio } from "./binomial.ts";
@@ -34,7 +34,7 @@ export class TailCountsError extends RangeError {
   }
 }
 
-/** Result of the counts entry: `empty` iff m = 0 (D2), otherwise the unreduced tail and its decision. */
+/** Result of the counts entry: `empty` iff m = 0, otherwise the unreduced tail and its decision. */
 export type AdjacencyCountsTail =
   | { readonly empty: true }
   | {
@@ -91,9 +91,9 @@ function choose(n: number, k: number): bigint {
 }
 
 /**
- * r = ceil(n x tail_frac) = (n x num + den - 1) div den, exact (D2). The one writing of this rank, shared by tailExceedance.
- * Its refusals are TailCountsError, a RangeError subclass: a guard that maps a RangeError to under_calib (D2) tests
- * `instanceof TailCountsError` first (G2 of #135, m-3).
+ * r = ceil(n x tail_frac) = (n x num + den - 1) div den, exact. The one writing of this rank, shared by tailExceedance.
+ * Its refusals are TailCountsError, a RangeError subclass: a guard that maps a RangeError to under_calib tests
+ * `instanceof TailCountsError` first; policy-wave2.ts makes one a named refusal of the row, never under_calib.
  */
 export function tailRank(n: number, tailFracDec: string): number {
   const frac = unitOr(tailFracDec, "tail-frac-not-unit-decimal");
@@ -103,11 +103,11 @@ export function tailRank(n: number, tailFracDec: string): number {
 }
 
 /**
- * Exact upper tail P(A >= a | n, m) of the adjacency statistic A = m - J (D2, exact null), from counts only:
+ * Exact upper tail P(A >= a | n, m) of the adjacency statistic A = m - J (exact null), from counts only:
  * num = sum over j = 1..m - a of C(m - 1, j - 1) C(n - m + 1, j), den = C(n, m), never reduced.
  * Checks, the first failing one throws: level; n, m, a safe integers >= 0 (in this order); n >= 1; m <= n; the support of A
  * (m = 0 needs a = 0; m >= 1 needs max(0, 2m - n - 1) <= a <= m - 1). m = 0 gives `empty`.
- * Cost: O(m) bigint products of numbers up to C(n, m); the caller bounds n before calling on imported counts (G2 of #135, m-2).
+ * Cost: O(m) bigint products of numbers up to C(n, m); the caller bounds n before calling on imported counts (policy-guard.ts: W2_CALIB_N_MAX).
  */
 export function adjacencyTailFromCounts(n: number, m: number, a: number, levelDec: string): AdjacencyCountsTail {
   const level = unitOr(levelDec, "level-not-unit-decimal");
@@ -137,9 +137,9 @@ export function adjacencyTailFromCounts(n: number, m: number, a: number, levelDe
 }
 
 /**
- * The tail indicator of D2: r = tailRank(n, tail_frac), tau = the r-th smallest score (comparator of l1-split.ts), b_t = 1 iff
- * s_t > tau (strict), m = the sum. Throws a RangeError on n = 0 or on any NaN or non-finite score (the policy guard maps it to
- * under_calib). `empty` iff m = 0.
+ * The tail indicator: r = tailRank(n, tail_frac), tau = the r-th smallest score (comparator of l1-split.ts), b_t = 1 iff
+ * s_t > tau (strict), m = the sum. Throws a RangeError on n = 0 or on any NaN or non-finite score (no guard of this repository
+ * calls it: see the header). `empty` iff m = 0.
  */
 export function tailExceedance(scores: readonly number[], tailFracDec: string): TailExceedance {
   if (scores.length === 0) throw new RangeError("tailExceedance: no score");
@@ -155,8 +155,8 @@ export function tailExceedance(scores: readonly number[], tailFracDec: string): 
 
 /**
  * The adjacency upper tail on bits: counts n, m and A = #{t : b_t = b_(t+1) = 1}, then the one arithmetic of the counts entry.
- * No bit (n = 0) throws n-zero and the level is checked before `empty`: stricter than D2 read literally, never reached since D2
- * runs only at n >= n0 (G2 of #135, m-1).
+ * No bit (n = 0) throws n-zero and the level is checked before `empty`: stricter than an `empty` answer, never reached from the harness, whose guard
+ * returns before any tail when n < n0 (apps/harness/src/policy-guard.ts).
  */
 export function adjacencyUpperTail(bits: readonly TailBit[], levelDec: string): AdjacencyTail {
   let ones = 0;

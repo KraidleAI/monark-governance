@@ -1,11 +1,11 @@
 /**
- * Import guard of kata rows, wave 1 (lot CM-4a-ii-a, block B2 of 1.1.0; docs/G0-lot-cm-4a-ii.md G-2, G-3; A-2 section
- * 2.2 points 2 to 5, 7, 8; plan r3 sections 4 and 5.3; delegated decision on PolicyRow, condition 2). Fails closed and
+ * Import guard of kata rows, wave 1. Fails closed and
  * throws on the first difference. Every value the row's counts determine is recomputed by the exact comparator; what
  * depends on the unpublished scores (qhat on a band, misses, the check outcomes) is bound by the projection of the pinned
- * registry (block B1) and by `recompute`. Wave 2 band rows (lot CM-4a-ii-b, docs/G0-lot-cm-4a-ii-b.md): tails from
- * counts through the one seam policy-wave2.ts, bridge and FWD-2 vetoes, A-1 spend; wave 2b rows by their mark (wave2Mark); other waves are refused. Retired rows (R-a of
- * ENGINE-ROW-RETIRE-PATH-1): the pinned retire list of policy-retire.ts overlays the projection; live counts within LIVE_N_MAX. */
+ * registry and by `recompute`. Wave 2 band rows: tails from
+ * counts through the one seam policy-wave2.ts, bridge and FWD-2 vetoes, the test_delta spend (spendDelta); wave 2b rows by their mark (wave2Mark); other waves are refused.
+ * Retired rows: the pinned retire list of policy-retire.ts overlays the projection; live counts within LIVE_N_MAX.
+ */
 import { assertClosedPolicyRow, type ClassEntry, type PolicyRow, type PolicyTable } from "@monark/contracts";
 import { bandEdge, binomCdfLeq, ceilDecimal4, missUpperBound, parseAlpha, parseTestDelta, riskControlMaxExceedances, spendDelta, splitRankExact, zeroErrorFloor } from "@monark/hikae";
 import { KATA_BASE_DELTA, KATA_H_MS, kataKeyProblem, kataKeyReserved } from "./policy-classes.ts";
@@ -13,17 +13,17 @@ import { readRegistry, type ProjectionInputs } from "./policy-projection.ts";
 import { readRetireList, retireQuarter, type RetireList, type RetirePin } from "./policy-retire.ts";
 import { assertRegistryPinned, assertTableMatchesRegistry } from "./policy-table-file.ts";
 import { guardCalibChain, LIVE_N_MAX, W2_BLOCK_N_MAX, W2_CALIB_N_MAX, W2_TAIL_FRAC, w2bDelta, wave2Admission, wave2Mark } from "./policy-wave2.ts";
-/** The pins of the guard: the projection inputs, the closed list of verifier identities (A-2 section 2.2 point 7) and, from R-a, the chain of dated retire lists, oldest to newest (absent or empty: no row retired). */
+/** The pins of the guard: the projection inputs, the closed list of verifier identities and the chain of dated retire lists, oldest to newest (absent or empty: no row retired). */
 export type GuardPins = ProjectionInputs & { readonly verifiers: readonly string[]; readonly retireLists?: readonly RetirePin[] };
 
 const want = (ok: boolean, key: string, what: string): void => {
   if (!ok) throw new Error(`MONARK import guard: ${key} ${what}.`);
 };
 
-/** The identity of a verifier or generator: the name before its first "@" (the revision), ASCII lower case (G0 G-2.6). */
+/** The identity of a verifier or generator: the name before its first "@" (the revision), ASCII lower case. */
 export const verifierIdentity = (name: string): string => (name.split("@")[0] ?? "").replace(/[A-Z]/g, (c) => c.toLowerCase());
 
-/** A-2 section 2.2 point 5: P(Bin(n, alpha) >= k) <= 0.05, as P(Bin(n, 1 - alpha) <= n - k) <= 0.05. */
+/** P(Bin(n, alpha) >= k) <= 0.05, as P(Bin(n, 1 - alpha) <= n - k) <= 0.05. */
 export function vetoFires(n: number, k: number, alpha: string): boolean {
   const a = parseAlpha(alpha);
   return binomCdfLeq(n, n - k, { num: a.den - a.num, den: a.den }, parseTestDelta(KATA_BASE_DELTA));
@@ -32,7 +32,7 @@ export function vetoFires(n: number, k: number, alpha: string): boolean {
 /** u_test of a block (FORMAT.md edge conventions), at the veto level. */
 export const uTest = (k: number | null, n: number | null): string | null => (k === null || n === null || n === 0 ? null : k === n ? "1" : missUpperBound(n, k, KATA_BASE_DELTA));
 
-/** G-2: one kata row of wave 1 or 2 against its class entry and the pins. */
+/** One kata row of wave 1 or 2 against its class entry and the pins. */
 export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): void {
   const key = `${r.task_class} ${r.cell_key}`;
   const is = (ok: boolean, what: string): void => want(ok, key, what);
@@ -102,7 +102,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   is(pins.verifiers.every((v) => v === verifierIdentity(v)), "pins a verifier that is not an identity (lower case, no revision)");
   is(pins.verifiers.includes(id), "has a verifier outside the pinned list");
   is(id !== verifierIdentity(r.source.generator), "has a verifier equal to the generator");
-  const digests = digestProblems(r); // SHORT-DIGEST-INVERSION-1 (RECHERCHES Q-4): the server refuses what the publication refuses, one module
+  const digests = digestProblems(r); // the server refuses what the publication refuses, one module
   is(digests.length === 0, `has a digest that the publication refuses: ${digests.join(", ")} (fewer than 2^128 compatible sequences, or an unstated sequence)`);
   if (dir) return;
   const s = r.calib_support;
@@ -111,7 +111,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   is((bandEdge(qb, s?.min ?? 1) ?? 0) > 0 && bandEdge(qb, s?.max ?? 1) !== null, "has no positive band edge at calib_support.min or no finite edge at calib_support.max (plan section 4)");
 }
 
-/** G-3: the registry pin, before any retire list reads the registry bytes; the dated retire lists, oldest to newest, each read against its predecessor (R-a: a retire never leaves the chain, draft G0 section 4.1); the table matches the pinned registry (block B1), overlaid by the newest list, with its expected class entry; each row passes G-2; cell checks. */
+/** The registry pin, before any retire list reads the registry bytes; the dated retire lists, oldest to newest, each read against its predecessor (a retire never leaves the chain); the table matches the pinned registry, overlaid by the newest list, with its expected class entry; each row passes guardKataRow; cell checks. */
 export function guardKataTable(table: PolicyTable, registryBytes: Uint8Array, pins: GuardPins, expected: ClassEntry): void {
   assertRegistryPinned(table.class.task_class, registryBytes, pins);
   let prev: RetireList | undefined;
@@ -125,12 +125,12 @@ export function guardKataTable(table: PolicyTable, registryBytes: Uint8Array, pi
     const st = rows.get(cell.key)?.status;
     want(st === undefined || cell.calib.status === (st === "vetoed" || st === "retired" ? "region" : st), cell.key, "has a calib.status off the recomputed CALIB status");
   }
-  // C-8 (delegated decision CM-4b): the current rows of a direction side are its three buckets, with the same thresholds.
+  // The current rows of a direction side are its three buckets, with the same thresholds.
   for (const [side, rs] of Map.groupBy(table.rows.filter((r) => r.current && r.side !== null), (r) => r.cell_key.slice(0, r.cell_key.lastIndexOf("-")))) {
     want(new Set(rs.map((r) => r.bucket)).size === 3 && rs.every((r) => r.thresholds?.t1 === rs[0]?.thresholds?.t1 && r.thresholds?.t2 === rs[0]?.thresholds?.t2), side, "is a direction side without its three buckets or with thresholds that differ between its rows (C-8)");
   }
 }
 
-// SHORT-DIGEST-INVERSION-1: imported last, not at the top, so that the import moves no line (killers pin them; scripts/spec-publish.mjs
+// Imported last, not at the top, so that the import moves no line (killers pin them; scripts/spec-publish.mjs
 // does the same); imports are hoisted.
 import { digestProblems } from "./policy-digest-floor.ts";

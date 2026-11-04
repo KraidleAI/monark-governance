@@ -1,7 +1,7 @@
 /**
  * Harness: the load guard of the committed calibrations in contract 1.1.0 (block C, lot CM-3c-3b1; decision Q-3b-2).
  * At import, scores_sha256 of each committed entry, over its scores in the stored order, must equal a pin held outside
- * the block that scripts/emit-u4b-calibration.mjs generates: USDe (time order; the sha256 of fixtures/usde-calib-scores.json),
+ * the block that scripts/emit-u4b-calibration.mjs generated (archived): USDe (time order; the sha256 of fixtures/usde-calib-scores.json),
  * liq stratum s0 (ascending), and the retired btc-dir draw. The C5 pins (digestPinned) stay provenance values, checked
  * by the other tests through the provenance tool. A drifted copy, a reordered copy (scores_sha256 keeps the order, unlike
  * C5) or an entry with no pin is refused by name.
@@ -31,7 +31,7 @@ const USDE_PIN = "e44a68b6b697a32f3f198770e740ab206393dc3425e8cc59e4b0e1e4e65cfd
 const LIQ_S0_PIN = "a927722276941a4f8f677bab3625b8ee3128ecf84d2d078da0a316b42a6ee3c8";
 const BTC_DIR_PIN = "bb438031be5ca37ab62eedcb8044ea63969fa6314287019b4e68c235c473afd6";
 
-// killer: apps/harness/src/calibration.ts:272 SDL "  if (computed !== pinned) throw new Error(`calibration: scores drift for ${c.predictorId}: scores_sha256 ${computed} != pinned ${String(pinned)} (re-record and re-pin, never silently accept).`);" -> ""
+// killer: apps/harness/src/calibration.ts:273 SDL "  if (computed !== pinned) throw new Error(`calibration: scores drift for ${c.predictorId}: scores_sha256 ${computed} != pinned ${String(pinned)} (re-record and re-pin, never silently accept).`);" -> ""
 test("committed_scores_sha256_load_guard_against_the_new_pins", () => {
   // The three pins by value, and the USDe pin is the sha256 of the committed fixture bytes.
   assert.equal(USDE_STABLE_RUN_SCORES_SHA256_PINNED, USDE_PIN);

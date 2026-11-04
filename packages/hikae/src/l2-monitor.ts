@@ -1,17 +1,17 @@
 /**
  * HIKAE L2 — remaining-risk MONITOR (IM-OCP mechanism).
  *
- * *** MONITOR, NO GUARANTEE CLAIMED (ADR-M002 D4, branch b). ***
- * In Phase 1, the split `q̂` (L1) ALONE defines C_t. `r_t` (IM-OCP) and `B_t` are
+ * *** MONITOR, NO GUARANTEE CLAIMED (branch b). ***
+ * Here, the split `q̂` (L1) ALONE defines C_t. `r_t` (IM-OCP) and `B_t` are
  * monitoring statistics that drive π (L3) and the drift flag; `r_t` has
  * NO set consumer, so Wang's long-run type-(ii) guarantee is
  * attached to nothing and is NOT claimed. Branch (a) (`C_t = {y : s <= r_t}`,
- * guarantee (ii) carried by C_t) is NAMED for Phase 2, by ADR after a real S2.
+ * guarantee (ii) carried by C_t) is not claimed; it would need a real S2 measure.
  *
- * [lu] source of the mechanism: Wang, Zecchin, Simeone, IEEE SPL 32 (2025) 2888-2892,
+ * Source of the mechanism: Wang, Zecchin, Simeone, IEEE SPL 32 (2025) 2888-2892,
  * eq. 10 / Thm 1 (cited, not republished) — transported onto the subsequence of ARRIVED labels
- * (p = 1 on this subsequence, not "p_t = 0 before w": R5:151-158 requires p_min > 0).
- * The clock term `w/T` (deterministic delay) is a COMPOSITION (H4) — our design
+ * (p = 1 on this subsequence, not "p_t = 0 before w": the cited result requires p_min > 0).
+ * The clock term `w/T` (deterministic delay) is a COMPOSITION (the no-peek rule) — our design
  * choice, not a published theorem. Tests 9-10 verify the MECHANISM, not a guarantee.
  */
 
@@ -29,12 +29,12 @@ export function imocpStep(r: number, alpha: number, E: Miscover, eta: number): n
 }
 
 /**
- * Subsequence of the E's of labels ARRIVED at the decision instant of window `t` (H4, D4).
+ * Subsequence of the E's of labels ARRIVED at the decision instant of window `t` (the no-peek rule).
  *
  * `errorTimeline[i]` = E of the i-th EVALUABLE window (`non_evaluable` points are
  * excluded UPSTREAM — they never enter `t°`). A label of window `i` is
  * *settled* at `i + labelDelay` AND is usable only if it is not the one of the current
- * window (`i < t`: the gate decides BEFORE its own label — this is H4). So usable
+ * window (`i < t`: the gate decides BEFORE its own label — the no-peek rule). So usable
  * iff `i + labelDelay <= t` AND `i < t`. B_t NEVER reads a pending label — nor `y_t`
  * itself, EVEN at `labelDelay = 0` (the "no-peek").
  */
@@ -46,7 +46,7 @@ export function arrivedErrors(
   const out: Miscover[] = [];
   for (let i = 0; i < errorTimeline.length; i++) {
     const settled = i + labelDelay <= t; // the label is settled
-    const notCurrent = i < t; // not the window currently being decided (no-peek H4)
+    const notCurrent = i < t; // not the window currently being decided (no-peek rule)
     if (settled && notCurrent) {
       const e = errorTimeline[i];
       if (e !== undefined) out.push(e); // noUncheckedIndexedAccess guard
@@ -58,8 +58,8 @@ export function arrivedErrors(
 /**
  * Remaining budget `B_t = alpha - (1/t°) * sum_{arrived labels} E_i`, where `t°` = number of
  * ARRIVED labels. `t° = 0` (no label arrived) ⇒ `B_t = alpha` (nothing consumed).
- * Sufficient statistic for L3 (authorization predicate H5) and the drift flag —
- * NEVER a yield (ADR-CERT-MONARK).
+ * Sufficient statistic for L3 (authorization predicate) and the drift flag —
+ * NEVER a yield.
  */
 export function remainingBudget(arrived: readonly Miscover[], alpha: number): number {
   const tDeg = arrived.length;

@@ -1,9 +1,9 @@
 /**
- * Harness — OpenAPI 3.1 spec DERIVED from the frozen-projected schemas (ADR-M005 D7/D8).
+ * Harness — OpenAPI 3.1 spec DERIVED from the frozen-projected schemas.
  *
  * The HTTP/JSON mirror (`src/http.ts`) is a byte-faithful mirror of the MCP surface: the SAME five
  * operations, the SAME frozen input/output schemas (`schema-projection.ts`, projected from the frozen
- * `schemas/*.json`, NEVER re-written by hand — D8). This module assembles those projected schemas into an
+ * `schemas/*.json`, NEVER re-written by hand). This module assembles those projected schemas into an
  * OpenAPI 3.1 document. OpenAPI 3.1 adopts JSON Schema 2020-12 as its schema dialect, so the projected
  * schemas are embedded VERBATIM (they already had `$schema`/`$id`/`description`/`title` stripped by
  * `stripMeta`, so no dialect/annotation keys leak onto the external surface).
@@ -26,13 +26,13 @@ type JsonObject = { [k: string]: Json };
 export const OPENAPI_VERSION = "3.1.0";
 /** The API document's `info.version` — DERIVED from the single source (version.ts), never a second literal. */
 export const OPENAPI_INFO_VERSION = HARNESS_VERSION;
-/** Public JSON base URL (the `api.` sub-domain fronted by Caddy -> 127.0.0.1:3001, ADR-M005 D7/D10). */
+/** Public JSON base URL (the `api.` sub-domain fronted by Caddy -> 127.0.0.1:3001). */
 export const API_SERVER_URL = "https://api.monarkgate.tech";
 
 /**
  * The JSON envelope every mirror operation returns — the MCP `CallToolResult` shape reduced to JSON:
  * `structuredContent` is the FROZEN contract (byte-identical to the MCP `structuredContent`), and
- * `content` carries the honesty prose OUTSIDE the frozen contract (K-1). `outputSchema` is embedded
+ * `content` carries the honesty prose OUTSIDE the frozen contract. `outputSchema` is embedded
  * verbatim at `properties.structuredContent`, so the frozen `required` set is reachable by test 43.
  */
 function resultEnvelopeSchema(outputSchema: Json): JsonObject {

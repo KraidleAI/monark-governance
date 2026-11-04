@@ -1,9 +1,9 @@
 /**
- * The three served marginal tables of contract 1.1.0 (block C, lot CM-3c-3b; delegated decision Q-C3): the stable-run,
+ * The three served marginal tables of contract 1.1.0: the stable-run,
  * liquidation and cascade table files, built once at load from calibration.ts, fail-closed (guardMarginalTable, then
  * assertLiqBandExact for the liq strata). It imports no kata module (kata-path.ts, policy-classes.ts, policy-guard.ts)
- * and carries no error code, so no kata code enters the served graph before block D; servedPolicyTables of kata-path.ts
- * calls it, so the two agree by construction. The texts and sources are one parameter (Z-3 line of MONARK).
+ * and carries no error code, so no kata code enters the served graph through it; servedPolicyTables of kata-path.ts
+ * calls it, so the two agree by construction. The texts and sources are one parameter.
  */
 import type { ClassEntry, PolicyTable } from "@monark/contracts";
 import { lookupCommittedCalibration, UKEMI_LIQ_COMMITTED, USDE_STABLE_RUN_PREDICTOR_ID, USDE_STABLE_RUN_TASK_CLASS } from "./calibration.ts";

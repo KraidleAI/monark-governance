@@ -33,7 +33,7 @@ Mis à jour le 2026-11-04. Une ligne qui change remplace l'ancienne ; l'historiq
 
 | # | Étape | Finie quand |
 |---|---|---|
-| 1 | Le recentrage : archive, cinq documents, CI réduite | faite le 2026-11-04 ; reste à réécrire les README de `packages/hikae` et `apps/harness`, qui citent encore des ADR archivés |
+| 1 | Le recentrage : archive, cinq documents, CI réduite | faite le 2026-11-04 ; reste à réécrire le README de `apps/harness`, qui cite encore des ADR archivés |
 | 2 | La stratégie du fondateur, écrite dans `STRATEGIE.md` | ses signaux, ses marchés, ses horizons et ses règles de sortie sont écrits |
 | 3 | L'adaptateur stratégie → `Prediction`, puis la calibration de ses classes | `gate` rend COMMIT, DEFER ou ABSTAIN sur un signal réel de la stratégie, avec son test |
 | 4 | Le juge de Genkan en Lean, avec ses théorèmes | fait le 2026-11-04 (mode 1, 30 théorèmes rejoués en CI) ; la règle de l'EXIT confirmée par le fondateur le même jour |
@@ -49,6 +49,7 @@ Mis à jour le 2026-11-04. Une ligne qui change remplace l'ancienne ; l'historiq
 |---|---|
 | Périmètre | HIKAE, le harness et Genkan ; le reste est à l'archive `F:\ARCHIVE-MONARK-2026-11-04\` |
 | Langages | TypeScript strict sur Node 24 (`node:test`) ; Lean 4.32.1 pour le noyau de Genkan |
+| Dépendances | `minimatch` est forcé à 11.0.4 par `overrides` dans `package.json`. L'alerte Dependabot #13 (GHSA-g3hv-75wg-m249, déni de service) vise toute version avant 11.0.1, et les dernières versions d'eslint (10.14.0), de `@eslint/config-array` (0.23.5) et de `@typescript-eslint/typescript-estree` (8.72.1) demandent encore `^10` (lu le 2026-11-04). Avec la 11, eslint lit les mêmes 173 fichiers et rend les mêmes messages, règles du ratchet comprises. Retirer l'override quand les trois acceptent la 11 |
 | Contrats | les schémas de `schemas/` font foi ; `packages/contracts` en est la liaison TypeScript |
 | Garantie de HIKAE | couverture marginale, en échantillon fini, sous échangeabilité dans la classe ; jamais une probabilité d'avoir raison |
 | Dépôt | `KraidleAI/monark-governance`, public ; branche de travail `lot/etude-suite` ; rien n'est poussé sans accord |

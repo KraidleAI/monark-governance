@@ -1,8 +1,8 @@
 /**
- * Registry cell -> `class-policy-v2` row (lot CM-4a-i, block B1 of 1.1.0; docs/G0-lot-cm-4a-i.md; A-2 section 2.2 point 1;
- * projection table of the delegated decision on PolicyRow). A closed reader of one wave 1 registry cell (FORMAT.md, "Row
- * fields") and the deterministic projection of a cell into a row. A direction side without thresholds has no row
- * (reading L-1, accepted by MONARK); any other form of such a cell is refused. Inputs outside the registry are parameters.
+ * Registry cell -> `class-policy-v2` row.
+ * A closed reader of one wave 1 registry cell (FORMAT.md, "Row
+ * fields") and the deterministic projection of a cell into a row. A direction side without thresholds has no row;
+ * any other form of such a cell is refused. Inputs outside the registry are parameters.
  */
 import { assertClosedPolicyRow, sha256Canonical, type PolicyRow } from "@monark/contracts";
 import { ceilDecimal4, zeroErrorFloor } from "@monark/hikae";
@@ -71,7 +71,7 @@ export function readRegistry(bytes: Uint8Array): readonly RegistryCell[] {
   return cells;
 }
 
-/** The inputs of the projection that the registry does not hold (G0 Q-3: parameters, no published value here). */
+/** The inputs of the projection that the registry does not hold (parameters, no published value here). */
 export type ProjectionInputs = {
   readonly registryFile: string;
   readonly registrySha256: string;
@@ -82,7 +82,7 @@ export type ProjectionInputs = {
 
 const outcome = (x: RegistryCell["calib"]["check1"]) => (x === "n/a" ? null : x);
 
-/** The row of a cell, or null for a direction side without thresholds (L-1). The row passes assertClosedPolicyRow. */
+/** The row of a cell, or null for a direction side without thresholds. The row passes assertClosedPolicyRow. */
 export function projectCell(cell: RegistryCell, inp: ProjectionInputs): PolicyRow | null {
   const c = cell.calib;
   const dir = cell.side !== null;
@@ -122,13 +122,13 @@ export function projectCell(cell: RegistryCell, inp: ProjectionInputs): PolicyRo
   return row;
 }
 
-/** A cell of a pinned retire list (R-a of ENGINE-ROW-RETIRE-PATH-1; read by policy-retire.ts, never here): its keys and the retire block of its row. */
+/** A cell of a pinned retire list (read by policy-retire.ts, never here): its keys and the retire block of its row. */
 export type RetiredCell = NonNullable<PolicyRow["retire"]> & { readonly task_class: string; readonly cell_key: string };
 
 /**
- * Draft G0 of the retire path, section 4.2: the projection of a listed cell is its B1 row with exactly five columns set, status
+ * The projection of a listed cell is its projectCell row with exactly five columns set, status
  * retired, status_reason "retired: <cause>", retire {cause, k_test, n_test, u_test}, miss_bound and bound_on null; qhat (kept
- * as an audit record, Q-E6), text and every other column stay the B1 row's. No listed cell: the B1 row itself.
+ * as an audit record), text and every other column stay the projectCell row's. No listed cell: the projectCell row itself.
  */
 export function retireOverlay(row: PolicyRow, c: RetiredCell | undefined): PolicyRow {
   if (c === undefined) return row;

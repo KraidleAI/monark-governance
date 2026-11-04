@@ -1,18 +1,18 @@
 /**
- * The retire list of kata rows, format kata-retire-v1 (R-a of ENGINE-ROW-RETIRE-PATH-1; docs/G0-lot-retire-path-ra.md; draft G0
- * sections 4.1 and 4.2, MONARK's review F-2 to F-4; ADR 0006 addendum 9 points 1, 5 and 6). The closed reader of a pinned list,
+ * The retire list of kata rows, format kata-retire-v1.
+ * The closed reader of a pinned list,
  * called by the import guard on its chain GuardPins.retireLists, never served: bytes of the pinned sha256, a file retire-<YYYY-MM-DD>.json (the
  * list's date), one canonical JSON line {format, entries}, entries sorted by (task_class, cell_key, calib_attempt) with no repeated key, each
  * exactly the eight columns of RetireEntry, on the attempt of a region cell current at the list's date (attempt 2 from the day a wave 2 child is current); live:<k> counts within
  * LIVE_N_MAX, on a quarter Q_k that ends at or before the list's date; a dated list carries every entry of the previous one
- * unchanged (cumulative). The arithmetic of live counts (veto, u_test) stays with guardKataRow on the overlaid row (draft 4.2).
+ * unchanged (cumulative). The arithmetic of live counts (veto, u_test) stays with guardKataRow on the overlaid row.
  */
 import { createHash } from "node:crypto";
 import { canonicalJson, type CanonicalValue } from "@monark/contracts";
 import { readRegistry, type RetiredCell } from "./policy-projection.ts";
 import { LIVE_N_MAX } from "./policy-wave2.ts";
 
-/** One entry: the cell, the attempt it retires, the retire block of its row, the digest of its evidence (CM-5's record of the LIVE counts, or the ADR cited). */
+/** One entry: the cell, the attempt it retires, the retire block of its row, the digest of its evidence (the record of the LIVE counts, or the ADR cited). */
 export type RetireEntry = RetiredCell & { readonly calib_attempt: number; readonly evidence_sha256: string };
 /** The pin of a list: its file, exactly retire-<YYYY-MM-DD>.json by its date (a bare name, no directory), the sha256 of its bytes (from a committed pin), and the bytes. */
 export type RetirePin = { readonly file: string; readonly sha256: string; readonly bytes: Uint8Array };
@@ -54,8 +54,8 @@ export const retireQuarter = (cause: string): number | undefined =>
 
 /**
  * Reads a pinned list against the registry bytes the guard pins and, when the guard's chain holds an older list, against its
- * predecessor (R-T5), and against the `children` of its wave 2 core cells (attemptAt, below). A live:<k> retire is computed on the closed quarter only (addendum 9 point 6): its quarter end E_k, S_1 =
- * 2026-10-01T00:00Z plus 3k calendar months (point 1), is at or before 00:00Z of the list's date. Throws on the first difference.
+ * predecessor, and against the `children` of its wave 2 core cells (attemptAt, below). A live:<k> retire is computed on the closed quarter only: its quarter end E_k, S_1 =
+ * 2026-10-01T00:00Z plus 3k calendar months, is at or before 00:00Z of the list's date. Throws on the first difference.
  */
 export function readRetireList(pin: RetirePin, registryBytes: Uint8Array, previous?: RetireList, children: ChildCells = new Map()): RetireList {
   if (createHash("sha256").update(pin.bytes).digest("hex") !== pin.sha256) fail(`${pin.file}: the bytes do not have the pinned sha256`);
@@ -87,7 +87,7 @@ export function readRetireList(pin: RetirePin, registryBytes: Uint8Array, previo
 /**
  * The attempt 2 of a wave 2 core cell (FORMAT-wave2.md, the 40 band cells of wave 1 recalibrated at calib_attempt 2): the registry
  * status of its row and the day, YYYY-MM-DD, from which that row is current (a pinned date, that of the first dated version of its
- * class's table that carries it; final check of the wave 2 format, M-2). The caller reads wave2.json with its closed reader and pins the day.
+ * class's table that carries it; final check of the wave 2 format). The caller reads wave2.json with its closed reader and pins the day.
  */
 export type ChildCell = { readonly status: string; readonly current: string };
 /** The children a list is read against, keyed `<task_class> <cell_key>`. None (the guard today): every cell is at attempt 1. */

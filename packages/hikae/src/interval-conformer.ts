@@ -1,14 +1,14 @@
 /**
- * HIKAE — REGRESSION `interval` conformer (ADR-M003 D6.1; owner settled, D9/C4).
+ * HIKAE — REGRESSION `interval` conformer.
  *
- * Absolute-residual split conformal, for UKEMI's NUMERIC `Prediction` (liquidable amount,
- * class `ukemi-liquidable-24h`): from calibration pairs `(ŷ_i, y_i)`,
+ * Absolute-residual split conformal, for a NUMERIC `Prediction` (for example a liquidable amount,
+ * the synthetic class `ukemi-liquidable-24h`): from calibration pairs `(ŷ_i, y_i)`,
  *   - score `s_i = |y_i − ŷ_i|` (absolute residual);
- *   - `q̂` = ⌈(n+1)(1−α)⌉-th smallest score, exact rank — REUSES `splitQuantileShortest` (L1, B-12),
+ *   - `q̂` = ⌈(n+1)(1−α)⌉-th smallest score, exact rank — REUSES `splitQuantileShortest` (L1),
  *     the SOLE conformal-quantile implementation, NEVER rewritten here (shared fail-closed);
  *   - region `C(ŷ) = [ŷ − q̂, ŷ + q̂]` for the test point's prediction `ŷ`, via
- *     `buildIntervalRegion` (M5: `lo > hi` impossible since `q̂ ≥ 0`; NDG-1 ADR-M011: `q̂ = 0` — or
- *     float absorption `ŷ ± q̂ === ŷ` — ⇒ `lo === hi` ⇒ `region_degenerate` abstention (B-16; edges of the score test, B-13); a valid region is
+ *     `buildIntervalRegion` (`lo > hi` impossible since `q̂ ≥ 0`; non-degeneracy: `q̂ = 0` — or
+ *     float absorption `ŷ ± q̂ === ŷ` — ⇒ `lo === hi` ⇒ `region_degenerate` abstention (edges of the score test, `scoreTestBand`); a valid region is
  *     `lo < hi` STRICT, this module never emits a zero-width `covered`).
  *
  * DECLARED guarantee (inherited from L1): marginal, finite-sample coverage, UNDER exchangeability
@@ -41,7 +41,7 @@ export interface IntervalConformalParams {
   readonly residual: readonly string[];
   readonly producedAt: string;
   readonly schemaVersion: string;
-  readonly cell: VerdictCell; // the five cell fields of the verdict (spec section 5), copied as given
+  readonly cell: VerdictCell; // the five cell fields of the verdict, copied as given
   /** Carry the scores on the wire (optional payload); off by default (identified by scores_sha256). */
   readonly includeScores?: boolean;
 }
@@ -52,7 +52,7 @@ export interface IntervalConformalResult {
   readonly region: { readonly lo: number; readonly hi: number } | null;
 }
 
-/** Absolute-residual scores `s_i = |y_i − ŷ_i|` (ADR-M003 D6.1), in pair order. */
+/** Absolute-residual scores `s_i = |y_i − ŷ_i|`, in pair order. */
 export function absoluteResidualScores(calib: readonly CalibPair[]): number[] {
   return calib.map((c) => Math.abs(c.y - c.yhat));
 }
@@ -80,12 +80,12 @@ function underCalib(params: IntervalConformalParams, reason: "under_calib" | "re
  */
 export function conformInterval(params: IntervalConformalParams): IntervalConformalResult {
   const scores = absoluteResidualScores(params.calib);
-  const split = splitQuantileShortest(scores, params.alpha, params.nMin); // q̂ at the exact rank ⌈(n+1)(1−α)⌉ (L1, B-12)
+  const split = splitQuantileShortest(scores, params.alpha, params.nMin); // q̂ at the exact rank ⌈(n+1)(1−α)⌉ (L1)
   if ("reason" in split) return underCalib(params); // fail-closed: under-calibration
 
   const qhat = split.qhat;
-  const ir = scoreTestBand(params.yhat, qhat); // edges of the score test (B-13); lo<hi ⇒ q̂>0 ; converse FALSE under float absorption (M011 D1)
-  if (ir.abstain) return underCalib(params, ir.reason); // non-finite bound (under_calib), OR zero width (region_degenerate, NDG-1 M011, B-16)
+  const ir = scoreTestBand(params.yhat, qhat); // edges of the score test; lo<hi ⇒ q̂>0 ; converse FALSE under float absorption
+  if (ir.abstain) return underCalib(params, ir.reason); // non-finite bound (under_calib), OR zero width (region_degenerate)
 
   const verdict = buildVerdict({
     taskClass: params.taskClass,

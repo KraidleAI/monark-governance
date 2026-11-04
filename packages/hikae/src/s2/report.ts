@@ -1,11 +1,11 @@
 /**
- * HIKAE — S2 report rendering (ADR-M002 D10, CA-H2). Six recalculable blocks + the TWO
- * labelled blocks of decision (e): "real silence" (momentum ACTUALLY run) / "mechanism
+ * HIKAE — S2 report rendering. Six recalculable blocks + the TWO
+ * labelled blocks of section 6: "real silence" (momentum ACTUALLY run) / "mechanism
  * demo" (9 states with declared scores + didactic oracle ACTUALLY run, marked "not a
  * product"). Headline subject to the vocabulary gate.
  *
- * D10 line under each figure: n, provenance label, date (injected), raw journal
- * hash. Discipline 09: no forbidden phrasing. Never "X % of correct fills"; we write
+ * The `D10` line under each figure: n, provenance label, date (injected), raw journal
+ * hash. No phrasing the vocabulary gate forbids. Never "X % of correct fills"; we write
  * n, m, q̂, empirical coverage, abstention rate. A negative result = a result.
  */
 import type { CampaignResult, MutantOutcome } from "./instrument.ts";

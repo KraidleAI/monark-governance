@@ -1,14 +1,14 @@
 /**
- * The 32 kata class entries of wave 1 (lot CM-4a-ii-a, block B2 of 1.1.0; docs/G0-lot-cm-4a-ii.md G-1; spec section 9,
- * plan r3 section 5.2.1; A-2 section 2.2 point 2): the pinned class constants a kata table file must carry. n_min is
- * recomputed (n0 at the base test_delta); the class text is a parameter (published values: a dated line before F-5a).
+ * The 32 kata class entries of wave 1:
+ * the pinned class constants a kata table file must carry. n_min is
+ * recomputed (n0 at the base test_delta); the class text is a parameter.
  */
 import type { ClassEntry } from "@monark/contracts";
 import { zeroErrorFloor } from "@monark/hikae";
 
-/** The base test_delta of a kata class (A-2 section 2.2 point 2), also the runs level and the TEST veto level. */
+/** The base test_delta of a kata class, also the runs level and the TEST veto level. */
 export const KATA_BASE_DELTA = "0.05";
-/** The horizon of a kata class, in ms (the produced_at grid of CM-4b). */
+/** The horizon of a kata class, in ms (the produced_at grid). */
 export const KATA_H_MS: Readonly<Record<string, number>> = { "1h": 3_600_000, "4h": 14_400_000 };
 
 /** The wave 1 kata class entries: {btc,eth,bnb,sol} x {dir,range,mae-down,mae-up} x {1h,4h}. */
@@ -29,7 +29,7 @@ export function kataClassEntries(text: (taskClass: string) => string): readonly 
 const KATA_KEY = /^kata:([a-z0-9]+(?:-[a-z0-9]+)*)@([a-z0-9]+(?:-[a-z0-9]+)*)\/([A-Z0-9]{2,20})\/([a-z0-9]+)$/;
 
 /**
- * The kata key grammar (spec section 9; delegated decision CM-4b C-5): `kata:<kataId>@<venue>/<SYMBOL>/<h>`, kataId and
+ * The kata key grammar: `kata:<kataId>@<venue>/<SYMBOL>/<h>`, kataId and
  * venue lower-case words joined by "-" (1 to 64 characters), SYMBOL 2 to 20 of A-Z 0-9 starting with the class's symbol
  * in upper case, <h> the class's horizon, no bucket. Grammar only: an unregistered kata or venue is a key with no row.
  * One predicate for the request check and the import guard. Returns why the key is refused, or undefined.
@@ -42,16 +42,16 @@ export function kataKeyProblem(key: string, taskClass: string): string | undefin
   return (m[3] ?? "").startsWith(sym) && m[4] === h ? undefined : `does not match its class '${taskClass}' (SYMBOL starting with '${sym}', <h> '${String(h)}')`;
 }
 
-/** The tau cap of a kata dir class (spec section 9): a set of one label at most. Read by the policy_tau_cap refusal and by
- *  the kata clause of the gate description (block D, lot D-3; G2 N-5 of D-2). */
+/** The tau cap of a kata dir class: a set of one label at most. Read by the policy_tau_cap refusal and by
+ *  the kata clause of the gate description. */
 export const KATA_DIR_TAU_CAP = 1;
 
 /** The kata ids and venues reserved for the probe key of the deployment check (scripts/verify-harness.mjs gate_kata_call,
- *  kata:ca-probe@ca-probe/BTCUSDT/1h; lot E-2a, the CA trio): no table may hold a row under them, so that call abstains
+ *  kata:ca-probe@ca-probe/BTCUSDT/1h): no table may hold a row under them, so that call abstains
  *  before and after kata rows are served. Not part of kataKeyProblem, which the request check shares: the probe call must
  *  be answered, not refused. */
 export const KATA_RESERVED_IDS: readonly string[] = ["ca-probe"];
-/** True when the kata id or the venue is reserved (the import guard calls it; so will the kata loader of E-2a, which
+/** True when the kata id or the venue is reserved (the import guard calls it; so will the kata loader, which
  *  is served code: it lives here, not in policy-guard.ts, which the served graph may not import). */
 export function kataKeyReserved(kataId: string | null, venue: string | null): boolean {
   return KATA_RESERVED_IDS.some((id) => id === kataId || id === venue);

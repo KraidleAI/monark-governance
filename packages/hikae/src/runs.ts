@@ -1,6 +1,6 @@
 /**
- * HIKAE - dependence diagnostic for per-calibration rows (worksite 2 of the conformal alignment, lots L2-1r and L2-1r2;
- * ADR draft 0004 v3.1 D6, KraidleAI/recherches decisions/0004).
+ * HIKAE - dependence diagnostic for per-calibration rows (the harness writes the same test by
+ * counts in apps/harness/src/policy-digest-floor.ts).
  *
  * Exact one-sided Wald-Wolfowitz runs test on a time-ordered 0/1 sequence: R = the number of runs, and
  * P(R <= r_obs | the counts of ones and zeros) under the uniform law of the arrangements (i.i.d. or
@@ -83,7 +83,7 @@ export type Balanced =
   | { readonly empty: false; readonly threshold: number; readonly bits: (0 | 1)[] };
 
 /**
- * Balanced exceedance 1{v > t} of a time-ordered sequence (ADR draft 0004 v3.1 D6, lot L2-1r2): over the distinct values
+ * Balanced exceedance 1{v > t} of a time-ordered sequence: over the distinct values
  * t, ones(t) = the count of values > t; a t with ones(t) = 0 is skipped; t minimizes abs(2 ones(t) - n), ties toward the
  * larger ones(t). t is a value of the sequence and depends on the multiset only, never on the order; the choice uses
  * counts and comparisons only. `empty` iff the sequence is constant (or has no value). A NaN is refused.
