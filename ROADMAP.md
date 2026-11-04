@@ -26,10 +26,9 @@ Mis à jour le 2026-11-04. Une ligne qui change remplace l'ancienne ; l'historiq
   du décodeur sont tués. Le harness le lance : l'outil `judge` (étape 5) passe l'ordre au noyau construit, sous l'action de
   la `GateDecision` qu'il calcule lui-même sur le même appel (sous abstain pour une EXIT dont le gate refuse l'enveloppe),
   et lit sa réponse sans rien supposer (`readVerdict`).
-- **PR** : #355 (l'étape 5) et #356 (l'étape 7) fusionnées dans `lot/etude-suite` le 2026-11-04 ; #345 et #323 fermées le
-  même jour, sur décision du fondateur. L'étape 6 est sur la branche `lot/etape-6-suivi`, partie de `c331e276` (la tête de
-  l'étape 7), avec sa PR vers `lot/etude-suite`. L'étape 8 est sur la branche `lot/etape-8-papier`, partie de `412339a0`
-  (la tête de l'étape 6), ni poussée ni proposée en PR sans l'accord du fondateur.
+- **PR** : #355 (l'étape 5), #356 (l'étape 7) et #357 (l'étape 6) fusionnées dans `lot/etude-suite` le 2026-11-04 ; #345
+  et #323 fermées le même jour, sur décision du fondateur. L'étape 8 est sur la branche `lot/etape-8-papier`, partie de
+  `412339a0` (la tête de l'étape 6, que la fusion `0fbe4ea7` contient), ni poussée ni proposée en PR sans l'accord du fondateur.
 
 ## Les étapes
 
