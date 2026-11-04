@@ -115,8 +115,8 @@ registerHooks({ load(url, context, nextLoad) {
 // resolved cell (its current row, else the class text) followed by the unchanged suffix, on USDe (its key and another),
 // cascade and liq s0 to s3; the closed list of the liq gap is empty. USDe and cascade hold at the base (killer by hand).
 // killer: apps/harness/src/tools/gate.ts:747 CONST "}; B_t is caller-carried.`;" -> "}. B_t is caller-carried.`;"
-test("served_text_is_table_text_plus_suffix", () => {
-  const run = (p: Prediction, params: HarnessParams): string => HARNESS_TOOLS.find((t) => t.name === "gate")?.run({ prediction: p, params }).text ?? "";
+test("served_text_is_table_text_plus_suffix", async () => {
+  const run = async (p: Prediction, params: HarnessParams): Promise<string> => (await HARNESS_TOOLS.find((t) => t.name === "gate")?.run({ prediction: p, params }))?.text ?? "";
   const cases: [string, Prediction, HarnessParams, string][] = [
     ["usde", USDE, P, rowOf("stable-run-velocity-24h", USDE_STABLE_RUN_PREDICTOR_ID).text],
     ["usde other", pred("stable-run-velocity-24h", 0.0001, "narabi:other"), P, table("stable-run-velocity-24h").table.class.text],
@@ -124,7 +124,8 @@ test("served_text_is_table_text_plus_suffix", () => {
     ["liq s0", LIQ_S0, LIQ_P, rowOf("liquidation-eligible-coverage", `${UKEMI_LIQ_PREDICTOR_BASE}/s0`).text],
     ...[1e12, 5e13, 5e14].map((y, i): [string, Prediction, HarnessParams, string] => [`liq s${String(i + 1)}`, pred("liquidation-eligible-coverage", y, "ukemi:k"), LIQ_P, table("liquidation-eligible-coverage").table.class.text]),
   ];
-  const gaps = cases.filter(([, p, params, text]) => !run(p, params).startsWith(`${text}; B_t is caller-carried. verdict `)).map(([name]) => name);
+  const served = await Promise.all(cases.map(([, p, params]) => run(p, params)));
+  const gaps = cases.filter(([, , , text], i) => !(served[i] ?? "").startsWith(`${text}; B_t is caller-carried. verdict `)).map(([name]) => name);
   assert.deepEqual(gaps, [], "the closed list of the gap is empty");
 });
 

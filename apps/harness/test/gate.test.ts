@@ -284,14 +284,14 @@ test("gate_byo_interval_rejects_negative_scores", () => {
 // NEVER the CASCADE sentence. Driven through the REGISTRY run() (the real wiring registry.ts:68), so a
 // mutant that keys honestyText on task_class alone (`honestyText(env.prediction.task_class, false)`)
 // returns the CASCADE sentence next to a BYO COMMIT ⇒ this reds.
-test("gate_byo_honesty_text_is_wired_on_calibration_presence", () => {
+test("gate_byo_honesty_text_is_wired_on_calibration_presence", async () => {
   const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
   assert.ok(gateTool, "the gate tool is registered");
   const byoBody: GateEnvelope = {
     prediction: BYO_INTERVAL_PRED,
     params: { ...GOOD_PARAMS, intent: 0, tauInterval: 2, calibration: { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], mode: "interval" } },
   };
-  const text = gateTool.run(byoBody).text;
+  const text = (await gateTool.run(byoBody)).text;
   // The honesty carrier LEADS the content text (byte-identical prefix, B-2); the verdict summary (a
   // delivery aid for text-only clients) follows it — so the prefix equality is now a startsWith.
   assert.ok(text.startsWith(`${CALIBRATE_LABEL} B_t is caller-carried.`), "BYO content leads with the CALIBRATE_LABEL honesty carrier (B-2)");
@@ -303,7 +303,7 @@ test("gate_byo_honesty_text_is_wired_on_calibration_presence", () => {
   assert.ok(text.includes(`action=${byoDecision.action}`), "the verdict summary carries the decision action");
   assert.ok(text.includes(`scores_sha256=${byoDecision.verdict.scores_sha256.slice(0, 8)}`), "the verdict summary carries the (truncated) scores_sha256");
   // Non-regression: a committed-class gate still carries its own honesty text (not the BYO label).
-  const cascadeText = gateTool.run({ prediction: CASCADE_PRED, params: { ...GOOD_PARAMS, intent: 12345 } }).text;
+  const cascadeText = (await gateTool.run({ prediction: CASCADE_PRED, params: { ...GOOD_PARAMS, intent: 12345 } })).text;
   assert.ok(cascadeText.includes(CASCADE_UNCALIBRATED_SENTENCE), "a cascade gate still carries the CASCADE sentence");
 });
 
@@ -553,7 +553,7 @@ test("gate_stable_run_family_isolation_fail_closed_A7acde", () => {
 // Test — B-1 + A2 (honesty wiring keyed on the KEY): the committed USDe key carries the COMMITTED sentence;
 // every other population carries the UNCOMMITTED sentence; NEVER the cascade sentence. A7(f) surclaim mutant:
 // return the committed sentence for a non-committed (msUSD) key ⇒ this reds. Driven through the REAL registry run().
-test("gate_stable_run_honesty_text_is_keyed_A2_A7f", () => {
+test("gate_stable_run_honesty_text_is_keyed_A2_A7f", async () => {
   // The tool description declares BOTH the committed USDe population AND the uncommitted-population sentence.
   assert.ok(GATE_TOOL_DESCRIPTION.includes(STABLE_RUN_UNCALIBRATED_SENTENCE), "the description declares the uncommitted-population sentence");
   assert.ok(GATE_TOOL_DESCRIPTION.includes("synthetic-dollar-whitelisted-redeem"), "the description names the committed USDe population");
@@ -573,12 +573,12 @@ test("gate_stable_run_honesty_text_is_keyed_A2_A7f", () => {
   assert.ok(gateTool, "the gate tool is registered");
   // committed USDe key ⇒ the committed sentence, never the uncommitted/cascade sentence.
   const usdePred = narabiPrediction("eip155:1", USDE_TOKEN);
-  const usdeText = gateTool.run({ prediction: usdePred, params: { ...GOOD_PARAMS, intent: usdePred.yhat as number, tauInterval: 1 } }).text;
+  const usdeText = (await gateTool.run({ prediction: usdePred, params: { ...GOOD_PARAMS, intent: usdePred.yhat as number, tauInterval: 1 } })).text;
   assert.ok(usdeText.includes(STABLE_RUN_COMMITTED_SENTENCE), "committed key ⇒ committed sentence");
   assert.ok(!usdeText.includes(CASCADE_UNCALIBRATED_SENTENCE), "committed key ⇒ NOT the cascade sentence");
   // A7(f): a msUSD (non-committed) key ⇒ the uncommitted sentence, NEVER the committed one (surclaim).
   const msusdPred = narabiPrediction("eip155:1", MSUSD_TOKEN);
-  const msusdText = gateTool.run({ prediction: msusdPred, params: { ...GOOD_PARAMS, intent: 0 } }).text;
+  const msusdText = (await gateTool.run({ prediction: msusdPred, params: { ...GOOD_PARAMS, intent: 0 } })).text;
   assert.ok(msusdText.includes(STABLE_RUN_UNCALIBRATED_SENTENCE), "non-committed key ⇒ uncommitted sentence");
   assert.ok(!msusdText.includes(STABLE_RUN_COMMITTED_SENTENCE), "A7(f): a non-committed key must NEVER carry the committed 'committed' sentence (surclaim)");
   assert.ok(!msusdText.includes(CASCADE_UNCALIBRATED_SENTENCE), "non-committed key ⇒ NOT the cascade sentence (B-1)");

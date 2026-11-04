@@ -162,8 +162,8 @@ function up(x: number): number {
 // fails); some edges are one ulp off fl(yhat -/+ qhat); the BYO edge of (1; 1) is -2^-53, not 0. The B-7 clause is
 // withdrawn from the core sentence, the description and the served content.
 // killer: packages/hikae/src/region.ts:109 ROR "if (ofKey(m) - c <= q) a = m;" -> "if (ofKey(m) - c < q) a = m;"
-test("interval_edges_follow_the_score_test", () => {
-  const usdeText = HARNESS_TOOLS.find((t) => t.name === "gate")?.run({ prediction: pred(USDE, 1e-4, USDE_STABLE_RUN_PREDICTOR_ID), params: PARAMS }).text ?? "";
+test("interval_edges_follow_the_score_test", async () => {
+  const usdeText = (await HARNESS_TOOLS.find((t) => t.name === "gate")?.run({ prediction: pred(USDE, 1e-4, USDE_STABLE_RUN_PREDICTOR_ID), params: PARAMS }))?.text ?? "";
   assert.ok(usdeText.startsWith(`${STABLE_RUN_COMMITTED_SENTENCE}; B_t is caller-carried.`), "the served content leads with the committed sentence");
   for (const t of [STABLE_RUN_COMMITTED_SENTENCE, GATE_TOOL_DESCRIPTION, usdeText]) assert.ok(!/band edge is yhat|half a unit|not widened/.test(t), "no B-7 clause");
   let moved = 0;

@@ -201,7 +201,7 @@ test("u4b_liq_description_makes_no_probability_claim", () => {
 // cell, the stratum key the server derives from yhat (the client key stays ignored): the calibrated sentence on s0 only;
 // s1 to s3 (under_calib) and a key that names no stratum read the class text of the served table.
 // killer: apps/harness/src/tools/gate.ts:746 CONST "r.current && r.cell_key === cellKey" -> "r.current && hasCommittedCalibrationForClass(taskClass)"
-test("liq_honesty_text_follows_the_resolved_cell", () => {
+test("liq_honesty_text_follows_the_resolved_cell", async () => {
   assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the registry holds the liq class (s0)");
   const keys = ["ukemi:client-supplied-key/whatever", ...[0, 1, 2, 3].map((k) => `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(k)}`)];
   for (const key of keys) {
@@ -209,7 +209,7 @@ test("liq_honesty_text_follows_the_resolved_cell", () => {
     assert.equal(honestyText(TASK_LIQ_ELIGIBLE, key, false), `${want}; B_t is caller-carried.`, key);
   }
   for (const [yhat, want] of [[5000, LIQ_COMMITTED_SENTENCE], [5e14, LIQ_EMPTY_REGISTRY_SENTENCE]] as const) {
-    const run = GATE_TOOL.run({ prediction: { schema_version: SCHEMA_VERSION, task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: `${UKEMI_LIQ_PREDICTOR_BASE}/s0`, produced_at: "2026-09-04T00:00:00Z" }, params: LIQ_PARAMS });
+    const run = await GATE_TOOL.run({ prediction: { schema_version: SCHEMA_VERSION, task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: `${UKEMI_LIQ_PREDICTOR_BASE}/s0`, produced_at: "2026-09-04T00:00:00Z" }, params: LIQ_PARAMS });
     assert.ok(run.text.startsWith(`${want}; B_t is caller-carried. verdict `), `served content at yhat ${String(yhat)}`);
   }
   // The committed text carries its conditions (upper bound, one episode, no other event, H-3 a report, conditional rule).

@@ -200,7 +200,7 @@ test("harness_served_honesty_carriers_pass_vocab", async () => {
   const BYO = "byo:demo-class";
   const LIMITS: Obj = { venues: ["venue:a"], assets: [{ asset: "btc", cap: "100" }] };
   const JUDGE: Obj = { prediction: pred(BYO, 1, "caller:model"), params: { ...P, tauInterval: 2, calibration: { scores: TEN, mode: "interval" } }, order: { kind: "OPEN", target: "venue:a", asset: "btc", amount: "100" }, limits: LIMITS };
-  const answers = (status: number | null, out: string): KernelRunner => () => ({ status, stdout: new TextEncoder().encode(out) });
+  const answers = (status: number | null, out: string): KernelRunner => () => Promise.resolve({ status, stdout: new TextEncoder().encode(out) });
   const allows = answers(0, "allow\n");
   // The predictor id the cascade tool emitted for the gate's class cascade-liquidable-24h (the tool is archived since step 7; the
   // class stays served and abstains under_calib).
