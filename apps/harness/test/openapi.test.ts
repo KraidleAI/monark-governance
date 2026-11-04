@@ -46,8 +46,8 @@ test("openapi_generated_matches_frozen_schemas", () => {
   const spec = buildOpenApi();
   assert.equal(spec["openapi"], OPENAPI_VERSION, "OpenAPI 3.1 (JSON Schema 2020-12 dialect)");
 
-  // Paths are DERIVED from the registry — exactly the four operations, no more, no less (ADR-M007 C1).
-  assert.deepEqual(Object.keys(asObj(spec["paths"], "paths")).sort(), ["/attest", "/calibrate", "/cascade", "/gate"], "paths == the 4 ops");
+  // Paths are DERIVED from the registry — exactly the five operations, no more, no less (ADR-M007 C1, step 5 of ROADMAP.md).
+  assert.deepEqual(Object.keys(asObj(spec["paths"], "paths")).sort(), ["/attest", "/calibrate", "/cascade", "/gate", "/judge"], "paths == the 5 ops");
 
   const frozenPrediction = asObj(loadJson("prediction.schema.json"), "prediction");
   const frozenGate = asObj(loadJson("gate-decision.schema.json"), "gate-decision");
@@ -126,6 +126,22 @@ test("openapi_generated_matches_frozen_schemas", () => {
     "calibrate response requires the 7 D3 fields (reason IN the schema, M-5)",
   );
   assert.equal(calibrateOut["additionalProperties"], false, "calibrate response is a closed envelope");
+
+  // --- judge (step 5 of ROADMAP.md): NON-frozen, declared in schema-projection.ts. Its request is the gate's envelope (the same
+  // frozen Prediction and AttestedPrice, the same params) plus order and limits; its response carries the frozen GateDecision.
+  const judgeReq = requestSchema(spec, "judge");
+  assert.deepEqual(judgeReq["required"], ["prediction", "params", "order", "limits"], "judge request requires the envelope, order and limits");
+  assert.equal(judgeReq["additionalProperties"], false, "judge request is a closed envelope");
+  const judgeProps = asObj(judgeReq["properties"], "judge.request.properties");
+  for (const k of ["prediction", "params", "attested"]) assert.deepEqual(judgeProps[k], gateReqProps[k], `judge request ${k} == the gate's`);
+  assert.deepEqual(asObj(judgeProps["order"], "judge.order")["required"], ["kind", "target", "asset", "amount"], "an order requires kind, target, asset, amount");
+  assert.deepEqual(asObj(judgeProps["limits"], "judge.limits")["required"], ["venues", "assets"], "limits require venues and assets");
+  const judgeOut = responseStructured(spec, "judge");
+  assert.deepEqual(judgeOut["required"], ["decision", "kernel_verdict", "kernel_reason", "reduce_only", "kernel_request_sha256"], "judge response requires its 5 fields");
+  assert.equal(judgeOut["additionalProperties"], false, "judge response is a closed envelope");
+  const decision = asObj(asObj(judgeOut["properties"], "judge.response.properties")["decision"], "judge.response.decision");
+  assert.deepEqual(decision["required"], frozenGate["required"], "judge response decision.required == frozen GateDecision");
+  assert.equal(decision["additionalProperties"], false, "judge response decision stays closed");
 });
 
 /** The independent projection of a tool-error node: annotations and identity keys dropped, local $defs refs inlined. */

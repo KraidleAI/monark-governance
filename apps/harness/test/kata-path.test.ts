@@ -320,9 +320,12 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
  *  of this walk): the walk refuses any other specifier but a relative one, so that no loader of Node (node:module, node:worker_threads,
  *  node:vm, node:child_process) is served. Two loaders reach no module through a refused import and forbiddenLoads names them instead
  *  (execve, on the global process; setEngine, carried by the allowed node:crypto): finding m-4 of the delta review. An entry is added by
- *  the change that needs it, with its reason written in that change's G0. */
-const SERVED_IMPORTS = new Set(["node:crypto", "node:fs", "node:http", "node:path", "node:stream", "node:url", "@modelcontextprotocol/server",
-  "@monark/contracts", "@monark/hikae", "@monark/monark", "@monark/ukemi"]);
+ *  the change that needs it, with its reason. Step 5 of ROADMAP.md (the founder's go of 2026-11-04) adds two: @monark/genkan/frame, the
+ *  frames of Genkan's kernel, which the judge tool encodes and reads (pure, Node built-ins only); and node:child_process, for
+ *  src/kernel.ts alone, which runs the kernel binary by its path, with no shell, no argument and an empty environment
+ *  (served_child_process_is_kernel_ts_alone holds it to that one module). */
+const SERVED_IMPORTS = new Set(["node:child_process", "node:crypto", "node:fs", "node:http", "node:path", "node:stream", "node:url", "@modelcontextprotocol/server",
+  "@monark/contracts", "@monark/genkan/frame", "@monark/hikae", "@monark/monark", "@monark/ukemi"]);
 /** The served import graph: the modules reached from the entry points and the tools by a relative specifier, as importSpecifiers lists it,
  *  each text given by read (the file itself, or a copy that a test hands in). The walk stops by assertion on a relative specifier that
  *  names no file (a query suffix such as ?served names none, and Node 24 evaluates that file again as a second module instance), on a
@@ -351,6 +354,18 @@ test("kata_path_is_served", () => {
   assert.ok(seen.size > 6 && seen.has(join(SRC, "tools/gate.ts")));
   for (const f of ["kata-path.ts", "policy-classes.ts", "policy-served.ts"]) assert.ok(seen.has(join(SRC, f)), `${f} is served`);
   assert.ok(!seen.has(join(SRC, "policy-guard.ts")), "policy-guard.ts is not served");
+});
+
+// Step 5 of ROADMAP.md: node:child_process is in SERVED_IMPORTS for src/kernel.ts alone. Among the served modules, kernel.ts is the one
+// that names it, and it calls spawnSync once, with no shell and an empty environment; server.ts imports it, so it is served.
+test("served_child_process_is_kernel_ts_alone", () => {
+  const seen = servedModules();
+  const naming = [...seen].filter((f) => importSpecifiers(readFileSync(f, "utf8")).includes("node:child_process")).map((f) => f.slice(SRC.length + 1).split("\\").join("/"));
+  assert.deepEqual(naming, ["kernel.ts"], "only kernel.ts imports node:child_process");
+  const text = readFileSync(join(SRC, "kernel.ts"), "utf8");
+  assert.equal(text.match(/\bspawnSync\(/g)?.length, 1, "one spawnSync call");
+  assert.ok(text.includes("spawnSync(binary, [], { input: request, env: {}, shell: false,"), "by its path, no argument, an empty environment, no shell");
+  assert.doesNotMatch(text, /\b(exec|execSync|execFile|execFileSync|spawn|fork)\(/, "no other child_process call");
 });
 
 // SERVED-WALK-LOADS-1 (MONARK's decision of 2026-10-07; extended for execve and setEngine by finding m-4 of the delta review): the walk

@@ -7,7 +7,7 @@
  *
  * TWO surfaces on the ONE `127.0.0.1:3001` listener, routed by Host (Caddy fronts both sub-domains ->
  * this port, D7/D10): `mcp.monarkgate.tech` -> the MCP handler (below); `api.monarkgate.tech` -> the
- * HTTP/JSON mirror (`./http.ts`), a byte-faithful JSON mirror of the same four tools / frozen schemas.
+ * HTTP/JSON mirror (`./http.ts`), a byte-faithful JSON mirror of the same five tools / frozen schemas.
  * Host validation is OPT-IN in the SDK via `enableDnsRebindingProtection` — it defaults to `false`
  * (`@modelcontextprotocol/server@2.0.0/dist/index.mjs:333`) and `validateRequestHeaders` returns early
  * when it is disabled (`:390`); the harness does not enable it, so the SDK performs NO Host check. Passing
@@ -20,6 +20,10 @@
  *
  * Importing this module is SIDE-EFFECT-FREE: the listener starts only under the run-guard (direct
  * `node src/server.ts`), never on import — the tests import `HOST`/`originGuard`/`startServer` freely.
+ *
+ * Genkan's kernel (step 5 of ROADMAP.md): `startServer` hands the tools the runner of the built kernel (`runKernel`,
+ * ./kernel.ts) unless it is given another; `createHarnessHandler` and `handleJsonMirror` run the tools with the runner they are
+ * given, and with none `judge` denies every order `unavailable`.
  */
 import { createServer, type IncomingMessage, type ServerResponse, type Server as HttpServer } from "node:http";
 import { Readable } from "node:stream";
@@ -28,6 +32,8 @@ import { fileURLToPath } from "node:url";
 import { createMcpHandler, McpServer, validateOriginHeader } from "@modelcontextprotocol/server";
 import type { McpHttpHandler } from "@modelcontextprotocol/server";
 import { registerTools } from "./tools/registry.ts";
+import type { KernelRunner } from "./tools/judge.ts";
+import { runKernel } from "./kernel.ts";
 import { handleJsonMirror } from "./http.ts";
 import { HARNESS_VERSION } from "./version.ts";
 
@@ -86,12 +92,13 @@ export function originGuard(request: Request): Response | undefined {
 }
 
 /** The stateless MCP handler: a fresh `McpServer` with the tools registered, per request (D6). `clock` is the
- *  current instant handed to the tools (ADR-CM B-4: `produced_at` not in the future); read here in src/ (K-8). */
-export function createHarnessHandler(clock: () => number = Date.now): McpHttpHandler {
+ *  current instant handed to the tools (ADR-CM B-4: `produced_at` not in the future); read here in src/ (K-8). `kernel` is
+ *  the runner of Genkan's kernel handed to `judge`; absent, `judge` denies every order `unavailable`. */
+export function createHarnessHandler(clock: () => number = Date.now, kernel?: KernelRunner): McpHttpHandler {
   return createMcpHandler(
     () => {
       const server = new McpServer({ name: SERVER_NAME, version: HARNESS_VERSION });
-      registerTools(server, clock);
+      registerTools(server, clock, kernel);
       return server;
     },
     { keepAliveMs: KEEP_ALIVE_MS },
@@ -136,7 +143,7 @@ async function readBodyBounded(req: IncomingMessage, limit: number): Promise<Uin
   return new Uint8Array(Buffer.concat(chunks));
 }
 
-async function handleNodeRequest(req: IncomingMessage, res: ServerResponse, handler: McpHttpHandler, clock: () => number = Date.now): Promise<void> {
+async function handleNodeRequest(req: IncomingMessage, res: ServerResponse, handler: McpHttpHandler, clock: () => number = Date.now, kernel?: KernelRunner): Promise<void> {
   try {
     const method = req.method ?? "GET";
     // K-9 Origin guard runs FIRST (both surfaces), on a HEADER-ONLY request: a present-and-invalid Origin
@@ -162,7 +169,7 @@ async function handleNodeRequest(req: IncomingMessage, res: ServerResponse, hand
       body = read;
     }
     const request = toWebRequest(req, body);
-    const response = isJsonMirrorHost(request) ? await handleJsonMirror(request, clock) : await handler.fetch(request);
+    const response = isJsonMirrorHost(request) ? await handleJsonMirror(request, clock, kernel) : await handler.fetch(request);
     res.writeHead(response.status, { date: new Date(clock()).toUTCString(), ...Object.fromEntries(response.headers) }); // Date: the clock the tools see
     if (response.body !== null) {
       Readable.fromWeb(response.body).pipe(res);
@@ -178,12 +185,13 @@ async function handleNodeRequest(req: IncomingMessage, res: ServerResponse, hand
 /**
  * Start the HTTP listener on `host:port` (defaults: `127.0.0.1:3001`). Returns the `http.Server` so a
  * caller (or a test) can read `server.address()` and close it. The default host is the security
- * property under test (`harness_binds_localhost_only`): a caller that overrides it does not defeat it.
+ * property under test (`harness_binds_localhost_only`): a caller that overrides it does not defeat it. `kernel` is the runner
+ * of Genkan's kernel handed to both surfaces: by default the built kernel (`runKernel`, ./kernel.ts).
  */
-export function startServer(port: number = PORT, host: string = HOST, clock: () => number = Date.now): HttpServer {
-  const handler = createHarnessHandler(clock);
+export function startServer(port: number = PORT, host: string = HOST, clock: () => number = Date.now, kernel: KernelRunner = runKernel): HttpServer {
+  const handler = createHarnessHandler(clock, kernel);
   const server = createServer((req, res) => {
-    void handleNodeRequest(req, res, handler, clock);
+    void handleNodeRequest(req, res, handler, clock, kernel);
   });
   server.listen(port, host);
   return server;

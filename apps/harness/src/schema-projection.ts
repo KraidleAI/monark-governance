@@ -40,6 +40,9 @@ import { CALIBRATE_MAX_N } from "./tools/calibrate.ts";
 // Resource caps: single source in the pure ukemi-predict tool (motif CASCADE_MAX_NODES). No cycle (this
 // module -> ukemi-predict -> {gate,calibration,ukemi-strata}; none import back here — checked).
 import { UKEMI_PREDICT_MAX_RESERVES, UKEMI_PREDICT_MAX_UPDATES, UKEMI_PREDICT_MAX_BALANCES, UKEMI_BOOK_SCHEMA, UKEMI_ORACLE_SCHEMA, UKEMI_PREDICT_CLOSE_FACTOR_VERSION } from "./tools/ukemi-predict.ts";
+// The judge tool's closed lists and patterns: single source in the pure tool (motif CASCADE_MAX_NODES). No cycle (this module ->
+// judge -> gate; none import back here).
+import { JUDGE_DECIMAL_PATTERN, JUDGE_LIST_MAX, JUDGE_NAME_PATTERN, JUDGE_ORDER_KINDS, JUDGE_REASONS } from "./tools/judge.ts";
 
 /** A JSON value (no `any`; keeps the type-checked linter happy end-to-end). */
 export type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
@@ -541,3 +544,85 @@ export const UKEMI_PREDICT_OUTPUT_SCHEMA: JsonObject = {
 /** SDK Standard Schemas for the ukemi-predict tool (the `registerTool` arguments at -5b). */
 export const ukemiPredictInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(UKEMI_PREDICT_INPUT_SCHEMA as unknown as JsonSchemaType);
 export const ukemiPredictOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(UKEMI_PREDICT_OUTPUT_SCHEMA as unknown as JsonSchemaType);
+
+// ---------------------------------------------------------------------------- judge (step 5 of ROADMAP.md)
+
+/** A name of the frames (apps/genkan/src/frame.ts). */
+const JUDGE_NAME: JsonObject = { type: "string", pattern: JUDGE_NAME_PATTERN };
+/** An integer as a decimal string; the frames refuse one at or above 2^128 (a tool error `param_invalid`). */
+const JUDGE_DECIMAL: JsonObject = { type: "string", pattern: JUDGE_DECIMAL_PATTERN };
+
+/**
+ * judge INPUT: the gate's envelope (the same `prediction`, `params` and optional `attested` as TOOL_INPUT_SCHEMA), plus the
+ * `order` and the caller's `limits`. Declared here, never in schemas/. The SWAP rule (`assetOut` and `minOut` a SWAP's, and
+ * only a SWAP's), a name listed twice in `limits.assets` and an integer at or above 2^128 are refused by the frames, below the
+ * boundary.
+ */
+export const JUDGE_INPUT_SCHEMA: JsonObject = {
+  type: "object",
+  additionalProperties: false,
+  required: ["prediction", "params", "order", "limits"],
+  properties: {
+    ...asObject(TOOL_INPUT_SCHEMA["properties"] ?? null, "gate input properties"),
+    order: {
+      type: "object",
+      additionalProperties: false,
+      required: ["kind", "target", "asset", "amount"],
+      description: "The order to judge (GNK1). `assetOut` and `minOut` are a SWAP's, and only a SWAP's.",
+      properties: {
+        kind: { type: "string", enum: [...JUDGE_ORDER_KINDS], description: "TRANSFER and APPROVE are always denied; EXIT passes on a listed venue whatever the action." },
+        target: { ...JUDGE_NAME, description: "The venue the order targets." },
+        asset: { ...JUDGE_NAME, description: "The asset the order moves." },
+        amount: { ...JUDGE_DECIMAL, description: "The amount the order moves, in the asset's base units." },
+        assetOut: { ...JUDGE_NAME, description: "A SWAP's asset out." },
+        minOut: { ...JUDGE_DECIMAL, description: "A SWAP's least amount out; above 0 to pass, and not a slippage bound." },
+      },
+    },
+    limits: {
+      type: "object",
+      additionalProperties: false,
+      required: ["venues", "assets"],
+      description: "The caller's limits the kernel holds the order to.",
+      properties: {
+        venues: { type: "array", items: JUDGE_NAME, maxItems: JUDGE_LIST_MAX, uniqueItems: true, description: "The venues an order may target." },
+        assets: {
+          type: "array",
+          maxItems: JUDGE_LIST_MAX,
+          description: "The assets an order may move, each named once, with its cap.",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["asset", "cap"],
+            properties: {
+              asset: JUDGE_NAME,
+              cap: { ...JUDGE_DECIMAL, description: "The most one order may move, in the asset's base units: per order, not a total." },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+/** judge OUTPUT: the gate's GateDecision (TOOL_OUTPUT_SCHEMA), the kernel's verdict, and the sha256 of the request it was handed. */
+export const JUDGE_OUTPUT_SCHEMA: JsonObject = {
+  type: "object",
+  additionalProperties: false,
+  required: ["decision", "kernel_verdict", "kernel_reason", "reduce_only", "kernel_request_sha256"],
+  properties: {
+    decision: TOOL_OUTPUT_SCHEMA,
+    kernel_verdict: { enum: ["allow", "deny"] },
+    kernel_reason: { enum: [null, ...JUDGE_REASONS] },
+    reduce_only: { type: "boolean" },
+    kernel_request_sha256: { type: "string", pattern: "^[0-9a-f]{64}$" },
+  },
+  // The verdict ties its fields, as runJudge does: an allow has no reason; a deny has one, and is never reduce_only.
+  oneOf: [
+    { properties: { kernel_verdict: { const: "allow" }, kernel_reason: { const: null } } },
+    { properties: { kernel_verdict: { const: "deny" }, kernel_reason: { enum: [...JUDGE_REASONS] }, reduce_only: { const: false } } },
+  ],
+};
+
+/** SDK Standard Schemas for the judge tool (the `registerTool` arguments). */
+export const judgeInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(JUDGE_INPUT_SCHEMA as unknown as JsonSchemaType);
+export const judgeOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(JUDGE_OUTPUT_SCHEMA as unknown as JsonSchemaType);

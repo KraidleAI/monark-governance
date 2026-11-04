@@ -66,9 +66,10 @@
           "attest",
           "calibrate",
           "cascade",
-          "gate"
+          "gate",
+          "judge"
         ],
-        "response_sha256": "b419e4735f6e7c8107a827597add139cd8a4c3c1a97e6ed943ae20eb8f735956"
+        "response_sha256": "1921faad500b702ffc017a26c5caa1e1f9c8cbbab9b216b41d93df9e0054408e"
       }
     },
     {
