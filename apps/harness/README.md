@@ -58,7 +58,7 @@ abstention sentence) rides in the tool result **`content` text**, never inside t
 ### Caller-carried (in `params`)
 | Field            | Meaning | Server validation (K-4a) |
 |------------------|---------|--------------------------|
-| `remainingBudget`| `B_t`, remaining authorization capacity (D6). Depletion is out of scope (stateless). | finite |
+| `remainingBudget`| `B_t`, remaining authorization capacity (D6). Depletion is out of scope (stateless); `suivi`, when present, can only lower it. | finite |
 | `bFloor`         | `B_floor` threshold. | finite, `>= 0` |
 | `tau`            | set-size threshold for the `set` path (`\|C\| <= tau` ⇒ commit). | finite, `>= 0` |
 | `tauInterval`    | width threshold for the `interval` path. | finite, `>= 0` |
@@ -68,6 +68,7 @@ abstention sentence) rides in the tool result **`content` text**, never inside t
 | `tool`           | the **named** gated tool — echoed into `GateDecision.tool`, **never invoked** (D0/D1). | non-empty string |
 | `clockOpen`      | whether the coverage window is still open (the caller owns the window, K-4d). | boolean |
 | `calibration`    | **OPTIONAL** BYO calibration (ADR-M007 D7): `{ scores, mode, candidates? }`. Present ⇒ the BYO conformal path (see above). | closed object; `mode ∈ {interval,set}`; `\|scores\| <= CALIBRATE_MAX_N`; interval ⇒ scores `>= 0`; set ⇒ non-empty, well-formed unique candidate labels |
+| `suivi`          | **OPTIONAL** tracking evidence of the cell: `{ policy, evaluations, outcomes, open }`, replayed server-side; the gate reads `B_t = min(remainingBudget, replayed budget)` (see "Online tracking" below). | closed object; at most `SUIVI_MAX_N` (500) evaluations and outcomes, `SUIVI_MAX_BETS` (8) bets a mixture; the policy's class and cell are the request's |
 
 ### Caller-carried (in `prediction`, frozen)
 `schema_version` (must be `1.1.0` — the server speaks one version; `1.0.0` is a 400 `schema_version_unsupported`), `task_class`, `yhat`,
@@ -86,6 +87,41 @@ server **reads no clock**.
 Any invalid param, an unknown or retired `task_class` (with no `calibration`), a BYO validation failure, a
 `calibration` on a committed class (anti-override), or a wrong-typed `yhat` yields a **tool error**,
 never a silent gate.
+
+## Online tracking (`params.suivi`, step 6 of `ROADMAP.md`)
+
+The caller carries the cell's tracking evidence, and the server replays it from the start on every call (`suiviReplay` of
+`@monark/hikae`, pure; nothing is stored):
+
+- `policy`: the closed `hikae-suivi-policy-v1` settings of the cell (22 keys, checked by `assertSuiviPolicy`). Its `task_class` must
+  be the request's and its `cell_key` the verdict's `cell_key`.
+- `evaluations`: the cell's reference evaluations from the start, on the policy's grid (`grid_ms`).
+- `outcomes`: their arrived outcomes, `{ seq, resolved, member, miss }`.
+- `open`: whether the segment was open (licensed) at the start.
+
+The replay enters the labels in order. For each label it steps K and W (`o4Step`), then the detector (`detStep`), then closes an open
+segment on an alarm (W closes first on a tie). The replayed budget is `floor(10^9 (1 - delta_exh * W)) / 10^9` on an open segment,
+and `-1` otherwise (no licence yet, or closed: a closed segment stays closed). The gate reads `B_t = min(params.remainingBudget,
+replayed budget)`. The tracking only lowers the caller's budget: it moves a decision toward `abstain` (`budget_exhausted`), never toward
+`commit`. A call without `suivi` is unchanged. `judge` reads the same `params`, so it takes `suivi` too.
+
+Refusals:
+
+- outside the schema (an unknown key, a `miss` other than 0 or 1, more than 500 evaluations or outcomes, more than 8 bets a
+  mixture): refused at the input boundary (`input_invalid`, 400 at the mirror);
+- a policy of another class or cell, a BYO call (its verdict names no cell), a malformed policy, an evaluation off the grid, an
+  outcome of no evaluation: a tool error `param_invalid`, whose message starts with `invalid param 'suivi': ` and names the cause.
+
+Not done at this step:
+
+- the policy's `keyring` is checked for shape, but no signature of an evaluation or an outcome is read;
+- no tracking policy is committed server-side: the caller carries it. Committed policies per cell come with the calibration of the
+  strategy's classes (step 3);
+- the SR reading (`sr_reading_threshold`) and the M1 module are not served;
+- "no licence yet" and "closed" both answer `budget_exhausted`. A reason of their own would change the frozen `GateDecision` contract:
+  that is the founder's call;
+- the replay re-checks every state on exact rationals, and its cost grows faster than n² (about 0.5 s at 500 labels with 8 bets a
+  mixture, measured on 2026-11-04): hence the bounds.
 
 ## Committed calibrations
 
