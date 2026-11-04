@@ -1,6 +1,6 @@
 /**
- * Harness — HTTP/JSON mirror tests (ADR-M005 D7/D8; extended to 4 tools by ADR-M007 C1). The JSON
- * mirror MUST expose exactly the four MCP tools, with the SAME frozen schemas and the SAME boundary validation, and must sit behind
+ * Harness — HTTP/JSON mirror tests (ADR-M005 D7/D8; extended to 4 tools by ADR-M007 C1, to 5 by step 5 of ROADMAP.md). The JSON
+ * mirror MUST expose exactly the five MCP tools, with the SAME frozen schemas and the SAME boundary validation, and must sit behind
  * the SAME Host routing + Origin guard. Each test is killed by >= 1 named mutant (proven red, then
  * restored byte-exact via sha256 — see the passe report). No `any`, no unsafe (off the ratchet).
  */
@@ -25,8 +25,16 @@ const GATE_BODY = {
 const CASCADE_BODY = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" } as const;
 /** A valid calibrate body: n=10 >= nMin, p=⌈11·0.9⌉=10 <= n ⇒ q̂ is a number (a covered, not under_calib, result). */
 const CALIBRATE_BODY = { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 } as const;
+/** A valid judge body: a BYO gate envelope that commits, an OPEN within its cap (no kernel is handed to the mirror here: it
+ *  answers deny `unavailable`; the kernel runs in judge.kernel.test.ts). */
+const JUDGE_BODY = {
+  prediction: { schema_version: SCHEMA_VERSION, task_class: "byo-demo", yhat: 0, predictor_id: "caller:model", produced_at: "2026-09-04T00:00:00Z" },
+  params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 2, alpha: 0.1, nMin: 5, intent: 0, tool: "perps_order_preview", clockOpen: true, calibration: { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], mode: "interval" } },
+  order: { kind: "OPEN", target: "venue:a", asset: "btc", amount: "100" },
+  limits: { venues: ["venue:a"], assets: [{ asset: "btc", cap: "100" }] },
+} as const;
 /** A valid body per operation (attest takes none). */
-const BODIES: Readonly<Record<string, unknown>> = { gate: GATE_BODY, cascade: CASCADE_BODY, attest: {}, calibrate: CALIBRATE_BODY };
+const BODIES: Readonly<Record<string, unknown>> = { gate: GATE_BODY, cascade: CASCADE_BODY, attest: {}, calibrate: CALIBRATE_BODY, judge: JUDGE_BODY };
 
 interface MirrorResult { structuredContent: unknown; content: unknown; error?: string }
 
@@ -37,15 +45,15 @@ async function call(host: string, method: string, path: string, body?: unknown):
   return { status: res.status, body: (await res.json()) as MirrorResult };
 }
 
-// Test — the mirror exposes EXACTLY the four MCP tools, returns the SAME frozen structuredContent, and
+// Test — the mirror exposes EXACTLY the five MCP tools, returns the SAME frozen structuredContent, and
 // enforces the SAME frozen input schema as the MCP boundary. Mutants: (a) hardcode the route table (drop
 // cascade/attest, or add a 4th route) instead of deriving from HARNESS_TOOLS ⇒ the served set ≠ registry
 // ⇒ red; (b) skip `~standard.validate` in http.ts ⇒ an extra key slips through ⇒ 200 ⇒ red; (c) alter the
 // returned structuredContent ⇒ the parity deep-equal reds; (d) drop/empty the `content` honesty `text`
 // (http.ts:85) ⇒ the content-parity deep-equal reds (K-1: the mirror text must equal the MCP text byte-for-byte).
 test("http_mirror_matches_mcp_surface", async () => {
-  // (a) the mirror's operation set IS the registry — the terminal set {attest,gate,cascade,calibrate}, no drift.
-  assert.deepEqual([...MIRROR_OPERATIONS].sort(), ["attest", "calibrate", "cascade", "gate"], "mirror ops == terminal MCP set");
+  // (a) the mirror's operation set IS the registry — the set {attest,gate,cascade,calibrate,judge}, no drift.
+  assert.deepEqual([...MIRROR_OPERATIONS].sort(), ["attest", "calibrate", "cascade", "gate", "judge"], "mirror ops == the MCP set");
   assert.deepEqual([...MIRROR_OPERATIONS].sort(), [...REGISTERED_TOOL_NAMES].sort(), "mirror ops == REGISTERED_TOOL_NAMES");
 
   // every registered tool has a live route (200); a non-registered operation is 404.

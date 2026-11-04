@@ -17,6 +17,7 @@ import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { cascadeHonestyText, CASCADE_PREDICTOR_ID } from "../src/tools/cascade.ts";
 import { attestHonestyText } from "../src/tools/attest.ts";
 import { calibrateHonestyText } from "../src/tools/calibrate.ts";
+import { JUDGE_EXIT_LABEL, JUDGE_LABEL, JUDGE_NO_VERDICT_LABEL, type KernelRunner } from "../src/tools/judge.ts";
 import { UKEMI_LIQ_PREDICTOR_BASE, USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 
 interface VocabRule { re: string; why: string; }
@@ -45,12 +46,11 @@ const FORBIDDEN: { re: RegExp; why: string }[] = [
   { re: /\bDate\.now\b|new Date\(\s*\)|\bperformance\.now\b/, why: "clock read (a call or a reference, CM-2a C-7)" },
 ];
 
-// Test — the registry is (a) within the closed allowlist and (b) EXACTLY the terminal set
-// {attest,gate,cascade} (ADR-M005 D9, reached at H3; H1 was `["gate"]`, H2 `["cascade","gate"]`), and no
-// tool implementation has a side effect. Mutants: a tool outside the allowlist, a stray/premature
-// registration, or a `node:fs` import in a tools file ⇒ red.
+// Test — the registry is (a) within the closed allowlist and (b) EXACTLY the set {attest,gate,cascade,calibrate,judge}
+// (ADR-M005 D9 at H3, ADR-M007 at C1, step 5 of ROADMAP.md for judge), and no tool implementation has a side effect.
+// Mutants: a tool outside the allowlist, a stray/premature registration, or a `node:fs` import in a tools file ⇒ red.
 test("mcp_tools_have_no_side_effects", () => {
-  // (1) closed allowlist (K-8): registered ⊆ {attest, gate, cascade, calibrate}, and all four are present at C1.
+  // (1) closed allowlist (K-8): registered ⊆ {attest, gate, cascade, calibrate, judge}, and all five are present.
   assert.ok(REGISTERED_TOOL_NAMES.length >= 1, "at least one tool registered");
   for (const name of REGISTERED_TOOL_NAMES) {
     assert.ok((ALLOWED_TOOL_NAMES as readonly string[]).includes(name), `tool '${name}' outside the closed allowlist`);
@@ -59,11 +59,11 @@ test("mcp_tools_have_no_side_effects", () => {
   assert.ok(REGISTERED_TOOL_NAMES.includes("cascade"), "the `cascade` tool stays registered");
   assert.ok(REGISTERED_TOOL_NAMES.includes("attest"), "the `attest` tool stays registered");
   assert.ok(REGISTERED_TOOL_NAMES.includes("calibrate"), "the `calibrate` tool is registered in C1");
-  // (1b) EXACT registry: C1 registers EXACTLY `attest` + `cascade` + `gate` + `calibrate` — the
-  // TERMINAL set {attest,gate,cascade,calibrate} (ADR-M007, set terminal 3→4 ratified by a product decision),
-  // reached incrementally (H1 `gate`, H2 `cascade`, H3 `attest`, C1 `calibrate`). A premature or stray
-  // registration reddens here, where the subset allowlist above would tolerate it.
-  assert.deepEqual([...REGISTERED_TOOL_NAMES].sort(), ["attest", "calibrate", "cascade", "gate"], "C1 registers exactly attest + cascade + gate + calibrate (terminal set, ADR-M007)");
+  assert.ok(REGISTERED_TOOL_NAMES.includes("judge"), "the `judge` tool is registered (step 5 of ROADMAP.md)");
+  // (1b) EXACT registry: exactly `attest` + `cascade` + `gate` + `calibrate` + `judge`, reached incrementally (H1 `gate`,
+  // H2 `cascade`, H3 `attest`, C1 `calibrate`, step 5 `judge`). A premature or stray registration reddens here, where the
+  // subset allowlist above would tolerate it.
+  assert.deepEqual([...REGISTERED_TOOL_NAMES].sort(), ["attest", "calibrate", "cascade", "gate", "judge"], "the registry is exactly attest + calibrate + cascade + gate + judge");
 
   // (2) static side-effect scan of src/tools/**.
   const files = collectTs(TOOLS_DIR);
@@ -83,8 +83,8 @@ test("mcp_tools_have_no_side_effects", () => {
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
 
-async function mcpCall(method: string, params?: Obj): Promise<Obj> {
-  const res = await createHarnessHandler().fetch(
+async function mcpCall(method: string, params?: Obj, kernel?: KernelRunner): Promise<Obj> {
+  const res = await createHarnessHandler(Date.now, kernel).fetch(
     new Request("http://mcp.monarkgate.tech/", {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
@@ -199,10 +199,14 @@ test("harness_served_honesty_carriers_pass_vocab", async () => {
   const patterns = [...compilePatterns(config.banned), ...compilePatterns(config.scan.harness.banned)];
   const AT = "2026-09-04T00:00:00Z";
   const P: Obj = { remainingBudget: 1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 5, intent: 0, tool: "demo_tool", clockOpen: true };
-  const pred = (task_class: string, yhat: string | number, predictor_id: string): Obj => ({ schema_version: SCHEMA_VERSION, task_class, yhat, predictor_id, produced_at: AT });
+  const pred = (task_class: string, yhat: string | number, predictor_id: string, produced_at: string = AT): Obj => ({ schema_version: SCHEMA_VERSION, task_class, yhat, predictor_id, produced_at });
   const TEN = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
   const BYO = "byo:demo-class";
-  const CALLS: { label: string; tool: string; args: Obj; carrier: string }[] = [
+  const LIMITS: Obj = { venues: ["venue:a"], assets: [{ asset: "btc", cap: "100" }] };
+  const JUDGE: Obj = { prediction: pred(BYO, 1, "caller:model"), params: { ...P, tauInterval: 2, calibration: { scores: TEN, mode: "interval" } }, order: { kind: "OPEN", target: "venue:a", asset: "btc", amount: "100" }, limits: LIMITS };
+  const answers = (status: number | null, out: string): KernelRunner => () => ({ status, stdout: new TextEncoder().encode(out) });
+  const allows = answers(0, "allow\n");
+  const CALLS: { label: string; tool: string; args: Obj; carrier: string; kernel?: KernelRunner }[] = [
     { label: "gate cascade class", tool: "gate", args: { prediction: pred(TASK_CASCADE, 100, CASCADE_PREDICTOR_ID), params: P }, carrier: honestyText(TASK_CASCADE, CASCADE_PREDICTOR_ID, false) },
     { label: "gate stable-run committed key", tool: "gate", args: { prediction: pred(TASK_STABLE_RUN, 0.0001, USDE_STABLE_RUN_PREDICTOR_ID), params: { ...P, nMin: 50 } }, carrier: honestyText(TASK_STABLE_RUN, USDE_STABLE_RUN_PREDICTOR_ID, false) },
     { label: "gate stable-run other population", tool: "gate", args: { prediction: pred(TASK_STABLE_RUN, 0.0001, "other:population"), params: P }, carrier: honestyText(TASK_STABLE_RUN, "other:population", false) },
@@ -213,15 +217,29 @@ test("harness_served_honesty_carriers_pass_vocab", async () => {
     { label: "attest", tool: "attest", args: {}, carrier: attestHonestyText() },
     { label: "calibrate", tool: "calibrate", args: { scores: TEN, alpha: 0.1, nMin: 5 }, carrier: calibrateHonestyText() },
     { label: "calibrate under_calib", tool: "calibrate", args: { scores: [0.1, 0.2], alpha: 0.1, nMin: 5 }, carrier: calibrateHonestyText() },
+    // judge: the label of a verdict of the kernel (an allow, or a deny with one of its reasons), and the label of no verdict
+    // (no kernel ran, the kernel refused the request, or its answer was not a verdict). Pinned as constants, not through
+    // judgeHonestyText, so that a judgeHonestyText that ignores the verdict reds here.
+    { label: "judge, no kernel", tool: "judge", args: JUDGE, carrier: JUDGE_NO_VERDICT_LABEL },
+    { label: "judge, a kernel that refuses the request", tool: "judge", args: JUDGE, carrier: JUDGE_NO_VERDICT_LABEL, kernel: answers(3, "") },
+    { label: "judge, an answer that is no verdict", tool: "judge", args: JUDGE, carrier: JUDGE_NO_VERDICT_LABEL, kernel: answers(null, "allow\n") },
+    { label: "judge, a kernel that allows", tool: "judge", args: JUDGE, carrier: JUDGE_LABEL, kernel: allows },
+    { label: "judge, a kernel that denies", tool: "judge", args: JUDGE, carrier: JUDGE_LABEL, kernel: answers(0, "deny venue\n") },
+    { label: "judge, an EXIT the kernel allows", tool: "judge", args: { ...JUDGE, order: { kind: "EXIT", target: "venue:a", asset: "eth", amount: "1" } }, carrier: JUDGE_LABEL, kernel: allows },
+    // An EXIT under an envelope the gate refuses (a produced_at long after the clock): the kernel judges it with no gate decision.
+    { label: "judge, an EXIT under an envelope the gate refuses", tool: "judge", args: { ...JUDGE, prediction: pred(BYO, 1, "caller:model", "2999-01-01T00:00:00Z"), order: { kind: "EXIT", target: "venue:a", asset: "eth", amount: "1" } }, carrier: JUDGE_EXIT_LABEL, kernel: allows },
   ];
-  // Non-vacuity: every served tool is exercised, and the five gate honesty branches are five DISTINCT served texts.
+  // Non-vacuity: every served tool is exercised, the five gate honesty branches are five DISTINCT served texts, and so are the
+  // three judge branches.
   assert.deepEqual([...new Set(CALLS.map((c) => c.tool))].sort(), [...REGISTERED_TOOL_NAMES].sort(), "every served tool is called");
   assert.equal(new Set(CALLS.filter((c) => c.tool === "gate").map((c) => c.carrier)).size, 5, "the gate calls reach five distinct honesty branches");
+  assert.equal(new Set(CALLS.filter((c) => c.tool === "judge").map((c) => c.carrier)).size, 3, "the judge calls reach its three honesty branches");
+  assert.doesNotMatch(JUDGE_NO_VERDICT_LABEL, /\bjudged\b/, "the label of no verdict never says the kernel judged the order");
   const retired = await mcpCall("tools/call", { name: "gate", arguments: { prediction: pred(TASK_BTC_DIR, "up", "internal:momentum-4c"), params: { ...P, intent: "up" } } });
   assert.equal(retired["isError"], true, "btc-dir-15m is a served tool error (retired)");
   assert.deepEqual(retired["_meta"], { "monarkgate.tech/error_code": "task_class_retired" }, "with the retired code");
   for (const c of CALLS) {
-    const r = await mcpCall("tools/call", { name: c.tool, arguments: c.args });
+    const r = await mcpCall("tools/call", { name: c.tool, arguments: c.args }, c.kernel);
     assert.notEqual(r["isError"], true, `${c.label}: served without a tool error (${JSON.stringify(r["content"])})`);
     const content = r["content"];
     assert.ok(Array.isArray(content) && content.length === 1, `${c.label}: one served content item`);

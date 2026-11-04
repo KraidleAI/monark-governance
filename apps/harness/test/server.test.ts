@@ -302,7 +302,7 @@ test("harness_server_drain_leaves_no_server_handle", async () => {
 });
 
 // TRANSPORT-500-SCHEMA-1 (N-4 of the G2 of C' 3c-4a): every 500 the server can send validates the 500 schema that /openapi.json
-// publishes (the same for the four operations, compiled by Ajv 2020 in strict mode), over the wire: the two 500 of an operation
+// publishes (the same for the five operations, compiled by Ajv 2020 in strict mode), over the wire: the two 500 of an operation
 // (output outside its schema, the tool threw) and the transport-level 500 of server.ts, thrown around the mirror (POST /calibrate)
 // or before routing (an unparseable Host), whose body is exactly {"error":"internal_error"}. The schema stays closed.
 // killer: apps/harness/src/schema-projection.ts:200 CONST "[internal, transport]" -> "[internal]"
@@ -311,7 +311,7 @@ test("every_500_of_the_server_validates_the_published_500_schema", async () => {
   const at = (node: unknown, ...keys: string[]): unknown => keys.reduce<unknown>((n, k) => (n as Rec | undefined)?.[k], node);
   const spec = buildOpenApi(), ops = Object.keys(at(spec, "paths") as Rec);
   const schemas = ops.map((p) => at(spec, "paths", p, "post", "responses", "500", "content", "application/json", "schema"));
-  assert.ok(ops.length === 4 && schemas.every((x) => JSON.stringify(x) === JSON.stringify(schemas[0])), "one 500 schema for the four operations");
+  assert.ok(ops.length === 5 && schemas.every((x) => JSON.stringify(x) === JSON.stringify(schemas[0])), "one 500 schema for the five operations");
   const Ajv = (createRequire(import.meta.url)("ajv/dist/2020.js") as { default: new (o: object) => { compile: (s: unknown) => (v: unknown) => boolean } }).default;
   const valid = new Ajv({ strict: true }).compile(schemas[0]);
   assert.deepEqual([{ error: "internal_error", operation: "" }, { error: "internal_error", x: 1 }, { error: "tool_error" }].map(valid), [false, false, false], "the 500 schema stays closed");
@@ -348,12 +348,12 @@ test("every_500_of_the_server_validates_the_published_500_schema", async () => {
 // TRANSPORT-500-SCHEMA-1, fold of its review (R-1): every status the server can answer on a described operation is listed by
 // /openapi.json, and nothing else: 200, 400 (not JSON), 403 (an Origin outside monarkgate.tech), 413 (a body one byte over the
 // cap, read in full so no reset races the answer) and 500 (the tool threw). The 404 and 405 of undescribed paths and methods
-// are out of scope. The same list for the four operations.
+// are out of scope. The same list for the five operations.
 // killer: apps/harness/src/openapi.ts:91 SDL "\"413\": {" -> ""
 test("every_status_of_a_described_operation_is_listed_by_openapi", async () => {
   const spec = buildOpenApi() as { paths: Record<string, { post: { responses: Record<string, unknown> } }> };
   const listed = Object.values(spec.paths).map((p) => Object.keys(p.post.responses).sort().join(","));
-  assert.ok(listed.length === 4 && listed.every((l) => l === listed[0]), `one status list for the four operations: ${listed.join(" | ")}`);
+  assert.ok(listed.length === 5 && listed.every((l) => l === listed[0]), `one status list for the five operations: ${listed.join(" | ")}`);
   const tool = HARNESS_TOOLS.find((t) => t.name === "calibrate");
   assert.ok(tool !== undefined, "the calibrate tool is registered");
   const mutable = tool as { run: typeof tool.run }, original = tool.run;

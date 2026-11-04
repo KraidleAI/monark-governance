@@ -4,17 +4,16 @@
  * The registry is DATA (`HARNESS_TOOLS`) so the closed allowlist and the descriptions are inspectable
  * without standing up a server (the K-8 oracle and the vocab oracle read this table directly).
  *
- * `ALLOWED_TOOL_NAMES` is the closed universe of the surface (`attest`·`gate`·`cascade`·`calibrate`). H1
- * wired `gate`, H2 added `cascade`, H3 added `attest` (the MVP terminal set, ADR-M005 D9); and
- * `calibrate`, the 4th pure primitive — the set terminal 3→4 EXPANSION ratified by a product decision and
- * carried by ADR-M007 (+ ADR-M005 Addendum D14). The K-8 oracle asserts BOTH: (a) the CLOSED ALLOWLIST
- * `REGISTERED_TOOL_NAMES ⊆ ALLOWED_TOOL_NAMES` (never a tool outside the four), and (b) the EXACT set —
- * now `=== {attest,gate,cascade,calibrate}`, the ADR-M007 TERMINAL state (each earlier stage asserted its
- * own exact set on the way here). Plus a static side-effect scan of `src/tools/**`.
+ * `ALLOWED_TOOL_NAMES` is the closed universe of the surface (`attest`·`gate`·`cascade`·`calibrate`·`judge`). H1
+ * wired `gate`, H2 added `cascade`, H3 added `attest` (ADR-M005 D9), C1 added `calibrate` (ADR-M007), and step 5 of
+ * ROADMAP.md (the founder's go of 2026-11-04) added `judge`, the link to Genkan's kernel. The K-8 oracle asserts BOTH: (a) the
+ * CLOSED ALLOWLIST `REGISTERED_TOOL_NAMES ⊆ ALLOWED_TOOL_NAMES`, and (b) the EXACT set
+ * `{attest,gate,cascade,calibrate,judge}`. Plus a static side-effect scan of `src/tools/**`.
  *
  * Like everything under `src/tools/`, this file does no I/O: it imports the frozen-schema PROJECTION (`../schema-projection.ts`,
  * which owns a `node:fs` read at load, as `../policy-committed.ts` does for the committed tables) and the pure gate logic; it
- * never touches `node:fs`/`node:net`/`node:child_process`/`fetch`/`process.env`.
+ * never touches `node:fs`/`node:net`/`node:child_process`/`fetch`/`process.env`. The kernel runner of `judge` is injected
+ * by the entry point (src/kernel.ts, through server.ts), never imported here.
  */
 import type { McpServer, StandardSchemaWithJSON } from "@modelcontextprotocol/server";
 import type { Prediction, AttestedPrice } from "@monark/contracts";
@@ -27,9 +26,11 @@ import { runGate, honestyText, gateVerdictSummary, toolErrorCode, ERROR_CODE_MET
 import { runCascade, cascadeHonestyText, CASCADE_TOOL_NAME, CASCADE_TOOL_DESCRIPTION, type CascadeInput } from "./cascade.ts";
 import { runAttest, attestHonestyText, ATTEST_TOOL_NAME, ATTEST_TOOL_DESCRIPTION } from "./attest.ts";
 import { runCalibrate, calibrateHonestyText, calibrateVerdictSummary, CALIBRATE_TOOL_NAME, CALIBRATE_TOOL_DESCRIPTION, type CalibrateInput } from "./calibrate.ts";
+import { judgeInputStandardSchema, judgeOutputStandardSchema, JUDGE_INPUT_SCHEMA, JUDGE_OUTPUT_SCHEMA } from "../schema-projection.ts";
+import { runJudge, judgeHonestyText, judgeVerdictSummary, JUDGE_TOOL_NAME, JUDGE_TOOL_DESCRIPTION, type JudgeInput, type KernelRunner } from "./judge.ts";
 
-/** Closed universe of the tool surface (ADR-M005 D1, EXPANDED by ADR-M007 to the terminal set of 4). */
-export const ALLOWED_TOOL_NAMES = ["attest", "gate", "cascade", "calibrate"] as const;
+/** Closed universe of the tool surface (ADR-M005 D1, EXPANDED by ADR-M007 to 4, then by step 5 of ROADMAP.md to 5). */
+export const ALLOWED_TOOL_NAMES = ["attest", "gate", "cascade", "calibrate", "judge"] as const;
 export type AllowedToolName = (typeof ALLOWED_TOOL_NAMES)[number];
 
 /** The tool input envelope (D8 + ADR-M017 D1): frozen `Prediction` + non-frozen params + OPTIONAL frozen `AttestedPrice`. */
@@ -50,15 +51,16 @@ export interface HarnessToolDescriptor {
   readonly inputStandardSchema: StandardSchemaWithJSON;
   readonly outputStandardSchema: StandardSchemaWithJSON;
   /** Executes the tool: caller-carried args (validated at the SDK boundary) -> structured content + text. `ctx.nowMs`
-   *  is the current instant injected by the entry point (src/, K-8); only `gate` reads it (ADR-CM B-4). */
+   *  is the current instant injected by the entry point (src/, K-8); `gate` and `judge` read it (ADR-CM B-4). `ctx.kernel`
+   *  is the kernel runner, which only `judge` reads. */
   readonly run: (args: unknown, ctx?: ToolRunContext) => { readonly text: string; readonly structured: Record<string, unknown> };
 }
 
-/** What an entry point injects into a tool run (ADR-CM B-4): the current instant, read in src/, never under src/tools/. */
-export type ToolRunContext = Pick<RunGateOptions, "nowMs">;
+/** What an entry point injects into a tool run (ADR-CM B-4): the current instant, read in src/, never under src/tools/; and the
+ *  runner of Genkan's kernel (src/kernel.ts), started in src/, never under src/tools/. */
+export type ToolRunContext = Pick<RunGateOptions, "nowMs"> & { readonly kernel?: KernelRunner };
 
-/** The tools registered by THIS lot's cumulative state (H1: `gate`; H2: `cascade`; H3: `attest`; C1:
- *  `calibrate` — the terminal set {attest,gate,cascade,calibrate}, ADR-M007). */
+/** The tools registered (H1: `gate`; H2: `cascade`; H3: `attest`; C1: `calibrate`, ADR-M007; step 5 of ROADMAP.md: `judge`). */
 export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
   {
     name: GATE_TOOL_NAME,
@@ -123,9 +125,23 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
       return { text, structured: result as unknown as Record<string, unknown> };
     },
   },
+  {
+    name: JUDGE_TOOL_NAME,
+    description: JUDGE_TOOL_DESCRIPTION,
+    inputSchemaJson: JUDGE_INPUT_SCHEMA,
+    outputSchemaJson: JUDGE_OUTPUT_SCHEMA,
+    inputStandardSchema: judgeInputStandardSchema,
+    outputStandardSchema: judgeOutputStandardSchema,
+    run: (args, ctx) => {
+      const output = runJudge(args as JudgeInput, ctx);
+      // structuredContent = {decision, gate_error, kernel_verdict, kernel_reason, reduce_only, kernel_request_sha256}; the honesty prose and
+      // the verdict summary (derived from the output) ride in `content` text (K-1).
+      return { text: `${judgeHonestyText(output)} ${judgeVerdictSummary(output)}`, structured: output as unknown as Record<string, unknown> };
+    },
+  },
 ];
 
-/** The names actually registered (C1: `["gate","cascade","attest","calibrate"]` — terminal set, ADR-M007). */
+/** The names actually registered, in registry order: `["gate","cascade","attest","calibrate","judge"]`. */
 export const REGISTERED_TOOL_NAMES: readonly string[] = HARNESS_TOOLS.map((t) => t.name);
 
 /**
@@ -133,10 +149,11 @@ export const REGISTERED_TOOL_NAMES: readonly string[] = HARNESS_TOOLS.map((t) =>
  * Input/output are the PROJECTED frozen schemas (D8); the SDK enforces `additionalProperties:false`
  * at the boundary (measured), and `runGate` re-asserts the closed contract on the way out (D9).
  * `clock` is the entry point's clock (server.ts, ADR-CM B-4): read per call, never here by itself (K-8); absent,
- * the tools run without `nowMs`. A tool error keeps the SDK's own error result, first content byte-identical (the
+ * the tools run without `nowMs`. `kernel` is the runner of Genkan's kernel (server.ts hands src/kernel.ts's); absent, `judge`
+ * denies every order `unavailable`. A tool error keeps the SDK's own error result, first content byte-identical (the
  * error message), and adds its stable code in `_meta` (ADR-CM B-3); any other throw takes the SDK path unchanged.
  */
-export function registerTools(server: McpServer, clock?: () => number): void {
+export function registerTools(server: McpServer, clock?: () => number, kernel?: KernelRunner): void {
   for (const tool of HARNESS_TOOLS) {
     server.registerTool(
       tool.name,
@@ -147,7 +164,8 @@ export function registerTools(server: McpServer, clock?: () => number): void {
       },
       (args: unknown) => {
         try {
-          const { text, structured } = tool.run(args, clock === undefined ? {} : { nowMs: clock() });
+          const ctx: ToolRunContext = { ...(clock === undefined ? {} : { nowMs: clock() }), ...(kernel === undefined ? {} : { kernel }) };
+          const { text, structured } = tool.run(args, ctx);
           return { content: [{ type: "text" as const, text }], structuredContent: structured };
         } catch (error) {
           const code = toolErrorCode(error);

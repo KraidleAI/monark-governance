@@ -16,8 +16,8 @@ Ce dépôt construit le moteur qui accueillera une stratégie de trading réelle
 |---|---|---|
 | `packages/hikae` | la porte conforme, en trois couches (ci-dessous), plus le suivi en ligne (détecteur de changement par paris, moniteur, budget `B_t`) | testé |
 | `packages/contracts`, `schemas/` | les contrats gelés : `AttestedPrice`, `Prediction`, `CoverageVerdict`, `GateDecision` ; les schémas JSON font foi, le paquet en est la liaison TypeScript | testé |
-| `apps/harness` | le moteur servi : un serveur MCP sans état (`gate`, `calibrate`, et encore `attest` de Shōgen et `cascade` d'UKEMI) | testé ; à réduire à HIKAE |
-| `apps/genkan` | la porte d'ordres : noyau Lean 4 (`leanprover/lean4:v4.32.1`) qui juge un ordre sous un contexte (mode 1 : la décision de HIKAE, les places et les actifs autorisés, leurs plafonds), décode un ordre `GNK1` et calcule un SHA-256 | juge testé et prouvé (théorèmes rejoués en CI) ; le harness ne l'appelle pas encore |
+| `apps/harness` | le moteur servi : un serveur MCP sans état (`gate`, `calibrate`, `judge`, qui lance le noyau de Genkan, et encore `attest` de Shōgen et `cascade` d'UKEMI) | testé ; à réduire à HIKAE et Genkan |
+| `apps/genkan` | la porte d'ordres : noyau Lean 4 (`leanprover/lean4:v4.32.1`) qui juge un ordre sous un contexte (mode 1 : la décision de HIKAE, les places et les actifs autorisés, leurs plafonds), décode un ordre `GNK1` et calcule un SHA-256 | juge testé et prouvé (théorèmes rejoués en CI) ; lancé par l'outil `judge` du harness |
 | `packages/ukemi`, `packages/monark` | dépendances du harness (cascade UKEMI, adaptateurs Shōgen), gardées le temps de le réduire | testé |
 | `fixtures/`, `tools/kata-recalc/` | données lues par le moteur et vérificateurs Python des tables de politique | — |
 
@@ -50,7 +50,8 @@ ELAN_HOME=F:/elan node apps/genkan/scripts/lake.mjs build
 ELAN_HOME=F:/elan npm run test:genkan
 ```
 
-La CI (`.github/workflows/ci.yml`) lance les tests, le lint, l'audit des dépendances, et construit puis rejoue le noyau Lean.
+La CI (`.github/workflows/ci.yml`) lance les tests, le lint, l'audit des dépendances, et construit puis rejoue le noyau Lean,
+sur lequel elle lance aussi l'outil `judge` du harness (`apps/harness/test/judge.kernel.test.ts`).
 
 ## Ce qui a quitté ce dépôt
 

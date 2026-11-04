@@ -1,9 +1,9 @@
 # @monark/harness
 
 A **stateless MCP server** (plus a **HTTP/JSON mirror**) that exposes the real engine primitives
-— the HIKAE `gate`, the UKEMI `cascade`, the Shōgen `attest`, and the HIKAE BYO `calibrate`
-(ADR-M007) — as callable tools. This document details the `gate` tool; the mirror and deployment are
-covered at the end.
+— the HIKAE `gate`, the UKEMI `cascade`, the Shōgen `attest`, the HIKAE BYO `calibrate`
+(ADR-M007), and the Genkan `judge` — as callable tools. This document details the `gate` tool, then `judge`; the mirror
+and deployment are covered at the end.
 No stand-in: the `gate` tool composes the actual `@monark/hikae` policy (`conformalSet` / `conformInterval`
 → `buildVerdict` → `gate()`) and returns a **frozen, closed `GateDecision`** (`@monark/contracts`).
 Free, pure, no persistence, no trading (ADR-M005 D1). Transport: MCP Streamable HTTP via
@@ -116,15 +116,53 @@ abstain. The registry entries are written by an emitter from the output of a fro
 
 The listener starts only when `src/server.ts` is run directly; importing the module is side-effect-free.
 
+## The `judge` tool (Genkan's kernel)
+
+`judge` links the gate to Genkan, the order gate (step 5 of `ROADMAP.md`). **Input**: the gate's envelope
+`{ prediction, params, attested? }`, plus:
+
+- `order` — `{ kind, target, asset, amount, assetOut?, minOut? }`, the fields of a GNK1 order: `kind` is one of
+  `TRANSFER`, `APPROVE`, `SWAP`, `EXIT`, `OPEN`; a name is 1 to 128 characters of `0-9`, `a-z`, `:`, `.`, `_`, `/`, `@`,
+  `-`; an integer is a decimal string, below 2^128; `assetOut` and `minOut` are a SWAP's, and only a SWAP's.
+- `limits` — `{ venues, assets: [{ asset, cap }] }`: at most 255 of each, no name twice.
+
+The tool runs the gate on the envelope (the same rules and the same refusals as `gate`), builds the kernel's context from
+**that decision's action** and the caller's limits, and hands the mode 1 request to the kernel binary: `src/kernel.ts`
+runs the binary that `lake build genkan-kernel` writes in `apps/genkan/kernel/.lake/build/bin`, by its path, with no
+shell, no argument and an empty environment, killed after 10 s or past 64 bytes of stdout. It reads the answer with
+`readVerdict`, fail-closed: an allow only for exit 0 and exactly the line `allow`. The gate runs first: an envelope it
+refuses (a `produced_at` in the future, say) is a tool error for every order but an EXIT. An EXIT is judged even then (the
+founder's decision of 2026-11-04), under the action abstain, since the kernel judges an EXIT whatever the action: `decision`
+is then `null` and `gate_error` holds the gate's code and message. A malformed envelope, one the input schema refuses, is
+still a 400 `input_invalid` for every order, an EXIT included. The kernel runs synchronously: each `judge` call holds
+the server until the kernel answers (about 30 ms measured on Windows), at most 10 s; an asynchronous runner, capped, comes
+before any deployment behind a public host.
+
+**Output** `{ decision, gate_error, kernel_verdict, kernel_reason, reduce_only, kernel_request_sha256 }`: the gate's
+`GateDecision`, or `null` with the gate's refusal in `gate_error` (an EXIT only);
+`allow` or `deny`; `null`, or the reason of the deny: the kernel's (`kind`, `venue`, `not-commit`, `asset`, `over-cap`,
+`asset-out`, `min-out`, `bad-ctx`, `bad-order`), `refused` (exit 3), `unreadable` (any other answer, a run killed past
+its timeout or its cap included) or `unavailable` (no kernel ran: no runner, or a binary no process can be made of);
+`reduce_only`, true for an allowed EXIT only; the sha256 of the request bytes. The `content` text says which: the kernel
+judged the order, or (`refused`, `unreadable`, `unavailable`) it gave no verdict on it. A field outside the frames is a
+tool error `param_invalid`, and no kernel runs.
+
+`startServer` hands the tools the built kernel; `createHarnessHandler` and `handleJsonMirror` hand them the runner they are
+given, and with none `judge` denies every order `unavailable`. What an allow does not say: the kernel knows no balance,
+position, price or venue rule; a cap holds one order, not a total; a `minOut` above 0 is not a slippage bound; and an EXIT
+on a listed venue passes whatever the gate decided, so whoever executes it must make it reduce-only. The tool places no
+order. Tests: `test/judge.test.ts` (a fake kernel) and `test/judge.kernel.test.ts` (the real kernel through the served
+server, in `npm run test:genkan`).
+
 ## HTTP/JSON mirror & deployment
 
 One `127.0.0.1:3001` listener serves two surfaces, routed by Host: `mcp.monarkgate.tech` → the MCP tools
-above; `api.monarkgate.tech` → a plain-JSON mirror of the **same** four tools and the **same** frozen
+above; `api.monarkgate.tech` → a plain-JSON mirror of the **same** five tools and the **same** frozen
 schemas.
 
-- `POST /gate`, `POST /cascade`, `POST /attest`, `POST /calibrate` — JSON body in,
+- `POST /gate`, `POST /cascade`, `POST /attest`, `POST /calibrate`, `POST /judge` — JSON body in,
   `{ structuredContent, content }` out (`structuredContent` is the frozen contract for gate/cascade, the
-  K-1 envelope for attest/calibrate; the honesty text rides in `content`, K-1). A body that fails the
+  K-1 envelope for attest/calibrate, the output above for judge; the honesty text rides in `content`, K-1). A body that fails the
   frozen schema, or a tool refusal, is a `4xx`, never a silent result.
 - `GET /openapi.json` — the OpenAPI 3.1 spec, **derived** from the frozen schemas (never hand-written).
 - `GET /health` — liveness plus the operation list.

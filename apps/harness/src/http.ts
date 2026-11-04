@@ -1,7 +1,7 @@
 /**
  * Harness — HTTP/JSON MIRROR of the MCP surface (ADR-M005 D7/D8).
  *
- * The SAME four operations (attest, gate, cascade, calibrate), the SAME frozen input/output schemas
+ * The SAME five operations (attest, gate, cascade, calibrate, judge), the SAME frozen input/output schemas
  * (`schema-projection.ts` / the registry), exposed as plain JSON: `POST /{tool}` with a JSON body ->
  * a JSON response mirroring the MCP `CallToolResult` (`{ structuredContent, content }`). The mirror is
  * DERIVED from the SAME `HARNESS_TOOLS` registry the MCP server registers, so the two surfaces cannot
@@ -22,6 +22,7 @@ import { HARNESS_TOOLS, REGISTERED_TOOL_NAMES } from "./tools/registry.ts";
 import type { HarnessToolDescriptor } from "./tools/registry.ts";
 import { buildOpenApi } from "./openapi.ts";
 import { toolErrorCode, type HarnessErrorCode } from "./tools/gate.ts";
+import type { KernelRunner } from "./tools/judge.ts";
 
 const JSON_HEADERS = { "content-type": "application/json" } as const;
 
@@ -48,10 +49,11 @@ function json(body: unknown, status = 200, extraHeaders?: Readonly<Record<string
  * `405` + `Allow: POST` and a "use POST /{tool}" hint (an unknown path stays `404`), so a caller that GETs
  * self-corrects. The Origin guard is applied by server.ts BEFORE this, identically to the MCP path, so
  * this handler never sees a present-and-invalid Origin. `clock` is the current instant handed to the tool
- * (ADR-CM B-4), read here in src/ (K-8). The output is validated against the tool's output schema before it is
+ * (ADR-CM B-4), read here in src/ (K-8). `kernel` is the runner of Genkan's kernel handed to `judge` (server.ts passes it);
+ * absent, `judge` denies every order `unavailable`. The output is validated against the tool's output schema before it is
  * sent (ADR-CM B-6): an invalid output is a `500` with code `output_invalid`, never served.
  */
-export async function handleJsonMirror(request: Request, clock: () => number = Date.now): Promise<Response> {
+export async function handleJsonMirror(request: Request, clock: () => number = Date.now, kernel?: KernelRunner): Promise<Response> {
   const { pathname } = new URL(request.url);
 
   if (request.method === "GET") {
@@ -99,7 +101,7 @@ export async function handleJsonMirror(request: Request, clock: () => number = D
 
   let result: ReturnType<HarnessToolDescriptor["run"]>;
   try {
-    result = tool.run(validated.value, { nowMs: clock() });
+    result = tool.run(validated.value, kernel === undefined ? { nowMs: clock() } : { nowMs: clock(), kernel });
   } catch (error) {
     // A tool-level refusal (bad params / refused witness) is a client error, never a leaked stack.
     if (error instanceof Error && TOOL_ERROR_NAMES.has(error.name)) {
