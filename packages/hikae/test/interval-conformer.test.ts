@@ -108,10 +108,11 @@ test("interval_conformer_coverage", () => {
     `mean coverage ${meanCoverage.toFixed(4)} >= 1−α−0.005 = ${floor} (R=${R} seeds, ${testTotal} points)`,
   );
 
-  // (c) IMPOSED D10 line (D6.2, item 6): harness_version=fixtures-synth + "synthetic" next
-  // to the identifier. INJECTED date (never read).
-  const d10 = liquidable24hProvenanceLine(1, LIQUIDABLE_24H_N, "2026-09-05");
-  assert.ok(d10.includes(`${LIQUIDABLE_24H_CLASS}\` (synthetic)`), `"synthetic" next to the identifier`);
-  assert.ok(d10.includes(`harness_version = \`${LIQUIDABLE_24H_HARNESS}\``), "harness_version=fixtures-synth");
-  assert.ok(d10.includes("n = 300") && d10.includes("α = 0.01"), "n and α carried on the D10 line");
+  // (c) IMPOSED provenance line: it opens with "provenance:", carries harness_version=fixtures-synth
+  // and "synthetic" next to the identifier. INJECTED date (never read).
+  const provenance = liquidable24hProvenanceLine(1, LIQUIDABLE_24H_N, "2026-09-05");
+  assert.ok(provenance.startsWith("provenance: class = "), `the line opens with "provenance:"`);
+  assert.ok(provenance.includes(`${LIQUIDABLE_24H_CLASS}\` (synthetic)`), `"synthetic" next to the identifier`);
+  assert.ok(provenance.includes(`harness_version = \`${LIQUIDABLE_24H_HARNESS}\``), "harness_version=fixtures-synth");
+  assert.ok(provenance.includes("n = 300") && provenance.includes("α = 0.01"), "n and α carried on the provenance line");
 });

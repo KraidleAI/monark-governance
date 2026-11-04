@@ -12,7 +12,7 @@
  * on these synthetic pairs; "real data" is NOT claimed. The real 24 h label is
  * not read by this code.
  *
- * IMPOSED: every output (report/journal/panel) of this class carries the `D10` line
+ * IMPOSED: every output (report/journal/panel) of this class carries the `provenance:` line
  * with `harness_version = fixtures-synth` and the word "synthetic" next to the identifier —
  * see `liquidable24hProvenanceLine`.
  */
@@ -52,7 +52,7 @@ export function generateLiquidable24hPairs(seed: number, n: number = LIQUIDABLE_
 }
 
 /**
- * The `D10` provenance line — `harness_version=fixtures-synth`, "synthetic" next to the
+ * The `provenance:` line — `harness_version=fixtures-synth`, "synthetic" next to the
  * identifier. `generatedOn` is INJECTED (never a clock read), for output stability.
  */
 export function liquidable24hProvenanceLine(
@@ -61,7 +61,7 @@ export function liquidable24hProvenanceLine(
   generatedOn: string,
 ): string {
   return (
-    `D10: class = \`${LIQUIDABLE_24H_CLASS}\` (synthetic) · n = ${n} · α = ${LIQUIDABLE_24H_ALPHA} · ` +
+    `provenance: class = \`${LIQUIDABLE_24H_CLASS}\` (synthetic) · n = ${n} · α = ${LIQUIDABLE_24H_ALPHA} · ` +
     `seed = ${seed} · harness_version = \`${LIQUIDABLE_24H_HARNESS}\` · date (injected) = ${generatedOn}`
   );
 }
