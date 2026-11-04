@@ -1,19 +1,19 @@
 /**
- * Harness — the committed attestation-binding table (ADR-M017 D2(i)(ii)).
+ * Harness — the committed attestation-binding table.
  *
  * P1 DECLARES — it never VERIFIES — the consistency between a caller-carried `AttestedPrice.subject`
  * and the served `task_class`. The subject is the exact URL string the Shogen witness attested (e.g.
  * the Binance BTCUSDT ticker, the WITNESS of apps/harness/test/gate-cm2b.test.ts); the rule is EXACT string membership in
- * a static, committed table, TOTAL over the three served classes plus the retired btc-dir-15m (ADR-M017 D2(i); ADR-CM B-5):
+ * a static, committed table, TOTAL over the three served classes plus the retired btc-dir-15m:
  *   - btc-dir-15m (retired)   -> [ the Binance BTCUSDT ticker URL of the archived Shogen witness ] (the only subject; refused as retired)
  *   - stable-run-velocity-24h -> [] (Narabi attests flows, not prices; any attested is inconsistent, declared)
  *   - cascade-liquidable-24h  -> [] (a fixture class with no subject URL; any attested is inconsistent, declared)
- *   - liquidation-eligible-coverage -> [] (the book is not an attested price feed; any attested is inconsistent, declared — ADR-U4b D5)
- * A class OUTSIDE the table is a BYO / free class: `attested` is not accepted for it in P1 (an item
- * formed, ADR-M017 D2(i)). No bytes are recomputed, no verifier is executed here (that is offline / the
- * Shogen verifier); "no temporal binding in P1" — `observed_at` is not compared.
+ *   - liquidation-eligible-coverage -> [] (the book is not an attested price feed; any attested is inconsistent, declared)
+ * A class OUTSIDE the table is a BYO / free class: `attested` is not accepted for it in P1.
+ * No bytes are recomputed, no verifier is executed here (that is offline);
+ * "no temporal binding in P1" — `observed_at` is not compared.
  *
- * This module sits at `src/` (NOT `src/tools/`, so the K-8 side-effect scan of the tools stays
+ * This module sits at `src/` (NOT `src/tools/`, so the side-effect scan of the tools stays
  * meaningful): it does NO I/O and imports nothing from the tools — pure data + one pure predicate,
  * consumed by the gate guard (gate.ts:runGate). The class-name keys mirror the frozen served
  * identifiers gate.ts TASK_* ; a Map (not a plain object) keeps a caller-controlled printable-ASCII
@@ -24,8 +24,8 @@
 export const BINANCE_BTCUSDT_TICKER_URL = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT";
 
 /**
- * Committed subject-binding table, TOTAL over the served task classes and the retired btc-dir-15m (ADR-M017 D2(i); ADR-U4b
- * D5). A key PRESENT with `[]` is DISTINCT from a key ABSENT: the two feed the two distinct fail-closed
+ * Committed subject-binding table, TOTAL over the served task classes and the retired btc-dir-15m.
+ * A key PRESENT with `[]` is DISTINCT from a key ABSENT: the two feed the two distinct fail-closed
  * messages below (a "returns [] by default" mutant collapses them and reddens test (2) on the TEXT). The
  * `liquidation-eligible-coverage` class is PRESENT with `[]` (the book is not an attested price feed), so
  * any caller-carried `attested` on it fails closed with the "not consistent" text (mutant (j): drop the
@@ -39,7 +39,7 @@ export const ATTESTATION_BINDING: ReadonlyMap<string, readonly string[]> = new M
 ]);
 
 /**
- * Declared consistency between an attestation subject and the served task class (ADR-M017 D2(i)(ii)).
+ * Declared consistency between an attestation subject and the served task class.
  * PURE. Returns `undefined` when the subject is declared-consistent with the class (exact membership),
  * else the fail-closed tool-error MESSAGE (the caller — gate.ts — raises it as a HarnessToolError => 400,
  * http.ts TOOL_ERROR_NAMES). The two texts are DISTINCT and both name the subject AND the class:
@@ -59,7 +59,7 @@ export function checkAttestedConsistency(taskClass: string, subject: string): st
   return undefined;
 }
 
-/** C-2 of MONARK's diff check of CM-2b (founder's decision, 2026-10-04): the only subject above belongs to the retired
+/** The only subject above belongs to the retired
  *  btc-dir-15m, so every caller-carried `attested` is refused on the served gate; its description says so. */
 export const NO_SERVED_ATTESTATION_SUBJECT_SENTENCE =
   "No served class has a committed attestation subject (the retired 'btc-dir-15m' held the only one), so any `attested` is refused.";

@@ -1,6 +1,6 @@
 /**
- * The digest floor of a published kata row (SHORT-DIGEST-INVERSION-1; docs/G0-lot-short-digest-inversion-1.md sections 4.1 and 10;
- * decisions Q-1 to Q-10 of RECHERCHES, 2026-10-06). One rule for the publication gate (tableRowProblems of scripts/spec-publish.mjs)
+ * The digest floor of a published kata row.
+ * One rule for the publication gate (tableRowProblems of scripts/spec-publish.mjs)
  * and for the import guard (guardKataRow of policy-guard.ts). Pure: no clock, no file, no import, and no floating point in a decision
  * (log2 is computed for a refusal text only).
  *
@@ -14,7 +14,7 @@
  *   the stated runs_aux. Each pair (s, F) of a scores sequence and f of its ones gives one label sequence; there are C(n, m) C(m, f) =
  *   C(n, m - f) C(n - m + f, f) pairs, each label sequence receives C(n - m + f, f) of them and each scores sequence gives C(m, f): so
  *   at least C(n, m) N(n, m - f, runs_aux) / C(n, m - f) scores sequences are compatible, N(n, m, runs_aux) itself at f = 0. The rule
- *   takes the smallest bound over the f admitted (RECHERCHES Q-6: the no-flat count is not shown to bound them all, so the cap covers
+ *   takes the smallest bound over the f admitted (the no-flat count is not shown to bound them all, so the cap covers
  *   every f explicitly);
  * - qhat 0: runs_miss is the outcome of the scores themselves; with f >= 1 the two constraints are joined by the union bound.
  * A count of flats under which the stated outcomes cannot occur is not the cell's; a row that no count admits is refused.
@@ -24,9 +24,9 @@
  * here and test/short-digest-floor.test.ts holds it to runsLowerTailLeq by complete enumeration.
  */
 
-/** The floor in bits (RECHERCHES Q-2). */
+/** The floor in bits. */
 export const DIGEST_FLOOR_BITS = 128;
-/** The largest number of flat labels in one CALIB block of wave 1: SOLUSDT 1h, census.json 95e5b984 (RECHERCHES Q-5). */
+/** The largest number of flat labels in one CALIB block of wave 1: SOLUSDT 1h, census.json 95e5b984. */
 export const LABEL_FLAT_CAP = 34;
 /** The runs level of a wave 1 row, "0.05" (policy-guard.ts pins runs_level), as the ratio 1/20. */
 const LEVEL = { num: 1n, den: 20n };
@@ -96,7 +96,7 @@ const isOutcome = (v: unknown): v is RunsOutcome => OUTCOMES.includes(v);
 const isCount = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0;
 const given = (v: unknown): boolean => v !== null && v !== undefined;
 const log2 = (v: bigint): number => { const w = v.toString(2).length; return w <= 53 ? Math.log2(Number(v)) : w - 53 + Math.log2(Number(v >> BigInt(w - 53))); };
-/** log2 of a bound, to two decimals (G0 section 4.1): the refusal text, never the decision. */
+/** log2 of a bound, to two decimals: the refusal text, never the decision. */
 const bits = ([x, den]: Bound): string => (x <= 0n ? "-Infinity" : (log2(x) - log2(den)).toFixed(2));
 /** The smaller of two bounds under the floor, or `low` when `b` clears it. */
 const under = (b: Bound, low: Bound | null): Bound | null => (b[0] >= FLOOR * b[1] ? low : low === null || b[0] * low[1] < low[0] * b[1] ? b : low);
@@ -123,7 +123,7 @@ function floorProblems(r: DigestRow, labels: boolean): string[] {
 }
 
 /**
- * The refusals of a row's digests (G0 section 4.1, points 2 to 4), empty when none: aux_sha256 that digests neither the scores of a
+ * The refusals of a row's digests, empty when none: aux_sha256 that digests neither the scores of a
  * scaled-band row (aux_seq score, so equal to scores_sha256) nor the labels of a sign-set row (aux_seq label); series_sha256 (the pinned
  * source file of the symbol, not a sequence of points) on a row that is neither sign-set nor scaled-band; and on a sign-set row, a scores
  * or labels digest under the floor ("scores <log2> bits", "labels <log2> bits") or counts the rule cannot read (refused, closed).
