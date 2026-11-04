@@ -237,14 +237,23 @@ a tool error `param_invalid`, and no kernel runs.
 The `content` text says whether the kernel judged the order or (`refused`, `unreadable`, `unavailable`) gave no verdict on it.
 
 **Launching the kernel.** `src/kernel.ts` runs the binary that `lake build genkan-kernel` writes in
-`apps/genkan/kernel/.lake/build/bin`, with `spawnSync`, by its path: no shell, no argument, an empty environment, the request on
-stdin, killed after 10 s (`KERNEL_TIMEOUT_MS`) or past 64 bytes of stdout (`KERNEL_STDOUT_MAX`), stderr not read. The run is
-synchronous, so each `judge` call holds the server's event loop until the kernel answers (about 30 ms measured on Windows), at
-most 10 s. `kernelRunner(binary, timeoutMs)` makes a runner of any binary, and a binary no process can be made of gives no run
-(`null`, a deny `unavailable`). This is the only module of the served code that starts a process.
+`apps/genkan/kernel/.lake/build/bin`, with `spawn`, by its path: no shell, no argument, an empty environment, the request on
+stdin, stderr not read. The run is asynchronous: the server answers other calls while a kernel runs (about 30 ms measured on
+Windows). Past 10 s from its start (`KERNEL_TIMEOUT_MS`), or past 64 bytes of stdout (`KERNEL_STDOUT_MAX`), the run is cut: the
+process is killed (SIGKILL if it is still there 1 s later), and the run answers at once with status `null`, read as
+`unreadable`. These are the answers of the synchronous runner it replaced (`spawnSync`), but one, stricter: a kernel that exits
+0 and leaves its stdout open past the timeout (a descendant holding it) had status 0 then, and has status `null` now.
+`kernelRunner(binary, timeoutMs)` makes a runner of any binary, and a binary no process can be made of gives no run (`null`, a
+deny `unavailable`). This is the only module of the served code that starts a process.
 
-`startServer` hands the tools the runner of the built kernel; `createHarnessHandler` and `handleJsonMirror` hand them the one
-they are given.
+`limitedKernel(runner, max)` lets at most `max` runs go at once. The served runner is the built kernel under the limit of
+`KERNEL_MAX_CONCURRENT` = 4: measured on a Ryzen 9 3900X (24 threads, Windows), a run takes about 30 ms alone and about the same
+four at once, 37 ms eight at once. A call past the limit waits its turn in a FIFO, first come first served, and is never
+refused; the FIFO has no bound of its own (it holds the calls the server has taken in): no bound for now (the founder's decision of
+2026-11-04), to be set at deployment, once the machine and the proxy's limits are known. The timeout counts from the kernel's
+start, not from the wait, so a call that waited can take longer than 10 s.
+
+`startServer` hands the tools that runner; `createHarnessHandler` and `handleJsonMirror` hand them the one they are given.
 
 **What an allow does not say.** The kernel knows no balance, position, price or venue rule; a cap holds one order, not a total; a
 `minOut` above 0 is not a slippage bound; and an EXIT on a listed venue passes whatever the gate decided, so whoever executes it
@@ -315,7 +324,7 @@ The repository holds no deployment files: where the listener sits behind a rever
 | tracking | `gate-suivi.test.ts` |
 | `calibrate` and the committed calibrations | `calibrate.test.ts`, `calibration-scores-pins.test.ts`, `usde-calibration.test.ts`, `ukemi-strata.test.ts`, `oracle-fixtures.test.ts` |
 | policy tables and kata path | `kata-path.test.ts`, `policy-*.test.ts` |
-| `judge` and the kernel runner | `judge.test.ts` (a scripted kernel), `judge.kernel.test.ts` (the built kernel, through the served server) |
+| `judge` and the kernel runner | `judge.test.ts` (a scripted kernel), `kernel-runner.test.ts` (the asynchronous runner and its limit), `judge.kernel.test.ts` (the built kernel, through the served server) |
 | paper executor | `paper.test.ts` (a scripted kernel), `paper.kernel.test.ts` (the built kernel, in a temp copy of the kernel tree) |
 | surfaces and schemas | `server.test.ts`, `http.test.ts`, `registry.test.ts`, `openapi.test.ts`, `schema.test.ts`, `error-code.test.ts`, `error-code-sites.test.ts` |
 
