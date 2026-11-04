@@ -24,8 +24,9 @@ const REPO = fileURLToPath(new URL("../", import.meta.url));
  *  file exempt from the scan (a detector never scans its own fixtures — the honesty-lint precedent). */
 const SELF = fileURLToPath(import.meta.url);
 
-/** Never walked: installed deps, VCS metadata, build output. */
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", ".next", ".turbo"]);
+/** Never walked: installed deps, VCS metadata, build output, and the local Claude Code folder (.claude: ignored by git,
+ *  it holds local settings and session worktrees, never committed). */
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", ".next", ".turbo", ".claude"]);
 /** Known-binary extensions (skipped); any other file with a NUL byte is treated as binary too. */
 const BINARY_EXT = new Set([".cbor", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".woff", ".woff2", ".ttf", ".otf", ".eot", ".pdf", ".zip", ".gz", ".wasm", ".mp4", ".lock"]);
 const MAX_BYTES = 4 * 1024 * 1024;

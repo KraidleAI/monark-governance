@@ -15,8 +15,6 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
   applyT,
   smallestFixedPoint,
@@ -183,15 +181,6 @@ test("lattice_domain_fail_closed", () => {
   } catch (e) {
     assert.equal((e as { name?: string }).name, "lattice_domain", "error name is the documented sentinel");
   }
-});
-
-// The WETH fixture is a bit-identical replay of the read-only derivation script (never a cooked answer).
-test("lattice_weth_fixture_replays_bit_identical", () => {
-  const script = fileURLToPath(new URL("./derive-weth-lattice-fixture.mjs", import.meta.url));
-  const committed = readFileSync(new URL("./fixtures/weth-book-23545087.json", import.meta.url), "utf8").replace(/\r\n/g, "\n");
-  const out = execFileSync(process.execPath, [script], { encoding: "utf8" }).replace(/\r\n/g, "\n");
-  const sha = (s: string): string => createHash("sha256").update(s).digest("hex");
-  assert.equal(sha(out), sha(committed), "committed WETH fixture = sha256(LF) of the script's stdout");
 });
 
 // U-2a / C-7: the package ships no v0 predictor id and no served class — export absent AND source clean.

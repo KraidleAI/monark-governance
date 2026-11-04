@@ -2,7 +2,7 @@
   "name": "monark",
   "private": true,
   "version": "0.0.0",
-  "description": "MONARK — a company of agent-products for DeFi and inference on one backbone: a coverage-controlled gate (Hikae) emitting commit/defer/abstain and a depletable authorization budget B_t, never a probability. This repo = the tokenisation layer + frozen interface contracts. Phase 2 (integration); fleet: 4 agents built, 7 on the roadmap.",
+  "description": "MONARK engine: HIKAE, a conformal gate that answers COMMIT, DEFER or ABSTAIN under controlled coverage (never a probability of being right), and Genkan, an order gate whose decisions come from a Lean kernel. Built to host a real trading strategy.",
   "type": "module",
   "workspaces": [
     "packages/*",
@@ -13,18 +13,12 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node -r ./test/helpers/blocking-stdout.cjs --test --test-timeout=300000 --test-force-exit \"--import=data:text/javascript,process.stdout._handle&&typeof(process.stdout._handle.setBlocking)==='function'&&process.stdout._handle.setBlocking(true);process.on('exit',function(c){if(c===0&&process.stdout.writableLength>0)process.exitCode=70})\" \"test/*.test.ts\" \"packages/*/test/*.test.ts\" \"apps/harness/test/*.test.ts\" \"apps/sentinel/test/*.test.ts\" \"apps/bell/test/*.test.ts\" \"apps/dojo/test/*.test.ts\" \"apps/koyomi/test/*.test.ts\" \"apps/genkan/test/!(*.kernel).test.ts\"",
-    "test:main": "node -r ./test/helpers/blocking-stdout.cjs --test --test-timeout=300000 --test-force-exit \"--import=data:text/javascript,process.stdout._handle&&typeof(process.stdout._handle.setBlocking)==='function'&&process.stdout._handle.setBlocking(true);process.on('exit',function(c){if(c===0&&process.stdout.writableLength>0)process.exitCode=70})\" --test-skip-pattern=\"\\(test 42\\)\" --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/test-counts-reporter.mjs --test-reporter-destination=test-counts.out.json \"test/!(kata-quarter).test.ts\" \"packages/*/test/*.test.ts\" \"apps/harness/test/*.test.ts\" \"apps/sentinel/test/*.test.ts\" \"apps/bell/test/*.test.ts\" \"apps/dojo/test/*.test.ts\" \"apps/koyomi/test/*.test.ts\" \"apps/genkan/test/!(*.kernel).test.ts\"",
-    "test:export": "node -r ./test/helpers/blocking-stdout.cjs --test --test-timeout=300000 --test-force-exit \"--import=data:text/javascript,process.stdout._handle&&typeof(process.stdout._handle.setBlocking)==='function'&&process.stdout._handle.setBlocking(true);process.on('exit',function(c){if(c===0&&process.stdout.writableLength>0)process.exitCode=70})\" --test-name-pattern=\"\\(test 42\\)\" \"test/export-public.test.ts\"",
-    "test:handoff-perms": "node -r ./test/helpers/blocking-stdout.cjs --test --test-timeout=300000 --test-force-exit \"--import=data:text/javascript,process.stdout._handle&&typeof(process.stdout._handle.setBlocking)==='function'&&process.stdout._handle.setBlocking(true);process.on('exit',function(c){if(c===0&&process.stdout.writableLength>0)process.exitCode=70})\" --test-reporter=tap \"test/bell-handoff-perms.test.ts\"",
+    "test": "node -r ./test/helpers/blocking-stdout.cjs --test --test-timeout=300000 --test-force-exit \"--import=data:text/javascript,process.stdout._handle&&typeof(process.stdout._handle.setBlocking)==='function'&&process.stdout._handle.setBlocking(true);process.on('exit',function(c){if(c===0&&process.stdout.writableLength>0)process.exitCode=70})\" \"test/*.test.ts\" \"packages/*/test/*.test.ts\" \"apps/harness/test/*.test.ts\" \"apps/genkan/test/!(*.kernel).test.ts\"",
     "test:genkan": "node -r ./test/helpers/blocking-stdout.cjs --test --test-timeout=300000 --test-force-exit \"--import=data:text/javascript,process.stdout._handle&&typeof(process.stdout._handle.setBlocking)==='function'&&process.stdout._handle.setBlocking(true);process.on('exit',function(c){if(c===0&&process.stdout.writableLength>0)process.exitCode=70})\" \"apps/genkan/test/*.test.ts\"",
     "gate:vocab": "node scripts/grep-forbidden.mjs",
     "lint": "eslint .",
     "lint:ratchet": "node scripts/lint-ratchet.mjs",
-    "ci": "npm run gate:vocab && npm run typecheck && npm run test",
-    "export:check": "node scripts/export-public.mjs --check",
-    "export": "node scripts/export-public.mjs",
-    "lang:gate": "node scripts/lang-gate.mjs"
+    "ci": "npm run gate:vocab && npm run typecheck && npm test"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

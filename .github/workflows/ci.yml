@@ -1,208 +1,30 @@
-# MONARK — CI gates (instantiated from an internal CI template;
-# concrete tools fixed by ADR-M003 D9 and its dated addenda).
-# Invariant (not parameterisable): EVERY job is BLOCKING and UNCONDITIONAL. No `continue-on-error` and no
-# conditional `if` key on any job or step (test 38 checks BOTH mechanically; ADR-M003 D11 / D9 octies).
-#
-# Provenance of pinned action SHAs (never guessed — GitHub API `git/ref/tags/<tag>`, cross-checked
-# on 2026-09-05 and re-verified by independent review on 2026-09-06):
-#   actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+# MONARK engine CI (HIKAE + Genkan). Rewritten on 2026-11-04 when the repository was refocused on the engine: tests,
+# lint, dependency audit, and the Genkan Lean kernel. Job names are kept from the previous workflow so that required
+# status checks keep reporting. Pinned action SHAs (GitHub API git/ref/tags, unchanged from the previous workflow):
+#   actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1    # v7.0.1
 #   actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
-#   actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1 (SBOM upload, Lot CRA-B; gh api repos/actions/upload-artifact/git/ref/tags/v7.0.1 -> object.type=commit, measured 2026-09-19)
-#
-# Delivery flow (ADR-M003 D9 bis): every lot lands through a pull request; `main` is protected.
-# A direct push produces no run (and `github.base_ref` would be empty for r25) — by design.
-#
-# Rewritten on 2026-09-06 under ADR-M003 D10; English only (D0.5).
 
 name: gates
 on:
   pull_request:
 
-# Least-privilege GITHUB_TOKEN (ADR-CODEQL-ALERTS-1 D1; CodeQL actions/missing-workflow-permissions): this block gives
-# every job read access to the repository contents and nothing more; a job reads more only through its own job-level
-# block, which only the dated lines under D1 admit. Any other widening, here or per job, is an ADR decision; the root
-# test ci_workflow_declares_least_privilege_permissions pins this block and admits no write scope.
 permissions:
   contents: read
 
 jobs:
-  g1-controle-generation:
-    runs-on: ubuntu-latest
-    # timeout-minutes on EVERY job (checkpoint-2 V-1(b)): a hung run (e.g. an unbounded recorder retry) cannot pend
-    # a job toward GitHub's 6h ceiling. Bound = measured job wall-time ×3, capped ≤ 20 (measured 2026-09-19: g3
-    # ~62s incl. npm ci ~16s + ~31s tests ⇒ 10; the other jobs are faster ⇒ 5). --test-timeout (package.json) is the
-    # finer per-test guard; this is the coarse per-job backstop.
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Pinned model identifiers only (R-1/R-4 — a bare tier resolves platform-side)
-        run: bash enforcement/lint-model-pinning.sh . # vendored from the public vibegates repo (mirror 2026-08-13)
-
-  r25-taille-de-lot:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    # The only job-level block (ADR-CODEQL-ALERTS-1 D1, dated line of 2026-10-05): the integration proof reads the PR and its checks.
-    permissions:
-      contents: read
-      pull-requests: read
-      checks: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false # every later git call is local; the proof reads the API with R25_READ_TOKEN
-      - name: Bounded lot size (R-25 — DORA 2024 pp. 39-40, lot inflation degrades stability)
-        env:
-          VIBEGATES_PR_LIMIT: "1205" # ADR-M003 D9 (R-23: measured median of the 3 Phase 1 lots)
-          VIBEGATES_CONTENT_LIMIT: "8000" # ADR-M013 amendment 2026-09-24 (investor decision 207; R-23: sourced there)
-          R25_READ_TOKEN: ${{ github.token }} # ADR-M003 D9 nonies: read-only API reads of the integration proof, this step only
-        run: |
-          case "$VIBEGATES_PR_LIMIT" in
-            ''|*[!0-9]*)
-              echo '::error::R-25 not configured: set VIBEGATES_PR_LIMIT by a sourced ADR (R-23). Fail-closed.'
-              exit 1 ;;
-          esac
-          case "$VIBEGATES_CONTENT_LIMIT" in
-            ''|*[!0-9]*)
-              echo '::error::R-25 not configured: set VIBEGATES_CONTENT_LIMIT by a sourced ADR (R-23). Fail-closed.'
-              exit 1 ;;
-          esac
-          # fetch-depth: 0 above provides the base history. A shallow clone (--depth=1) makes the diff fail
-          # with "no merge base" (exit 128), which the `|| exit 1` below turns into an explicit fail-closed
-          # (measured by the G2 delta review, TEST F, 2026-09-06).
-          # Exclusions (ADR-M003 D9 + D9 quater + D9 sexies + D9 septies): reproducible generated S2 artefacts,
-          # ALL governance docs under docs/**/*.md (D9 septies — R-25 protects CODE review; docs are reviewed by
-          # the checkpoints; this subsumes the G1/G2 excludes above, kept for the D9 quater invariant; docs/**/*.mjs
-          # STAYS counted), the lockfile, and sha-pinned DATA SERIES (fixtures/**/*.{json,jsonl,csv} and
-          # apps/sentinel/test/fixtures/** — D9 sexies). The :(glob) magic is MANDATORY: in git's default pathspec
-          # mode `**` is not special and `*` crosses `/`, so the bare `fixtures/**/*.json` / `docs/**/*.md` match
-          # wrong/nothing (measured 2026-09-19: bare `git ls-files` => 0 / 73; `:(glob)docs/**/*.md` => 230). Every
-          # excluded data file is declared+hashed same-dir (root test `series_pinned_are_declared_and_hashed`); the
-          # docs/**/*.md pathspec is asserted by test 38 (4ter) and whitelisted from that series set-equality.
-
-          # Bell data series root apps/bell/test/fixtures/series/**/*.{json,jsonl,csv} (ADR-T1aii C-14, D9 sexies) is
-          # excluded too; each pinned file is declared+hashed same-dir (root test `series_pinned_are_declared_and_hashed`).
-          # The wave registries the harness reads byte for byte, apps/harness/data/kata/registry/wave<k>.json (ADR-M003 D9 septdecies),
-          # are excluded too: one closed root, .json only, each declared+hashed same-dir (root test `kata_registry_root_is_wave_registries_only`).
-          # Storefront CONTENT paths (ADR-M013 amendment 2026-09-24, investor decision 207; a CLOSED list held by the ADR)
-          # are excluded from this CODE count, whose bound stays VIBEGATES_PR_LIMIT, and counted apart by CONTENT_STAT
-          # below under VIBEGATES_CONTENT_LIMIT, with the same range, :(glob) magic and ins+del metric. Both counts are
-          # printed BEFORE either bound is evaluated, so a CODE overflow never hides the CONTENT count. Test 38
-          # (3bis)/(4quater) pins the bound, the two exact pathspec lists and their equality with the ADR list.
-          # Both counts read W under the module's pinned read (lot R25-ATTR-SOURCE-1, ADR-M003 D9 undecies): its PIN, GIT_ENV and its
-          # attribute tree (every path text but the declared binary assets, D9 duodecies), as the module and the oracle read, so neither a
-          # .gitattributes of the measured tree (-diff, binary, a diff driver) nor a NUL byte lowers W. No pinned read (git < 2.40, a non-empty info/attributes, a module error), or a changed path the module refuses first (a gitlink, a symlink, a declared asset without its magic number, a bare CR or a JS line separator; D9 terdecies): fail-closed.
-          R25_PIN=$(node scripts/lot-size-integration.mjs pin --ci .github/workflows/ci.yml --base "origin/$GITHUB_BASE_REF") || {
-            echo '::error::Gate R-25: pinned git read not obtained, or a changed path refused (see the lines above). Fail-closed.'
-            exit 1
-          }
-          eval "$R25_PIN"
-          STAT=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)packages/*/docs/S2-*' ':(exclude)docs/G1-lot-*.md' ':(exclude)docs/G2-lot-*.md' ':(exclude,glob)docs/**/*.md' ':(exclude)package-lock.json' ':(exclude)test/test-counts.json' ':(exclude)test/test-names.json' ':(exclude,glob)fixtures/**/*.json' ':(exclude,glob)fixtures/**/*.jsonl' ':(exclude,glob)fixtures/**/*.csv' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.json' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.jsonl' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.csv' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.json' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.jsonl' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.csv' ':(exclude,glob)apps/harness/data/kata/registry/**/*.json' ':(exclude,glob)apps/site/app/docs/**' ':(exclude,glob)apps/site/components/docs/**' ':(exclude,glob)apps/site/lib/docs-*.ts' ':(exclude,glob)apps/site/data/docs-*.json' ':(exclude,glob)apps/site/app/roadmap/**') || {
-            echo '::error::Gate R-25: diff not computable (no merge base?). Fail-closed.'
-            exit 1
-          }
-          CONTENT_STAT=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- ':(glob)apps/site/app/docs/**' ':(glob)apps/site/components/docs/**' ':(glob)apps/site/lib/docs-*.ts' ':(glob)apps/site/data/docs-*.json' ':(glob)apps/site/app/roadmap/**') || {
-            echo '::error::Gate R-25 (content): diff not computable (no merge base?). Fail-closed.'
-            exit 1
-          }
-          CHANGED=$(printf '%s\n' "$STAT" | awk '{ins=0; del=0; for(i=1;i<=NF;i++){ if($i ~ /insertion/) ins=$(i-1); if($i ~ /deletion/) del=$(i-1) } print ins+del+0}')
-          CONTENT_CHANGED=$(printf '%s\n' "$CONTENT_STAT" | awk '{ins=0; del=0; for(i=1;i<=NF;i++){ if($i ~ /insertion/) ins=$(i-1); if($i ~ /deletion/) del=$(i-1) } print ins+del+0}')
-          # Integration rule (ADR-M003 D9 nonies, lot R25-INTEGRATION-RULE-1): on a CANDIDATE PR (head and target in the
-          # closed list of scripts/lot-size-integration.mjs, read from the event payload, never from a name) whose proof the
-          # API gave complete, only the commits no proving merged PR carries count, at most the two counts above. Fail-closed:
-          # no proof (API error or deadline, a 403), a module error, a non-numeric answer or 10+ digits (a bash overflow; such
-          # a count is red anyway) keep the two counts above. The target comes from $GITHUB_BASE_REF, never an expression.
-          node scripts/lot-size-integration.mjs proof --event "$GITHUB_EVENT_PATH" --out "$RUNNER_TEMP/lot-size-proof.json" || echo '::warning::R-25 integration proof not obtained: every line counts (fail-closed).'
-          R25I=$(node scripts/lot-size-integration.mjs count --ci .github/workflows/ci.yml --base "origin/$GITHUB_BASE_REF" --proof "$RUNNER_TEMP/lot-size-proof.json" --written "$CHANGED" "$CONTENT_CHANGED") || R25I="written $CHANGED $CONTENT_CHANGED"
-          read -r R25_MODE NEW_CHANGED NEW_CONTENT <<< "$R25I"
-          case "$R25_MODE/$NEW_CHANGED/$NEW_CONTENT" in
-            integration/[0-9]*/[0-9]*) ;;
-            *) R25_MODE=written; NEW_CHANGED=$CHANGED; NEW_CONTENT=$CONTENT_CHANGED ;;
-          esac
-          case "$NEW_CHANGED$NEW_CONTENT" in
-            ''|*[!0-9]*|??????????*) R25_MODE=written; NEW_CHANGED=$CHANGED; NEW_CONTENT=$CONTENT_CHANGED ;;
-          esac
-          # Item R25-COUNT-CAP-1 (ADR-M003 D9 duodecies): the module never raises a count; one above the written count is red here too.
-          [ "$NEW_CHANGED" -le "$CHANGED" ] && [ "$NEW_CONTENT" -le "$CONTENT_CHANGED" ] || {
-            echo '::error::Gate R-25: integration count above the written count. Fail-closed.'
-            exit 1
-          }
-          CHANGED=$NEW_CHANGED
-          CONTENT_CHANGED=$NEW_CONTENT
-          echo "R-25 mode: $R25_MODE"
-          echo "Changed lines: $CHANGED (ADR bound: $VIBEGATES_PR_LIMIT)"
-          echo "Content changed lines: $CONTENT_CHANGED (ADR bound: $VIBEGATES_CONTENT_LIMIT)"
-          if [ "$CHANGED" -gt "$VIBEGATES_PR_LIMIT" ]; then
-            echo "::error::BLOCKED (VibeGates R-25): $CHANGED changed lines exceed the ADR bound of $VIBEGATES_PR_LIMIT. Split the PR."
-            exit 1
-          fi
-          if [ "$CONTENT_CHANGED" -gt "$VIBEGATES_CONTENT_LIMIT" ]; then
-            echo "::error::BLOCKED (VibeGates R-25, content): $CONTENT_CHANGED changed content lines exceed the ADR bound of $VIBEGATES_CONTENT_LIMIT. Split the PR."
-            exit 1
-          fi
-      # Public-mirror export hygiene (Lot CI-EXPORT-CHECK; item "export:check absent from CI",
-      # docs/G7-lot-export-clean.md / CHANTIERS:221; ADR-M004 D7 septies). export:check runs HERE, inside the
-      # internal-only lot-size job that scripts/export-public.mjs derivePublicWorkflow STRIPS from the derived
-      # public workflow: it is a SOURCE-repo gate that reds on the exported mirror (its config
-      # scripts/export-exclude-tests.json is not whitelisted -> exit 1, measured), the same "internal concern,
-      # not a storefront one" bucket as the lot-size gate above. A step in a retained job (g3/g6) would be copied
-      # byte-identical (test 42(f')) into the public mirror, where it reds. Global scope (no --scope): measured
-      # exit 0 on this base, 0 forbidden path / 0 non-exempt French, all scopes (ADR-M010). Zero-dependency node
-      # script, so setup-node alone suffices (no npm ci). Fail-closed: no continue-on-error.
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
-      # Source-repo English-only gate (Lot LANG-GATE-CI; ADR-M004 "Addendum LANG-GATE-CI"). Runs HERE in the
-      # internal-only lot-size job that derivePublicWorkflow STRIPS. Placement is doctrine + symmetry with export:check,
-      # NOT a mirror-red forcing: unlike export:check, lang:gate does not red on the exported mirror (package.json,
-      # scripts/lang-gate.mjs and scripts/lang-exempt.json are whitelisted and the mirror is English-only --
-      # measured exit 0 on the mirror). Runs BEFORE export:check: export-public.mjs imports lang-gate.mjs, so
-      # gating the lower-level module first reports a stray token as a precise lang:gate hit. Reuses setup-node
-      # above; zero-dependency node script, no npm ci. Fail-closed: no continue-on-error, no if:.
-      - name: Language gate (source-repo English-only invariant, ADR-M004 D7; internal, stripped from the public workflow)
-        run: npm run lang:gate
-      - name: Public-mirror export hygiene check (ADR-M004 D7 septies; source repo only, stripped from the public workflow)
-        run: npm run export:check
-
   g3-verification:
     runs-on: ubuntu-latest
-    # Re-measured 2026-10-04 (same rule: wall-time x3, capped <= 20): green run of PR 125 took 7 min 06 s; PRs 121,
-    # 126 and 112 were cancelled at the former bound 10 with tests still passing (no hang in the log of 126).
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # Full history: test/bell-served.test.ts (bell_served_collector_revision_is_a_collector_commit) reads the served
-          # collector revision with `git cat-file`; a shallow clone has no such object (PR #90, first CI run of that test).
-          fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
           cache: npm
       - name: Install (lockfile must be present and consistent)
         run: npm ci
-      - name: Vocabulary gate + strict typecheck + tests (contracts_frozen, fixtures, tests 1-41)
-        run: npm run gate:vocab && npm run typecheck && npm run test:main
-
-  g3-export:
-    runs-on: ubuntu-latest
-    # Test 42 alone (CI-G3-DURATION-1, docs/G0-lot-ci-g3-duration-1.md). export_public_no_governance_no_french runs a nested
-    # `npm ci && npm run ci` of the public export: 151 s on the runner of PR 126, about ten times the next test. It leaves
-    # g3-verification, whose test:main is the same suite with only this test skipped (pinned by ci-gates.test.ts), so every
-    # PR still runs every test. Bound = measured job wall-time x3, capped <= 20: (npm ci ~15 s + 151 s) x3 ~= 8.3 min => 10,
-    # above the 5-min --test-timeout, so a slow test 42 reds by name first. Internal job: the root test/ is never exported,
-    # so derivePublicWorkflow drops it from the public workflow.
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
-          cache: npm
-      - name: Install (lockfile must be present and consistent)
-        run: npm ci
-      - name: Test 42 alone (clean public export, and its own CI green; ADR-M004 D7)
-        run: npm run test:export
+      - name: Vocabulary gate, strict typecheck, tests
+        run: npm run gate:vocab && npm run typecheck && npm test
 
   g4-architecture:
     runs-on: ubuntu-latest
@@ -214,7 +36,7 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
-      - name: eslint recommended-type-checked (src strict) + test-debt ratchet (ADR-M003 D9 ter)
+      - name: eslint, then the test-debt ratchet
         run: npm run lint && npm run lint:ratchet
 
   g6-compliance:
@@ -227,52 +49,13 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
-      # SBOM (CRA no-regret, ADR-CRA-B L-3): a CycloneDX bill of materials. --package-lock-only makes the
-      # COMPONENT SET reproducible (183 components, CycloneDX 1.5, measured 2026-09-19); without it the count
-      # drifts with the installed tree. serialNumber and metadata.timestamp are per-run, so the bytes are not
-      # reproducible. Not published to a tag here (release trigger, out of this lot). scripts/sbom.mjs mirrors
-      # THIS command locally; its SBOM_COMMAND is asserted against this run line by ci_publishes_sbom.
-      - name: Generate CycloneDX SBOM (npm sbom; ADR-CRA-B L-3)
-        run: npm sbom --sbom-format cyclonedx --omit dev --package-lock-only > sbom.cdx.json
-      - name: Upload SBOM artifact (per run)
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: sbom-cyclonedx
-          path: sbom.cdx.json
-          if-no-files-found: error
       - name: Dependency audit (high and above = failure)
         run: npm audit --audit-level=high
-
-  g3-site:
-    runs-on: ubuntu-latest
-    # Site build gate (ADR-M003 D9 octies). `next build` TYPECHECKS the apps/site TSX (excluded from the root
-    # `tsc --noEmit`, tsconfig.json:23-33 — the ONLY program that sees the site .tsx) and renders /fleet; the
-    # O-2 step then asserts the built HTML body carries each served note. Wired LOCALLY: this workflow triggers
-    # on pull_request only and the local --no-ff merges open no PR, so the composition is replayed from these
-    # `run:` lines locally at G2 / checkpoint-2, never validated by these merges. Blocking CONDITIONAL: it reds
-    # without blocking until g3-site joins the closed list of required status checks (branch protection, an
-    # orchestrator action; JOURNAL-PROVENANCE). timeout-minutes: measured job wall-time x3, capped <= 20
-    # (2026-09-20: npm ci ~15 s + next build ~22 s ~= 37 s => ~2 min => 5; parity with g1/g4/g6). 10 only on a
-    # sourced re-measure if the first cold run exceeds 100 s.
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
-          cache: npm
-      - name: Install (lockfile must be present and consistent)
-        run: npm ci
-      - name: Build the storefront (typechecks apps/site TSX, invisible to the root tsc; a stray type reds)
-        run: npm run build -w @monark/site
-      - name: O-2 — assert the built /fleet HTML body carries each served note (scripts/assert-fleet-html.mjs)
-        run: node scripts/assert-fleet-html.mjs
 
   g3-genkan:
     # The Genkan kernel under its pinned toolchain: the source audit before any Lean runs; the Lean 4.32.1 release for Linux by curl,
     # held to its sha256, unpacked as <ELAN_HOME>/toolchains/<name> (no elan, no installer); the build; each module replayed by the
     # toolchain's leanchecker; the axiom records and their audit; an empty request refused (exit code 3); the tests under that toolchain.
-    # Public job: reads only exported paths. Bound: 20 until first runs measure it (measured wall-time x3, capped <= 20). Every step blocks.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -317,93 +100,3 @@ jobs:
         env:
           ELAN_HOME: ${{ runner.temp }}/elan
         run: npm run test:genkan
-
-  g3-verifier-tool:
-    # VERIFIER-TOOL-CI-1 (docs/G0-lot-verifier-tool-ci-1.md): the frozen verifier tool, tools/kata-recalc/ (monark-kata-recalc in
-    # apps/harness/data/verifiers.json), held on every PR by its own Python checks, launched under the FORM of its io_guard.py by
-    # scripts/verifier-tool-ci.mjs: guard_check (each case it skips named, Windows only), report_check (section 3 stood in off
-    # Windows), compare_check, binom_check in both modes, vectors_check on the pinned spec vectors. Internal job: never exported,
-    # so derivePublicWorkflow drops it (INTERNAL_JOBS). runs-on names the image, whose build of the one pinned CPython setup-python installs.
-    # Bound = measured job wall-time x3, capped <= 20 (2026-10-07, its first three runs on PR 247: 116 s, 201 s and 191 s => 11).
-    runs-on: ubuntu-24.04
-    timeout-minutes: 11
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0 # binom_check reads 207f021f, report_check the tree at the commit of lot 1d, guard_check clones the repository
-          persist-credentials: false # every git call of the tool is local
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
-      # actions/setup-python v7.0.0 = commit 5fda3b95a4ea91299a34e894583c3862153e4b97 (git ls-remote of refs/tags/v7.0.0, a commit
-      # object, read 2026-10-07). An exact version, no range: setup-python installs CPython 3.14.8 or the job fails.
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.14.8"
-      # The spec vectors of vectors_check.py: the public spec repository at the commit that the driver pins (VECTORS), which checks
-      # their sha256 before any check runs (VERIFIER-TOOL-CI-VECTORS-1). The same pinned action as above; no token kept.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: KraidleAI/monark-kata-spec
-          ref: ffb5ea33fcdcde2bd497cb25fba184ae2c4bbfa8
-          path: kata-spec-vectors
-          persist-credentials: false
-      - name: The verifier tool's own checks under the pinned CPython (scripts/verifier-tool-ci.mjs; CI only, Windows replayed by hand)
-        env:
-          VERIFIER_TOOL_PYTHON: "3.14.8" # the version above: any other interpreter reds the step
-        run: node scripts/verifier-tool-ci.mjs
-
-  g3-test-count:
-    # TEST-COUNT-FLOOR-1 (docs/G0-lot-test-count-floor-1.md): the tests that each test file reports in a run of test:main, held against
-    # the committed record test/test-counts.json, and each drop from the base's record against a line that the pull request adds to
-    # test/test-count-removals.json; a file whose process sent no report of its own is refused. test:main writes the counts by its
-    # reporter (scripts/test-counts-reporter.mjs); the local oracle runs that line once for both jobs. Internal job (the root test/
-    # is never exported): derivePublicWorkflow drops it (INTERNAL_JOBS). Bound: the suite of g3-verification, whose bound is 20 by the
-    # same rule (measured job wall-time x3, capped <= 20).
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0 # the base's record and removal lines are read at the merge base of HEAD and origin/$GITHUB_BASE_REF
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
-          cache: npm
-      - name: Install (lockfile must be present and consistent)
-        run: npm ci
-      - name: The main suite, whose reporter writes the tests of each file (test:main, as in g3-verification)
-        run: npm run test:main
-      - name: Tests of each file against the record, each drop from the base against its removal line (TEST-COUNT-FLOOR-1)
-        run: node scripts/test-count-check.mjs
-
-  g3-bell-handoff-perms:
-    # The handoff layout of MONARK Bell (BELL_LAYOUT of scripts/bell-deploy.mjs) with real users and groups: the two users and the handoff
-    # group of the layout and a control user outside that group, then test/bell-handoff-perms.test.ts alone as root (test:handoff-perms). The
-    # test skips outside Linux or outside root, so the job reds on a skip, a failure or no pass: a green job is the Linux proof. No install:
-    # the test loads node: modules and one script of this tree. Internal job (the root test/ is never exported): derivePublicWorkflow drops it
-    # (INTERNAL_JOBS). Bound: a declared 10, above the 5-minute --test-timeout so a hung test reds by name first, until its first runs measure
-    # it (measured job wall-time x3, capped <= 20). Each run: starts with sudo: it runs as root on the runner, never on a host.
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
-      - name: The two users and the handoff group of the layout, and a control user outside that group
-        run: |
-          sudo groupadd --system bell-handoff
-          sudo useradd --system --user-group --no-create-home --shell /usr/sbin/nologin --groups bell-handoff bell-collect
-          sudo useradd --system --user-group --no-create-home --shell /usr/sbin/nologin --groups bell-handoff bell
-          sudo useradd --system --user-group --no-create-home --shell /usr/sbin/nologin bell-outsider
-      - name: The handoff permissions test as root, its pass and skip counts printed; red on a skip, a failure or no pass
-        run: |
-          sudo env "PATH=$PATH" npm run test:handoff-perms > handoff-perms.tap 2>&1 || STATUS=$?
-          cat handoff-perms.tap
-          PASS=$(awk '$1 == "#" && $2 == "pass" { print $3 }' handoff-perms.tap)
-          SKIP=$(awk '$1 == "#" && $2 == "skipped" { print $3 }' handoff-perms.tap)
-          echo "bell_handoff_permissions_on_linux: exit ${STATUS:-0}, pass ${PASS:-none}, skip ${SKIP:-none}"
-          [[ "${STATUS:-0}" == "0" && "$PASS" =~ ^[1-9][0-9]*$ && "$SKIP" == "0" ]] && grep -qx "ok 1 - bell_handoff_permissions_on_linux" handoff-perms.tap || { echo "::error::the handoff permissions test must exit 0, pass by name and skip none"; exit 1; }

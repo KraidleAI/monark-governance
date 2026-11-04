@@ -45,17 +45,15 @@ export default tseslint.config(
       // for the root test) otherwise crashes the type-info rules ("no parserServices").
       "**/*.d.ts",
       "**/*.d.mts",
+      // .claude is git-ignored: local settings and the app's session worktrees (each a full checkout with
+      // its own tsconfig, which makes the type-checked parser fail on an ambiguous tsconfigRootDir).
+      ".claude/**",
     ],
   },
   ...tseslint.configs.recommendedTypeChecked,
   {
     files: ["**/*.ts"],
-    // apps/site stays OUT of the root TS program (its own tsconfig; not in tsconfig.json `include`):
-    // pointing the type-checked project at a site .ts not in the program would emit a "parserServices"
-    // fatal that fails scripts/lint-ratchet.mjs closed. It is handled by the disableTypeChecked block
-    // appended at the end. apps/harness IS a node package in the root program (tsconfig
-    // `include` carries apps/harness/src + test), so it is type-checked-linted like packages/*.
-    ignores: ["apps/site/**"],
+    // apps/harness and apps/genkan are in the root program (tsconfig `include`), type-checked-linted like packages/*.
     languageOptions: {
       parserOptions: {
         project: "./tsconfig.json",
@@ -80,17 +78,5 @@ export default tseslint.config(
     // Tracked by the ratchet scripts/lint-ratchet.mjs (re-enable + ceiling). Globs = those of the ADR.
     files: ["**/*.test.ts", "test/**"],
     rules: testDeferredOff,
-  },
-  // (ADR-M004 D10) — apps/site (Next.js) is covered by the ROOT
-  // `npm run lint` yet is NOT part of the root TS program (tsconfig `include` stays packages + test).
-  // Type-checked rules need a program; disableTypeChecked turns them off AND sets
-  // parserOptions.project:false (measured shape: keys name/rules/languageOptions), which is what avoids
-  // the "parserServices" fatal that would fail scripts/lint-ratchet.mjs closed. Net effect: apps/site is
-  // linted syntactically; its numeric-honesty is enforced by test/site-honesty.test.ts (test 44). The
-  // test-debt ratchet is unaffected — apps/** match neither `**/*.test.ts` nor `test/**`, so they add 0
-  // to the committed ceiling (lint-ratchet.json). Appended LAST so it wins for apps files.
-  {
-    files: ["apps/site/**/*.{ts,tsx}"],
-    ...tseslint.configs.disableTypeChecked,
   },
 );
