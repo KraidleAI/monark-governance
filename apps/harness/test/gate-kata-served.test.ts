@@ -176,9 +176,15 @@ const CLAUSE =
   "The 32 kata classes `{btc,eth,bnb,sol}-{dir,range,mae-down,mae-up}-{1h,4h}` are served from their policy tables, which hold no committed " +
   "calibration row: every well-formed kata call abstains with no region (under_calib, or non_evaluable on a dir lean of exactly 0), and no kata " +
   "class has an attestation subject. A kata call carries a `predictor_id` of the form `kata:<kataId>@<venue>/<SYMBOL>/<h>` (no bucket, <h> the " +
-  "class horizon), a `features_digest`, alpha = 0.45, nMin = 6 on dir classes and alpha = 0.01, nMin = 299 on the others, tau at most 1 on dir " +
-  "classes, and a `produced_at` on the class horizon grid, received at most 300 s after it; the full request rules are in section 9 of the " +
-  "contract 1.1.0 specification.";
+  "class horizon, <SYMBOL> starting with the first part of the class name in capitals), a `features_digest`, a number `yhat` (a lean in " +
+  "[-1, 1] on dir classes, a finite scale above 0 on the others), alpha = 0.45, nMin = 6 on dir classes and alpha = 0.01, nMin = 299 on the " +
+  "others, tau at most 1 on dir classes, and a `produced_at` on the class horizon grid, received at most 300 s after it; a call that breaks " +
+  "one of these rules is refused with its named error code.";
+/** The committed state of the release of the bands (24 classes pinned): where their tables live and how the server holds them. */
+const PINNED_24 =
+  "The other 24 hold committed calibration rows: each of their tables is the file `apps/harness/data/kata/tables/<task_class>.json` of the " +
+  "repository, one canonical JSON line read once at load; the load stops unless the bytes have the sha256 pinned for the class in " +
+  "`apps/harness/src/policy-committed-pins.ts`, and every decision on those classes names that table by its sha256 in `policy_table_sha256`; ";
 /** kataClause: the class entries, the tau cap, the pinned classes and the held classes, each defaulting to its served value. */
 type Render = (entries?: readonly ClassEntry[], tauCap?: number, committed?: readonly string[], held?: readonly string[]) => string;
 
@@ -192,10 +198,11 @@ test("describe_gate_kata_clause", () => {
   assert.ok(typeof render === "function", "gate.ts renders the kata clause");
   const clause = (render as Render)(undefined, undefined, []);
   assert.equal(clause, CLAUSE, "the rendered clause, no class pinned");
-  assert.deepEqual([Buffer.byteLength(clause, "utf8"), sha(clause)], [723, "022756c39c3f3aa381a39f313ebb92236d237d75e770febe3822de047898e803"]);
+  assert.deepEqual([Buffer.byteLength(clause, "utf8"), sha(clause)], [881, "a19cdcb2dece3eb0901f6a4ae742e678123064d6688649a5a3c5ce2b9ef1ec1c"]);
   const entries = kataClassEntries(() => ""), dir = entries.filter((e) => e.region_rule === "sign-set").map((e) => e.task_class);
   const bands = (render as Render)(undefined, undefined, entries.map((e) => e.task_class).filter((c) => !dir.includes(c)), dir);
-  assert.deepEqual([Buffer.byteLength(bands, "utf8"), sha(bands)], [1465, "db7735357a898ccaba50a433a9451de713b127f7a92eb2adb1cdfe134181454d"], "the committed state, release of the bands");
+  assert.ok(bands.includes(PINNED_24), "the committed state says where the tables live and how the server holds them");
+  assert.deepEqual([Buffer.byteLength(bands, "utf8"), sha(bands)], [1748, "a3aaad9b9fb59d5e124ecf21b73913d690fea9ce28c2e01823e12642e914562d"], "the committed state, release of the bands");
   const at = GATE_TOOL_DESCRIPTION.indexOf(`. ${(render as Render)()} When the caller instead supplies a \`calibration\``);
   assert.ok(at > GATE_TOOL_DESCRIPTION.indexOf("For 'liquidation-eligible-coverage'"), "after the liq clause, before the BYO sentence");
   assert.deepEqual([...GATE_TOOL_DESCRIPTION.matchAll(/For '([a-z0-9-]+)'/g)].map((m) => m[1]), ["cascade-liquidable-24h", "stable-run-velocity-24h", "liquidation-eligible-coverage"]);
@@ -404,7 +411,7 @@ test("kata_clause_follows_the_committed_pins", () => {
   for (const held of [["sol-mae-up-4h", "btc-dir-1h"], [...PINS.FLOOR_HELD_CLASSES, ...PINS.ORDER_HELD_CLASSES], rest(["btc-range-1h", "eth-mae-up-1h"])]) {
     const clause = render(undefined, undefined, rest(held), held), named = all.filter((c) => held.includes(c)).map((c) => `\`${c}\``).join(", ");
     assert.ok(clause.includes(`; no kata class has an attestation subject. Of the 32, ${String(held.length)} hold no committed calibration row (${named}): every well-formed kata call on them abstains with no region`), clause.slice(0, 400));
-    assert.ok(clause.includes(`. The other ${String(32 - held.length)} hold committed calibration rows: each of their tables is published byte for byte`), "the pinned classes are counted");
+    assert.ok(clause.includes(`. The other ${String(32 - held.length)} hold committed calibration rows: each of their tables is the file \`apps/harness/data/kata/tables/<task_class>.json\` of the repository`), "the pinned classes are counted");
     assert.deepEqual([clause.match(/`[a-z]+-[a-z-]+-[14]h`/g)?.length, /For '/.test(clause)], [held.length, false], "no other class is named; no `For '...'` form");
     assert.equal(render(undefined, undefined, [...rest(held), ...rest(held).slice(0, 1)], [...held].reverse().concat(held.slice(0, 1))), clause, "both lists are read as sets: order and repeats do not matter");
   }

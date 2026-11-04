@@ -29,6 +29,8 @@ const PARENT: PolicyRow = { ...P1, current: false };
 const D2 = "0.025";
 const KS = riskControlMaxExceedances(P1.n, P1.alpha, D2);
 const check = (r: PolicyRow): void => guardKataRow(r, CLS, PINS);
+/** The bound on the n_test of each block, whole. */
+const BLOCK = /^Error: MONARK import guard: \S+ \S+ has an n_test above its block \(bridge 8760 \/ 2190, test and fwd 4392 \/ 1098 at 1h \/ 4h\), refused before any bound or veto\.$/;
 /** The refusal of the test_delta spend, whole. */
 const SPEND = /^Error: MONARK import guard: \S+ \S+ breaks the pinned constants of the test_delta spend \(attempt 1 on wave 1, 2 on wave 2; test_delta = base \/ 2\^\(attempt - 1\); initial and none at attempt 1 only, outcome and a parent digest after\)\.$/;
 const refuse = (r: PolicyRow, re: RegExp): void => { try { check(r); } catch (e) { if (!(e instanceof Error && /^MONARK (import guard|policy check): /.test(e.message))) throw e; assert.match(String(e), re); return; } assert.fail(`admitted, not refused: ${String(re)}`); }; // a refusal by the guard or by the closed row check it runs first, matching re as assert.throws matched it; an admitted row fails by an assertion; any other error is thrown again, so a crash fails the test and is never read as a refusal
@@ -150,7 +152,7 @@ test("w2_guard_bridge_and_fwd_vetoes", () => {
   refuse(vetoed({ fwd: [20, 700] }, "vetoed: fwd", { test: false, bridge: false, fwd: false }), /vetoes\.fwd/);
   const silent = w2({ tail_a: 10, bridge: [20, 740] }, ["silence", "dependence check rejects"]);
   assert.deepEqual(verdict(silent), ["silence", "dependence check rejects"]);
-  refuse({ ...silent, vetoes: { test: false, bridge: true, fwd: false } }, /off the conditional/);
+  refuse({ ...silent, vetoes: { test: false, bridge: true, fwd: false } }, /^Error: MONARK import guard: \S+ \S+ has vetoes\.test, vetoes\.bridge or vetoes\.fwd off the conditional test, bridge or fwd veto\.$/);
   refuse({ ...w2(), bridge: { k_test: 5, n_test: 740, u_test: "0.9999999" } }, /u_test/);
   refuse({ ...w2(), fwd: { k_test: 701, n_test: 700, u_test: "1" } }, /k_test above its n_test/);
 });
@@ -219,9 +221,9 @@ test("w2_chain_attempt_2_only_on_wave_2", () => {
 test("w2_guard_bounds_n_test_of_each_block", () => {
   check(w2({ bridge: [5, 8760], fwd: [4, 4392] }));
   check({ ...w2(), test: block(11, 4392) });
-  refuse(w2({ bridge: [5, 8761] }), /n_test above its block/);
-  refuse(w2({ fwd: [4, 4393] }), /n_test above its block/);
-  refuse({ ...w2(), test: block(11, 4393) }, /n_test above its block/);
+  refuse(w2({ bridge: [5, 8761] }), BLOCK);
+  refuse(w2({ fwd: [4, 4393] }), BLOCK);
+  refuse({ ...w2(), test: block(11, 4393) }, BLOCK);
 });
 
 const KS300 = riskControlMaxExceedances(300, P1.alpha, D2);

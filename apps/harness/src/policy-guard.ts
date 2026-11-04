@@ -63,7 +63,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   is(r.n_min === n0, `has n_min ${String(r.n_min)}, not n0 ${String(n0)}`);
   is(r.k_star === (ks < 0 ? null : ks), "has a k_star the exact rule does not give");
   const blocks = { bridge: r.bridge, test: r.test, fwd: r.fwd };
-  is(!w2 || (["bridge", "test", "fwd"] as const).every((k) => (blocks[k]?.n_test ?? 0) <= (W2_BLOCK_N_MAX[k][r.horizon ?? ""] ?? 0)), "has an n_test above its block (bridge 8760 / 2190, TEST-2 and FWD-2 4392 / 1098 at 1h / 4h), refused before any bound or veto");
+  is(!w2 || (["bridge", "test", "fwd"] as const).every((k) => (blocks[k]?.n_test ?? 0) <= (W2_BLOCK_N_MAX[k][r.horizon ?? ""] ?? 0)), "has an n_test above its block (bridge 8760 / 2190, test and fwd 4392 / 1098 at 1h / 4h), refused before any bound or veto");
   is([t, r.bridge ?? t, r.fwd ?? t, r.retire ?? t].every((b) => b.k_test === null || b.n_test === null || b.k_test <= b.n_test), "has a k_test above its n_test (test, bridge, fwd or retire block)");
   is([t, r.bridge ?? t, r.fwd ?? t].every((b) => b.u_test === uTest(b.k_test, b.n_test)), "has a u_test the exact bound does not give");
   if (r.n < n0) {
@@ -83,7 +83,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   const [calib, reason] = adm.empty ? ["silence", w2 ? "tail sequence constant (fails closed)" : "auxiliary sequence constant (fails closed)"] : adm.reject ? ["silence", "dependence check rejects"] : m > ks ? ["silence", `misses ${String(m)} above k* ${String(ks)}`] : ["region", ""];
   const fire = (b: typeof r.test): boolean => calib === "region" && b !== null && b.n_test >= 1 && b.k_test !== null && vetoFires(b.n_test, b.k_test, r.alpha);
   const first = (["bridge", "test", "fwd"] as const).find((k) => fire(blocks[k]));
-  is(r.vetoes?.test === fire(r.test) && (r.vetoes?.bridge ?? false) === fire(r.bridge) && (r.vetoes?.fwd ?? false) === fire(r.fwd), "has vetoes.test, vetoes.bridge or vetoes.fwd off the conditional TEST, bridge or FWD-2 veto");
+  is(r.vetoes?.test === fire(r.test) && (r.vetoes?.bridge ?? false) === fire(r.bridge) && (r.vetoes?.fwd ?? false) === fire(r.fwd), "has vetoes.test, vetoes.bridge or vetoes.fwd off the conditional test, bridge or fwd veto");
   const status = first !== undefined ? "vetoed" : calib;
   const [st, why] = r.retire === null ? [status, first !== undefined ? `vetoed: ${first}` : reason] : ["retired", `retired: ${r.retire.cause}`];
   is(r.status === st && r.status_reason === why, `has status '${r.status}' and reason '${r.status_reason}', not '${st}' and '${why}'`);

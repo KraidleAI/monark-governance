@@ -49,9 +49,9 @@ These statements live in the trace's `honesty` block and are re-asserted by `tes
 - The tools read no clock (`produced_at` is caller-carried); the ephemeral port is intentionally NOT recorded.
   Re-running the recorder reproduces the file byte-for-byte (two consecutive runs printed the same digest on
   2026-11-04).
-- **sha256 (LF)** of `h5-e2e-trace.json`: `97fb4e37116e95da60bc529f52d915943360e438b8ffb443d53804263c3ffef8`
+- **sha256 (LF)** of `h5-e2e-trace.json`: `0574a84568ea501ad64a07c3fabef1c8dc15004b7acb6ca41ee294474141df73`
   (14848 bytes; only `steps[1].result.response_sha256`, the `tools/list` digest, differs from the prior trace). Prior pin
-  `83d2fa32…` (14848 bytes, the same day, before the served texts were cleaned); before it `3fc56af5…` (before the replay's bounds were declared; before it
+  `97fb4e37…` (14848 bytes, the same day, before the kata clause and two wave 2 guard texts were cleaned), `83d2fa32…` (before any served text was cleaned); before it `3fc56af5…` (before the replay's bounds were declared; before it
   `ed51ceb1…`, the trace of step 7, before `suivi`). `.gitattributes`
   normalizes to `eol=lf`, so this digest survives commit; the probe LF-normalizes before hashing, so it also survives
   a CRLF checkout. This value is pinned as `TRACE_SHA256_PINNED` in `test/h5-e2e-probe.test.ts`.

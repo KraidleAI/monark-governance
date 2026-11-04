@@ -377,8 +377,8 @@ test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(listed, describeGate(true), "the served text is the committed-state description (describeGate(false) hard-coded reds here)");
   assert.equal(
     createHash("sha256").update(listed, "utf8").digest("hex"),
-    "3525fa6822e873f1b2be6c9b596c1df143162469294a0d923d60acb772bfd6be",
-    "the served description is byte for byte the committed text (ADR-CM B-5, B-2, C-2 of CM-2b, B-7 withdrawn by B-13, the kata clause of block D, step 7, the served texts without archived ids; was 2ae47425..., dd728779..., bfb474f3..., 4279a54d..., cb4029d2...)",
+    "01e24ebf9fcbfeb56540d74f0f09f4fbe7fbc995ec27023d5526e59dc80d06f2",
+    "the served description is byte for byte the committed text (ADR-CM B-5, B-2, C-2 of CM-2b, B-7 withdrawn by B-13, the kata clause of block D, step 7, the served texts without archived ids; was 3525fa68..., 2ae47425..., dd728779..., bfb474f3..., 4279a54d..., cb4029d2...)",
   );
   const slice = liqSlice(listed);
   assert.equal(slice, EXPECTED_COMMITTED_CLAUSE, "the served liq clause is EXACTLY the committed clause");
