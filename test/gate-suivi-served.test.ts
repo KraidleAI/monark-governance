@@ -3,8 +3,9 @@
  * 127.0.0.1 listener (startServer); the MCP `tools/call` of gate over the streamable-HTTP transport and its HTTP mirror POST /gate carry
  * `params.suivi` (the USDe cell's policy, its reference evaluations and their arrived outcomes), and the decision the wire returns follows
  * the replay: no licence after 44 zeros (abstain, budget_exhausted, B_t -1), the licence at the 45th (commit, covered, B_t 0.99, the
- * budget at the opening, floor(10^9 (1 - 1/100)) / 10^9). Both surfaces agree. A refused evidence is a tool error with the code
- * param_invalid on both; an evidence outside its schema is a 400 input_invalid at the mirror. Expected values by hand:
+ * budget at the opening, floor(10^9 (1 - 1/100)) / 10^9). Both surfaces agree. A refused evidence (another cell, or past the
+ * replay's work bound) is a tool error with the code param_invalid; an evidence outside its schema is a 400 input_invalid at the
+ * mirror. Expected values by hand:
  * packages/hikae/test/suivi-replay.test.ts.
  */
 import { test } from "node:test";
@@ -94,11 +95,18 @@ test("served_gate_refuses_a_bad_evidence_on_both_surfaces", async () => {
     const http = await postApi(port, "/gate", args(otherCell));
     assert.deepEqual([http.status, http.json["code"]], [400, "param_invalid"]);
     assert.ok(String(http.json["message"]).startsWith("invalid param 'suivi': the policy's cell_key"), String(http.json["message"]));
-    // Outside its schema: an extra key in the evidence, a miss that is not 0 or 1, more evaluations than the bound.
+    // Outside its schema: an extra key in the evidence, a miss that is not 0 or 1, more evaluations than the bound, a rational text
+    // of more than 20 characters.
     for (const bad of [{ ...otherCell, extra: true }, { policy: FIX, evaluations: [], outcomes: [{ seq: 0, resolved: true, member: true, miss: 2 }], open: true },
-      { policy: FIX, ...zeros(501), open: true }]) {
+      { policy: FIX, ...zeros(501), open: true }, { policy: { ...FIX, delta_exh: `1/${"9".repeat(19)}` }, ...zeros(2), open: true }]) {
       const r = await postApi(port, "/gate", args(bad));
       assert.deepEqual([r.status, r.json["code"]], [400, "input_invalid"]);
     }
+    // Inside its schema but past the replay's work bound: W's bet 1/97 gives L = 9 bits, and 401 evaluations by 9 bits pass 3600.
+    const heavy = { policy: { ...FIX, bets_k: { lambdas: ["1/2"], weights: ["1"] }, bets_w: { lambdas: ["1/97"], weights: ["1"] } },
+      evaluations: zeros(401).evaluations, outcomes: zeros(2).outcomes, open: false };
+    const work = await postApi(port, "/gate", args(heavy));
+    assert.deepEqual([work.status, work.json["code"]], [400, "param_invalid"]);
+    assert.ok(String(work.json["message"]).startsWith("invalid param 'suivi': the replay's work, 401 evaluations by 9 bits"), String(work.json["message"]));
   });
 });

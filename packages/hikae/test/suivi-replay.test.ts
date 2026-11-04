@@ -14,7 +14,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { BetsText, SuiviPolicy } from "../src/suivi/policy.ts";
 import type { Outcome, RefEvaluation } from "../src/suivi/label.ts";
-import { suiviReplay } from "../src/suivi/replay.ts";
+import { suiviDenBits, suiviReplay } from "../src/suivi/replay.ts";
 import * as hikae from "../src/index.ts";
 
 const s = String;
@@ -132,9 +132,22 @@ test("replay_refuses_what_the_library_refuses", () => {
     "an outcome of no pending evaluation");
 });
 
+test("den_bits_is_the_lcm_of_the_k_and_w_factor_denominators", () => {
+  // By hand, at a = 1/5: K (below) has the factors 1 + lambda/5 and 1 - 4 lambda/5, W (above) 1 - lambda/5 and 1 + 4 lambda/5.
+  // FIX: K 81/80, 19/20, 41/40, 9/10, 21/20, 4/5, 11/10, 3/5, lcm 80 (7 bits); W 19/20, 6/5, 9/10, 7/5, 4/5, 9/5, 3/5, 13/5, lcm 20.
+  assert.equal(suiviDenBits(FIX), 7);
+  // PW (a = 1/3): K 7/6 and 2/3 (lcm 6, 3 bits); W 1/2 and 2 (lcm 2).
+  assert.equal(suiviDenBits(PW), 3);
+  // lambda 1/7 and 1/17 on K: 36/35, 31/35, 86/85, 81/85, lcm 595 (10 bits; the larger denominator alone, 85, has 7); W 9/10, 7/5.
+  assert.equal(suiviDenBits({ ...FIX, bets_k: { lambdas: ["1/7", "1/17"], weights: ["1/2", "1/2"] }, bets_w: oneBet("1/2") }), 10);
+  // W counts as much as K: lambda 1/97 on W gives 484/485 and 489/485 (9 bits), K's 1/2 gives 11/10 and 3/5.
+  assert.equal(suiviDenBits({ ...FIX, bets_k: oneBet("1/2"), bets_w: oneBet("1/97") }), 9);
+  assert.throws(() => suiviDenBits({ ...FIX, a: "2" }), RangeError, "the policy is checked first");
+});
+
 test("replay_is_exported_by_the_package", () => {
   // Only what the harness reads; the package's labelOf stays the predictor's.
-  for (const name of ["suiviReplay", "assertSuiviPolicy", "suiviPolicySha256"]) {
+  for (const name of ["suiviReplay", "suiviDenBits", "assertSuiviPolicy", "suiviPolicySha256"]) {
     assert.equal(typeof (hikae as Record<string, unknown>)[name], "function", `${s(name)} leaves @monark/hikae`);
   }
   assert.equal(hikae.suiviReplay, suiviReplay);

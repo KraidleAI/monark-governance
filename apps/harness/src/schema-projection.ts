@@ -33,7 +33,7 @@ import type { JsonSchemaType, StandardSchemaWithJSON } from "@modelcontextprotoc
 // Resource cap: the single source for the calibrate score bound lives in the pure tool file. No cycle (this module ->
 // calibrate; calibrate does no I/O, imports no schema), and importing it moves no filesystem read out of this module (K-8).
 import { CALIBRATE_MAX_N } from "./tools/calibrate.ts";
-import { SUIVI_MAX_BETS, SUIVI_MAX_N } from "./tools/gate.ts";
+import { SUIVI_MAX_BETS, SUIVI_MAX_N, SUIVI_MAX_TEXT, SUIVI_MAX_WORK_BITS } from "./tools/gate.ts";
 // The judge tool's closed lists and patterns: single source in the pure tool, as for calibrate. No cycle (this module ->
 // judge -> gate; none import back here).
 import { JUDGE_DECIMAL_PATTERN, JUDGE_LIST_MAX, JUDGE_NAME_PATTERN, JUDGE_ORDER_KINDS, JUDGE_REASONS } from "./tools/judge.ts";
@@ -205,11 +205,11 @@ const SUIVI_BETS_SCHEMA: JsonObject = {
   additionalProperties: false,
   required: ["lambdas", "weights"],
   properties: {
-    lambdas: { type: "array", items: { type: "string" }, minItems: 1, maxItems: SUIVI_MAX_BETS, description: "The bets, rationals n/d." },
-    weights: { type: "array", items: { type: "string" }, minItems: 1, maxItems: SUIVI_MAX_BETS, description: "Their weights, rationals n/d of sum 1." },
+    lambdas: { type: "array", items: { type: "string", maxLength: SUIVI_MAX_TEXT }, minItems: 1, maxItems: SUIVI_MAX_BETS, description: "The bets, rationals n/d." },
+    weights: { type: "array", items: { type: "string", maxLength: SUIVI_MAX_TEXT }, minItems: 1, maxItems: SUIVI_MAX_BETS, description: "Their weights, rationals n/d of sum 1." },
   },
 };
-const SUIVI_UNIT: JsonObject = { type: "string", description: "A rational n/d in (0, 1)." };
+const SUIVI_UNIT: JsonObject = { type: "string", maxLength: SUIVI_MAX_TEXT, description: "A rational n/d in (0, 1)." };
 /** The closed tracking policy of a cell (packages/hikae/src/suivi/policy.ts): its 22 keys; assertSuiviPolicy refuses any other. */
 const SUIVI_POLICY_SCHEMA: JsonObject = {
   type: "object",
@@ -229,7 +229,7 @@ const SUIVI_POLICY_SCHEMA: JsonObject = {
     alpha_arl: { ...SUIVI_UNIT, description: "The alarm level of the detector, a rational n/d in (0, 1)." },
     m: { ...SUIVI_UNIT, description: "The detector's reference rate, the text of a." },
     eta_m1: SUIVI_UNIT,
-    sr_reading_threshold: { type: "string", description: "An integer n >= 2, the threshold of the published reading." },
+    sr_reading_threshold: { type: "string", maxLength: SUIVI_MAX_TEXT, description: "An integer n >= 2, the threshold of the published reading." },
     restart_weights: { type: "string", enum: ["1/(j(j+1))"] },
     bets_k: SUIVI_BETS_SCHEMA,
     bets_w: SUIVI_BETS_SCHEMA,
@@ -257,7 +257,7 @@ const SUIVI_SCHEMA: JsonObject = {
   type: "object",
   additionalProperties: false,
   required: ["policy", "evaluations", "outcomes", "open"],
-  description: "OPTIONAL tracking evidence of the cell (step 6): the gate replays it from the start and reads B_t = min(remainingBudget, the replayed budget), -1 with no licence or after a closure. It only lowers B_t; no signature is read and nothing is stored.",
+  description: `OPTIONAL tracking evidence of the cell (step 6): the gate replays it from the start and reads B_t = min(remainingBudget, the replayed budget), -1 with no licence or after a closure. It only lowers B_t; no signature is read and nothing is stored. The replay is bounded: the number of evaluations times the bits of the common denominator of the policy's K and W betting factors is at most ${String(SUIVI_MAX_WORK_BITS)}, or the call is refused (param_invalid).`,
   properties: {
     policy: SUIVI_POLICY_SCHEMA,
     evaluations: {

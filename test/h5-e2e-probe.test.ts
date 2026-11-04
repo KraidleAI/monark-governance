@@ -43,10 +43,11 @@ const TRACE_PATH = fileURLToPath(new URL("../fixtures/h5-e2e-trace.json", import
 const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url));
 
 /** Pinned sha256 (LF-normalized) of the committed trace — also stated in fixtures/PROVENANCE-h5-e2e-trace.md.
- *  Re-recorded 2026-11-04 at step 6 of ROADMAP.md: the gate's params declare the optional `suivi`, so the tools/list bytes
- *  change; every served decision is the same (prior pin ed51ceb1…, 14848 bytes, the trace of step 7, where attest and cascade
- *  were archived). The earlier re-pins are told in the git history of this file and of the PROVENANCE file. */
-const TRACE_SHA256_PINNED = "3fc56af5ebfb94ab192a766a482745d2855019f0e2e4fe2903473ba37c541dea";
+ *  Re-recorded 2026-11-04 at step 6 of ROADMAP.md: the gate's params declare the optional `suivi` and its bounds, so the
+ *  tools/list bytes change; every served decision is the same (prior pin 3fc56af5…, the same day, before the bounds of the
+ *  replay; before it ed51ceb1…, the trace of step 7). The earlier re-pins are told in the git history of this file and of the
+ *  PROVENANCE file. */
+const TRACE_SHA256_PINNED = "83d2fa32207714b7be0eeb252fb102266ab8ace5fc90aae17d0096fcd1711e51";
 
 function stepByLabel(trace: H5Trace, label: string): ToolCallResponse {
   const s = trace.steps.find((x) => "label" in x && x.label === label);

@@ -68,7 +68,7 @@ abstention sentence) rides in the tool result **`content` text**, never inside t
 | `tool`           | the **named** gated tool — echoed into `GateDecision.tool`, **never invoked** (D0/D1). | non-empty string |
 | `clockOpen`      | whether the coverage window is still open (the caller owns the window, K-4d). | boolean |
 | `calibration`    | **OPTIONAL** BYO calibration (ADR-M007 D7): `{ scores, mode, candidates? }`. Present ⇒ the BYO conformal path (see above). | closed object; `mode ∈ {interval,set}`; `\|scores\| <= CALIBRATE_MAX_N`; interval ⇒ scores `>= 0`; set ⇒ non-empty, well-formed unique candidate labels |
-| `suivi`          | **OPTIONAL** tracking evidence of the cell: `{ policy, evaluations, outcomes, open }`, replayed server-side; the gate reads `B_t = min(remainingBudget, replayed budget)` (see "Online tracking" below). | closed object; at most `SUIVI_MAX_N` (500) evaluations and outcomes, `SUIVI_MAX_BETS` (8) bets a mixture; the policy's class and cell are the request's |
+| `suivi`          | **OPTIONAL** tracking evidence of the cell: `{ policy, evaluations, outcomes, open }`, replayed server-side; the gate reads `B_t = min(remainingBudget, replayed budget)` (see "Online tracking" below). | closed object; at most `SUIVI_MAX_N` (500) evaluations and outcomes, `SUIVI_MAX_BETS` (8) bets a mixture, `SUIVI_MAX_TEXT` (20) characters a rational text; the replay's work bound (`SUIVI_MAX_WORK_BITS`, below); the policy's class and cell are the request's |
 
 ### Caller-carried (in `prediction`, frozen)
 `schema_version` (must be `1.1.0` — the server speaks one version; `1.0.0` is a 400 `schema_version_unsupported`), `task_class`, `yhat`,
@@ -105,12 +105,20 @@ and `-1` otherwise (no licence yet, or closed: a closed segment stays closed). T
 replayed budget)`. The tracking only lowers the caller's budget: it moves a decision toward `abstain` (`budget_exhausted`), never toward
 `commit`. A call without `suivi` is unchanged. `judge` reads the same `params`, so it takes `suivi` too.
 
+The replay's cost. It reduces exact fractions at every label, and at t labels a capital of K or W has about t·L bits, where L is the
+bit size of the least common denominator of its mixture's betting factors (`suiviDenBits` of `@monark/hikae`; L = 7 for the USDe
+cell). So n labels cost about n·(n·L)². The gate refuses an evidence whose evaluations times L passes `SUIVI_MAX_WORK_BITS` (3600 bits),
+before any replay. Measured on 2026-11-04 on the development machine: 0.7 s for the USDe cell at 500 labels (3500 bits), and about 1 s
+at the bound with 500 labels. Without that bound, a policy of large or distinct denominators cost 7.7 s at 200 labels (L = 82), and a
+text of thousands of digits would cost far more: hence also the 20 characters of a rational text, checked before any parse.
+
 Refusals:
 
 - outside the schema (an unknown key, a `miss` other than 0 or 1, more than 500 evaluations or outcomes, more than 8 bets a
-  mixture): refused at the input boundary (`input_invalid`, 400 at the mirror);
+  mixture, a rational text of more than 20 characters): refused at the input boundary (`input_invalid`, 400 at the mirror);
 - a policy of another class or cell, a BYO call (its verdict names no cell), a malformed policy, an evaluation off the grid, an
-  outcome of no evaluation: a tool error `param_invalid`, whose message starts with `invalid param 'suivi': ` and names the cause.
+  outcome of no evaluation, a replay past its work bound: a tool error `param_invalid`, whose message starts with
+  `invalid param 'suivi': ` and names the cause. A direct caller of `runGate` meets the same bounds: they are checked again in the code.
 
 Not done at this step:
 
@@ -120,8 +128,10 @@ Not done at this step:
 - the SR reading (`sr_reading_threshold`) and the M1 module are not served;
 - "no licence yet" and "closed" both answer `budget_exhausted`. A reason of their own would change the frozen `GateDecision` contract:
   that is the founder's call;
-- the replay re-checks every state on exact rationals, and its cost grows faster than n² (about 0.5 s at 500 labels with 8 bets a
-  mixture, measured on 2026-11-04): hence the bounds.
+- the replay's cost is the reduction of its fractions (from 91 % to nearly all of a capital's time at 500 labels, measured):
+  comparing a capital with its level without reducing it would cut that cost tenfold or more and let the bounds grow. That is a
+  change of the betting library (`packages/hikae/src/pari`, `suivi/o4.ts`), for a lot of its own;
+- the server is synchronous: a call at the work bound holds it for about 1 s.
 
 ## Committed calibrations
 

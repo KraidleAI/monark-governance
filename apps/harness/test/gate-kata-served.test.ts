@@ -300,7 +300,7 @@ test("kata_tables_match_the_pins", () => {
   assert.deepEqual([d.verdict.policy_table_sha256, d.verdict.policy_row_sha256], [pin["btc-dir-1h"], sha256Canonical(row)], "the verdict carries the pinned table and its row");
   const HELD_TEXT = "[...FLOOR_HELD_CLASSES, ...ORDER_HELD_CLASSES]", line1043 = readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n")[1042];
   assert.equal(line1043, `export const SERVED_POLICY_TABLES = kataTablesMatchPins(servedPolicyTables(SERVED_TABLE_TEXTS, readCommittedTables(COMMITTED_FILES, kataClassEntries(kataClassText), { tables: COMMITTED_TABLES, held: ${HELD_TEXT} })), COMMITTED_TABLES, ${HELD_TEXT});`, "line 1043: the served build reads the committed tables against the pins and both held lists, then passes the tripwire");
-  assert.deepEqual(readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n").slice(1121, 1123), [`import { COMMITTED_FILES, readCommittedTables } from "../policy-committed.ts";`, `import { COMMITTED_TABLES, FLOOR_HELD_CLASSES, ORDER_HELD_CLASSES } from "../policy-committed-pins.ts";`], "lines 1122-1123: each name that line 1043 reads is imported as itself");
+  assert.deepEqual(readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n").slice(1129, 1131), [`import { COMMITTED_FILES, readCommittedTables } from "../policy-committed.ts";`, `import { COMMITTED_TABLES, FLOOR_HELD_CLASSES, ORDER_HELD_CLASSES } from "../policy-committed-pins.ts";`], "lines 1130-1131: each name that line 1043 reads is imported as itself");
 });
 
 // Test (E-2a; the invariant "no kata row is served before the release of the bands"): while no table is pinned

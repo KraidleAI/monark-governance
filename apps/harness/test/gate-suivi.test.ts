@@ -29,6 +29,9 @@ const FIX: SuiviPolicy = { schema: "hikae-suivi-policy-v1", task_class: "stable-
   thin_min: 30, keyring: [] };
 const oneBet = (l: string): BetsText => ({ lambdas: [l], weights: ["1"] });
 const PW: SuiviPolicy = { ...FIX, a: "1/3", m: "1/3", bets_w: oneBet("3/2"), bets_k: oneBet("1/2"), bets_sr: oneBet("1/2"), delta_exh: "1/64" };
+/** The USDe cell with one bet on K (factors 11/10, 3/5) and one on W, lambda 1/97 (factors 484/485, 489/485): L = 9 bits, so the
+ *  work bound n L <= 3600 admits 400 evaluations and refuses 401 (suiviDenBits, packages/hikae/test/suivi-replay.test.ts). */
+const P97: SuiviPolicy = { ...FIX, bets_k: oneBet("1/2"), bets_w: oneBet("1/97") };
 
 const T0 = 1_790_000_000_000;
 const evals = (n: number): RefEvaluation[] => Array.from({ length: n }, (_, i) => ({ seq: i, t_step_ms: T0 + i * FIX.grid_ms,
@@ -93,6 +96,9 @@ test("gate_suivi_refusals_are_param_invalid", () => {
     ["open not a boolean", { suivi: { ...ok, open: "yes" as unknown as boolean } }, "open is not a boolean"],
     ["too many evaluations", { suivi: { ...ok, evaluations: evals(501) } }, "500"],
     ["too many outcomes", { suivi: { ...ok, outcomes: outs(fill(501, 0)) } }, "500"],
+    ["a rational text too long", { suivi: { ...ok, policy: { ...PW, delta_exh: `1/${"9".repeat(19)}` } } }, "20 characters"],
+    ["a mixture's weights too many", { suivi: { ...ok, policy: { ...PW, bets_sr: { lambdas: ["1/2"], weights: fill(9, 0).map(() => "1/9") } } } }, "8 bets"],
+    ["the replay's work", { suivi: { policy: P97, evaluations: evals(401), outcomes: outs([0, 0]), open: false } }, "401 evaluations by 9 bits"],
   ];
   for (const [what, params, needle] of cases) {
     const r = refusal(() => gateWith(params));
@@ -104,6 +110,14 @@ test("gate_suivi_refusals_are_param_invalid", () => {
   const byo = refusal(() => runGate({ ...USDE, predictor_id: "byo:demo" }, { ...BASE, calibration: { scores: [0.1, 0.2, 0.3], mode: "interval" },
     suivi: { ...ok, policy: { ...PW, cell_key: "byo:demo" } } }));
   assert.deepEqual([byo.code, byo.message.includes("no cell key")], ["param_invalid", true], byo.message);
+});
+
+test("gate_suivi_work_bound_admits_up_to_its_limit", () => {
+  // 400 evaluations by 9 bits is 3600, the bound itself: replayed (two zeros, no licence yet). The USDe cell (L = 7) carries 500.
+  const at = gateWith({ suivi: { policy: P97, evaluations: evals(400), outcomes: outs([0, 0]), open: false } });
+  assert.deepEqual([at.action, at.reason, at.remaining_budget], ["abstain", "budget_exhausted", -1]);
+  const usde = gateWith({ suivi: { policy: FIX, evaluations: evals(500), outcomes: outs([0, 0]), open: true } });
+  assert.deepEqual([usde.action, usde.reason], ["commit", "covered"], "500 evaluations by 7 bits is 3500");
 });
 
 test("gate_suivi_is_declared_in_the_params_schema_and_reaches_judge", () => {

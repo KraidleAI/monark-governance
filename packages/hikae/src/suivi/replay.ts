@@ -8,13 +8,17 @@
  *     closure is W's. The alarm is sticky, so a segment that opens after it is closed at its opening;
  *   - the budget is budgetNano read as a number: floor(10^9 (1 - delta_exh W)) / 10^9 in an open segment, -1 with no licence and
  *     after a closure, never 0.
- * The evidence is the caller's: no signature is read (the policy's keyring is not checked here), and nothing is stored.
+ * The evidence is the caller's: no signature is read (the policy's keyring is checked for its shape only), and nothing is stored.
+ * The cost: at t labels a capital of K or W is a fraction of about t L bits, L the bits of the common denominator of its mixture's
+ * factors (suiviDenBits), and each label reduces such fractions, so the replay of n labels costs about n (n L)^2; a served caller
+ * bounds n L (apps/harness).
  * Pure: no clock, no network, no file, no environment. Every refusal throws a RangeError.
  */
+import { betFactor, q, qParse, type BetSide } from "../pari/index.ts";
 import { alarm, detInit, detStep } from "./detector.ts";
 import { enterInOrder, type Outcome, type RefEvaluation } from "./label.ts";
 import { budgetNano, o4CloseOnAlarm, o4Init, o4Step } from "./o4.ts";
-import { assertSuiviPolicy, type SuiviPolicy } from "./policy.ts";
+import { assertSuiviPolicy, mixtureOf, type BetsText, type SuiviPolicy } from "./policy.ts";
 
 export interface SuiviEvidence {
   readonly policy: SuiviPolicy;
@@ -55,4 +59,18 @@ export function suiviReplay(e: SuiviEvidence): SuiviReplay {
   return { labels: entered.length, outcomes_through_seq, segment: o4.segment.kind,
     closed_by: o4.segment.kind === "closed" ? o4.segment.closed_by : null, alarm: det.alarm_at !== null, budget_nano: nano,
     budget: nano < 0n ? -1 : Number(nano) / 1e9 };
+}
+
+/** L of the cost above: the bits of the least common denominator of the factors at x = 0 and x = 1 of every bet, for K (bets_k,
+ *  below) and W (bets_w, above), the larger of the two. The detector is not counted: it runs in fixed point. Checks the policy. */
+export function suiviDenBits(policy: SuiviPolicy): number {
+  assertSuiviPolicy(policy);
+  const a = qParse(policy.a);
+  const bits = (bets: BetsText, side: BetSide): number => {
+    let den = 1n;
+    // lcm(den, d) = den (d / gcd(den, d)), and q(den, d) reduces by that gcd: its denominator is d / gcd(den, d).
+    for (const lambda of mixtureOf(bets).lambdas) for (const x of [0, 1] as const) den *= q(den, betFactor(side, lambda, a, x).d).d;
+    return den.toString(2).length;
+  };
+  return Math.max(bits(policy.bets_k, "below"), bits(policy.bets_w, "above"));
 }

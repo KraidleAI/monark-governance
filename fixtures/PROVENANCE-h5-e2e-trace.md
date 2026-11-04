@@ -37,8 +37,9 @@ the Genkan kernel, which the kernel tests drive (`npm run test:genkan`).
   That abstention is the honest, expected result.
 - **calibrate = q̂ 0.36**, the 19th of the 20 sorted scores (rank ceil((n+1)(1-alpha)) at alpha 0.1). It commits no
   calibration and serves no decision; its label states the exchangeability hypothesis.
-- **B_t is caller-carried.** `remainingBudget` enters as a gate parameter and the SAME value leaves as
-  `remaining_budget`. The stateless server does NOT deplete it (`packages/hikae/src/l3-gate.ts`).
+- **B_t is caller-carried.** `remainingBudget` enters as a gate parameter and, on a call without `params.suivi` (every call of
+  this trace), the SAME value leaves as `remaining_budget`. The stateless server does NOT deplete it
+  (`packages/hikae/src/l3-gate.ts`); with `suivi`, the gate reads the smaller of it and the replayed budget (step 6).
 
 These statements live in the trace's `honesty` block and are re-asserted by `test/h5-e2e-probe.test.ts`.
 
@@ -47,8 +48,9 @@ These statements live in the trace's `honesty` block and are re-asserted by `tes
 - The tools read no clock (`produced_at` is caller-carried); the ephemeral port is intentionally NOT recorded.
   Re-running the recorder reproduces the file byte-for-byte (two consecutive runs printed the same digest on
   2026-11-04).
-- **sha256 (LF)** of `h5-e2e-trace.json`: `3fc56af5ebfb94ab192a766a482745d2855019f0e2e4fe2903473ba37c541dea`
-  (14848 bytes). Prior pin `ed51ceb1…` (14848 bytes, the trace of step 7, before `suivi`). `.gitattributes`
+- **sha256 (LF)** of `h5-e2e-trace.json`: `83d2fa32207714b7be0eeb252fb102266ab8ace5fc90aae17d0096fcd1711e51`
+  (14848 bytes). Prior pin `3fc56af5…` (14848 bytes, the same day, before the replay's bounds were declared; before it
+  `ed51ceb1…`, the trace of step 7, before `suivi`). `.gitattributes`
   normalizes to `eol=lf`, so this digest survives commit; the probe LF-normalizes before hashing, so it also survives
   a CRLF checkout. This value is pinned as `TRACE_SHA256_PINNED` in `test/h5-e2e-probe.test.ts`.
 - **Re-pinning**: the digest changes whenever the `tools/list` wire bytes, the `content` prose, the

@@ -27,7 +27,7 @@ import {
   buildSetRegion,
   scoreTestBand,
   buildVerdict,
-  underCalibVerdict, noRegionVerdict, suiviReplay,
+  underCalibVerdict, noRegionVerdict, suiviDenBits, suiviReplay,
   conformInterval,
   gate,
 } from "@monark/hikae";
@@ -1070,23 +1070,28 @@ function admittedSplit(cell: VerdictCell): { readonly qhat: number; readonly alp
   return row === undefined || row.qhat === null ? { reason: "under_calib" } : { qhat: row.qhat, alpha: Number(row.alpha) };
 }
 
-/** Step 6 of ROADMAP.md: the bounds of a caller's tracking evidence, at the SDK boundary and here. The replay re-checks every state on
- *  exact rationals and grows faster than n^2 (about 0.5 s at 500 labels with 8 bets a mixture, measured on 2026-11-04). */
+/** Step 6 of ROADMAP.md: the bounds of a caller's tracking evidence; the first three also at the SDK boundary. The replay reduces
+ *  exact fractions of about t L bits at each label t (L = suiviDenBits of the policy), so n labels cost about n (n L)^2. The work
+ *  bound keeps n L at most 3600 bits: about 1 s at 500 labels, 0.7 s for the USDe cell (L = 7), measured on 2026-11-04. A rational
+ *  text of at most 20 characters (nine digits on each side of the slash) keeps the parse itself cheap. */
 export const SUIVI_MAX_N = 500;
 export const SUIVI_MAX_BETS = 8;
+export const SUIVI_MAX_TEXT = 20;
+export const SUIVI_MAX_WORK_BITS = 3600;
 
 function suiviRefusal(rule: string): never {
   throw new HarnessToolError(`invalid param 'suivi': ${rule}`, "param_invalid");
 }
 
-/** The bets of a mixture read from caller JSON, before the policy check: 0 for anything but a list of lambdas. */
-function betsCount(bets: unknown): number {
-  const lambdas: unknown = typeof bets === "object" && bets !== null ? (bets as { readonly lambdas?: unknown }).lambdas : undefined;
-  return Array.isArray(lambdas) ? lambdas.length : 0;
-}
-
 /** A JSON object of the caller (not a list). */
 const isRecord = (v: unknown): v is Readonly<Record<string, unknown>> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** The lambdas and weights lists of a mixture read from caller JSON, before the policy check: those that are lists. */
+const betsLists = (bets: unknown): readonly (readonly unknown[])[] =>
+  isRecord(bets) ? [bets["lambdas"], bets["weights"]].filter((l): l is readonly unknown[] => Array.isArray(l)) : [];
+/** The rational texts of a policy read from caller JSON: its seven scalars and the entries of its three mixtures. */
+const policyTexts = (p: Readonly<Record<string, unknown>>): readonly unknown[] => [p["a"], p["m"], p["delta_adm"], p["delta_exh"],
+  p["alpha_arl"], p["eta_m1"], p["sr_reading_threshold"], ...[p["bets_k"], p["bets_w"], p["bets_sr"]].flatMap(betsLists).flat()];
 
 /** The shape the replay needs, checked on the caller's JSON before it runs (the replay checks the rest): the policy names the
  *  request's class and the verdict's cell, and the lists keep to their bounds. The evidence is the caller's; no signature is read. */
@@ -1097,7 +1102,8 @@ function checkSuivi(s: unknown, prediction: Prediction, verdict: CoverageVerdict
   const { evaluations, outcomes } = e;
   if (!Array.isArray(evaluations) || evaluations.length > SUIVI_MAX_N) suiviRefusal(`expected a list of at most ${String(SUIVI_MAX_N)} evaluations`);
   if (!Array.isArray(outcomes) || outcomes.length > SUIVI_MAX_N) suiviRefusal(`expected a list of at most ${String(SUIVI_MAX_N)} outcomes`);
-  if ([policy["bets_k"], policy["bets_w"], policy["bets_sr"]].some((b) => betsCount(b) > SUIVI_MAX_BETS)) suiviRefusal(`expected at most ${String(SUIVI_MAX_BETS)} bets a mixture`);
+  if ([policy["bets_k"], policy["bets_w"], policy["bets_sr"]].flatMap(betsLists).some((l) => l.length > SUIVI_MAX_BETS)) suiviRefusal(`expected at most ${String(SUIVI_MAX_BETS)} bets a mixture`);
+  if (policyTexts(policy).some((t) => typeof t === "string" && t.length > SUIVI_MAX_TEXT)) suiviRefusal(`expected rational texts of at most ${String(SUIVI_MAX_TEXT)} characters`);
   if (policy["task_class"] !== prediction.task_class) suiviRefusal(`the policy's task_class is not the request's '${prediction.task_class}'`);
   if (verdict.cell_key === null) suiviRefusal("the verdict has no cell key (a BYO calibration names no served cell)");
   if (policy["cell_key"] !== verdict.cell_key) suiviRefusal(`the policy's cell_key is not the verdict's '${verdict.cell_key}'`);
@@ -1110,6 +1116,8 @@ function suiviBudget(prediction: Prediction, params: HarnessParams, verdict: Cov
   if (s === undefined) return params.remainingBudget;
   checkSuivi(s, prediction, verdict);
   try {
+    const n = s.evaluations.length, bits = suiviDenBits(s.policy);
+    if (n * bits > SUIVI_MAX_WORK_BITS) suiviRefusal(`the replay's work, ${String(n)} evaluations by ${String(bits)} bits, passes its bound of ${String(SUIVI_MAX_WORK_BITS)} bits`);
     return Math.min(params.remainingBudget, suiviReplay(s).budget);
   } catch (err) {
     if (err instanceof RangeError) suiviRefusal(err.message);
