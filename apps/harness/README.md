@@ -130,11 +130,16 @@ The tool runs the gate on the envelope (the same rules and the same refusals as 
 **that decision's action** and the caller's limits, and hands the mode 1 request to the kernel binary: `src/kernel.ts`
 runs the binary that `lake build genkan-kernel` writes in `apps/genkan/kernel/.lake/build/bin`, by its path, with no
 shell, no argument and an empty environment, killed after 10 s or past 64 bytes of stdout. It reads the answer with
-`readVerdict`, fail-closed: an allow only for exit 0 and exactly the line `allow`. The gate runs first, so an envelope it
-refuses (a stale `produced_at`, say) is a tool error for every order, an EXIT included. The kernel runs synchronously: each
-`judge` call holds the server until the kernel answers (about 30 ms measured on Windows), at most 10 s.
+`readVerdict`, fail-closed: an allow only for exit 0 and exactly the line `allow`. The gate runs first: an envelope it
+refuses (a `produced_at` in the future, say) is a tool error for every order but an EXIT. An EXIT is judged even then (the
+founder's decision of 2026-11-04), under the action abstain, since the kernel judges an EXIT whatever the action: `decision`
+is then `null` and `gate_error` holds the gate's code and message. A malformed envelope, one the input schema refuses, is
+still a 400 `input_invalid` for every order, an EXIT included. The kernel runs synchronously: each `judge` call holds
+the server until the kernel answers (about 30 ms measured on Windows), at most 10 s; an asynchronous runner, capped, comes
+before any deployment behind a public host.
 
-**Output** `{ decision, kernel_verdict, kernel_reason, reduce_only, kernel_request_sha256 }`: the gate's `GateDecision`;
+**Output** `{ decision, gate_error, kernel_verdict, kernel_reason, reduce_only, kernel_request_sha256 }`: the gate's
+`GateDecision`, or `null` with the gate's refusal in `gate_error` (an EXIT only);
 `allow` or `deny`; `null`, or the reason of the deny: the kernel's (`kind`, `venue`, `not-commit`, `asset`, `over-cap`,
 `asset-out`, `min-out`, `bad-ctx`, `bad-order`), `refused` (exit 3), `unreadable` (any other answer, a run killed past
 its timeout or its cap included) or `unavailable` (no kernel ran: no runner, or a binary no process can be made of);

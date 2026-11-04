@@ -29,6 +29,18 @@ const LIMITS = { venues: ["venue:a", "vault"], assets: [{ asset: "btc", cap: "10
 const OPEN: JudgeOrder = { kind: "OPEN", target: "venue:a", asset: "btc", amount: "100" };
 const MAX_U128 = "340282366920938463463374607431768211455";
 const input = (over: Partial<JudgeInput> = {}): JudgeInput => ({ prediction: PRED, params: COMMIT, order: OPEN, limits: LIMITS, ...over });
+/** An EXIT on a listed venue, and an envelope the gate refuses: a produced_at long after NOW (produced_at_future). */
+const EXIT: JudgeOrder = { kind: "EXIT", target: "vault", asset: "btc", amount: "7" };
+const FUTURE: Prediction = { ...PRED, produced_at: "2999-01-01T00:00:00Z" };
+/** An order of every kind but EXIT, each within the frames. */
+const OTHER_KINDS: readonly JudgeOrder[] = [
+  { kind: "TRANSFER", target: "vault", asset: "btc", amount: "7" },
+  { kind: "APPROVE", target: "vault", asset: "btc", amount: "7" },
+  { kind: "SWAP", target: "venue:a", asset: "usdc", amount: "1", assetOut: "btc", minOut: "1" },
+  { kind: "OPEN", target: "venue:a", asset: "btc", amount: "1" },
+];
+/** COMMIT's params with no calibration: a class that is not one of the gate's is then task_class_unknown. */
+const NO_CALIBRATION: HarnessParams = { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 2, alpha: 0.1, nMin: 5, intent: 0, tool: "perps_order_preview", clockOpen: true };
 
 /** A fake kernel: it records each request and answers `answer`. */
 function fake(answer: KernelAnswer): { readonly runner: KernelRunner; readonly requests: Uint8Array[] } {
@@ -104,8 +116,9 @@ test("judge_marks_reduce_only_an_allowed_exit_alone", () => {
   for (const [name, i, answer, reduceOnly] of cases) assert.equal(runJudge(i, { nowMs: NOW, kernel: fake(answer).runner }).reduce_only, reduceOnly, name);
 });
 
-// A field outside the frames, and every refusal of the gate, is a tool error before any kernel runs: param_invalid for the frames
-// (the frozen tool-error contract has no code of its own for judge), the gate's own code for the gate.
+// A field outside the frames, and every refusal of the gate for an order other than an EXIT (these are OPEN orders), is a tool
+// error before any kernel runs: param_invalid for the frames (the frozen tool-error contract has no code of its own for judge),
+// the gate's own code for the gate.
 test("judge_refuses_before_the_kernel_runs", () => {
   const cases: [string, JudgeInput, string, RegExp][] = [
     ["an amount of 2^128", input({ order: { ...OPEN, amount: "340282366920938463463374607431768211456" } }), "param_invalid", /^invalid order: amount must be within 0 to 2\^128 - 1/],
@@ -119,6 +132,8 @@ test("judge_refuses_before_the_kernel_runs", () => {
     ["a target of 129 characters", input({ order: { ...OPEN, target: "a".repeat(129) } }), "param_invalid", /^invalid order: target must be 1 to 128 characters/],
     ["a gate param", input({ params: { ...COMMIT, alpha: 1.5 } }), "param_invalid", /^invalid param 'alpha'/],
     ["a produced_at in the future", input({ prediction: { ...PRED, produced_at: "2026-09-05T00:00:00Z" } }), "produced_at_future", /is in the future/],
+    ["an unknown class", input({ prediction: { ...PRED, task_class: "nope-class" }, params: NO_CALIBRATION }), "task_class_unknown", /^unknown task_class 'nope-class'/],
+    ["an EXIT whose order is outside the frames", input({ prediction: FUTURE, order: { ...EXIT, amount: "0100" } }), "param_invalid", /^invalid order\.amount/],
   ];
   for (const [name, i, code, message] of cases) {
     const k = fake(line("allow\n"));
@@ -133,6 +148,46 @@ test("judge_refuses_before_the_kernel_runs", () => {
     assert.match(thrown.message, message, `${name}: its message`);
     assert.equal(k.requests.length, 0, `${name}: no kernel ran`);
   }
+});
+
+// An EXIT is judged whatever the gate decides, so a refusal of the gate does not stop it (the founder's decision of 2026-11-04): the
+// kernel judges it under the action abstain, `decision` is null, and `gate_error` carries the gate's code and message. An OPEN under
+// the same envelope is the gate's tool error, and no kernel runs.
+test("judge_judges_an_exit_the_gate_refuses", () => {
+  const cases: [string, Partial<JudgeInput>, string][] = [
+    ["a produced_at in the future", { prediction: FUTURE }, "produced_at_future"],
+    ["an unknown class", { prediction: { ...PRED, task_class: "nope-class" }, params: NO_CALIBRATION }, "task_class_unknown"],
+    ["a gate param", { params: { ...COMMIT, alpha: 1.5 } }, "param_invalid"],
+  ];
+  for (const [name, over, code] of cases) {
+    const i = input({ ...over, order: EXIT });
+    let gateError: unknown;
+    try {
+      runGate(i.prediction, i.params, undefined, { nowMs: NOW });
+    } catch (e) {
+      gateError = e;
+    }
+    assert.ok(gateError instanceof Error && toolErrorCode(gateError) === code, `${name}: the gate refuses the envelope with ${code}`);
+    const k = fake(line("allow\n"));
+    const out = runJudge(i, { nowMs: NOW, kernel: k.runner });
+    assert.equal(out.decision, null, `${name}: no gate decision`);
+    assert.deepEqual(out.gate_error, { code, message: gateError.message }, `${name}: the gate's refusal, as it is`);
+    const want = expected("abstain", { kind: "EXIT", target: "vault", asset: "btc", amount: 7n });
+    assert.equal(k.requests.length, 1, `${name}: one kernel run`);
+    assert.deepEqual([...(k.requests[0] ?? [])], [...want], `${name}: the request is the frames' bytes under abstain`);
+    assert.equal(k.requests[0]?.[13], 3, `${name}: the context's action byte is abstain's`);
+    assert.deepEqual([out.kernel_verdict, out.kernel_reason, out.reduce_only, out.kernel_request_sha256], ["allow", null, true, sha256(want)], `${name}: the kernel's allow, reduce_only`);
+    assert.ok(judgeVerdictSummary(out).startsWith(`verdict kernel=allow reason=none reduce_only=true action=none gate_error=${code} kernel_request_sha256=`), `${name}: the summary names the gate's refusal`);
+    const denied = runJudge(i, { nowMs: NOW, kernel: fake(line("deny venue\n")).runner });
+    assert.deepEqual([denied.kernel_verdict, denied.kernel_reason, denied.reduce_only], ["deny", "venue", false], `${name}: the kernel's deny`);
+    for (const other of OTHER_KINDS) {
+      const k2 = fake(line("allow\n"));
+      assert.throws(() => runJudge(input({ ...over, order: other }), { nowMs: NOW, kernel: k2.runner }), (e: unknown) => toolErrorCode(e) === code, `${name}: a ${other.kind} is the gate's tool error`);
+      assert.equal(k2.requests.length, 0, `${name}: and no kernel ran for the ${other.kind}`);
+    }
+  }
+  assert.deepEqual(OTHER_KINDS.map((o) => o.kind).sort(), ["APPROVE", "OPEN", "SWAP", "TRANSFER"], "every kind but EXIT is checked");
+  assert.ok(judgeHonestyText(runJudge(input({ prediction: FUTURE, order: EXIT }), { nowMs: NOW, kernel: fake(line("allow\n")).runner })).startsWith("The gate refused this call's envelope"), "the text says the gate refused the envelope");
 });
 
 const API = "http://api.monarkgate.tech/judge";
@@ -160,7 +215,7 @@ test("judge_is_served_by_the_mirror_and_by_mcp", async () => {
   const body = input();
   const allows = fake(line("allow\n")).runner;
   const direct = runJudge(body, { nowMs: NOW, kernel: allows });
-  const text = `${judgeHonestyText(direct.kernel_reason)} ${judgeVerdictSummary(direct)}`;
+  const text = `${judgeHonestyText(direct)} ${judgeVerdictSummary(direct)}`;
   const res = await post(body, allows);
   assert.equal(res.status, 200, "the mirror serves judge");
   const json = (await res.json()) as Obj;
@@ -179,6 +234,26 @@ test("judge_is_served_by_the_mirror_and_by_mcp", async () => {
   const noneMcp = await mcpJudge(body);
   assert.deepEqual([(noneMcp["structuredContent"] as Obj)["kernel_verdict"], (noneMcp["structuredContent"] as Obj)["kernel_reason"]], ["deny", "unavailable"], "no kernel handed to MCP: unavailable");
 
+  // An EXIT under an envelope the gate refuses is served on both surfaces (a 200, no tool error); an OPEN under it is the gate's
+  // tool error on both.
+  const exitBody = { ...body, prediction: FUTURE, order: EXIT };
+  const exitDirect = runJudge(exitBody, { nowMs: NOW, kernel: allows });
+  const exitText = `${judgeHonestyText(exitDirect)} ${judgeVerdictSummary(exitDirect)}`;
+  const exitRes = await post(exitBody, allows);
+  assert.equal(exitRes.status, 200, "the mirror serves an EXIT the gate refused");
+  const exitJson = (await exitRes.json()) as Obj;
+  assert.deepEqual(exitJson["structuredContent"], exitDirect, "its output is runJudge's");
+  assert.deepEqual(exitJson["content"], [{ type: "text", text: exitText }], "its text is the label and the summary");
+  const exitMcp = await mcpJudge(exitBody, allows);
+  assert.notEqual(exitMcp["isError"], true, "MCP serves it");
+  assert.deepEqual([exitMcp["structuredContent"], exitMcp["content"]], [exitDirect, [{ type: "text", text: exitText }]], "MCP serves the same output and text");
+  const openRes = await post({ ...body, prediction: FUTURE }, allows);
+  assert.equal(openRes.status, 400, "an OPEN under the same envelope is a 400");
+  const openJson = (await openRes.json()) as Obj;
+  assert.deepEqual([openJson["error"], openJson["code"]], ["tool_error", "produced_at_future"], "the gate's tool error");
+  const openMcp = await mcpJudge({ ...body, prediction: FUTURE }, allows);
+  assert.deepEqual([openMcp["isError"], openMcp["_meta"]], [true, { "monarkgate.tech/error_code": "produced_at_future" }], "and on MCP");
+
   const typed = await post({ ...body, order: { ...OPEN, amount: 100 } }, allows);
   assert.equal(typed.status, 400, "a number amount is refused at the schema");
   assert.deepEqual(((await typed.json()) as Obj)["code"], "input_invalid");
@@ -193,10 +268,9 @@ test("judge_is_served_by_the_mirror_and_by_mcp", async () => {
   assert.deepEqual([swapMcp["isError"], swapMcp["_meta"]], [true, { "monarkgate.tech/error_code": "param_invalid" }], "and an MCP tool error param_invalid");
 });
 
-// The default runner runs the binary that `lake build genkan-kernel` writes; a runner whose binary is not there is no run, so judge
-// answers unavailable.
 // The published output schema ties the verdict's fields, as runJudge does: an allow has no reason; a deny has one and is never
-// reduce_only. The mirror validates each output against it before it answers.
+// reduce_only; and there is a gate decision or a gate error, never both and never neither. The mirror validates each output
+// against it before it answers.
 test("judge_output_schema_ties_the_verdict_fields", async () => {
   const tool = HARNESS_TOOLS.find((t) => t.name === JUDGE_TOOL_NAME);
   assert.ok(tool !== undefined, "judge is registered");
@@ -205,14 +279,22 @@ test("judge_output_schema_ties_the_verdict_fields", async () => {
   const exit = runJudge(input({ params: ABSTAIN, order: { kind: "EXIT", target: "vault", asset: "btc", amount: "1" } }), { nowMs: NOW, kernel: fake(line("allow\n")).runner });
   const denied = runJudge(input(), { nowMs: NOW, kernel: fake(line("deny venue\n")).runner });
   const none = runJudge(input(), { nowMs: NOW });
-  for (const [name, o] of [["an allow", allowed], ["an allowed EXIT, reduce_only", exit], ["a deny of the kernel", denied], ["a deny unavailable", none]] as const) {
+  const refused = runJudge(input({ prediction: FUTURE, order: EXIT }), { nowMs: NOW, kernel: fake(line("allow\n")).runner });
+  const refusedDenied = runJudge(input({ prediction: FUTURE, order: EXIT }), { nowMs: NOW, kernel: fake(line("deny venue\n")).runner });
+  for (const [name, o] of [["an allow", allowed], ["an allowed EXIT, reduce_only", exit], ["a deny of the kernel", denied], ["a deny unavailable", none], ["an EXIT the gate refused", refused], ["an EXIT the gate refused, denied", refusedDenied]] as const) {
     assert.equal(await valid(o), true, `${name} validates`);
   }
   assert.equal(exit.reduce_only, true, "the EXIT case is reduce_only");
+  assert.deepEqual([refused.decision, refused.gate_error?.code], [null, "produced_at_future"], "the refused case has no decision and a gate error");
   for (const [name, o] of [
     ["a deny with no reason", { ...allowed, kernel_verdict: "deny" }],
     ["an allow with a reason", { ...allowed, kernel_reason: "venue" }],
     ["a deny marked reduce_only", { ...denied, reduce_only: true }],
+    ["neither a decision nor a gate error", { ...refused, gate_error: null }],
+    ["both a decision and a gate error", { ...allowed, gate_error: refused.gate_error }],
+    ["a gate error with a code outside the contract", { ...refused, gate_error: { code: "nope", message: "x" } }],
+    // With no gate decision the order is an EXIT, so an allow is reduce_only.
+    ["an allow with no gate decision, not reduce_only", { ...refused, reduce_only: false }],
   ] as const) {
     assert.equal(await valid(o), false, `${name} does not validate`);
   }

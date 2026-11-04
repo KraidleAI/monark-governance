@@ -5,7 +5,9 @@
  * It runs the gate on the same envelope as `gate` (`runGate`: the same rules and the same refusals), so the action the kernel is
  * handed is the gate's own answer to this call, never the caller's word. It builds the kernel's context from that action and the
  * caller's `limits` (venues, assets and caps), encodes the order, and hands the mode 1 request to the runner the entry point
- * injects (`kernel`, src/kernel.ts). It reads the answer with `readVerdict` of apps/genkan/src/frame.ts, fail-closed: an allow
+ * injects (`kernel`, src/kernel.ts). An EXIT is the one order the gate's refusal does not stop (the founder's decision of
+ * 2026-11-04): the kernel judges an EXIT whatever the action, so it judges this one under the action abstain, with no gate
+ * decision and the gate's refusal in `gate_error`; any other order under a refused envelope is the gate's tool error. It reads the answer with `readVerdict` of apps/genkan/src/frame.ts, fail-closed: an allow
  * only for exit 0 and exactly the line `allow`. No runner, or no kernel binary, is a deny `unavailable`. A field outside the
  * formats of the frames is a tool error `param_invalid` (the frozen tool-error contract has no code of its own for this tool),
  * and the kernel is not run.
@@ -15,7 +17,7 @@
 import { createHash } from "node:crypto";
 import type { AttestedPrice, GateDecision, Prediction } from "@monark/contracts";
 import { encodeContext, encodeJudgeRequest, encodeOrder, readVerdict, type OrderFields, type OrderKind } from "@monark/genkan/frame";
-import { HarnessToolError, runGate, type HarnessParams } from "./gate.ts";
+import { HarnessToolError, runGate, toolErrorCode, type HarnessErrorCode, type HarnessParams } from "./gate.ts";
 
 export const JUDGE_TOOL_NAME = "judge";
 
@@ -69,9 +71,18 @@ export interface JudgeRunOptions {
   readonly kernel?: KernelRunner;
 }
 
+/** The gate's refusal of the envelope, as it threw it: its code and its message. */
+export interface JudgeGateError {
+  readonly code: HarnessErrorCode;
+  readonly message: string;
+}
+
 /** The tool's output: the gate's decision, the kernel's verdict read fail-closed, and the sha256 of the request it was handed. */
 export interface JudgeOutput {
-  readonly decision: GateDecision;
+  /** null exactly for an EXIT whose envelope the gate refused; `gate_error` then says why. */
+  readonly decision: GateDecision | null;
+  /** null exactly when there is a gate decision. */
+  readonly gate_error: JudgeGateError | null;
   readonly kernel_verdict: "allow" | "deny";
   /** null exactly when the verdict is allow. */
   readonly kernel_reason: JudgeReason | null;
@@ -116,16 +127,29 @@ export function judgeRequest(action: GateDecision["action"], order: JudgeOrder, 
   return framed("request", () => encodeJudgeRequest(ctx, ord));
 }
 
-/** Runs the gate, then the kernel on the order under the gate's action. Throws the gate's tool errors, and `param_invalid` for a
- *  field outside the frames, before any kernel runs. */
+/** The gate's decision on the envelope; for an EXIT only, its refusal instead of a throw. */
+function gateOrRefusal(input: JudgeInput, nowMs: number | undefined): { readonly decision: GateDecision; readonly gate_error: null } | { readonly decision: null; readonly gate_error: JudgeGateError } {
+  try {
+    return { decision: runGate(input.prediction, input.params, input.attested, nowMs === undefined ? {} : { nowMs }), gate_error: null };
+  } catch (error) {
+    const code = toolErrorCode(error);
+    if (input.order.kind !== "EXIT" || code === undefined || !(error instanceof Error)) throw error;
+    return { decision: null, gate_error: { code, message: error.message } };
+  }
+}
+
+/** Runs the gate, then the kernel on the order under the gate's action (abstain for an EXIT whose envelope the gate refused).
+ *  Throws the gate's tool errors for any order but an EXIT, and `param_invalid` for a field outside the frames, before any kernel
+ *  runs. */
 export function runJudge(input: JudgeInput, options: JudgeRunOptions = {}): JudgeOutput {
-  const decision = runGate(input.prediction, input.params, input.attested, options.nowMs === undefined ? {} : { nowMs: options.nowMs });
-  const request = judgeRequest(decision.action, input.order, input.limits);
+  const gate = gateOrRefusal(input, options.nowMs);
+  const request = judgeRequest(gate.decision === null ? "abstain" : gate.decision.action, input.order, input.limits);
   const answer = options.kernel === undefined ? null : options.kernel(request);
   const verdict = answer === null ? undefined : readVerdict(answer.status, answer.stdout);
   const allow = verdict?.allow === true;
   return {
-    decision,
+    decision: gate.decision,
+    gate_error: gate.gate_error,
     kernel_verdict: allow ? "allow" : "deny",
     kernel_reason: verdict === undefined ? "unavailable" : verdict.allow ? null : verdict.reason,
     reduce_only: allow && input.order.kind === "EXIT",
@@ -148,25 +172,37 @@ export const JUDGE_NO_VERDICT_LABEL =
   "its answer was not a verdict (unreadable). The order is denied, and nothing here says whether it would pass the kernel's " +
   "rules. The harness places no order.";
 
+/** The honesty text of an answer that carries the kernel's verdict on an EXIT whose envelope the gate refused. */
+export const JUDGE_EXIT_LABEL =
+  "The gate refused this call's envelope (gate_error says why), so there is no gate decision. The order is an EXIT, which " +
+  "Genkan's Lean kernel judges whatever the action: it judged it under the action abstain and the caller's limits (venues, assets " +
+  "and caps). An allow says the EXIT targets a listed venue and nothing more: the kernel knows no balance, position, price or " +
+  "venue rule, so it is marked reduce_only and must be executed reduce-only. The harness places no order.";
+
 /** The reasons that carry no verdict of the kernel on the order. */
 export const JUDGE_NO_VERDICT_REASONS: readonly JudgeReason[] = ["refused", "unreadable", "unavailable"];
 
-/** The honesty text of an answer, by its reason: JUDGE_NO_VERDICT_LABEL for a reason of JUDGE_NO_VERDICT_REASONS, else JUDGE_LABEL. */
-export function judgeHonestyText(reason: JudgeReason | null): string {
-  return reason !== null && JUDGE_NO_VERDICT_REASONS.includes(reason) ? JUDGE_NO_VERDICT_LABEL : JUDGE_LABEL;
+/** The honesty text of an answer: JUDGE_NO_VERDICT_LABEL for a reason of JUDGE_NO_VERDICT_REASONS, else JUDGE_EXIT_LABEL with no
+ *  gate decision, else JUDGE_LABEL. */
+export function judgeHonestyText(o: Pick<JudgeOutput, "decision" | "kernel_reason">): string {
+  if (o.kernel_reason !== null && JUDGE_NO_VERDICT_REASONS.includes(o.kernel_reason)) return JUDGE_NO_VERDICT_LABEL;
+  return o.decision === null ? JUDGE_EXIT_LABEL : JUDGE_LABEL;
 }
 
 /** The verdict line that follows the honesty text, for clients that read `content` only (derived from the output). */
 export function judgeVerdictSummary(o: JudgeOutput): string {
   const digest = `${o.kernel_request_sha256.slice(0, 8)}...${o.kernel_request_sha256.slice(-6)}`;
-  return `verdict kernel=${o.kernel_verdict} reason=${o.kernel_reason ?? "none"} reduce_only=${String(o.reduce_only)} action=${o.decision.action} kernel_request_sha256=${digest}`;
+  const gate = o.decision === null ? `action=none gate_error=${o.gate_error?.code ?? "none"}` : `action=${o.decision.action}`;
+  return `verdict kernel=${o.kernel_verdict} reason=${o.kernel_reason ?? "none"} reduce_only=${String(o.reduce_only)} ${gate} kernel_request_sha256=${digest}`;
 }
 
 /** The served description (tools/list, /openapi.json). */
 export const JUDGE_TOOL_DESCRIPTION =
   "Order gate (Genkan). Runs the gate on the same envelope as `gate` (prediction, params and an optional attested, with the same " +
   "rules and the same refusals), then hands Genkan's Lean kernel (mode 1) the `order` under a context made of that decision's " +
-  "action and the caller's `limits` (venues, and assets with their caps), and reads its answer fail-closed: `allow` only for exit 0 " +
+  "action and the caller's `limits` (venues, and assets with their caps). A refusal of the gate is the tool's refusal for any " +
+  "order but an EXIT: an EXIT is judged even then, under the action abstain, with `decision` null and the refusal in " +
+  "`gate_error`. The tool reads the kernel's answer fail-closed: `allow` only for exit 0 " +
   "and exactly the line `allow`; anything else is a deny, with the kernel's reason, `refused` (the kernel refused the request), " +
   "`unreadable` (any other answer) or `unavailable` (no kernel ran). The kernel's rules, which its theorems state: a TRANSFER or " +
   "an APPROVE is always denied; the target must be a listed venue; an EXIT on a listed venue is then allowed whatever the action, " +

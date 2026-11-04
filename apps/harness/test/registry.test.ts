@@ -17,7 +17,7 @@ import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { cascadeHonestyText, CASCADE_PREDICTOR_ID } from "../src/tools/cascade.ts";
 import { attestHonestyText } from "../src/tools/attest.ts";
 import { calibrateHonestyText } from "../src/tools/calibrate.ts";
-import { JUDGE_LABEL, JUDGE_NO_VERDICT_LABEL, type KernelRunner } from "../src/tools/judge.ts";
+import { JUDGE_EXIT_LABEL, JUDGE_LABEL, JUDGE_NO_VERDICT_LABEL, type KernelRunner } from "../src/tools/judge.ts";
 import { UKEMI_LIQ_PREDICTOR_BASE, USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 
 interface VocabRule { re: string; why: string; }
@@ -199,7 +199,7 @@ test("harness_served_honesty_carriers_pass_vocab", async () => {
   const patterns = [...compilePatterns(config.banned), ...compilePatterns(config.scan.harness.banned)];
   const AT = "2026-09-04T00:00:00Z";
   const P: Obj = { remainingBudget: 1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 5, intent: 0, tool: "demo_tool", clockOpen: true };
-  const pred = (task_class: string, yhat: string | number, predictor_id: string): Obj => ({ schema_version: SCHEMA_VERSION, task_class, yhat, predictor_id, produced_at: AT });
+  const pred = (task_class: string, yhat: string | number, predictor_id: string, produced_at: string = AT): Obj => ({ schema_version: SCHEMA_VERSION, task_class, yhat, predictor_id, produced_at });
   const TEN = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
   const BYO = "byo:demo-class";
   const LIMITS: Obj = { venues: ["venue:a"], assets: [{ asset: "btc", cap: "100" }] };
@@ -226,12 +226,14 @@ test("harness_served_honesty_carriers_pass_vocab", async () => {
     { label: "judge, a kernel that allows", tool: "judge", args: JUDGE, carrier: JUDGE_LABEL, kernel: allows },
     { label: "judge, a kernel that denies", tool: "judge", args: JUDGE, carrier: JUDGE_LABEL, kernel: answers(0, "deny venue\n") },
     { label: "judge, an EXIT the kernel allows", tool: "judge", args: { ...JUDGE, order: { kind: "EXIT", target: "venue:a", asset: "eth", amount: "1" } }, carrier: JUDGE_LABEL, kernel: allows },
+    // An EXIT under an envelope the gate refuses (a produced_at long after the clock): the kernel judges it with no gate decision.
+    { label: "judge, an EXIT under an envelope the gate refuses", tool: "judge", args: { ...JUDGE, prediction: pred(BYO, 1, "caller:model", "2999-01-01T00:00:00Z"), order: { kind: "EXIT", target: "venue:a", asset: "eth", amount: "1" } }, carrier: JUDGE_EXIT_LABEL, kernel: allows },
   ];
   // Non-vacuity: every served tool is exercised, the five gate honesty branches are five DISTINCT served texts, and so are the
-  // two judge branches.
+  // three judge branches.
   assert.deepEqual([...new Set(CALLS.map((c) => c.tool))].sort(), [...REGISTERED_TOOL_NAMES].sort(), "every served tool is called");
   assert.equal(new Set(CALLS.filter((c) => c.tool === "gate").map((c) => c.carrier)).size, 5, "the gate calls reach five distinct honesty branches");
-  assert.equal(new Set(CALLS.filter((c) => c.tool === "judge").map((c) => c.carrier)).size, 2, "the judge calls reach its two honesty branches");
+  assert.equal(new Set(CALLS.filter((c) => c.tool === "judge").map((c) => c.carrier)).size, 3, "the judge calls reach its three honesty branches");
   assert.doesNotMatch(JUDGE_NO_VERDICT_LABEL, /\bjudged\b/, "the label of no verdict never says the kernel judged the order");
   const retired = await mcpCall("tools/call", { name: "gate", arguments: { prediction: pred(TASK_BTC_DIR, "up", "internal:momentum-4c"), params: { ...P, intent: "up" } } });
   assert.equal(retired["isError"], true, "btc-dir-15m is a served tool error (retired)");

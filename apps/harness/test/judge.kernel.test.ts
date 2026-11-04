@@ -3,7 +3,8 @@
  * in place with `lake.mjs build genkan-kernel` (the binary that startServer runs by default, apps/genkan/kernel/.lake/build/bin, as
  * CI's Lean job builds it before it runs test:genkan), starts the server on a loopback port with its defaults, and posts orders to
  * POST /judge on the api. host and to the MCP tool on the mcp. host: each answer is the kernel's line for that order under the
- * gate's own action, written by hand from the rules of apps/genkan/README.md. It runs in test:genkan only (the file name ends
+ * gate's own action (under abstain for an EXIT whose envelope the gate refuses), written by hand from the rules of
+ * apps/genkan/README.md. It runs in test:genkan only (the file name ends
  * .kernel.test.ts, which `npm test` leaves out). With ELAN_HOME unset or blank and CI unset or false, every test is skipped; with CI
  * set, a missing ELAN_HOME or a home without the pinned lake fails. The temp dir of the wrapper is GENKAN_TMP, a fresh dir.
  */
@@ -104,6 +105,23 @@ test("judge_runs_the_built_kernel_through_the_served_server", { skip: SKIP, time
       assert.equal((out["decision"] as { action: string }).action, action, `${name}: the gate's action`);
       assert.equal(out["kernel_request_sha256"], createHash("sha256").update(judgeRequest(action, order, LIMITS)).digest("hex"), `${name}: the request handed to the kernel`);
     }
+    // An EXIT under an envelope the gate refuses (a produced_at long after the server clock) is judged by the kernel with no gate
+    // decision, under abstain; an OPEN under it is the gate's tool error, and no kernel runs.
+    const future = { ...PRED, produced_at: "2999-01-01T00:00:00Z" };
+    for (const [name, order, verdict, reason, reduceOnly] of [
+      ["an EXIT on a listed venue", { kind: "EXIT", target: "vault", asset: "btc", amount: "7" }, "allow", null, true],
+      ["an EXIT on an unlisted venue", { kind: "EXIT", target: "venue:b", asset: "btc", amount: "7" }, "deny", "venue", false],
+    ] as const) {
+      const res = await wiredPost(addr.port, "api.monarkgate.tech", "/judge", JSON.stringify({ prediction: future, params: COMMIT, order, limits: LIMITS }));
+      assert.equal(res.status, 200, `${name}, the gate refusing: served\n${res.raw}`);
+      const out = (JSON.parse(res.raw) as { structuredContent: Record<string, unknown> }).structuredContent;
+      assert.deepEqual([out["decision"], (out["gate_error"] as { code: string } | null)?.code], [null, "produced_at_future"], `${name}: no gate decision, the gate's refusal`);
+      assert.deepEqual([out["kernel_verdict"], out["kernel_reason"], out["reduce_only"]], [verdict, reason, reduceOnly], `${name}: the kernel's verdict`);
+      assert.equal(out["kernel_request_sha256"], createHash("sha256").update(judgeRequest("abstain", order, LIMITS)).digest("hex"), `${name}: the request under abstain`);
+    }
+    const open = await wiredPost(addr.port, "api.monarkgate.tech", "/judge", JSON.stringify({ prediction: future, params: COMMIT, order: { kind: "OPEN", target: "venue:a", asset: "btc", amount: "1" }, limits: LIMITS }));
+    assert.equal(open.status, 400, `an OPEN, the gate refusing: a 400\n${open.raw}`);
+    assert.deepEqual([(JSON.parse(open.raw) as { error: string; code: string }).error, (JSON.parse(open.raw) as { code: string }).code], ["tool_error", "produced_at_future"], "the gate's tool error");
     const rpc = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "judge", arguments: { prediction: PRED, params: ABSTAIN, order: { kind: "EXIT", target: "vault", asset: "btc", amount: "7" }, limits: LIMITS } } });
     const mcp = await wiredPost(addr.port, "mcp.monarkgate.tech", "/", rpc);
     assert.equal(mcp.status, 200, `MCP serves judge\n${mcp.raw}`);

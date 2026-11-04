@@ -137,9 +137,12 @@ test("openapi_generated_matches_frozen_schemas", () => {
   assert.deepEqual(asObj(judgeProps["order"], "judge.order")["required"], ["kind", "target", "asset", "amount"], "an order requires kind, target, asset, amount");
   assert.deepEqual(asObj(judgeProps["limits"], "judge.limits")["required"], ["venues", "assets"], "limits require venues and assets");
   const judgeOut = responseStructured(spec, "judge");
-  assert.deepEqual(judgeOut["required"], ["decision", "kernel_verdict", "kernel_reason", "reduce_only", "kernel_request_sha256"], "judge response requires its 5 fields");
+  assert.deepEqual(judgeOut["required"], ["decision", "gate_error", "kernel_verdict", "kernel_reason", "reduce_only", "kernel_request_sha256"], "judge response requires its 6 fields");
   assert.equal(judgeOut["additionalProperties"], false, "judge response is a closed envelope");
-  const decision = asObj(asObj(judgeOut["properties"], "judge.response.properties")["decision"], "judge.response.decision");
+  const decisionOneOf = asObj(asObj(judgeOut["properties"], "judge.response.properties")["decision"], "judge.response.decision")["oneOf"];
+  assert.ok(Array.isArray(decisionOneOf) && decisionOneOf.length === 2, "judge response decision is a GateDecision or null");
+  assert.deepEqual(decisionOneOf[1], { type: "null" }, "null: an EXIT the gate refused, judged with no gate decision");
+  const decision = asObj(decisionOneOf[0], "judge.response.decision.oneOf[0]");
   assert.deepEqual(decision["required"], frozenGate["required"], "judge response decision.required == frozen GateDecision");
   assert.equal(decision["additionalProperties"], false, "judge response decision stays closed");
 });

@@ -134,9 +134,9 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
     outputStandardSchema: judgeOutputStandardSchema,
     run: (args, ctx) => {
       const output = runJudge(args as JudgeInput, ctx);
-      // structuredContent = {decision, kernel_verdict, kernel_reason, reduce_only, kernel_request_sha256}; the honesty prose and
+      // structuredContent = {decision, gate_error, kernel_verdict, kernel_reason, reduce_only, kernel_request_sha256}; the honesty prose and
       // the verdict summary (derived from the output) ride in `content` text (K-1).
-      return { text: `${judgeHonestyText(output.kernel_reason)} ${judgeVerdictSummary(output)}`, structured: output as unknown as Record<string, unknown> };
+      return { text: `${judgeHonestyText(output)} ${judgeVerdictSummary(output)}`, structured: output as unknown as Record<string, unknown> };
     },
   },
 ];

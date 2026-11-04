@@ -43,6 +43,7 @@ import { UKEMI_PREDICT_MAX_RESERVES, UKEMI_PREDICT_MAX_UPDATES, UKEMI_PREDICT_MA
 // The judge tool's closed lists and patterns: single source in the pure tool (motif CASCADE_MAX_NODES). No cycle (this module ->
 // judge -> gate; none import back here).
 import { JUDGE_DECIMAL_PATTERN, JUDGE_LIST_MAX, JUDGE_NAME_PATTERN, JUDGE_ORDER_KINDS, JUDGE_REASONS } from "./tools/judge.ts";
+import { TOOL_ERROR_CODES } from "@monark/contracts";
 
 /** A JSON value (no `any`; keeps the type-checked linter happy end-to-end). */
 export type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
@@ -608,18 +609,40 @@ export const JUDGE_INPUT_SCHEMA: JsonObject = {
 export const JUDGE_OUTPUT_SCHEMA: JsonObject = {
   type: "object",
   additionalProperties: false,
-  required: ["decision", "kernel_verdict", "kernel_reason", "reduce_only", "kernel_request_sha256"],
+  required: ["decision", "gate_error", "kernel_verdict", "kernel_reason", "reduce_only", "kernel_request_sha256"],
   properties: {
-    decision: TOOL_OUTPUT_SCHEMA,
+    // null: an EXIT whose envelope the gate refused, judged with no gate decision.
+    decision: { oneOf: [TOOL_OUTPUT_SCHEMA, { type: "null" }] },
+    gate_error: {
+      oneOf: [
+        { type: "object", additionalProperties: false, required: ["code", "message"], properties: { code: { enum: [...TOOL_ERROR_CODES] }, message: { type: "string" } } },
+        { type: "null" },
+      ],
+    },
     kernel_verdict: { enum: ["allow", "deny"] },
     kernel_reason: { enum: [null, ...JUDGE_REASONS] },
     reduce_only: { type: "boolean" },
     kernel_request_sha256: { type: "string", pattern: "^[0-9a-f]{64}$" },
   },
-  // The verdict ties its fields, as runJudge does: an allow has no reason; a deny has one, and is never reduce_only.
-  oneOf: [
-    { properties: { kernel_verdict: { const: "allow" }, kernel_reason: { const: null } } },
-    { properties: { kernel_verdict: { const: "deny" }, kernel_reason: { enum: [...JUDGE_REASONS] }, reduce_only: { const: false } } },
+  allOf: [
+    // The verdict ties its fields, as runJudge does: an allow has no reason; a deny has one, and is never reduce_only.
+    {
+      oneOf: [
+        { properties: { kernel_verdict: { const: "allow" }, kernel_reason: { const: null } } },
+        { properties: { kernel_verdict: { const: "deny" }, kernel_reason: { enum: [...JUDGE_REASONS] }, reduce_only: { const: false } } },
+      ],
+    },
+    // A gate decision or a gate error, never both and never neither. With no gate decision the order is an EXIT, so an allow is
+    // reduce_only (a deny, or reduce_only true).
+    {
+      oneOf: [
+        { properties: { decision: { type: "object" }, gate_error: { type: "null" } } },
+        {
+          properties: { decision: { type: "null" }, gate_error: { type: "object" } },
+          anyOf: [{ properties: { kernel_verdict: { const: "deny" } } }, { properties: { reduce_only: { const: true } } }],
+        },
+      ],
+    },
   ],
 };
 

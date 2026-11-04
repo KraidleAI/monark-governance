@@ -4,7 +4,7 @@ Mis à jour le 2026-11-04. Une ligne qui change remplace l'ancienne ; l'historiq
 
 ## Où on en est (vérifié sur le code le 2026-11-04)
 
-- **Tests** : `npm run ci` est vert (vocabulaire, typecheck strict, 608 tests sur 608, hors noyau Lean) ; `npm run
+- **Tests** : `npm run ci` est vert (vocabulaire, typecheck strict, 609 tests sur 609, hors noyau Lean) ; `npm run
   test:genkan` aussi, noyau compris (37 tests sur 37, dont l'outil `judge` sur le noyau construit). `npm run lint` et `npm run lint:ratchet` sont verts ; le plafond de
   dette de typage des tests est à 60.
 - **HIKAE** (`packages/hikae`) : les trois couches sont là. L1 fait le split conforme par classe, L2 le moniteur et le
@@ -20,8 +20,10 @@ Mis à jour le 2026-11-04. Une ligne qui change remplace l'ancienne ; l'historiq
   règles du juge et la réponse du noyau : quelle que soit l'entrée, `allow` ne sort que d'un verdict allow du juge. La CI
   rejoue chaque module par `leanchecker` et audite l'enregistrement d'axiomes de `main` et de chaque théorème ; les mutants
   du décodeur sont tués. Le harness le lance : l'outil `judge` (étape 5) passe l'ordre au noyau construit, sous l'action de
-  la `GateDecision` qu'il calcule lui-même sur le même appel, et lit sa réponse sans rien supposer (`readVerdict`).
-- **Aucune PR ouverte** (#345 et #323 fermées le 2026-11-04, sur décision du fondateur).
+  la `GateDecision` qu'il calcule lui-même sur le même appel (sous abstain pour une EXIT dont le gate refuse l'enveloppe),
+  et lit sa réponse sans rien supposer (`readVerdict`).
+- **PR ouverte** : #355, l'étape 5 (`lot/etape-5-judge` vers `lot/etude-suite`). #345 et #323 fermées le 2026-11-04, sur
+  décision du fondateur.
 
 ## Les étapes
 
@@ -48,5 +50,5 @@ Mis à jour le 2026-11-04. Une ligne qui change remplace l'ancienne ; l'historiq
 | Dépôt | `KraidleAI/monark-governance`, public ; branche de travail `lot/etude-suite` ; rien n'est poussé sans accord |
 | CI | quatre tâches : tests, lint, audit des dépendances, noyau Lean (avec l'outil `judge` du harness sur le noyau construit) ; elles tournent sur une PR, pas sur un push (`on: pull_request`) |
 | Ordres et argent | aucun ordre réel, dépôt, retrait ou transfert sans go du fondateur, ordre par ordre |
-| Le noyau dans le harness | `judge` passe d'abord par le gate : une enveloppe qu'il refuse (un signal périmé, par exemple) est une erreur d'outil pour tout ordre, une EXIT comprise. Le noyau est lancé en synchrone (`spawnSync`) : chaque appel tient le serveur le temps du noyau (environ 30 ms mesurés sous Windows, au plus 10 s) ; un lancement asynchrone viendra quand le harness servira plus d'un appelant à la fois |
+| Le noyau dans le harness | `judge` passe d'abord par le gate : une enveloppe qu'il refuse est une erreur d'outil pour tout ordre sauf une EXIT. Une EXIT est jugée quand même, sous l'action abstain, sans décision du gate (`decision` à `null`, le refus dans `gate_error`) : décision du fondateur du 2026-11-04, un signal que le gate refuse ne bloque pas une sortie. Une enveloppe mal formée (refusée par le schéma d'entrée) reste refusée, EXIT comprise. Le noyau est lancé en synchrone (`spawnSync`) : chaque appel tient le serveur le temps du noyau (environ 30 ms mesurés sous Windows, au plus 10 s). Un lancement asynchrone, limité à quelques noyaux à la fois, est exigé avant tout déploiement derrière `api.` ou `mcp.monarkgate.tech` (décision du fondateur du 2026-11-04) ; ce sera un lot à part, avec sa revue |
 | Règles du juge | TRANSFER et APPROVE toujours refusés ; la cible doit être une place listée ; une EXIT y passe quelle que soit l'action de HIKAE, sans plafond (confirmé par le fondateur le 2026-11-04 ; l'exécuteur la passe en reduce-only) ; tout autre ordre exige COMMIT, un actif listé et un montant au plus égal à son plafond (un plafond vaut par ordre, pas en cumul) ; un SWAP, un actif de sortie listé et un `minOut` non nul |

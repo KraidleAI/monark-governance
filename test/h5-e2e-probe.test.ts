@@ -83,8 +83,8 @@ const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url
 // 21951 -> 21753 bytes (prior pin 0b32b330...). Re-recorded in contract 1.1.0 (lot CM-3c-3c): 21753 -> 22472 bytes (prior
 // pin b016bf4a...), then by lot CM-3c-4b, then by lot D-2 of block D (the tools/list response_sha256 only; 6242f7d0...).
 // Re-recorded 2026-11-04 for step 5 of ROADMAP.md (the `judge` tool): the tools/list step only, its names gaining `judge` and
-// its response_sha256 b419e473... -> 1921faad...; 22272 -> 22291 bytes (prior pin 57d38c19...).
-const TRACE_SHA256_PINNED = "bcecf26a311c2b951c55d79d06694bfdbd7efcac72205df59a9a619c9dcd4483";
+// its response_sha256 b419e473... -> 1921faad... (pin bcecf26a...), then -> 0709f4e9... for its freed EXIT; 22272 -> 22291 bytes (prior pin 57d38c19...).
+const TRACE_SHA256_PINNED = "7da12dd3bcdf925015c7c2cdeca18c0313e61632e737633432689900c1443603";
 
 const DEMONSTRATIVE_LABEL = "real, notary Shōgen, demonstrative, not probative";
 

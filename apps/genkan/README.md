@@ -47,7 +47,7 @@ Mode 1 decodes the context first, then the order, then applies the rules in this
 
 What the judge does not guarantee:
 
-- **The action is the caller's word.** The context carries HIKAE's action as one byte; nothing in it binds that byte to a GateDecision (its `request_sha256`, its signal). Whoever builds the context must take the action from HIKAE's own answer: the harness's `judge` tool takes it from the GateDecision it computes on the same call.
+- **The action is the caller's word.** The context carries HIKAE's action as one byte; nothing in it binds that byte to a GateDecision (its `request_sha256`, its signal). Whoever builds the context must take the action from HIKAE's own answer: the harness's `judge` tool takes it from the GateDecision it computes on the same call, and hands abstain for an EXIT whose envelope the gate refuses (the kernel judges an EXIT whatever the action).
 - **The lists and the caps are the caller's too.** The judge holds an order to the venues, assets and caps it is given; it does not know balances, positions, prices or the venue's own rules.
 - **An EXIT on a listed venue always passes**, so that HIKAE's silence never traps a position; a venue taken off the list blocks the EXITs there too. The kind is the order's word: an order labelled EXIT passes on its venue alone, for any asset and any amount up to 2^128 − 1, whatever the action. Whoever executes it must make it reduce or close a position and nothing else (reduce-only at the venue).
 - **A cap holds one order, not a total.** The judge is stateless: it does not add up the orders it allows, so several orders, each within the cap, pass. A cap read as an exposure limit needs a ledger outside the judge.
