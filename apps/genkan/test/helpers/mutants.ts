@@ -7,7 +7,7 @@
 // `&&`; the word `some` (no identifier character nor `.` glued before it) followed by one space and an atom (a balanced
 // `( ... )` or `{ ... }` in code position, or a run of letters, digits, `_`, `'`, `.`) becomes `none`, outside a match
 // pattern (from a `|` that opens its line, after indentation, to the first `=>` of that line, or its end). The mutants are
-// sorted by line, then column, then the operator's place in OPERATORS. decoder_mutants_killed builds and runs them.
+// sorted by line, then column, then the operator's place in OPERATORS. mutants.kernel.test.ts builds and runs them.
 
 export type Operator = "literal+1" | "literal-1" | "lt-to-le" | "le-to-lt" | "eq-to-ne" | "and-to-or" | "or-to-and" | "some-to-none";
 
