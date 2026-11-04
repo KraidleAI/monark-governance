@@ -33,6 +33,7 @@ import type { JsonSchemaType, StandardSchemaWithJSON } from "@modelcontextprotoc
 // Resource cap: the single source for the calibrate score bound lives in the pure tool file. No cycle (this module ->
 // calibrate; calibrate does no I/O, imports no schema), and importing it moves no filesystem read out of this module (K-8).
 import { CALIBRATE_MAX_N } from "./tools/calibrate.ts";
+import { SUIVI_MAX_BETS, SUIVI_MAX_N, SUIVI_MAX_TEXT, SUIVI_MAX_WORK_BITS } from "./tools/gate.ts";
 // The judge tool's closed lists and patterns: single source in the pure tool, as for calibrate. No cycle (this module ->
 // judge -> gate; none import back here).
 import { JUDGE_DECIMAL_PATTERN, JUDGE_LIST_MAX, JUDGE_NAME_PATTERN, JUDGE_ORDER_KINDS, JUDGE_REASONS } from "./tools/judge.ts";
@@ -198,6 +199,104 @@ export function internal500Schema(internal: JsonObject): JsonObject {
 /** The 500 body: $defs/InternalError, or the transport-level 500 (TRANSPORT-500-SCHEMA-1). */
 export const TOOL_ERROR_500_SCHEMA = internal500Schema(asObject(inlineDefs(TOOL_ERROR_DEFS["InternalError"] ?? null, TOOL_ERROR_DEFS), "ToolError 500"));
 
+/** Step 6 of ROADMAP.md: a mixture of the tracking policy, its rationals written n/d (or n). */
+const SUIVI_BETS_SCHEMA: JsonObject = {
+  type: "object",
+  additionalProperties: false,
+  required: ["lambdas", "weights"],
+  properties: {
+    lambdas: { type: "array", items: { type: "string", maxLength: SUIVI_MAX_TEXT }, minItems: 1, maxItems: SUIVI_MAX_BETS, description: "The bets, rationals n/d." },
+    weights: { type: "array", items: { type: "string", maxLength: SUIVI_MAX_TEXT }, minItems: 1, maxItems: SUIVI_MAX_BETS, description: "Their weights, rationals n/d of sum 1." },
+  },
+};
+const SUIVI_UNIT: JsonObject = { type: "string", maxLength: SUIVI_MAX_TEXT, description: "A rational n/d in (0, 1)." };
+/** The closed tracking policy of a cell (packages/hikae/src/suivi/policy.ts): its 22 keys; assertSuiviPolicy refuses any other. */
+const SUIVI_POLICY_SCHEMA: JsonObject = {
+  type: "object",
+  additionalProperties: false,
+  required: ["schema", "task_class", "cell_key", "population", "policy_version", "a", "delta_adm", "delta_exh", "alpha_arl", "m", "eta_m1",
+    "sr_reading_threshold", "restart_weights", "bets_k", "bets_w", "bets_sr", "grace_steps", "grid_ms", "l_ms", "thin_window", "thin_min", "keyring"],
+  description: "The cell's closed tracking policy (hikae-suivi-policy-v1); its task_class and cell_key must be the request's class and the verdict's cell.",
+  properties: {
+    schema: { type: "string", enum: ["hikae-suivi-policy-v1"] },
+    task_class: { type: "string", minLength: 1 },
+    cell_key: { type: "string", minLength: 1 },
+    population: { type: "string", minLength: 1 },
+    policy_version: { type: "integer", minimum: 1 },
+    a: SUIVI_UNIT,
+    delta_adm: { ...SUIVI_UNIT, description: "The licence level of the test K, a rational n/d in (0, 1)." },
+    delta_exh: { ...SUIVI_UNIT, description: "The closure level of the test W, a rational n/d in (0, 1)." },
+    alpha_arl: { ...SUIVI_UNIT, description: "The alarm level of the detector, a rational n/d in (0, 1)." },
+    m: { ...SUIVI_UNIT, description: "The detector's reference rate, the text of a." },
+    eta_m1: SUIVI_UNIT,
+    sr_reading_threshold: { type: "string", maxLength: SUIVI_MAX_TEXT, description: "An integer n >= 2, the threshold of the published reading." },
+    restart_weights: { type: "string", enum: ["1/(j(j+1))"] },
+    bets_k: SUIVI_BETS_SCHEMA,
+    bets_w: SUIVI_BETS_SCHEMA,
+    bets_sr: SUIVI_BETS_SCHEMA,
+    grace_steps: { type: "integer", minimum: 0 },
+    grid_ms: { type: "integer", minimum: 1, description: "The evaluation grid: one evaluation per horizon." },
+    l_ms: { type: "integer", minimum: 1 },
+    thin_window: { type: "integer", minimum: 1 },
+    thin_min: { type: "integer", minimum: 0 },
+    keyring: {
+      type: "array",
+      maxItems: 16,
+      description: "Declared keys; no signature is read by the gate.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["key_id", "public_key_hex", "from_seq"],
+        properties: { key_id: { type: "string" }, public_key_hex: { type: "string" }, from_seq: { type: "integer", minimum: 0 } },
+      },
+    },
+  },
+};
+/** OPTIONAL `suivi` (step 6 of ROADMAP.md): the cell's tracking evidence, carried by the caller and replayed by the gate. */
+const SUIVI_SCHEMA: JsonObject = {
+  type: "object",
+  additionalProperties: false,
+  required: ["policy", "evaluations", "outcomes", "open"],
+  description: `OPTIONAL tracking evidence of the cell (step 6): the gate replays it from the start and reads B_t = min(remainingBudget, the replayed budget), -1 with no licence or after a closure. It only lowers B_t; no signature is read and nothing is stored. The replay is bounded: the number of evaluations times the bits of the common denominator of the policy's K and W betting factors is at most ${String(SUIVI_MAX_WORK_BITS)}, or the call is refused (param_invalid).`,
+  properties: {
+    policy: SUIVI_POLICY_SCHEMA,
+    evaluations: {
+      type: "array",
+      maxItems: SUIVI_MAX_N,
+      description: "The cell's reference evaluations from its start, in seq order, one per horizon on the policy's grid.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["seq", "t_step_ms", "yhat_ref", "produced_at_ref", "pre_member"],
+        properties: {
+          seq: { type: "integer", minimum: 0 },
+          t_step_ms: { type: "integer" },
+          yhat_ref: { type: "string" },
+          produced_at_ref: { type: "string" },
+          pre_member: { type: "boolean" },
+        },
+      },
+    },
+    outcomes: {
+      type: "array",
+      maxItems: SUIVI_MAX_N,
+      description: "Their arrived outcomes; an evaluation whose outcome has not arrived stops the entry of the labels after it.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["seq", "resolved", "member", "miss"],
+        properties: {
+          seq: { type: "integer", minimum: 0 },
+          resolved: { type: "boolean" },
+          member: { type: "boolean" },
+          miss: { type: "integer", enum: [0, 1] },
+        },
+      },
+    },
+    open: { type: "boolean", description: "The starting state of the cell's segment: open, or waiting for the licence of the test K." },
+  },
+};
+
 /** Non-frozen gate parameters (ADR-M005 D5/D6, caller-carried). Declared here, never in schemas/.
  *  (ADR-M007 D7): the OPTIONAL `calibration` object opens the BYO loop — the caller supplies its
  *  own nonconformity `scores` + a `mode` (interval|set), and the gate conformalizes against THOSE scores
@@ -242,6 +341,7 @@ export const PARAMS_SCHEMA: JsonObject = {
         },
       },
     },
+    suivi: SUIVI_SCHEMA,
   },
 };
 

@@ -27,11 +27,11 @@ import {
   buildSetRegion,
   scoreTestBand,
   buildVerdict,
-  underCalibVerdict, noRegionVerdict,
+  underCalibVerdict, noRegionVerdict, suiviDenBits, suiviReplay,
   conformInterval,
   gate,
 } from "@monark/hikae";
-import type { GateInput, VerdictCell } from "@monark/hikae";
+import type { GateInput, SuiviEvidence, VerdictCell } from "@monark/hikae";
 import { assertClosedGateDecision, assertNoForbiddenKey, requestSha256, sha256Canonical, SCHEMA_VERSION, TOOL_ERROR_CODES } from "@monark/contracts";
 import type { GateDecision, Prediction, CoverageVerdict, AttestedPrice, ClassEntry } from "@monark/contracts";
 import {
@@ -298,6 +298,7 @@ export interface HarnessParams {
   readonly clockOpen: boolean;
   /** OPTIONAL (ADR-M007 D7): caller-supplied calibration ⇒ the BYO conformal path. Absent ⇒ committed class. */
   readonly calibration?: ByoCalibration;
+  /** OPTIONAL (step 6 of ROADMAP.md): the cell's tracking evidence, replayed; B_t = min(remainingBudget, its budget). */ readonly suivi?: SuiviEvidence;
 }
 
 /**
@@ -1009,7 +1010,7 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
   const gateInput: GateInput = {
     intent: params.intent,
     verdict,
-    remainingBudget: params.remainingBudget,
+    remainingBudget: suiviBudget(prediction, params, verdict), // step 6: min(the caller's B_t, the replayed tracking budget)
     bFloor: params.bFloor,
     tau: params.tau,
     tauInterval: params.tauInterval,
@@ -1069,7 +1070,62 @@ function admittedSplit(cell: VerdictCell): { readonly qhat: number; readonly alp
   return row === undefined || row.qhat === null ? { reason: "under_calib" } : { qhat: row.qhat, alpha: Number(row.alpha) };
 }
 
-// (E-2a) The committed kata tables and their pins, read at line 1042; the pins also by the defaults of kataClause (line 222). Imports
+/** Step 6 of ROADMAP.md: the bounds of a caller's tracking evidence; the first three also at the SDK boundary. The replay reduces
+ *  exact fractions of about t L bits at each label t (L = suiviDenBits of the policy), so n labels cost about n (n L)^2. The work
+ *  bound keeps n L at most 3600 bits: about 1 s at 500 labels, 0.7 s for the USDe cell (L = 7), measured on 2026-11-04. A rational
+ *  text of at most 20 characters (nine digits on each side of the slash) keeps the parse itself cheap. */
+export const SUIVI_MAX_N = 500;
+export const SUIVI_MAX_BETS = 8;
+export const SUIVI_MAX_TEXT = 20;
+export const SUIVI_MAX_WORK_BITS = 3600;
+
+function suiviRefusal(rule: string): never {
+  throw new HarnessToolError(`invalid param 'suivi': ${rule}`, "param_invalid");
+}
+
+/** A JSON object of the caller (not a list). */
+const isRecord = (v: unknown): v is Readonly<Record<string, unknown>> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** The lambdas and weights lists of a mixture read from caller JSON, before the policy check: those that are lists. */
+const betsLists = (bets: unknown): readonly (readonly unknown[])[] =>
+  isRecord(bets) ? [bets["lambdas"], bets["weights"]].filter((l): l is readonly unknown[] => Array.isArray(l)) : [];
+/** The rational texts of a policy read from caller JSON: its seven scalars and the entries of its three mixtures. */
+const policyTexts = (p: Readonly<Record<string, unknown>>): readonly unknown[] => [p["a"], p["m"], p["delta_adm"], p["delta_exh"],
+  p["alpha_arl"], p["eta_m1"], p["sr_reading_threshold"], ...[p["bets_k"], p["bets_w"], p["bets_sr"]].flatMap(betsLists).flat()];
+
+/** The shape the replay needs, checked on the caller's JSON before it runs (the replay checks the rest): the policy names the
+ *  request's class and the verdict's cell, and the lists keep to their bounds. The evidence is the caller's; no signature is read. */
+function checkSuivi(s: unknown, prediction: Prediction, verdict: CoverageVerdict): asserts s is SuiviEvidence {
+  const e: Readonly<Record<string, unknown>> = isRecord(s) ? s : {};
+  const policy = isRecord(e.policy) ? e.policy : null;
+  if (policy === null) suiviRefusal("expected an object with a policy object");
+  const { evaluations, outcomes } = e;
+  if (!Array.isArray(evaluations) || evaluations.length > SUIVI_MAX_N) suiviRefusal(`expected a list of at most ${String(SUIVI_MAX_N)} evaluations`);
+  if (!Array.isArray(outcomes) || outcomes.length > SUIVI_MAX_N) suiviRefusal(`expected a list of at most ${String(SUIVI_MAX_N)} outcomes`);
+  if ([policy["bets_k"], policy["bets_w"], policy["bets_sr"]].flatMap(betsLists).some((l) => l.length > SUIVI_MAX_BETS)) suiviRefusal(`expected at most ${String(SUIVI_MAX_BETS)} bets a mixture`);
+  if (policyTexts(policy).some((t) => typeof t === "string" && t.length > SUIVI_MAX_TEXT)) suiviRefusal(`expected rational texts of at most ${String(SUIVI_MAX_TEXT)} characters`);
+  if (policy["task_class"] !== prediction.task_class) suiviRefusal(`the policy's task_class is not the request's '${prediction.task_class}'`);
+  if (verdict.cell_key === null) suiviRefusal("the verdict has no cell key (a BYO calibration names no served cell)");
+  if (policy["cell_key"] !== verdict.cell_key) suiviRefusal(`the policy's cell_key is not the verdict's '${verdict.cell_key}'`);
+}
+
+/** B_t read by L3 (step 6 of ROADMAP.md): the caller's, or with `params.suivi` min(the caller's, the budget its replay gives), so the
+ *  tracking only lowers it: -1 with no licence or after a closure, so `budget_exhausted`. Every refusal is a 400 `param_invalid`. */
+function suiviBudget(prediction: Prediction, params: HarnessParams, verdict: CoverageVerdict): number {
+  const s: unknown = params.suivi;
+  if (s === undefined) return params.remainingBudget;
+  checkSuivi(s, prediction, verdict);
+  try {
+    const n = s.evaluations.length, bits = suiviDenBits(s.policy);
+    if (n * bits > SUIVI_MAX_WORK_BITS) suiviRefusal(`the replay's work, ${String(n)} evaluations by ${String(bits)} bits, passes its bound of ${String(SUIVI_MAX_WORK_BITS)} bits`);
+    return Math.min(params.remainingBudget, suiviReplay(s).budget);
+  } catch (err) {
+    if (err instanceof RangeError) suiviRefusal(err.message);
+    throw err;
+  }
+}
+
+// (E-2a) The committed kata tables and their pins, read at line 1043; the pins also by the defaults of kataClause (line 222). Imports
 // only below this point: ESM evaluates them before this file's body whatever their place, and neither module imports this file or kata-path.ts (no new cycle).
 import { COMMITTED_FILES, readCommittedTables } from "../policy-committed.ts";
 import { COMMITTED_TABLES, FLOOR_HELD_CLASSES, ORDER_HELD_CLASSES } from "../policy-committed-pins.ts";

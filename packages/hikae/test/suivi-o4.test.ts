@@ -162,7 +162,7 @@ function messageOf(f: () => unknown): string {
 }
 
 const SUIVI = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "suivi");
-const SUIVI_FILES = ["detector.ts", "label.ts", "m1.ts", "o4.ts", "policy.ts"];
+const SUIVI_FILES = ["detector.ts", "label.ts", "m1.ts", "o4.ts", "policy.ts", "replay.ts"];
 const BANNED_NAMES = new Set(["fetch", "Date", "performance", "process", "globalThis", "setTimeout", "setInterval", "setImmediate",
   "queueMicrotask", "randomBytes", "randomInt", "randomUUID", "randomFill", "randomFillSync", "getRandomValues"]);
 const ADMITTED = new Set(["node:crypto", "@monark/contracts", "../pari/index.ts", "../l2-monitor.ts"]);

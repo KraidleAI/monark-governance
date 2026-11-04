@@ -115,3 +115,10 @@ export { bandEdge, conformScaledBand } from "./scaled-band.ts";
 export type { ScaledBand, ScaledBandOptions } from "./scaled-band.ts";
 export { canonicalRow, orderedCalibDigest } from "./canonical-row.ts";
 export type { RowValue } from "./canonical-row.ts";
+
+// Online tracking (step 6 of ROADMAP.md): the replay of a cell's evidence into the budget the gate reads, and its closed policy.
+export { suiviDenBits, suiviReplay } from "./suivi/replay.ts";
+export type { SuiviEvidence, SuiviReplay } from "./suivi/replay.ts";
+export { assertSuiviPolicy, suiviPolicySha256 } from "./suivi/policy.ts";
+export type { SuiviPolicy, BetsText, SuiviKey } from "./suivi/policy.ts";
+export type { RefEvaluation, Outcome } from "./suivi/label.ts";
