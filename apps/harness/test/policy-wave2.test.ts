@@ -29,6 +29,10 @@ const PARENT: PolicyRow = { ...P1, current: false };
 const D2 = "0.025";
 const KS = riskControlMaxExceedances(P1.n, P1.alpha, D2);
 const check = (r: PolicyRow): void => guardKataRow(r, CLS, PINS);
+/** The bound on the n_test of each block, whole. */
+const BLOCK = /^Error: MONARK import guard: \S+ \S+ has an n_test above its block \(bridge 8760 \/ 2190, test and fwd 4392 \/ 1098 at 1h \/ 4h\), refused before any bound or veto\.$/;
+/** The refusal of the test_delta spend, whole. */
+const SPEND = /^Error: MONARK import guard: \S+ \S+ breaks the pinned constants of the test_delta spend \(attempt 1 on wave 1, 2 on wave 2; test_delta = base \/ 2\^\(attempt - 1\); initial and none at attempt 1 only, outcome and a parent digest after\)\.$/;
 const refuse = (r: PolicyRow, re: RegExp): void => { try { check(r); } catch (e) { if (!(e instanceof Error && /^MONARK (import guard|policy check): /.test(e.message))) throw e; assert.match(String(e), re); return; } assert.fail(`admitted, not refused: ${String(re)}`); }; // a refusal by the guard or by the closed row check it runs first, matching re as assert.throws matched it; an admitted row fails by an assertion; any other error is thrown again, so a crash fails the test and is never read as a refusal
 const block = (k: number, n: number): { k_test: number; n_test: number; u_test: string } => ({ k_test: k, n_test: n, u_test: k === n ? "1" : missUpperBound(n, k, "0.05") });
 const strings = (m: number, a: number): [string | null, string | null] => {
@@ -127,9 +131,9 @@ test("w2_guard_refuses_region_with_empty_or_low_tail", () => {
 test("w2_guard_tail_m_and_support", () => {
   assert.deepEqual(verdict(w2({ tail_m: 37 })), ["region", ""]);
   refuse(w2({ tail_m: 38, tail_a: 1 }), /tail_m above n - r \(r 703\)/);
-  refuse(w2({ tail_a: 37 }), /exact null of D2 refuses \(a-outside-support\)/);
-  refuse(w2({ miss_adj_a: 1 }), /exact null of D2 refuses \(a-outside-support\)/);
-  refuse({ ...w2(), tail_a: null }, /exact null of D2 refuses \(count-not-integer\)/);
+  refuse(w2({ tail_a: 37 }), /^Error: MONARK import guard: \S+ \S+ has counts the exact null refuses \(a-outside-support\)\.$/);
+  refuse(w2({ miss_adj_a: 1 }), /^Error: MONARK import guard: \S+ \S+ has counts the exact null refuses \(a-outside-support\)\.$/);
+  refuse({ ...w2(), tail_a: null }, /^Error: MONARK import guard: \S+ \S+ has counts the exact null refuses \(count-not-integer\)\.$/);
 });
 
 // killer: apps/harness/src/policy-guard.ts:46 SDL "is(!w2 || r.n <= (W2_CALIB_N_MAX" -> ""
@@ -148,7 +152,7 @@ test("w2_guard_bridge_and_fwd_vetoes", () => {
   refuse(vetoed({ fwd: [20, 700] }, "vetoed: fwd", { test: false, bridge: false, fwd: false }), /vetoes\.fwd/);
   const silent = w2({ tail_a: 10, bridge: [20, 740] }, ["silence", "dependence check rejects"]);
   assert.deepEqual(verdict(silent), ["silence", "dependence check rejects"]);
-  refuse({ ...silent, vetoes: { test: false, bridge: true, fwd: false } }, /off the conditional/);
+  refuse({ ...silent, vetoes: { test: false, bridge: true, fwd: false } }, /^Error: MONARK import guard: \S+ \S+ has vetoes\.test, vetoes\.bridge or vetoes\.fwd off the conditional test, bridge or fwd veto\.$/);
   refuse({ ...w2(), bridge: { k_test: 5, n_test: 740, u_test: "0.9999999" } }, /u_test/);
   refuse({ ...w2(), fwd: { k_test: 701, n_test: 700, u_test: "1" } }, /k_test above its n_test/);
 });
@@ -156,11 +160,11 @@ test("w2_guard_bridge_and_fwd_vetoes", () => {
 // killer: apps/harness/src/policy-guard.ts:56 CONST "spendDelta(KATA_BASE_DELTA, at)" -> "spendDelta(KATA_BASE_DELTA, 1)"
 test("w2_guard_spend_and_causes", () => {
   assert.deepEqual(verdict(w2()), ["region", ""]);
-  refuse({ ...w2(), test_delta: "0.05" }, /A-1 spend/);
-  for (const cause of ["initial", "epoch:EE-1/x", "refresh:s@decisions/x.md"]) refuse({ ...w2(), calib_cause: cause }, /A-1 spend/);
-  refuse({ ...w2(), calib_parent: "none" }, /A-1 spend/);
-  refuse({ ...P1, calib_attempt: 2, test_delta: D2, calib_cause: "outcome", calib_parent: sha256Canonical(PARENT) }, /A-1 spend/);
-  refuse({ ...w2(), calib_attempt: 1, test_delta: "0.05", calib_cause: "initial", calib_parent: "none" }, /A-1 spend/);
+  refuse({ ...w2(), test_delta: "0.05" }, SPEND);
+  for (const cause of ["initial", "epoch:EE-1/x", "refresh:s@decisions/x.md"]) refuse({ ...w2(), calib_cause: cause }, SPEND);
+  refuse({ ...w2(), calib_parent: "none" }, SPEND);
+  refuse({ ...P1, calib_attempt: 2, test_delta: D2, calib_cause: "outcome", calib_parent: sha256Canonical(PARENT) }, SPEND);
+  refuse({ ...w2(), calib_attempt: 1, test_delta: "0.05", calib_cause: "initial", calib_parent: "none" }, SPEND);
   refuse({ ...w2(), calib_attempt: 5 }, /calib_attempt/);
 });
 
@@ -200,8 +204,8 @@ const atAttempt = (at: number, d: string): PolicyRow => {
 // killer: apps/harness/src/policy-guard.ts:57 CONST "(w2 ? 2 : 1)" -> "(w2 ? Math.max(at, 2) : 1)"
 test("w2_guard_attempt_2_only_on_wave_2", () => {
   check(w2());
-  refuse(atAttempt(3, "0.0125"), /A-1 spend \(attempt 1 on wave 1, 2 on wave 2/);
-  refuse(atAttempt(4, "0.00625"), /A-1 spend \(attempt 1 on wave 1, 2 on wave 2/);
+  refuse(atAttempt(3, "0.0125"), SPEND);
+  refuse(atAttempt(4, "0.00625"), SPEND);
 });
 
 // killer: apps/harness/src/policy-wave2.ts:60 CONST "(r.source.wave === 2 ? 2 : 1)" -> "r.calib_attempt"
@@ -217,9 +221,9 @@ test("w2_chain_attempt_2_only_on_wave_2", () => {
 test("w2_guard_bounds_n_test_of_each_block", () => {
   check(w2({ bridge: [5, 8760], fwd: [4, 4392] }));
   check({ ...w2(), test: block(11, 4392) });
-  refuse(w2({ bridge: [5, 8761] }), /n_test above its block/);
-  refuse(w2({ fwd: [4, 4393] }), /n_test above its block/);
-  refuse({ ...w2(), test: block(11, 4393) }, /n_test above its block/);
+  refuse(w2({ bridge: [5, 8761] }), BLOCK);
+  refuse(w2({ fwd: [4, 4393] }), BLOCK);
+  refuse({ ...w2(), test: block(11, 4393) }, BLOCK);
 });
 
 const KS300 = riskControlMaxExceedances(300, P1.alpha, D2);
@@ -264,7 +268,7 @@ test("w2_guard_refuses_misses_above_tail_m", () => {
   refuse(w2({ tail_m: 1, tail_a: 0, misses: 2, miss_adj_a: 0 }), above(2, 1)); // a region row (G2 of R1, recherches 1586565)
   assert.deepEqual(verdict(w2({ tail_m: 2, tail_a: 0, misses: 2, miss_adj_a: 0 })), ["region", ""], "misses = tail_m: admitted");
   assert.deepEqual(verdict(w2({ tail_m: 0, tail_a: 0, misses: 0, miss_adj_a: 0 }, ["silence", "tail sequence constant (fails closed)"])), ["silence", "tail sequence constant (fails closed)"], "the generator's empty tail: no miss");
-  refuse({ ...w2(), tail_m: null }, /exact null of D2 refuses \(count-not-integer\)/); // a null tail_m stays the exact null's refusal
+  refuse({ ...w2(), tail_m: null }, /^Error: MONARK import guard: \S+ \S+ has counts the exact null refuses \(count-not-integer\)\.$/); // a null tail_m stays the exact null's refusal
 });
 
 // reddened by: a wave 2 band row whose misses exceed k* admitted with the direction reason (the guard before W2-GUARD-MISSES-TAIL-1; G2

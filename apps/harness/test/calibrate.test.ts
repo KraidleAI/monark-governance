@@ -136,7 +136,7 @@ test("calibrate_fails_closed_on_insufficient_calibration", () => {
 // 400, α∉(0,1) ⇒ 400 tool_error) is in http.test.ts. Mutants: remove the `n > CALIBRATE_MAX_N` guard ⇒
 // (a) stops throwing; a `>=`-for-`>` slip ⇒ n==cap starts throwing (killed by the boundary case below).
 test("calibrate_rejects_over_the_score_cap", () => {
-  assert.equal(CALIBRATE_MAX_N, 10000, "the score cap is 10000 (ADR-M007 D2)");
+  assert.equal(CALIBRATE_MAX_N, 10000, "the score cap is 10000");
   const over: CalibrateInput = { scores: new Array<number>(CALIBRATE_MAX_N + 1).fill(0), alpha: 0.1, nMin: 5 };
   assert.throws(() => runCalibrate(over), CalibrateToolError, "n > cap ⇒ a tool error, never a silent output");
   // boundary: exactly the cap is accepted (kills a `>=`-for-`>` mutant and a wrong cap value).

@@ -108,7 +108,7 @@ registerHooks({ load(url, context, nextLoad) {
   const clean = await run("0");
   assert.ok(clean.ok, clean.stderr.slice(0, 300));
   const forged = await run("1");
-  assert.ok(!forged.ok && forged.stderr.includes(`LIQ-BAND-EXACT-GUARD-1: ${UKEMI_LIQ_PREDICTOR_BASE}/s3`), forged.stderr.slice(0, 400));
+  assert.ok(!forged.ok && forged.stderr.includes(`MONARK marginal guard: liq band edge not exact: ${UKEMI_LIQ_PREDICTOR_BASE}/s3, max yhat `), forged.stderr.slice(0, 400));
 });
 
 // Z-3 composition (rule of MONARK; Q-C3 condition 5; cut (a) of C2, with S-8): the served sentence is the table text of the

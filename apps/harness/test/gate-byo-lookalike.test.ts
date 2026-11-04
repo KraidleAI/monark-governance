@@ -47,10 +47,18 @@ function decided(p: Prediction, cal: NonNullable<HarnessParams["calibration"]>, 
 /** The codes of the B-1 rule. A name B-1 refuses keeps a B-1 code and message: the B-10 guard (CM-2c) runs after it. */
 const B1_CODES: readonly unknown[] = ["byo_edge_blank", "byo_lookalike_committed", "byo_reserved_kata"];
 
+/** The exact B-1 message of each code, as the gate writes it for the call's (task_class, predictor_id). */
+function b1Message(code: unknown, p: Prediction): string {
+  const [c, k] = [p.task_class, p.predictor_id];
+  if (code === "byo_edge_blank") return `byo task_class and predictor_id must not start or end with a blank: ${JSON.stringify(c)} / ${JSON.stringify(k)}`;
+  if (code === "byo_lookalike_committed") return `calibration must not override the committed (task_class, predictor_id) '${c}' / '${k}', compared without ASCII case: use a caller-owned key for BYO`;
+  return `task_class '${c}' / predictor_id '${k}' takes a name reserved for MONARK kata classes (pattern ^[a-z0-9]{2,10}-(dir|range|mae-down|mae-up)-(15m|1h|4h|24h)$, key prefix 'kata:'): use a caller-owned name for BYO`;
+}
+
 function refused(p: Prediction, cal: NonNullable<HarnessParams["calibration"]>, at: string): void {
   assert.throws(
     () => runGate(p, { ...PARAMS, calibration: cal }),
-    (e: unknown) => e instanceof HarnessToolError && B1_CODES.includes(e.code) && /\(ADR-CM B-1[,)]/.test(e.message),
+    (e: unknown) => e instanceof HarnessToolError && B1_CODES.includes(e.code) && e.message === b1Message(e.code, p),
     `${at}: a look-alike BYO must be a named tool error (400) with a B-1 code and message, not a later guard's`,
   );
 }
@@ -90,7 +98,7 @@ test("byo_lookalike_probe_names_refused", () => {
     (e: unknown) =>
       e instanceof HarnessToolError &&
       e.message ===
-        "calibration must not override the committed (task_class, predictor_id) 'btc-dir-15m' / 'caller:model': use a caller-owned key for BYO (ADR-M007 D7, ADR-M008 A6)",
+        "calibration must not override the committed (task_class, predictor_id) 'btc-dir-15m' / 'caller:model': use a caller-owned key for BYO",
     "the exact committed name keeps its message byte for byte",
   );
 });

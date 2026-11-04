@@ -88,7 +88,7 @@ export function projectCell(cell: RegistryCell, inp: ProjectionInputs): PolicyRo
   const dir = cell.side !== null;
   const region = cell.status === "region";
   if (dir && cell.thresholds === null) {
-    if (cell.status !== "under_calib" || c.reason !== NO_THRESHOLDS) bad(cell.key, `has no thresholds on its side but is not under_calib with the reason '${NO_THRESHOLDS}' (L-1)`);
+    if (cell.status !== "under_calib" || c.reason !== NO_THRESHOLDS) bad(cell.key, `has no thresholds on its side but is not under_calib with the reason '${NO_THRESHOLDS}'`);
     return null;
   }
   if (c.rank !== (c.kStar === null ? null : c.n - c.kStar)) bad(`${cell.key}.calib.rank`, "is not n - kStar");

@@ -40,7 +40,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   const dir = r.region_rule === "sign-set";
   const t = r.test ?? { k_test: null, n_test: 0, u_test: null };
   const w2 = r.source.wave === 2, w2b = w2 && wave2Mark(r, is); // the mark and refusals 1 to 4 of wave 2b, first of the wave 2 checks
-  is(r.source.wave === 1 || (w2 && !dir), `has source.wave ${String(r.source.wave)}: the wave 2 guard admits wave 2 core band rows only and the wave 2b band rows of the pinned wave3.json (ADR 0006 D1), a null wave is a marginal row`);
+  is(r.source.wave === 1 || (w2 && !dir), `has source.wave ${String(r.source.wave)}: the wave 2 guard admits wave 2 core band rows only and the wave 2b band rows of the pinned wave3.json, a null wave is a marginal row`);
   const tails = [r.tail_m, r.tail_a, r.tail_tail_num, r.tail_tail_den, r.miss_adj_a, r.miss_adj_tail_num, r.miss_adj_tail_den];
   is(w2 || [r.bridge, r.fwd, r.vetoes?.bridge ?? null, r.vetoes?.fwd ?? null, r.tail_frac, ...tails, r.fit_sha256].every((v) => v === null), "carries a wave 2 column on a wave 1 row");
   is(!w2 || r.n <= (W2_CALIB_N_MAX[r.horizon ?? ""] ?? 0), "has n above the CALIB-2 block (8760 at 1h, 2190 at 4h), refused before any tail arithmetic");
@@ -48,13 +48,13 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   is(r.statement === "per-calibration" && r.task_class === cls.task_class && r.region_rule === cls.region_rule && r.alpha === cls.alpha && cls.test_delta === KATA_BASE_DELTA, "does not follow its class entry");
   is(KATA_H_MS[r.horizon ?? ""] === cls.h_ms && dir === (r.bucket !== "b0") && dir === (r.thresholds !== null) && r.aux_seq === (dir ? "label" : "score"), "has a horizon, bucket, thresholds or aux_seq off its class and mode");
   is([r.kata_id, r.w, r.venue, r.symbol, r.test, r.vetoes, r.aux_sha256, r.series_sha256].every((v) => v !== null), "misses a kata column");
-  is(r.cell_key === `kata:${String(r.kata_id)}@${String(r.venue)}/${String(r.symbol)}/${String(r.horizon)}/${String(r.bucket)}` && kataKeyProblem(r.cell_key.slice(0, r.cell_key.lastIndexOf("/")), r.task_class) === undefined, "has a cell_key or symbol off its columns and class, or a key off the kata key grammar (C-5)"); is(!kataKeyReserved(r.kata_id, r.venue), "has a kata or venue reserved for the deployment check (ca-probe): the probe key of the CA never holds a row");
+  is(r.cell_key === `kata:${String(r.kata_id)}@${String(r.venue)}/${String(r.symbol)}/${String(r.horizon)}/${String(r.bucket)}` && kataKeyProblem(r.cell_key.slice(0, r.cell_key.lastIndexOf("/")), r.task_class) === undefined, "has a cell_key or symbol off its columns and class, or a key off the kata key grammar"); is(!kataKeyReserved(r.kata_id, r.venue), "has a kata or venue reserved for the deployment check (ca-probe): the probe key of the CA never holds a row");
   is(r.source.registry_file === pins.registryFile && r.source.registry_sha256 === pins.registrySha256 && r.source.generator === pins.generator, "has a source off the pins");
   is(r.source.trial_id === [r.task_class, r.kata_id, r.venue, r.symbol, r.horizon, w2 ? "W2-CALIB" : "CALIB"].join("|"), "has a trial_id not recomposed from its columns");
   is(r.order === "time" && (w2 || r.current) && r.runs_level === KATA_BASE_DELTA, "breaks the pinned constants of a wave 1 row (order time, current, runs_level) or of a wave 2 row (order time, runs_level)");
   const at = r.calib_attempt;
   const delta = w2b ? (w2bDelta(r.horizon) ?? "") : spendDelta(KATA_BASE_DELTA, at); // a wave 2b row: the base of its horizon (refusal 2)
-  is(w2b || (at === (w2 ? 2 : 1) && r.test_delta === delta && (at === 1 ? r.calib_cause === "initial" && r.calib_parent === "none" : r.calib_cause === "outcome" && /^[0-9a-f]{64}$/.test(r.calib_parent ?? ""))), "breaks the pinned constants of the A-1 spend (attempt 1 on wave 1, 2 on wave 2 (ADR 0006 D1); test_delta = base / 2^(attempt - 1); initial and none at attempt 1 only, outcome and a parent digest after)");
+  is(w2b || (at === (w2 ? 2 : 1) && r.test_delta === delta && (at === 1 ? r.calib_cause === "initial" && r.calib_parent === "none" : r.calib_cause === "outcome" && /^[0-9a-f]{64}$/.test(r.calib_parent ?? ""))), "breaks the pinned constants of the test_delta spend (attempt 1 on wave 1, 2 on wave 2; test_delta = base / 2^(attempt - 1); initial and none at attempt 1 only, outcome and a parent digest after)");
   is(r.epoch === 1, "has an epoch other than 1 while no epoch log is pinned");
   is(dir ? r.scale_table === null : w2b || (r.scale_table?.kind === "hour-of-week" && r.scale_table.values.length === (r.horizon === "1h" ? 168 : 42)), "has a scale_table off hour-of-week, 168 values at 1h or 42 at 4h");
   is(!Object.is(r.qhat, -0) && (r.calib_support === null || r.calib_support.min <= r.calib_support.max), "has a qhat -0 or a calib_support with min above max");
@@ -63,7 +63,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   is(r.n_min === n0, `has n_min ${String(r.n_min)}, not n0 ${String(n0)}`);
   is(r.k_star === (ks < 0 ? null : ks), "has a k_star the exact rule does not give");
   const blocks = { bridge: r.bridge, test: r.test, fwd: r.fwd };
-  is(!w2 || (["bridge", "test", "fwd"] as const).every((k) => (blocks[k]?.n_test ?? 0) <= (W2_BLOCK_N_MAX[k][r.horizon ?? ""] ?? 0)), "has an n_test above its block (bridge 8760 / 2190, TEST-2 and FWD-2 4392 / 1098 at 1h / 4h), refused before any bound or veto");
+  is(!w2 || (["bridge", "test", "fwd"] as const).every((k) => (blocks[k]?.n_test ?? 0) <= (W2_BLOCK_N_MAX[k][r.horizon ?? ""] ?? 0)), "has an n_test above its block (bridge 8760 / 2190, test and fwd 4392 / 1098 at 1h / 4h), refused before any bound or veto");
   is([t, r.bridge ?? t, r.fwd ?? t, r.retire ?? t].every((b) => b.k_test === null || b.n_test === null || b.k_test <= b.n_test), "has a k_test above its n_test (test, bridge, fwd or retire block)");
   is([t, r.bridge ?? t, r.fwd ?? t].every((b) => b.u_test === uTest(b.k_test, b.n_test)), "has a u_test the exact bound does not give");
   if (r.n < n0) {
@@ -83,7 +83,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   const [calib, reason] = adm.empty ? ["silence", w2 ? "tail sequence constant (fails closed)" : "auxiliary sequence constant (fails closed)"] : adm.reject ? ["silence", "dependence check rejects"] : m > ks ? ["silence", `misses ${String(m)} above k* ${String(ks)}`] : ["region", ""];
   const fire = (b: typeof r.test): boolean => calib === "region" && b !== null && b.n_test >= 1 && b.k_test !== null && vetoFires(b.n_test, b.k_test, r.alpha);
   const first = (["bridge", "test", "fwd"] as const).find((k) => fire(blocks[k]));
-  is(r.vetoes?.test === fire(r.test) && (r.vetoes?.bridge ?? false) === fire(r.bridge) && (r.vetoes?.fwd ?? false) === fire(r.fwd), "has vetoes.test, vetoes.bridge or vetoes.fwd off the conditional TEST, bridge or FWD-2 veto");
+  is(r.vetoes?.test === fire(r.test) && (r.vetoes?.bridge ?? false) === fire(r.bridge) && (r.vetoes?.fwd ?? false) === fire(r.fwd), "has vetoes.test, vetoes.bridge or vetoes.fwd off the conditional test, bridge or fwd veto");
   const status = first !== undefined ? "vetoed" : calib;
   const [st, why] = r.retire === null ? [status, first !== undefined ? `vetoed: ${first}` : reason] : ["retired", `retired: ${r.retire.cause}`];
   is(r.status === st && r.status_reason === why, `has status '${r.status}' and reason '${r.status_reason}', not '${st}' and '${why}'`);
@@ -91,7 +91,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
     const c = r.retire;
     const k = retireQuarter(c.cause), live = (k ?? 0) > 0;
     is(status === "region" && k !== undefined, "has a retire cause outside live:<k> and adr:decisions/<file>.md (epoch:<id> needs the pinned epoch log), or retires a row that serves no region");
-    is(!live || (c.n_test ?? 0) <= (LIVE_N_MAX[r.horizon ?? ""] ?? 0), "has a live:<k> n_test above LIVE_N_MAX (2208 at 1h, 552 at 4h, the longest quarter: ADR 0006 addendum 9 point 5), refused before any bound or veto");
+    is(!live || (c.n_test ?? 0) <= (LIVE_N_MAX[r.horizon ?? ""] ?? 0), "has a live:<k> n_test above LIVE_N_MAX (2208 at 1h, 552 at 4h, the longest quarter), refused before any bound or veto");
     is(live ? c.n_test !== null && c.k_test !== null && c.n_test >= 1 && vetoFires(c.n_test, c.k_test, r.alpha) && c.u_test === uTest(c.k_test, c.n_test) : c.n_test === null && c.k_test === null && c.u_test === null, "has retire counts off its cause or a live block the binomial rule does not fire on");
   }
   const region = r.status === "region";
@@ -108,7 +108,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   const s = r.calib_support;
   const qb = q ?? NaN;
   is(s !== null && qb >= 2 ** -1022 && Number.isFinite(qb), "is a calibrated band row without calib_support or with a qhat that is not a normal double");
-  is((bandEdge(qb, s?.min ?? 1) ?? 0) > 0 && bandEdge(qb, s?.max ?? 1) !== null, "has no positive band edge at calib_support.min or no finite edge at calib_support.max (plan section 4)");
+  is((bandEdge(qb, s?.min ?? 1) ?? 0) > 0 && bandEdge(qb, s?.max ?? 1) !== null, "has no positive band edge at calib_support.min or no finite edge at calib_support.max");
 }
 
 /** The registry pin, before any retire list reads the registry bytes; the dated retire lists, oldest to newest, each read against its predecessor (a retire never leaves the chain); the table matches the pinned registry, overlaid by the newest list, with its expected class entry; each row passes guardKataRow; cell checks. */
@@ -127,7 +127,7 @@ export function guardKataTable(table: PolicyTable, registryBytes: Uint8Array, pi
   }
   // The current rows of a direction side are its three buckets, with the same thresholds.
   for (const [side, rs] of Map.groupBy(table.rows.filter((r) => r.current && r.side !== null), (r) => r.cell_key.slice(0, r.cell_key.lastIndexOf("-")))) {
-    want(new Set(rs.map((r) => r.bucket)).size === 3 && rs.every((r) => r.thresholds?.t1 === rs[0]?.thresholds?.t1 && r.thresholds?.t2 === rs[0]?.thresholds?.t2), side, "is a direction side without its three buckets or with thresholds that differ between its rows (C-8)");
+    want(new Set(rs.map((r) => r.bucket)).size === 3 && rs.every((r) => r.thresholds?.t1 === rs[0]?.thresholds?.t1 && r.thresholds?.t2 === rs[0]?.thresholds?.t2), side, "is a direction side without its three buckets or with thresholds that differ between its rows");
   }
 }
 

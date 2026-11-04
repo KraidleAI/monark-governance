@@ -55,7 +55,7 @@ export function assertLiqBandExact(row: PolicyRow, cls: ClassEntry): void {
   const k = Number(/\/s([0-9]+)$/.exec(row.cell_key)?.[1]);
   if (cuts.length === 0 || !(k <= cuts.length) || row.cell_key !== `${String(cls.cell_key_base)}/s${String(k)}`) fail(`${row.cell_key} is not a stratum key of ${cls.task_class}`);
   const maxYhat = k < cuts.length ? (cuts[k] as number) - 1 : Number.MAX_SAFE_INTEGER;
-  if (!(row.qhat !== null && row.qhat <= 2 ** 53 - maxYhat)) fail(`LIQ-BAND-EXACT-GUARD-1: ${row.cell_key}, max yhat ${String(maxYhat)} + qhat ${String(row.qhat)} exceeds 2^53`);
+  if (!(row.qhat !== null && row.qhat <= 2 ** 53 - maxYhat)) fail(`liq band edge not exact: ${row.cell_key}, max yhat ${String(maxYhat)} + qhat ${String(row.qhat)} exceeds 2^53`);
 }
 
 /** A marginal table file: its class entry is the expected one; its rows are exactly the rows rebuilt from the committed calibrations. */

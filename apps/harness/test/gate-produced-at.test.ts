@@ -137,7 +137,7 @@ test("produced_at_in_the_future_is_refused_at_http_and_mcp", async () => {
     const r = await http(s);
     assert.equal(r.status, 400, `${s}: in the future, 400`);
     assert.equal(r.body["code"], "produced_at_future", `${s}: code produced_at_future`);
-    assert.equal(r.body["message"], `prediction.produced_at '${s}' is in the future: more than 300 s after the server clock (ADR-CM B-4)`, `${s}: message`);
+    assert.equal(r.body["message"], `prediction.produced_at '${s}' is in the future: more than 300 s after the server clock`, `${s}: message`);
   }
   // The other served paths over HTTP: 2099 refused, +300 s served.
   for (const p of OTHER_PATHS) {

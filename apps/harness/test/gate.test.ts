@@ -89,7 +89,7 @@ function assertBtcDirRetired(params: HarnessParams = GOOD_PARAMS): void {
     (e: unknown) =>
       e instanceof HarnessToolError &&
       (e as { code?: unknown }).code === "task_class_retired" &&
-      e.message === "task_class 'btc-dir-15m' is retired (ADR 0005, decided 2026-09-30): it is no longer served; the name stays reserved against BYO",
+      e.message === "task_class 'btc-dir-15m' is retired: it is no longer served; the name stays reserved against BYO",
     "btc-dir-15m is retired: 400 task_class_retired",
   );
 }
@@ -763,8 +763,8 @@ test("gate_attested_discordant_is_tool_error", () => {
       ),
     (e: unknown) =>
       e instanceof HarnessToolError &&
-      e.message.includes("not accepted for BYO classes") &&
-      e.message.includes("caller-free-class-42"),
+      e.message ===
+        "attested is not accepted for BYO classes: task_class 'caller-free-class-42' has no committed attestation subject (subject 'https://example.test/whatever')",
     "a free/BYO class with attested is a 400 naming 'not accepted for BYO classes' + the class",
   );
 
@@ -798,12 +798,12 @@ test("gate_attested_discordant_is_tool_error", () => {
 });
 
 // Test (ADR-M017 D4(4)) — the description carries the non-re-verification sentence VERBATIM (phrase (iv),
-// C-8) plus the "no temporal binding in P1" clause. Mutant: remove/blank the sentence in the description =>
+// C-8) plus the "no temporal binding" clause. Mutant: remove/blank the sentence in the description =>
 // red (motif gate.test.ts:112). Non-vacuous (motif gate.test.ts:113-117): the constant's OWN load-bearing
 // substrings are asserted too, so blanking the constant (not just the interpolation) also reddens.
 test("gate_description_declares_non_reverification", () => {
   assert.ok(GATE_TOOL_DESCRIPTION.includes(GATE_NON_REVERIFICATION_SENTENCE), "the description carries phrase (iv) verbatim");
-  assert.ok(GATE_TOOL_DESCRIPTION.includes("no temporal binding in P1"), "the description declares 'no temporal binding in P1'");
+  assert.ok(GATE_TOOL_DESCRIPTION.includes(`${GATE_NON_REVERIFICATION_SENTENCE}; no temporal binding. `), "the description declares 'no temporal binding' right after the sentence");
   assert.ok(GATE_NON_REVERIFICATION_SENTENCE.includes("not re-verified at call time"), "the sentence states it is not re-verified at call time");
   assert.ok(GATE_NON_REVERIFICATION_SENTENCE.includes("the verifier is not executed here"), "the sentence states the verifier is not executed here");
 });

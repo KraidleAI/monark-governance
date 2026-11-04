@@ -74,10 +74,11 @@ test("marginal_guard_refuses_altered_rows", () => {
 test("liq_band_exact_guard", () => {
   assertLiqBandExact(liqRow, LIQ);
   const at = (k: string, qhat: number): PolicyRow => ({ ...liqRow, cell_key: `${UKEMI_LIQ_PREDICTOR_BASE}/${k}`, qhat });
-  assert.throws(() => assertLiqBandExact(at("s3", liqRow.qhat ?? 0), LIQ), /LIQ-BAND-EXACT-GUARD-1/);
+  const notExact = (k: string, maxYhat: number, qhat: number): { message: string } => ({ message: `MONARK marginal guard: liq band edge not exact: ${UKEMI_LIQ_PREDICTOR_BASE}/${k}, max yhat ${String(maxYhat)} + qhat ${String(qhat)} exceeds 2^53.` });
+  assert.throws(() => assertLiqBandExact(at("s3", liqRow.qhat ?? 0), LIQ), notExact("s3", Number.MAX_SAFE_INTEGER, liqRow.qhat ?? 0));
   const edge = 2 ** 53 - ((STRATA_CUTS_SERVED[2] as number) - 1);
   assertLiqBandExact(at("s2", edge), LIQ);
-  assert.throws(() => assertLiqBandExact(at("s2", edge + 1), LIQ), /LIQ-BAND-EXACT-GUARD-1/);
+  assert.throws(() => assertLiqBandExact(at("s2", edge + 1), LIQ), notExact("s2", (STRATA_CUTS_SERVED[2] as number) - 1, edge + 1));
   for (const k of ["s4", "s01", "x"]) assert.throws(() => assertLiqBandExact(at(k, 1), LIQ), /not a stratum key/);
   assert.throws(() => assertLiqBandExact({ ...liqRow, cell_key: "other/base/s0" }, LIQ), /not a stratum key/);
   assert.throws(() => assertLiqBandExact(liqRow, { ...LIQ, strata_cuts: [] }), /not a stratum key/);

@@ -131,13 +131,14 @@ test("guard_recompute_and_verifiers", () => {
 });
 
 // killer: apps/harness/src/policy-guard.ts:111 ROR "?? 0) > 0" -> "?? 0) >= 0"
+const BAND_EDGE = /^Error: MONARK import guard: \S+ \S+ has no positive band edge at calib_support\.min or no finite edge at calib_support\.max\.$/;
 test("guard_band_edges_and_support", () => {
   check(bandRegion);
   const b = (qhat: number, min: number, max: number): PolicyRow => ({ ...bandRegion, qhat, calib_support: { min, max } });
-  refuse(b(1e-300, 1e-30, 1e-29), /band edge/);
-  refuse(b(2 ** -1022, 1e-20, 1e-19), /band edge/);
+  refuse(b(1e-300, 1e-30, 1e-29), BAND_EDGE);
+  refuse(b(2 ** -1022, 1e-20, 1e-19), BAND_EDGE);
   refuse(b(2 ** -1074, 1e-3, 1e-2), /normal double/);
-  refuse(b(1e300, 1, 1e10), /band edge/);
+  refuse(b(1e300, 1, 1e10), BAND_EDGE);
   refuse(b(2, 0.02, 0.01), /min above max/);
   refuse({ ...dirRegion, qhat: -0 }, /qhat -0/);
 });
@@ -145,7 +146,7 @@ test("guard_band_edges_and_support", () => {
 // killer: apps/harness/src/policy-guard.ts:43 SDL "is(r.source.wave === 1" -> ""
 test("guard_wave_couplings_and_grammars", () => {
   const r = dirRegion;
-  refuse({ ...r, source: { ...r.source, wave: 2 } }, /wave 2 guard/);
+  refuse({ ...r, source: { ...r.source, wave: 2 } }, /^Error: MONARK import guard: \S+ \S+ has source\.wave 2: the wave 2 guard admits wave 2 core band rows only and the wave 2b band rows of the pinned wave3\.json, a null wave is a marginal row\.$/);
   refuse({ ...r, bridge: { k_test: 0, n_test: 1, u_test: null }, vetoes: { test: false, bridge: false, fwd: null } }, /wave 2 column/);
   refuse({ ...r, tail_frac: "0.95" }, /wave 2 column/);
   const values = [1, 2, 3, 4, 5, 6, 7];
