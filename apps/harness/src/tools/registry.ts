@@ -4,11 +4,11 @@
  * The registry is DATA (`HARNESS_TOOLS`) so the closed allowlist and the descriptions are inspectable
  * without standing up a server (the K-8 oracle and the vocab oracle read this table directly).
  *
- * `ALLOWED_TOOL_NAMES` is the closed universe of the surface (`attest`·`gate`·`cascade`·`calibrate`·`judge`). H1
- * wired `gate`, H2 added `cascade`, H3 added `attest` (ADR-M005 D9), C1 added `calibrate` (ADR-M007), and step 5 of
- * ROADMAP.md (the founder's go of 2026-11-04) added `judge`, the link to Genkan's kernel. The K-8 oracle asserts BOTH: (a) the
- * CLOSED ALLOWLIST `REGISTERED_TOOL_NAMES ⊆ ALLOWED_TOOL_NAMES`, and (b) the EXACT set
- * `{attest,gate,cascade,calibrate,judge}`. Plus a static side-effect scan of `src/tools/**`.
+ * `ALLOWED_TOOL_NAMES` is the closed universe of the surface (`gate`·`calibrate`·`judge`). H1 wired `gate`, C1 added
+ * `calibrate` (ADR-M007), and step 5 of ROADMAP.md (the founder's go of 2026-11-04) added `judge`, the link to Genkan's
+ * kernel. Step 7 (the founder's go of the same day) removed `cascade` (UKEMI) and `attest` (Shōgen): the harness serves
+ * HIKAE and Genkan only. The K-8 oracle asserts BOTH: (a) the CLOSED ALLOWLIST `REGISTERED_TOOL_NAMES ⊆ ALLOWED_TOOL_NAMES`,
+ * and (b) the EXACT set `{gate,calibrate,judge}`. Plus a static side-effect scan of `src/tools/**`.
  *
  * Like everything under `src/tools/`, this file does no I/O: it imports the frozen-schema PROJECTION (`../schema-projection.ts`,
  * which owns a `node:fs` read at load, as `../policy-committed.ts` does for the committed tables) and the pure gate logic; it
@@ -18,19 +18,16 @@
 import type { McpServer, StandardSchemaWithJSON } from "@modelcontextprotocol/server";
 import type { Prediction, AttestedPrice } from "@monark/contracts";
 import { toolInputStandardSchema, toolOutputStandardSchema, TOOL_INPUT_SCHEMA, TOOL_OUTPUT_SCHEMA } from "../schema-projection.ts";
-import { cascadeInputStandardSchema, cascadeOutputStandardSchema, CASCADE_INPUT_SCHEMA, CASCADE_OUTPUT_SCHEMA } from "../schema-projection.ts";
 import type { Json } from "../schema-projection.ts";
-import { attestInputStandardSchema, attestOutputStandardSchema, ATTEST_INPUT_SCHEMA, ATTEST_OUTPUT_SCHEMA } from "../schema-projection.ts";
 import { calibrateInputStandardSchema, calibrateOutputStandardSchema, CALIBRATE_INPUT_SCHEMA, CALIBRATE_OUTPUT_SCHEMA } from "../schema-projection.ts";
 import { runGate, honestyText, gateVerdictSummary, toolErrorCode, ERROR_CODE_META_KEY, GATE_TOOL_NAME, GATE_TOOL_DESCRIPTION, type HarnessParams, type RunGateOptions } from "./gate.ts";
-import { runCascade, cascadeHonestyText, CASCADE_TOOL_NAME, CASCADE_TOOL_DESCRIPTION, type CascadeInput } from "./cascade.ts";
-import { runAttest, attestHonestyText, ATTEST_TOOL_NAME, ATTEST_TOOL_DESCRIPTION } from "./attest.ts";
 import { runCalibrate, calibrateHonestyText, calibrateVerdictSummary, CALIBRATE_TOOL_NAME, CALIBRATE_TOOL_DESCRIPTION, type CalibrateInput } from "./calibrate.ts";
 import { judgeInputStandardSchema, judgeOutputStandardSchema, JUDGE_INPUT_SCHEMA, JUDGE_OUTPUT_SCHEMA } from "../schema-projection.ts";
 import { runJudge, judgeHonestyText, judgeVerdictSummary, JUDGE_TOOL_NAME, JUDGE_TOOL_DESCRIPTION, type JudgeInput, type KernelRunner } from "./judge.ts";
 
-/** Closed universe of the tool surface (ADR-M005 D1, EXPANDED by ADR-M007 to 4, then by step 5 of ROADMAP.md to 5). */
-export const ALLOWED_TOOL_NAMES = ["attest", "gate", "cascade", "calibrate", "judge"] as const;
+/** Closed universe of the tool surface (ADR-M005 D1, EXPANDED by ADR-M007 to 4, by step 5 of ROADMAP.md to 5, then REDUCED by
+ *  its step 7 to 3: `cascade` and `attest` were removed). */
+export const ALLOWED_TOOL_NAMES = ["gate", "calibrate", "judge"] as const;
 export type AllowedToolName = (typeof ALLOWED_TOOL_NAMES)[number];
 
 /** The tool input envelope (D8 + ADR-M017 D1): frozen `Prediction` + non-frozen params + OPTIONAL frozen `AttestedPrice`. */
@@ -46,8 +43,8 @@ export interface HarnessToolDescriptor {
   readonly description: string;
   readonly inputSchemaJson: Json;
   readonly outputSchemaJson: Json;
-  /** Per-tool projected SDK schemas (H2): each tool owns its own input/output shape (gate: envelope
-   *  -> GateDecision; cascade: FinancialSystem -> Prediction). registerTools no longer hardcodes one. */
+  /** Per-tool projected SDK schemas (H2): each tool owns its own input/output shape (gate: envelope -> GateDecision;
+   *  calibrate: scores -> its envelope; judge: envelope, order and limits -> its verdict). registerTools hardcodes none. */
   readonly inputStandardSchema: StandardSchemaWithJSON;
   readonly outputStandardSchema: StandardSchemaWithJSON;
   /** Executes the tool: caller-carried args (validated at the SDK boundary) -> structured content + text. `ctx.nowMs`
@@ -60,7 +57,7 @@ export interface HarnessToolDescriptor {
  *  runner of Genkan's kernel (src/kernel.ts), started in src/, never under src/tools/. */
 export type ToolRunContext = Pick<RunGateOptions, "nowMs"> & { readonly kernel?: KernelRunner };
 
-/** The tools registered (H1: `gate`; H2: `cascade`; H3: `attest`; C1: `calibrate`, ADR-M007; step 5 of ROADMAP.md: `judge`). */
+/** The tools registered (H1: `gate`; C1: `calibrate`, ADR-M007; step 5 of ROADMAP.md: `judge`). */
 export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
   {
     name: GATE_TOOL_NAME,
@@ -77,35 +74,6 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
       // verdict summary (a delivery aid for text-only clients, derived from `decision`) follows the prose.
       const text = `${honestyText(env.prediction.task_class, decision.verdict.cell_key ?? env.prediction.predictor_id, env.params.calibration !== undefined)} ${gateVerdictSummary(decision)}`;
       return { text, structured: decision as unknown as Record<string, unknown> };
-    },
-  },
-  {
-    name: CASCADE_TOOL_NAME,
-    description: CASCADE_TOOL_DESCRIPTION,
-    inputSchemaJson: CASCADE_INPUT_SCHEMA,
-    outputSchemaJson: CASCADE_OUTPUT_SCHEMA,
-    inputStandardSchema: cascadeInputStandardSchema,
-    outputStandardSchema: cascadeOutputStandardSchema,
-    run: (args) => {
-      const input = args as CascadeInput;
-      const prediction = runCascade(input);
-      // structuredContent = the closed Prediction ONLY (K-1); honesty prose rides in `content` text.
-      return { text: cascadeHonestyText(), structured: prediction as unknown as Record<string, unknown> };
-    },
-  },
-  {
-    name: ATTEST_TOOL_NAME,
-    description: ATTEST_TOOL_DESCRIPTION,
-    inputSchemaJson: ATTEST_INPUT_SCHEMA,
-    outputSchemaJson: ATTEST_OUTPUT_SCHEMA,
-    inputStandardSchema: attestInputStandardSchema,
-    outputStandardSchema: attestOutputStandardSchema,
-    run: () => {
-      // No caller input: the witness is the committed internal fixture (ADR-M005 H3).
-      const output = runAttest();
-      // structuredContent = the K-1 envelope {price, provenance, label}; `price` alone is the frozen
-      // contract, label/provenance ride OUTSIDE it. Honesty prose rides in `content` text (K-1).
-      return { text: attestHonestyText(), structured: output as unknown as Record<string, unknown> };
     },
   },
   {
@@ -141,7 +109,7 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
   },
 ];
 
-/** The names actually registered, in registry order: `["gate","cascade","attest","calibrate","judge"]`. */
+/** The names actually registered, in registry order: `["gate","calibrate","judge"]`. */
 export const REGISTERED_TOOL_NAMES: readonly string[] = HARNESS_TOOLS.map((t) => t.name);
 
 /**

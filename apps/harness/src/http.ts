@@ -1,7 +1,7 @@
 /**
  * Harness — HTTP/JSON MIRROR of the MCP surface (ADR-M005 D7/D8).
  *
- * The SAME five operations (attest, gate, cascade, calibrate, judge), the SAME frozen input/output schemas
+ * The SAME three operations (gate, calibrate, judge), the SAME frozen input/output schemas
  * (`schema-projection.ts` / the registry), exposed as plain JSON: `POST /{tool}` with a JSON body ->
  * a JSON response mirroring the MCP `CallToolResult` (`{ structuredContent, content }`). The mirror is
  * DERIVED from the SAME `HARNESS_TOOLS` registry the MCP server registers, so the two surfaces cannot
@@ -10,7 +10,7 @@
  * type) is a `400`, mirroring how the MCP boundary rejects it, never a silent result.
  *
  * `structuredContent` is byte-identical to the MCP `structuredContent` (the frozen, closed contract for
- * gate/cascade; the K-1 envelope for attest); the honesty prose rides in `content`, OUTSIDE the frozen
+ * gate; the non-frozen envelopes of calibrate and judge); the honesty prose rides in `content`, OUTSIDE the frozen
  * contract (K-1) — the frozen output is `additionalProperties:false` and can carry no note.
  *
  * NO side effects, NO secret: this module composes the pure registry tools, reads no env var, opens no

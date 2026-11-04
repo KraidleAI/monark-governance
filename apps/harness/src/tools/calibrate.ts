@@ -14,8 +14,7 @@
  *
  * HONESTY (K-1, three carriers — H3 OBS-2 / B-5): the exchangeability hypothesis is DECLARED, carried
  * identically in (1) the tool DESCRIPTION, (2) the MCP text `content` (`calibrateHonestyText()`), and
- * (3) the output `label`. Unlike `attest` (which replays a committed witness and is "demonstrative"),
- * `calibrate` COMPUTES a real quantile — but only UNDER an external hypothesis the caller alone owns,
+ * (3) the output `label`. `calibrate` COMPUTES a real quantile — but only UNDER an external hypothesis the caller alone owns,
  * so the label says exactly that: never a probability of being right.
  *
  * FAIL-CLOSED (D4, inherited from `splitQuantile` and re-declared): `alpha ∉ (0,1)`, a non-finite

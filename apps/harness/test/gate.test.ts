@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { assertClosedGateDecision, assertNoForbiddenKey, scoresSha256 } from "@monark/contracts";
-import type { Prediction, AttestedFlow, AttestedPrice, GateDecision } from "@monark/contracts";
+import type { Prediction, AttestedPrice, GateDecision } from "@monark/contracts";
 import {
   runGate,
   validateHarnessParams,
@@ -34,7 +34,6 @@ import {
   USDE_STABLE_RUN_SCORES_SHA256_PINNED,
 } from "../src/calibration.ts";
 import { splitQuantile, buildIntervalRegion, scoreTestBand, underCalibVerdict, NUMERIC_LABEL_SCHEMA, BTC_DIR_LABEL_SCHEMA } from "@monark/hikae"; // ADR-M011: anti-circularity — L1 q̂ + NDG-1 region before runGate; E9: label_schema constants
-import { fromAttestedFlow, isNarabiError } from "@monark/monark"; // A7: real flows via the adapter
 
 const GOOD_PARAMS: HarnessParams = {
   remainingBudget: 0.1,
@@ -459,29 +458,22 @@ const EMPTY_CALIB_DIGEST = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f
 const USDE_TOKEN = "erc20:0x4c9EDD5852cd905f086C759E8383e09bff1E68B3"; // A4 canonical token (mixed case; canonicalized in the key)
 const MSUSD_TOKEN = "erc20:0x4ba01f22827018b4772CD326C7627FB4956A7C00"; // Main Street msUSD v2 — a DIFFERENT population
 
-/** Build a valid AttestedFlow for a (chain, subject) population — the A7 fixtures drive REAL adapter output. */
-function narabiFlow(chain: string, subject: string, over: Partial<AttestedFlow["flow"]> = {}): AttestedFlow {
+/**
+ * The Prediction the Narabi adapter (`fromAttestedFlow`) emitted for a calm 24h AttestedFlow of a (chain, subject) population:
+ * burns 1e21, close supply 1e27, mints 0 (S_open about 1e27, far above the floor), `utterance.hash` "b" x 64, observed at
+ * 1_756_000_000 (Unix seconds). Recorded from the adapter, for the three populations used below, before step 7 of ROADMAP.md
+ * archived it; the adapter tests went with it. Only the key moves with the population: `narabi:persistence-v2@<chain>/<token>`,
+ * lower-cased.
+ */
+function narabiPrediction(chain: string, subject: string): Prediction {
   return {
-    schema_version: "1.0.0",
-    subject,
-    attestor: [{ identity: "issuer-por", key: "deadbeef" }],
-    source: { chain, issuer: "0xe3490297a08d6fc8da46edb7b6142e4f461b62d3" }, // EthenaMinting V2 (A4)
-    window: "24h",
-    // calm window: burns 1_000, close 1e9, mints 0 ⇒ S_open ≈ 1e9 (≫ floor) ⇒ v ≈ 4.17e-8/h.
-    flow: { burns: "1000000000000000000000", mints: "0", supply: "1000000000000000000000000000", from_block: 23_000_000, to_block: 23_007_200, ...over },
-    residual: ["ap_capacity_unknown"],
-    transport: "rpc+eth_getLogs",
-    utterance: { hash: "b".repeat(64) },
-    observed_at: { clock: "utc", instant: 1_756_000_000 },
-    octets_recalcules: true,
-    verifier_revision: "narabi-adapter@f2b",
+    schema_version: "1.1.0",
+    task_class: "stable-run-velocity-24h",
+    yhat: 4.1666624999999995e-8,
+    predictor_id: `narabi:persistence-v2@${chain}/${subject}`.toLowerCase(),
+    produced_at: "2025-08-24T01:46:40.000Z",
+    features_digest: "b".repeat(64),
   };
-}
-/** Adapter → Prediction (fail the test if the adapter refused — A7 needs a real emitted Prediction). */
-function adaptToPrediction(f: AttestedFlow): Prediction {
-  const out = fromAttestedFlow(f);
-  assert.ok(!isNarabiError(out), `adapter unexpectedly refused: ${JSON.stringify(out)}`);
-  return out.prediction;
 }
 
 // Test — a NON-committed population (STABLE_RUN_PRED carries the naked-ish key `narabi:persistence-v1`)
@@ -512,11 +504,11 @@ test("gate_stable_run_task_class_matches_registry", () => {
   assert.equal(USDE_STABLE_RUN_TASK_CLASS, TASK_STABLE_RUN, "the committed registry task_class must equal the gate's TASK_STABLE_RUN");
 });
 
-// Test — A7(b): a REAL USDe mainnet flow → adapter → gate reaches the COMMITTED region (covered), keyed on
+// Test — A7(b): the adapter's Prediction for a USDe mainnet flow → gate reaches the COMMITTED region (covered), keyed on
 // (task_class, predictor_id). Anti-circularity: q̂ is proven via splitQuantile BEFORE runGate; the pinned
 // digest is the wire scores_sha256. Mutant: unwire the USDe key ⇒ under_calib ⇒ every assertion below reds.
 test("gate_stable_run_usde_committed_region_A7b", () => {
-  const pred = adaptToPrediction(narabiFlow("eip155:1", USDE_TOKEN));
+  const pred = narabiPrediction("eip155:1", USDE_TOKEN);
   assert.equal(pred.predictor_id, USDE_STABLE_RUN_PREDICTOR_ID, "the USDe flow emits the committed key");
   const sq = splitQuantile(USDE_STABLE_RUN_CALIB, GOOD_PARAMS.alpha, GOOD_PARAMS.nMin);
   assert.ok("qhat" in sq, "the committed USDe calibration is not under-calibrated at α=0.10, nMin=50");
@@ -533,7 +525,7 @@ test("gate_stable_run_usde_committed_region_A7b", () => {
 });
 
 // Test — A7(a,c,d,e): family isolation is fail-closed. A DIFFERENT population NEVER reaches the USDe region:
-//   (a) a real msUSD flow (different token) ⇒ under_calib;
+//   (a) the adapter's Prediction for a msUSD flow (different token) ⇒ under_calib;
 //   (c) the USDe token on an L2 chain (different chain) ⇒ under_calib;
 //   (d) the USDe key altered by ONE character ⇒ under_calib;
 //   (e) the naked formula `narabi:persistence-v2` ⇒ under_calib.
@@ -541,10 +533,10 @@ test("gate_stable_run_usde_committed_region_A7b", () => {
 test("gate_stable_run_family_isolation_fail_closed_A7acde", () => {
   const usdeKey = USDE_STABLE_RUN_PREDICTOR_ID;
   const cases: { name: string; pred: Prediction }[] = [
-    { name: "a: real msUSD flow (other token)", pred: adaptToPrediction(narabiFlow("eip155:1", MSUSD_TOKEN)) },
-    { name: "c: USDe token on an L2 chain (other chain)", pred: adaptToPrediction(narabiFlow("eip155:8453", USDE_TOKEN)) },
-    { name: "d: USDe key altered by one char", pred: { ...adaptToPrediction(narabiFlow("eip155:1", USDE_TOKEN)), predictor_id: usdeKey.slice(0, -1) + (usdeKey.endsWith("3") ? "4" : "3") } },
-    { name: "e: naked formula (no population)", pred: { ...adaptToPrediction(narabiFlow("eip155:1", USDE_TOKEN)), predictor_id: "narabi:persistence-v2" } },
+    { name: "a: msUSD flow (other token)", pred: narabiPrediction("eip155:1", MSUSD_TOKEN) },
+    { name: "c: USDe token on an L2 chain (other chain)", pred: narabiPrediction("eip155:8453", USDE_TOKEN) },
+    { name: "d: USDe key altered by one char", pred: { ...narabiPrediction("eip155:1", USDE_TOKEN), predictor_id: usdeKey.slice(0, -1) + (usdeKey.endsWith("3") ? "4" : "3") } },
+    { name: "e: naked formula (no population)", pred: { ...narabiPrediction("eip155:1", USDE_TOKEN), predictor_id: "narabi:persistence-v2" } },
   ];
   for (const { name, pred } of cases) {
     assert.notEqual(pred.predictor_id, usdeKey, `${name}: precondition — the key differs from the committed USDe key`);
@@ -580,12 +572,12 @@ test("gate_stable_run_honesty_text_is_keyed_A2_A7f", () => {
   const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
   assert.ok(gateTool, "the gate tool is registered");
   // committed USDe key ⇒ the committed sentence, never the uncommitted/cascade sentence.
-  const usdePred = adaptToPrediction(narabiFlow("eip155:1", USDE_TOKEN));
+  const usdePred = narabiPrediction("eip155:1", USDE_TOKEN);
   const usdeText = gateTool.run({ prediction: usdePred, params: { ...GOOD_PARAMS, intent: usdePred.yhat as number, tauInterval: 1 } }).text;
   assert.ok(usdeText.includes(STABLE_RUN_COMMITTED_SENTENCE), "committed key ⇒ committed sentence");
   assert.ok(!usdeText.includes(CASCADE_UNCALIBRATED_SENTENCE), "committed key ⇒ NOT the cascade sentence");
   // A7(f): a msUSD (non-committed) key ⇒ the uncommitted sentence, NEVER the committed one (surclaim).
-  const msusdPred = adaptToPrediction(narabiFlow("eip155:1", MSUSD_TOKEN));
+  const msusdPred = narabiPrediction("eip155:1", MSUSD_TOKEN);
   const msusdText = gateTool.run({ prediction: msusdPred, params: { ...GOOD_PARAMS, intent: 0 } }).text;
   assert.ok(msusdText.includes(STABLE_RUN_UNCALIBRATED_SENTENCE), "non-committed key ⇒ uncommitted sentence");
   assert.ok(!msusdText.includes(STABLE_RUN_COMMITTED_SENTENCE), "A7(f): a non-committed key must NEVER carry the committed 'committed' sentence (surclaim)");
@@ -633,7 +625,7 @@ test("gate_stable_run_ndg1_zero_width_is_region_degenerate_reused", () => {
 test("gate_stable_run_byo_anti_override_is_key_aware_A6", () => {
   const callerScores = [0.5, 0.1, 0.9, 0.3, 0.7, 0.2, 0.8, 0.4, 0.6, 1.0]; // n=10, the caller's OWN scores
   // (i) the committed USDe key is LOCKED — a BYO must not overwrite it.
-  const usdePred = adaptToPrediction(narabiFlow("eip155:1", USDE_TOKEN));
+  const usdePred = narabiPrediction("eip155:1", USDE_TOKEN);
   assert.equal(usdePred.predictor_id, USDE_STABLE_RUN_PREDICTOR_ID);
   assert.throws(
     () => runGate(usdePred, { ...GOOD_PARAMS, intent: 0, calibration: { scores: callerScores, mode: "interval" } }),
@@ -641,7 +633,7 @@ test("gate_stable_run_byo_anti_override_is_key_aware_A6", () => {
     "BYO on the committed USDe key ⇒ HarnessToolError (locked)",
   );
   // (ii) a DIFFERENT population (msUSD) on the same class MAY BYO its own scores (BYO by κ by family).
-  const msusdPred = adaptToPrediction(narabiFlow("eip155:1", MSUSD_TOKEN));
+  const msusdPred = narabiPrediction("eip155:1", MSUSD_TOKEN);
   assert.notEqual(msusdPred.predictor_id, USDE_STABLE_RUN_PREDICTOR_ID);
   let d: ReturnType<typeof runGate>;
   try {

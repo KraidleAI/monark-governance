@@ -16,9 +16,8 @@ Ce dépôt construit le moteur qui accueillera une stratégie de trading réelle
 |---|---|---|
 | `packages/hikae` | la porte conforme, en trois couches (ci-dessous), plus le suivi en ligne (détecteur de changement par paris, moniteur, budget `B_t`) | testé |
 | `packages/contracts`, `schemas/` | les contrats gelés : `AttestedPrice`, `Prediction`, `CoverageVerdict`, `GateDecision` ; les schémas JSON font foi, le paquet en est la liaison TypeScript | testé |
-| `apps/harness` | le moteur servi : un serveur MCP sans état (`gate`, `calibrate`, `judge`, qui lance le noyau de Genkan, et encore `attest` de Shōgen et `cascade` d'UKEMI) | testé ; à réduire à HIKAE et Genkan |
+| `apps/harness` | le moteur servi : un serveur MCP sans état à trois outils, `gate` et `calibrate` (HIKAE), et `judge`, qui lance le noyau de Genkan | testé |
 | `apps/genkan` | la porte d'ordres : noyau Lean 4 (`leanprover/lean4:v4.32.1`) qui juge un ordre sous un contexte (mode 1 : la décision de HIKAE, les places et les actifs autorisés, leurs plafonds), décode un ordre `GNK1` et calcule un SHA-256 | juge testé et prouvé (théorèmes rejoués en CI) ; lancé par l'outil `judge` du harness |
-| `packages/ukemi`, `packages/monark` | dépendances du harness (cascade UKEMI, adaptateurs Shōgen), gardées le temps de le réduire | testé |
 | `fixtures/`, `tools/kata-recalc/` | données lues par le moteur et vérificateurs Python des tables de politique | — |
 
 ## Ce que HIKAE garantit, et ce qu'il ne garantit pas

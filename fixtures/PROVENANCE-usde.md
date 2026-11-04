@@ -67,9 +67,10 @@ the single sourced day; the earlier 5-day width was unsourced and dropped.
 
 The committed pull `scripts/usde-full-pull.mjs` computed `v_t_per_hr` at a **1e6** fixed-point scale
 (`scripts/usde-full-pull.mjs:120`), while
-the DEPLOYED adapter `packages/monark/src/adapter-narabi.ts` uses **1e12** (`RATIO_SCALE`). The committed
-scores are the ADAPTER's (`scripts/record-usde-calib.mjs` rebuilds `AttestedFlow` objects from THIS series
-and runs `fromAttestedFlow`), so they match exactly what the deployed predictor produces. The pull(1e6) ↔
+the adapter `packages/monark/src/adapter-narabi.ts` used **1e12** (`RATIO_SCALE`). The committed
+scores are the ADAPTER's (`scripts/record-usde-calib.mjs` rebuilt `AttestedFlow` objects from THIS series
+and ran `fromAttestedFlow`), so they match exactly what that predictor produced. The adapter and the recorder
+were archived at step 7 of ROADMAP.md; both stay in git at commit `c355ce16`. The pull(1e6) ↔
 adapter(1e12) per-score gap is a truncation artefact: **max |Δ| ≤ 4.11e-8, mean |Δ| ≈ 1.22e-8**. Under the
 adapter scale the PRE-REGISTERED set HELD: q̂ and q99 kept supports 61 and 6 (no re-declaration). The
 provenance digest is `calibDigest` (ADR-M001 C5, float64_be sorted) over the adapter scores:
@@ -86,10 +87,13 @@ NOT the `calibDigest` above, which is a domain digest over the score array):**
 | `fixtures/usde-calib-scores.json` | `e44a68b6b697a32f3f198770e740ab206393dc3425e8cc59e4b0e1e4e65cfd28` |
 
 The series pin repeats the value already in `apps/harness/test/usde-calibration.test.ts`; the scores pin is
-added here so `usde-calib-scores.json` is declared+hashed same-dir (D9 sexies condition a). Recompute:
+added here so `usde-calib-scores.json` is declared+hashed same-dir (D9 sexies condition a). Recompute (on a
+checkout of `c355ce16`, where the recorder and the adapter still live):
 `node scripts/record-usde-calib.mjs` rewrites the scores fixture byte-for-byte, then the sha above holds.
 
 ## 6. Reproduce
+
+On a checkout of `c355ce16` (the recorder and its adapter were archived at step 7 of ROADMAP.md):
 
 ```
 node scripts/record-usde-calib.mjs      # series -> AttestedFlow -> adapter (1e12) -> scores -> calibDigest

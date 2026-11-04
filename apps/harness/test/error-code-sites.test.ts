@@ -2,7 +2,8 @@
  * Harness - CM-2a follow-up (MONARK's diff check of #105: C-1, C-3, C-6; plan docs/G0-lot-cm-2a-suite.md). The lot changes
  * no behaviour: the only lines red at the base are the stale comments of C-6 (gate.ts, "In U-4b-2a the registry is empty")
  * and of C-4 of MONARK's diff check of CM-2b (calibration.ts, attestation-binding.ts, schema-projection.ts).
- * The code pins of C-1 (14 refusal sites of gate.ts that no test pinned, plus the default code of UkemiPredictToolError)
+ * The code pins of C-1 (14 refusal sites of gate.ts that no test pinned; the default code of UkemiPredictToolError went with
+ * its tool, archived at step 7 of ROADMAP.md)
  * and the three paths of C-3 (a short fraction of produced_at, offset minutes, a non-tool error on MCP) are folded into
  * that one F2P test: a separate test body would be green at the base and refused by red-proof as self-confirming.
  */
@@ -12,7 +13,6 @@ import { readFileSync } from "node:fs";
 import type { Prediction } from "@monark/contracts";
 import { runGate, toolErrorCode, type HarnessParams } from "../src/tools/gate.ts";
 import { SCHEMA_VERSION } from "../src/tools/gate.ts";
-import { runUkemiPredict } from "../src/tools/ukemi-predict.ts";
 import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 import { HARNESS_TOOLS } from "../src/tools/registry.ts";
 import { createHarnessHandler } from "../src/server.ts";
@@ -56,7 +56,6 @@ test("every_refusal_site_pins_its_code_and_the_stale_registry_comment_is_gone", 
     ["398 label pipe", () => runGate(pr("byo-x", "A"), SET([{ label: "A|B", score: 0.5 }])), "byo_calibration_invalid :: invalid calibration.candidates[0].label: must not contain"],
     ["401 duplicate label", () => runGate(pr("byo-x", "A"), SET([{ label: "A", score: 0.5 }, { label: "A", score: 0.6 }])), "byo_calibration_invalid :: invalid calibration.candidates[1].label: duplicate"],
     ["886 cascade yhat", () => runGate(pr("cascade-liquidable-24h", "x"), P), "yhat_type_mismatch :: task_class 'cascade-liquidable-24h' expects a number yhat"],
-    ["ukemi-predict default code", () => runUkemiPredict(null), "ukemi_predict_input_invalid :: invalid input: expected an object"],
   ];
   for (const [site, fn, want] of sites) assert.ok(refusal(fn).startsWith(want), `${site}: ${refusal(fn)}`);
   // C-3 (a, b): a short fraction counts 500 ms; offset minutes count (tolerance 300 s after nowMs).

@@ -1,8 +1,8 @@
 # @monark/harness
 
-A **stateless MCP server** (plus a **HTTP/JSON mirror**) that exposes the real engine primitives
-— the HIKAE `gate`, the UKEMI `cascade`, the Shōgen `attest`, the HIKAE BYO `calibrate`
-(ADR-M007), and the Genkan `judge` — as callable tools. This document details the `gate` tool, then `judge`; the mirror
+A **stateless MCP server** (plus a **HTTP/JSON mirror**) that exposes the engine as three callable tools: the HIKAE
+`gate`, the HIKAE BYO `calibrate` (ADR-M007) and the Genkan `judge`. The UKEMI `cascade` and the Shōgen `attest` were
+archived at step 7 of `ROADMAP.md`. This document details the `gate` tool, then `calibrate` and `judge`; the mirror
 and deployment are covered at the end.
 No stand-in: the `gate` tool composes the actual `@monark/hikae` policy (`conformalSet` / `conformInterval`
 → `buildVerdict` → `gate()`) and returns a **frozen, closed `GateDecision`** (`@monark/contracts`).
@@ -116,6 +116,17 @@ abstain. The registry entries are written by an emitter from the output of a fro
 
 The listener starts only when `src/server.ts` is run directly; importing the module is side-effect-free.
 
+## The `calibrate` tool
+
+**Input** `{ scores, alpha, nMin }`: the caller's nonconformity scores (each finite, at most `CALIBRATE_MAX_N` = 10 000),
+the miscoverage `alpha` in the open interval (0, 1) and the minimum count `nMin` (an integer `>= 1`); anything else is a
+tool error. **Output** `{ qhat, n, alpha, method, scores_sha256, label, reason }`: `qhat` is the split-conformal quantile,
+the ceil((n+1)(1-alpha))-th smallest score (`splitQuantileShortest` of `@monark/hikae`); `n < nMin`, or a rank above `n`,
+gives `qhat: null` and `reason: "under_calib"`, never a clamped value. `scores_sha256` is `scoresSha256` of the scores in
+the order sent, the same digest the gate's BYO verdict carries. The `label`, also the tool description and the `content`
+text, states the exchangeability hypothesis the coverage rests on. MONARK stores nothing and commits no calibration: the
+caller carries the scores to `gate` (`params.calibration`).
+
 ## The `judge` tool (Genkan's kernel)
 
 `judge` links the gate to Genkan, the order gate (step 5 of `ROADMAP.md`). **Input**: the gate's envelope
@@ -157,12 +168,12 @@ server, in `npm run test:genkan`).
 ## HTTP/JSON mirror & deployment
 
 One `127.0.0.1:3001` listener serves two surfaces, routed by Host: `mcp.monarkgate.tech` → the MCP tools
-above; `api.monarkgate.tech` → a plain-JSON mirror of the **same** five tools and the **same** frozen
+above; `api.monarkgate.tech` → a plain-JSON mirror of the **same** three tools and the **same** frozen
 schemas.
 
-- `POST /gate`, `POST /cascade`, `POST /attest`, `POST /calibrate`, `POST /judge` — JSON body in,
-  `{ structuredContent, content }` out (`structuredContent` is the frozen contract for gate/cascade, the
-  K-1 envelope for attest/calibrate, the output above for judge; the honesty text rides in `content`, K-1). A body that fails the
+- `POST /gate`, `POST /calibrate`, `POST /judge` — JSON body in,
+  `{ structuredContent, content }` out (`structuredContent` is the frozen contract for gate, the
+  K-1 envelope for calibrate, the output above for judge; the honesty text rides in `content`, K-1). A body that fails the
   frozen schema, or a tool refusal, is a `4xx`, never a silent result.
 - `GET /openapi.json` — the OpenAPI 3.1 spec, **derived** from the frozen schemas (never hand-written).
 - `GET /health` — liveness plus the operation list.

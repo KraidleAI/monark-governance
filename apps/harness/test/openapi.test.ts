@@ -46,8 +46,8 @@ test("openapi_generated_matches_frozen_schemas", () => {
   const spec = buildOpenApi();
   assert.equal(spec["openapi"], OPENAPI_VERSION, "OpenAPI 3.1 (JSON Schema 2020-12 dialect)");
 
-  // Paths are DERIVED from the registry — exactly the five operations, no more, no less (ADR-M007 C1, step 5 of ROADMAP.md).
-  assert.deepEqual(Object.keys(asObj(spec["paths"], "paths")).sort(), ["/attest", "/calibrate", "/cascade", "/gate", "/judge"], "paths == the 5 ops");
+  // Paths are DERIVED from the registry — exactly the three operations, no more, no less (ADR-M007 C1, steps 5 and 7 of ROADMAP.md).
+  assert.deepEqual(Object.keys(asObj(spec["paths"], "paths")).sort(), ["/calibrate", "/gate", "/judge"], "paths == the 3 ops");
 
   const frozenPrediction = asObj(loadJson("prediction.schema.json"), "prediction");
   const frozenGate = asObj(loadJson("gate-decision.schema.json"), "gate-decision");
@@ -95,22 +95,6 @@ test("openapi_generated_matches_frozen_schemas", () => {
   const verdict = asObj(asObj(gateOut["properties"], "gate.response.properties")["verdict"], "gate.response.verdict");
   assert.deepEqual(verdict["required"], frozenVerdict["required"], "dereferenced verdict.required == frozen CoverageVerdict");
   assert.equal(verdict["additionalProperties"], false, "inlined verdict stays closed");
-
-  // --- cascade: response carries the frozen Prediction.
-  const cascadeOut = responseStructured(spec, "cascade");
-  assert.deepEqual(cascadeOut["required"], frozenPrediction["required"], "cascade response Prediction.required == frozen");
-  assert.equal(cascadeOut["additionalProperties"], false, "cascade response Prediction stays closed");
-
-  // --- attest: response envelope's `price` is the frozen AttestedPrice (label/provenance ride outside, K-1).
-  const attestOut = responseStructured(spec, "attest");
-  const price = asObj(asObj(attestOut["properties"], "attest.response.properties")["price"], "attest.response.price");
-  assert.deepEqual(price["required"], frozenPrice["required"], "attest response price.required == frozen AttestedPrice");
-  assert.equal(price["additionalProperties"], false, "attest response price stays closed");
-  assert.deepEqual(
-    asObj(price["properties"], "attest.response.price.properties"),
-    asObj(frozenPrice["properties"], "frozen attested-price.properties"),
-    "attest response price property definitions == frozen in full",
-  );
 
   // --- calibrate (ADR-M007 D2/D3): the path is present and NON-frozen (declared in
   // schema-projection.ts, never in schemas/). We pin the wire shape here — the request requires
@@ -168,7 +152,7 @@ test("openapi_400_and_500_are_the_tool_error_projections", () => {
   const want400 = projectToolError(frozen, defs), want500 = { oneOf: [projectToolError(defs["InternalError"] ?? null, defs), transport] };
   type Responses = Record<string, { content?: Record<string, { schema?: Json } | undefined> } | undefined>;
   const spec = buildOpenApi();
-  for (const op of ["attest", "calibrate", "cascade", "gate"]) {
+  for (const op of ["calibrate", "gate", "judge"]) {
     const post = asObj(asObj(asObj(spec["paths"], "paths")["/" + op], op)["post"], `${op}.post`);
     const responses = post["responses"] as unknown as Responses;
     assert.deepEqual(responses["400"]?.content?.["application/json"]?.schema, want400, `${op}: the 400 is the projected tool-error root`);

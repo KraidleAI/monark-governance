@@ -20,9 +20,6 @@ import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { handleJsonMirror } from "../src/http.ts";
 import { createHarnessHandler } from "../src/server.ts";
 import { HARNESS_TOOLS, REGISTERED_TOOL_NAMES } from "../src/tools/registry.ts";
-import { ATTEST_INPUT_SCHEMA } from "../src/schema-projection.ts";
-import { projectShogen } from "../src/tools/attest.ts";
-import { SHOGEN_LOT_BYTES, SHOGEN_VERDICT_TEXT, SHOGEN_CONSTAT } from "../src/shogen-fixture.ts";
 import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 
 /** The closed list of codes, pinned in order (G0 CM-2a, rules S-6 2 to 4; the last 8 reserved since 1.1.0 block A, Q-3). */
@@ -194,19 +191,8 @@ test("gate_refusals_carry_their_code", () => {
     ["set number yhat", () => runGate(pred("byo-x", 1), { ...PARAMS, nMin: 5, calibration: SET }), "byo_yhat_type"],
     ["set without candidates", () => runGate(pred("byo-x", "A"), { ...PARAMS, nMin: 5, calibration: { scores: SCORES, mode: "set" } }), "byo_calibration_invalid"],
     ["USDe string yhat", () => runGate(pred("stable-run-velocity-24h", "0.1", USDE_STABLE_RUN_PREDICTOR_ID), PARAMS), "yhat_type_mismatch"],
-    ["attest refusal", () => projectShogen(SHOGEN_LOT_BYTES, SHOGEN_VERDICT_TEXT.replace("VERDICT : valide", "VERDICT : invalide"), SHOGEN_CONSTAT), "attest_refused"],
   ];
-  for (const [at, fn, code] of cases) {
-    if (code === "attest_refused") {
-      // AttestToolError, not a HarnessToolError: read its code directly.
-      let caught: unknown;
-      try { fn(); } catch (e) { caught = e; }
-      assert.ok(caught instanceof Error && caught.name === "AttestToolError", `${at}: an AttestToolError`);
-      assert.equal((caught as { code?: unknown }).code, code, `${at}: code ${code}`);
-      continue;
-    }
-    assert.equal(codeOf(fn, at).code, code, `${at}: code ${code}`);
-  }
+  for (const [at, fn, code] of cases) assert.equal(codeOf(fn, at).code, code, `${at}: code ${code}`);
 
   // liq: codes, and the messages byte-identical to the base (B-3 adds a code, never rewrites a message).
   const liq: [string, () => unknown, string, string][] = [
@@ -242,7 +228,6 @@ test("http_tool_error_body_carries_the_code", async () => {
       "invalid calibration.candidates: set mode requires a non-empty candidate list", "byo_calibration_invalid"],
     ["/gate", gateBody(pred("byo-x", 1), { ...PARAMS, nMin: 5, calibration: SET }), "gate", "byo 'set' mode expects a string yhat (label), got number", "byo_yhat_type"],
     ["/calibrate", { scores: [0.1, 0.2, 0.3], alpha: 1.5, nMin: 3 }, "calibrate", "invalid 'alpha': expected a finite number in the open interval (0,1)", "calibrate_input_invalid"],
-    ["/cascade", { L: [[0, 100], [50, 0]], e: [40, 20], shock: 2, producedAt: AT }, "cascade", "invalid 'shock': expected a finite number in [0,1]", "cascade_input_invalid"],
   ];
   for (const [path, body, operation, message, code] of cases) {
     const r = await mirror(path, body);
@@ -354,8 +339,9 @@ test("features_digest_of_63_chars_is_input_invalid", async () => {
  *  with its reason. Every other listed code has its served request below. */
 const NO_SERVED_REQUEST: Readonly<Record<string, string>> = {
   output_invalid: "a 500 of the mirror on an output outside its schema, never the answer to a request (http_mirror_validates_its_output)",
-  attest_refused: "attest takes no input: it refuses only when its committed witness fails",
-  ukemi_predict_input_invalid: "the ukemi-predict tool is not registered (U-5b)",
+  attest_refused: "the attest tool was archived at step 7 of ROADMAP.md: no registered tool throws it",
+  cascade_input_invalid: "the cascade tool was archived at step 7 of ROADMAP.md: no registered tool throws it",
+  ukemi_predict_input_invalid: "the ukemi-predict tool was never registered, and was archived at step 7 of ROADMAP.md",
 };
 
 // Test T-15 (block D, lot D-3; C-3 condition 2, the dynamic ratchet): each listed code but NO_SERVED_REQUEST is answered by a
@@ -382,14 +368,13 @@ test("every_code_but_output_invalid_is_thrown_by_a_served_request", async () => 
     policy_alpha_mismatch: g(pred(LIQ, 5000), { ...LIQ_PARAMS, alpha: 0.1 }), policy_nmin_mismatch: g(pred(LIQ, 5000), { ...LIQ_PARAMS, nMin: 50 }),
     task_class_retired: g(pred("btc-dir-15m", "up"), PARAMS),
     calibrate_input_invalid: ["/calibrate", JSON.stringify({ scores: [0.1, 0.2, 0.3], alpha: 1.5, nMin: 3 })],
-    cascade_input_invalid: ["/cascade", JSON.stringify({ L: [[0, 100], [50, 0]], e: [40, 20], shock: 2, producedAt: AT })],
     input_invalid: g(pred(C, 1), PARAMS, { rogue: 1 }), json_invalid: ["/gate", "{"],
     kata_key_invalid: g(kata({ predictor_id: "kata:vote4@venue/ETHUSDT/1h" }), K), kata_yhat_domain: g(kata({ yhat: 1.5 }), K),
     features_digest_required: g(Object.fromEntries(Object.entries(kata()).filter(([k]) => k !== "features_digest")), K), policy_tau_cap: g(kata(), { ...K, tau: 1.5 }),
     produced_at_off_grid: g(kata({ task_class: "btc-range-4h", yhat: 0.02, predictor_id: "kata:vote4@venue/BTCUSDT/4h", produced_at: "2026-10-04T03:00:00Z" }), KB),
     produced_at_stale: g(kata({ produced_at: "2026-10-04T03:00:00Z" }), K),
   };
-  assert.deepEqual(Object.keys(NO_SERVED_REQUEST), ["output_invalid", "attest_refused", "ukemi_predict_input_invalid"], "the codes with no served request, exact");
+  assert.deepEqual(Object.keys(NO_SERVED_REQUEST), ["output_invalid", "attest_refused", "cascade_input_invalid", "ukemi_predict_input_invalid"], "the codes with no served request, exact");
   assert.deepEqual([...Object.keys(requests), ...Object.keys(NO_SERVED_REQUEST)].sort(), [...contracts.TOOL_ERROR_CODES].sort(), "each listed code has a served request or a written reason");
   const mcp = async (name: string, args: unknown): Promise<Obj> => {
     const res = await createHarnessHandler(() => T).fetch(new Request("http://mcp.monarkgate.tech/", {
@@ -409,10 +394,8 @@ test("every_code_but_output_invalid_is_thrown_by_a_served_request", async () => 
   }
 });
 
-// G2 N-1 of D-3: the reasons of NO_SERVED_REQUEST are facts the test checks, so an exemption reddens when its reason falls (at
-// U-5b, ukemi-predict is registered and its code needs a served request in T-15). Green at its base (declared; killer by hand).
-// killer: apps/harness/src/schema-projection.ts:329 CONST "additionalProperties: false" -> "additionalProperties: true"
+// G2 N-1 of D-3: the reasons of NO_SERVED_REQUEST are facts the test checks, so an exemption reddens when its reason falls: a tool
+// registered again under one of these names needs a served request for its code in T-15.
 test("no_served_request_reasons_hold", () => {
-  assert.ok(!REGISTERED_TOOL_NAMES.includes("ukemi-predict"), "ukemi-predict is not registered");
-  assert.deepEqual([ATTEST_INPUT_SCHEMA["properties"], ATTEST_INPUT_SCHEMA["additionalProperties"]], [{}, false], "attest takes no input");
+  for (const name of ["attest", "cascade", "ukemi-predict"]) assert.ok(!REGISTERED_TOOL_NAMES.includes(name), `${name} is not registered`);
 });

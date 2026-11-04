@@ -30,17 +30,10 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { fromJsonSchema } from "@modelcontextprotocol/server";
 import type { JsonSchemaType, StandardSchemaWithJSON } from "@modelcontextprotocol/server";
-// Resource cap: the single source for the cascade node bound lives in the pure tool file. No cycle
-// (this module -> cascade -> gate -> calibration; none import back here). cascade.ts does no I/O, so
-// importing it here does not move any filesystem read out of this module (the K-8 boundary is intact).
-import { CASCADE_MAX_NODES } from "./tools/cascade.ts";
-// Resource cap: the single source for the calibrate score bound lives in the pure tool file
-// (motif CASCADE_MAX_NODES). No cycle (this module -> calibrate; calibrate does no I/O, imports no schema).
+// Resource cap: the single source for the calibrate score bound lives in the pure tool file. No cycle (this module ->
+// calibrate; calibrate does no I/O, imports no schema), and importing it moves no filesystem read out of this module (K-8).
 import { CALIBRATE_MAX_N } from "./tools/calibrate.ts";
-// Resource caps: single source in the pure ukemi-predict tool (motif CASCADE_MAX_NODES). No cycle (this
-// module -> ukemi-predict -> {gate,calibration,ukemi-strata}; none import back here — checked).
-import { UKEMI_PREDICT_MAX_RESERVES, UKEMI_PREDICT_MAX_UPDATES, UKEMI_PREDICT_MAX_BALANCES, UKEMI_BOOK_SCHEMA, UKEMI_ORACLE_SCHEMA, UKEMI_PREDICT_CLOSE_FACTOR_VERSION } from "./tools/ukemi-predict.ts";
-// The judge tool's closed lists and patterns: single source in the pure tool (motif CASCADE_MAX_NODES). No cycle (this module ->
+// The judge tool's closed lists and patterns: single source in the pure tool, as for calibrate. No cycle (this module ->
 // judge -> gate; none import back here).
 import { JUDGE_DECIMAL_PATTERN, JUDGE_LIST_MAX, JUDGE_NAME_PATTERN, JUDGE_ORDER_KINDS, JUDGE_REASONS } from "./tools/judge.ts";
 import { TOOL_ERROR_CODES } from "@monark/contracts";
@@ -63,8 +56,7 @@ function loadFrozen(file: string): JsonObject {
 export const PREDICTION_SCHEMA: JsonObject = loadFrozen("prediction.schema.json");
 export const GATE_DECISION_SCHEMA: JsonObject = loadFrozen("gate-decision.schema.json");
 export const COVERAGE_VERDICT_SCHEMA: JsonObject = loadFrozen("coverage-verdict.schema.json");
-// Loaded up here (not in the attest section below) because BOTH the attest OUTPUT `price` AND the gate
-// INPUT envelope `attested` (ADR-M017 D1) project it — TOOL_INPUT_SCHEMA references it before that section.
+// The gate INPUT envelope `attested` (ADR-M017 D1) projects it, in TOOL_INPUT_SCHEMA (which JUDGE_INPUT_SCHEMA spreads).
 export const ATTESTED_PRICE_SCHEMA: JsonObject = loadFrozen("attested-price.schema.json");
 
 /** Keywords whose VALUE is a map from arbitrary (author-chosen) names to subschemas. The child KEYS
@@ -211,7 +203,7 @@ export const TOOL_ERROR_500_SCHEMA = internal500Schema(asObject(inlineDefs(TOOL_
  *  own nonconformity `scores` + a `mode` (interval|set), and the gate conformalizes against THOSE scores
  *  instead of a committed class. It stays OUT of `required` so the existing committed-class calls
  *  (cascade, USDe, liq) remain valid. `maxItems: CALIBRATE_MAX_N` bounds both `scores` and `candidates`
- *  at the SDK boundary (motif CASCADE_MAX_NODES / calibrate); `gate.ts` re-validates below the boundary. */
+ *  at the SDK boundary (the bound of calibrate); `gate.ts` re-validates below the boundary. */
 export const PARAMS_SCHEMA: JsonObject = {
   type: "object",
   additionalProperties: false,
@@ -277,94 +269,12 @@ export const TOOL_OUTPUT_SCHEMA: JsonObject = derefVerdict(GATE_DECISION_SCHEMA,
 export const toolInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(TOOL_INPUT_SCHEMA as unknown as JsonSchemaType);
 export const toolOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(TOOL_OUTPUT_SCHEMA as unknown as JsonSchemaType);
 
-// ---------------------------------------------------------------------------- cascade (D4/D8)
-
-/**
- * cascade INPUT (ADR-M005 D4/D8): the NON-frozen UKEMI `FinancialSystem` (`L`, `e`) plus the declared
- * 24h `shock` and the caller-carried `producedAt`. Declared HERE, never in schemas/ — a matrix/vector
- * shape the frozen contracts never described (the gate's `params` precedent).
- */
-export const CASCADE_INPUT_SCHEMA: JsonObject = {
-  type: "object",
-  additionalProperties: false,
-  required: ["L", "e", "shock", "producedAt"],
-  properties: {
-    L: {
-      type: "array",
-      description: "Nominal interbank liabilities matrix L[i][j] = what node i owes node j. Square, entries >= 0, zero diagonal.",
-      // Resource cap: bound BOTH the outer array (node count n) and each inner row at the SDK
-      // boundary — a square matrix is n x n, so an unbounded row is as much a DoS vector as an unbounded n.
-      maxItems: CASCADE_MAX_NODES,
-      items: { type: "array", items: { type: "number" }, maxItems: CASCADE_MAX_NODES },
-    },
-    e: {
-      type: "array",
-      description: "External assets (liquidation value) per node at the clearing date. One value per node.",
-      maxItems: CASCADE_MAX_NODES, // |e| == n, capped in lockstep with L.
-      items: { type: "number" },
-    },
-    shock: { type: "number", description: "24h collateral price shock fraction in [0,1] — a declared fixture parameter, not a dynamics model." },
-    producedAt: { type: "string", description: "Caller-carried RFC3339 instant, injected for hash stability (D4); the tool reads no clock." },
-  },
-};
-
-/** cascade OUTPUT = the frozen `Prediction`, PROJECTED (stripped), never re-written (D8). */
-export const CASCADE_OUTPUT_SCHEMA: JsonObject = asObject(stripMeta(PREDICTION_SCHEMA), "cascade output (Prediction)");
-
-/** SDK Standard Schemas for the cascade tool (`registerTool` arguments). */
-export const cascadeInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(CASCADE_INPUT_SCHEMA as unknown as JsonSchemaType);
-export const cascadeOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(CASCADE_OUTPUT_SCHEMA as unknown as JsonSchemaType);
-
-// ---------------------------------------------------------------------------- attest (D3/D8)
-
-/**
- * attest OUTPUT (ADR-M005 D3/D8, K-1): the `AdapterOutput` ENVELOPE. Only `price` is a FROZEN contract —
- * the projected `attested-price.schema.json` (stripped, ATTESTED_PRICE_SCHEMA loaded with the other frozen
- * schemas above, the SAME projected object the gate INPUT `attested` rides, ADR-M017 D1), byte-for-byte the
- * frozen file (drift-guarded by `attest_output_is_frozen_attested_price`). `provenance` and `label` are the
- * K-1 honesty envelope: they live OUTSIDE the closed contract (the frozen `AttestedPrice` is
- * `additionalProperties:false` and can carry neither), declared HERE in English, never in schemas/ — the
- * gate `params` / cascade-input precedent.
- */
-
-/** attest INPUT: none. The witness is the committed internal fixture; the tool takes no caller parameters. */
-export const ATTEST_INPUT_SCHEMA: JsonObject = {
-  type: "object",
-  additionalProperties: false,
-  properties: {},
-};
-
-/** attest OUTPUT = the K-1 envelope: frozen (projected) `price` + non-frozen `provenance`/`label`. */
-export const ATTEST_OUTPUT_SCHEMA: JsonObject = {
-  type: "object",
-  additionalProperties: false,
-  required: ["price", "provenance", "label"],
-  properties: {
-    price: stripMeta(ATTESTED_PRICE_SCHEMA),
-    provenance: {
-      type: "object",
-      additionalProperties: false,
-      required: ["source_lot_sha256", "source_verdict_sha256", "shogen_head_sha"],
-      properties: {
-        source_lot_sha256: { type: "string", pattern: "^[0-9a-f]{64}$", description: "sha256 of the committed witness lot (CBOR), recomputed from the bytes." },
-        source_verdict_sha256: { type: "string", pattern: "^[0-9a-f]{64}$", description: "sha256 of the committed verifier output (UTF-8), recomputed from the bytes." },
-        shogen_head_sha: { type: "string", pattern: "^[0-9a-f]{40}$", description: "Source revision the fixtures were extracted from (pinned)." },
-      },
-    },
-    label: { type: "string", description: "Honesty label carried OUTSIDE the frozen price (K-1): the witness is demonstrative, not probative." },
-  },
-};
-
-/** SDK Standard Schemas for the attest tool (`registerTool` arguments). */
-export const attestInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(ATTEST_INPUT_SCHEMA as unknown as JsonSchemaType);
-export const attestOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(ATTEST_OUTPUT_SCHEMA as unknown as JsonSchemaType);
-
 // ---------------------------------------------------------------------------- calibrate (D2/D3/D8)
 
 /**
  * calibrate INPUT (ADR-M007 D2): the NON-frozen BYO score array plus `alpha` and `nMin`. Declared HERE,
- * never in schemas/ — the gate `params` / cascade-input / attest-envelope precedent. `maxItems` bounds the
- * score count at the SDK boundary (motif CASCADE_MAX_NODES), the first line of the fail-closed cap that
+ * never in schemas/, as the gate `params` are. `maxItems` bounds the
+ * score count at the SDK boundary, the first line of the fail-closed cap that
  * `runCalibrate` also enforces below the boundary (belt-and-suspenders).
  */
 export const CALIBRATE_INPUT_SCHEMA: JsonObject = {
@@ -387,7 +297,7 @@ export const CALIBRATE_INPUT_SCHEMA: JsonObject = {
  * calibrate OUTPUT (ADR-M007 D3, NON-frozen envelope, a product decision "flexible, freeze after C2"): declared
  * HERE, never in schemas/. `reason` is IN the schema (M-5) so `additionalProperties:false` accepts the
  * fail-closed shape; `qhat` is nullable (number on success, null on under_calib). `label` is the K-1
- * honesty carrier (outside any frozen contract, like attest's envelope `label`). `scores_sha256` is the
+ * honesty carrier (outside any frozen contract). `scores_sha256` is the
  * 64-hex `scoresSha256`.
  */
 export const CALIBRATE_OUTPUT_SCHEMA: JsonObject = {
@@ -408,143 +318,6 @@ export const CALIBRATE_OUTPUT_SCHEMA: JsonObject = {
 /** SDK Standard Schemas for the calibrate tool (`registerTool` arguments). */
 export const calibrateInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(CALIBRATE_INPUT_SCHEMA as unknown as JsonSchemaType);
 export const calibrateOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(CALIBRATE_OUTPUT_SCHEMA as unknown as JsonSchemaType);
-
-// ---------------------------------------------------------------------------- ukemi-predict (U-5a; decisions 51/123/132)
-
-/**
- * ukemi-predict INPUT: the NON-frozen attested book slice + decoded oracle path. Declared HERE, never in
- * schemas/ (the gate `params` / cascade-input / attest-envelope precedent). Two disciplines:
- *  - A-8 (real form): the schema ACCEPTS the bytes the REAL source produces — the u4b book account carries
- *    `user_config`/`eligible_static`, the AnswerUpdated update lines carry `kind`/`round_id`/`updated_at`, the
- *    runner's oracle carries `usdt_prices` (deficit pricing, unused by the producer). Each is declared OPTIONAL
- *    so `additionalProperties:false` stays closed AND the real bytes validate (mutant A-8: drop one optional
- *    key ⇒ the real-form input is rejected). The producer reads only the fields it needs.
- *  - Resource caps (motif CASCADE_MAX_NODES): reserves/updates/balances bounded at the SDK boundary (wired at
- *    -5b); `runUkemiPredict` re-checks below (the only enforcement while the tool is unregistered).
- * NOT registered in U-5a (decisions 51/123: the endpoint keeps 4 tools) — registration is U-5b.
- */
-const UKEMI_DECIMAL: JsonObject = { type: "string", pattern: "^[0-9]+$" };
-const UKEMI_HEX64: JsonObject = { type: "string", pattern: "^[0-9a-f]{64}$" };
-const UKEMI_RESERVE_SCHEMA: JsonObject = {
-  type: "object",
-  additionalProperties: false,
-  required: ["asset", "atoken", "variable_debt_token", "decimals", "liquidation_threshold_bps", "liquidation_bonus_bps", "reserve_emode_category", "price_base_8dec"],
-  properties: {
-    asset: { type: "string" },
-    atoken: { type: "string" },
-    variable_debt_token: { type: "string" },
-    decimals: UKEMI_DECIMAL,
-    liquidation_threshold_bps: UKEMI_DECIMAL,
-    liquidation_bonus_bps: UKEMI_DECIMAL,
-    reserve_emode_category: UKEMI_DECIMAL,
-    price_base_8dec: UKEMI_DECIMAL,
-  },
-};
-const UKEMI_BALANCE_SCHEMA: JsonObject = {
-  type: "object",
-  additionalProperties: false,
-  required: ["token", "amount"],
-  properties: { token: { type: "string" }, amount: UKEMI_DECIMAL },
-};
-const UKEMI_ACCOUNT_SCHEMA: JsonObject = {
-  type: "object",
-  additionalProperties: false,
-  required: ["address", "emode", "balances", "total_collateral_base", "total_debt_base", "current_liquidation_threshold_bps", "hf_onchain"],
-  properties: {
-    address: { type: "string" },
-    emode: UKEMI_DECIMAL,
-    balances: { type: "array", maxItems: UKEMI_PREDICT_MAX_BALANCES, items: UKEMI_BALANCE_SCHEMA },
-    total_collateral_base: UKEMI_DECIMAL,
-    total_debt_base: UKEMI_DECIMAL,
-    current_liquidation_threshold_bps: UKEMI_DECIMAL,
-    hf_onchain: UKEMI_DECIMAL,
-    user_config: { type: "string" }, // A-8: real book carries it (unused by the producer).
-    eligible_static: { type: "boolean" }, // A-8: real book carries it (unused).
-  },
-};
-const UKEMI_UPDATE_SCHEMA: JsonObject = {
-  type: "object",
-  additionalProperties: false,
-  required: ["block", "price"],
-  properties: {
-    block: { type: "integer" },
-    price: UKEMI_DECIMAL,
-    log_index: { type: "integer" },
-    kind: { type: "string" }, // A-8: real AnswerUpdated line carries it (unused).
-    round_id: { type: "string" }, // A-8: real line carries it (unused).
-    updated_at: { type: "string" }, // A-8: real line carries it (unused).
-  },
-};
-export const UKEMI_PREDICT_INPUT_SCHEMA: JsonObject = {
-  type: "object",
-  additionalProperties: false,
-  required: ["book", "oracle", "close_factor_version", "produced_at"],
-  properties: {
-    book: {
-      type: "object",
-      additionalProperties: false,
-      required: ["schema", "block", "book_digest", "reserves", "accounts"],
-      properties: {
-        schema: { const: UKEMI_BOOK_SCHEMA },
-        block: { type: ["string", "integer"] }, // A-8: the u4b book carries block as a DECIMAL STRING.
-        book_digest: UKEMI_HEX64,
-        reserves: { type: "array", minItems: 1, maxItems: UKEMI_PREDICT_MAX_RESERVES, items: UKEMI_RESERVE_SCHEMA },
-        accounts: { type: "array", minItems: 1, maxItems: 1, items: UKEMI_ACCOUNT_SCHEMA },
-        chain_id: { type: ["string", "integer"] }, // A-8: real book carries chain_id as a string (unused).
-        cluster: { type: "string" }, // A-8: real book carries it (unused).
-      },
-    },
-    oracle: {
-      type: "object",
-      additionalProperties: false,
-      required: ["schema", "event_id", "anchor_price", "updates", "emode_params"],
-      properties: {
-        schema: { const: UKEMI_ORACLE_SCHEMA },
-        event_id: { type: "string", minLength: 1 },
-        anchor_price: UKEMI_DECIMAL,
-        updates: { type: "array", maxItems: UKEMI_PREDICT_MAX_UPDATES, items: UKEMI_UPDATE_SCHEMA },
-        emode_params: {
-          type: "object",
-          additionalProperties: { type: "object", additionalProperties: false, required: ["lt", "bonus"], properties: { lt: UKEMI_DECIMAL, bonus: UKEMI_DECIMAL } },
-        },
-        usdt_prices: { type: "object", additionalProperties: UKEMI_DECIMAL }, // A-8: runner's oracle carries it (unused).
-      },
-    },
-    close_factor_version: { const: UKEMI_PREDICT_CLOSE_FACTOR_VERSION },
-    produced_at: { type: "string", format: "date-time" },
-  },
-};
-
-/** ukemi-predict OUTPUT = the K-1 envelope: frozen (projected) `prediction` + non-frozen `provenance`/`label`
- *  (motif attest ATTEST_OUTPUT_SCHEMA). `prediction` is the SAME projected `prediction.schema.json` the gate
- *  input rides, byte-for-byte (no hand rewrite); `provenance`/`label` live OUTSIDE the closed contract. */
-export const UKEMI_PREDICT_OUTPUT_SCHEMA: JsonObject = {
-  type: "object",
-  additionalProperties: false,
-  required: ["prediction", "provenance", "label"],
-  properties: {
-    prediction: stripMeta(PREDICTION_SCHEMA),
-    provenance: {
-      type: "object",
-      additionalProperties: false,
-      required: ["book_digest", "block", "event_id", "pstar", "strate", "m_bps", "close_factor_version"],
-      properties: {
-        book_digest: UKEMI_HEX64,
-        block: { type: "integer" },
-        event_id: { type: "string" },
-        pstar: { type: ["string", "null"] },
-        strate: { type: "integer" },
-        m_bps: { type: ["string", "null"] },
-        close_factor_version: { const: UKEMI_PREDICT_CLOSE_FACTOR_VERSION },
-      },
-    },
-    label: { type: "string" },
-  },
-};
-
-/** SDK Standard Schemas for the ukemi-predict tool (the `registerTool` arguments at -5b). */
-export const ukemiPredictInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(UKEMI_PREDICT_INPUT_SCHEMA as unknown as JsonSchemaType);
-export const ukemiPredictOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(UKEMI_PREDICT_OUTPUT_SCHEMA as unknown as JsonSchemaType);
 
 // ---------------------------------------------------------------------------- judge (step 5 of ROADMAP.md)
 

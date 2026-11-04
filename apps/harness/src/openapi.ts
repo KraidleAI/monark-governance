@@ -103,7 +103,7 @@ export function buildOpenApi(): JsonObject {
       title: "MONARK harness — HTTP/JSON mirror",
       version: OPENAPI_INFO_VERSION,
       description:
-        "Plain-JSON mirror of the MONARK MCP harness (attest, gate, cascade, calibrate, judge). Same frozen contracts as the " +
+        "Plain-JSON mirror of the MONARK MCP harness (gate, calibrate, judge). Same frozen contracts as the " +
         "MCP surface; derived from the frozen schemas, never hand-written. The gate only emits a decision; " +
         "it never calls the named tool.",
     },
