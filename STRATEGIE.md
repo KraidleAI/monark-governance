@@ -30,10 +30,12 @@ par ces numéros. Rien de la stratégie n'entre dans ce dépôt public.
 Aucun champ ne porte l'horizon : il appartient à la classe. Les classes kata, par exemple, le portent dans leur nom
 (`15m`, `1h`, `4h`, `24h`) et dans `h_ms` de leur entrée de classe (`packages/contracts/src/policy-table.ts`).
 
-### 2.2 Les classes de la stratégie : deux voies
+### 2.2 Les classes : la voie BYO, celle de la stratégie, et la voie committée
 
-**La voie BYO (dès aujourd'hui).** L'appelant porte sa propre calibration dans `params.calibration` : ses scores de
-non-conformité (`scores`) et un `mode` (`apps/harness/src/tools/gate.ts`, `byoVerdict`).
+**La voie BYO, celle des classes de la stratégie.** L'appelant porte sa propre calibration dans `params.calibration` :
+ses scores de non-conformité (`scores`) et un `mode` (`apps/harness/src/tools/gate.ts`, `byoVerdict`). La calibration
+des classes de la stratégie et l'historique de 1.6 vivent dans le dépôt privé, jamais ici (décision du fondateur du
+2026-11-05) : l'adaptateur les porte à chaque appel. C'est l'étape 3 de `ROADMAP.md`.
 
 - En mode `interval`, `yhat` est un nombre, les scores sont positifs ou nuls, et la région est `[yhat - q̂, yhat + q̂]`.
 - En mode `set`, `yhat` est une étiquette, et la région est un ensemble conforme parmi les `candidates` de
@@ -50,13 +52,13 @@ non-conformité (`scores`) et un `mode` (`apps/harness/src/tools/gate.ts`, `byoV
 - MONARK ne voit ni ne vérifie les données ou le modèle de l'appelant, ni que ces nombres sont des scores de non-conformité
   d'un modèle (`CALIBRATE_LABEL`).
 
-**La voie committée (étape 3).** La calibration de la classe entre dans le dépôt, sous la forme d'une table de
-politique `class-policy-v2` par classe, et chaque décision nomme sa table par `policy_table_sha256`. Pour les classes
-kata, le code lit chaque table dans le fichier `apps/harness/data/kata/tables/<task_class>.json` (`policy-committed.ts`)
-et refuse de charger des octets dont le sha256 n'est pas celui épinglé pour la classe dans
+**La voie committée, celle des classes du moteur.** La calibration d'une classe entre dans ce dépôt, sous la forme d'une
+table de politique `class-policy-v2` par classe, et chaque décision nomme sa table par `policy_table_sha256`. Pour les
+classes kata, le code lit chaque table dans le fichier `apps/harness/data/kata/tables/<task_class>.json`
+(`policy-committed.ts`) et refuse de charger des octets dont le sha256 n'est pas celui épinglé pour la classe dans
 `apps/harness/src/policy-committed-pins.ts`. Aucune table n'y est encore committée (`COMMITTED_TABLES` est vide) : toute
-classe kata s'abstient aujourd'hui. La calibration des classes de la stratégie est l'étape 3 de `ROADMAP.md` ; elle
-demande l'historique de 1.6.
+classe kata s'abstient aujourd'hui. Les classes de la stratégie ne prennent pas cette voie, puisque leur calibration
+n'entre pas dans ce dépôt public.
 
 ### 2.3 Les paramètres d'un appel (`params`)
 
@@ -110,9 +112,9 @@ L'appelant porte les preuves de la cellule, et le serveur les rejoue à chaque a
 Bornes : 500 évaluations et 500 issues, 8 paris par mélange, 20 caractères par texte rationnel, et une borne de
 travail de 3600 bits (`ROADMAP.md`, ligne « Le suivi dans le gate »). Le gate prend pour `B_t` le plus petit de
 `remainingBudget` et du budget rejoué : le suivi ne peut que baisser le budget. Un segment sans licence ou fermé
-(`closed_by` vaut `alarm` ou `w_exhausted`) rend `B_t` à -1, donc un ABSTAIN `budget_exhausted`. Les politiques par
-cellule seront committées avec la calibration des classes de la stratégie (étape 3) ; sur la voie BYO, l'appelant
-porte la sienne.
+(`closed_by` vaut `alarm` ou `w_exhausted`) rend `B_t` à -1, donc un ABSTAIN `budget_exhausted`. La politique d'une
+classe de la stratégie vit avec sa calibration dans le dépôt privé (étape 3), et l'appelant la porte, sur la voie BYO
+(2.2).
 
 ### 2.6 Un ordre passe par Genkan (`judge`)
 
