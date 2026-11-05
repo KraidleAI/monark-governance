@@ -1,11 +1,10 @@
 /**
- * Harness -- liquidation-eligible-coverage served class (U-4b-2a code, ADR-U4b D1/D3; decisions 108/126; checkpoint-1
- * C-1/C-5/C-7/C-8/C-10 + delta D-1..D-4), on the COMMITTED registry of U-4b-2b (ADR-U4b-2b D1/D2: stratum s0 of the
- * fresh episode committed, s1..s3 not). Literal-only (no committed fixture): q-hat and the committed scores are READ
- * from the registry (apps/harness/src/calibration.ts, exported), never typed, so this file survives the public export.
- * The real-artifact branchement proof (u4b_gate_serves_region_from_real_artifact) lives in gate-liq-artifact.test.ts
+ * Harness -- liquidation-eligible-coverage served class, on the COMMITTED registry (stratum s0 of the fresh episode
+ * committed, s1..s3 not). Literal-only (no committed fixture): q-hat and the committed scores are READ from the
+ * registry (apps/harness/src/calibration.ts, exported), never typed, so this file survives the public export. The
+ * real-artifact branchement proof (u4b_gate_serves_region_from_real_artifact) lives in gate-liq-artifact.test.ts
  * (export-excluded, it reads the fresh sentinel series). Each test is killed by >= 1 named mutant, replayed with a
- * transient mutation restored byte-exact by sha256 (see the lot's G1 journal).
+ * transient mutation restored byte-exact by sha256.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -41,7 +40,7 @@ import { handleJsonMirror } from "../src/http.ts";
 import { createHarnessHandler } from "../src/server.ts";
 import { compilePatterns, scanText } from "../../../scripts/grep-forbidden.mjs";
 
-/** The class-B name (decision 108: NEVER served). Assembled from parts so THIS test file naming it does not
+/** The class-B name (NEVER served). Assembled from parts so THIS test file naming it does not
  *  itself trip the src-scan below if the scan root ever widened; the scan is scoped to apps/harness/src only. */
 const CLASS_B = ["liquidation", "realized", "given", "liquidated"].join("-");
 
@@ -101,11 +100,10 @@ async function postGate(env: GateEnvelope): Promise<{ status: number; body: Mirr
   return { status: res.status, body: (await res.json()) as MirrorBody };
 }
 
-// 2b-4 (in process, literal-only; re-scoped from u4b_gate_liq_class_abstains_on_empty_registry, which reddened by
-// construction at the registry commit) -- on the COMMITTED registry a yhat of the committed stratum s0 gets the conformal
-// UPPER BOUND [0, yhat + qhat_0] (qhat_0 read from the registry by the served quantile, never typed), with the committed
-// n_calib and digest; a yhat of an uncommitted stratum (s1..s3) abstains under_calib with n_calib 0. Under this file's
-// L3 params (tauInterval 1, clock open) the covered bound is wider than tau, so the top-level decision is defer /
+// In process, literal-only: on the COMMITTED registry a yhat of the committed stratum s0 gets the conformal UPPER BOUND
+// [0, yhat + qhat_0] (qhat_0 read from the registry by the served quantile, never typed), with the committed n_calib
+// and digest; a yhat of an uncommitted stratum (s1..s3) abstains under_calib with n_calib 0. Under this file's L3
+// params (tauInterval 1, clock open) the covered bound is wider than tau, so the top-level decision is defer /
 // interval_too_wide: verdict.reason, not the top-level reason, carries the coverage. Mutants: symmetric region (n'),
 // empty registry, a stratum served that is not committed => red.
 test("u4b_gate_liq_serves_committed_stratum_and_abstains_elsewhere", () => {
@@ -118,7 +116,7 @@ test("u4b_gate_liq_serves_committed_stratum_and_abstains_elsewhere", () => {
     const d = runGate(liqPred(yhat), LIQ_PARAMS);
     assertClosedGateDecision(d);
     assert.equal(d.verdict.reason, "covered", `yhat=${String(yhat)}: the committed stratum is covered`);
-    assert.equal(d.verdict.region?.kind, "interval", "the wire kind stays interval (frozen contract, delta D-1)");
+    assert.equal(d.verdict.region?.kind, "interval", "the wire kind stays interval (frozen contract)");
     if (d.verdict.region?.kind !== "interval") continue;
     assert.equal(d.verdict.region.lo, 0, "the lower edge is 0 by construction (upper bound, never symmetric)");
     assert.equal(d.verdict.region.hi, yhat + q.qhat, "the upper edge is yhat + q-hat of the committed stratum");
@@ -141,7 +139,7 @@ test("u4b_gate_liq_serves_committed_stratum_and_abstains_elsewhere", () => {
   }
 });
 
-// 2a-2 (Q-4 / C-10 / delta D-6) -- alpha/nMin are SERVER-imposed; a divergent value is a NAMED 400.
+// alpha/nMin are SERVER-imposed; a divergent value is a NAMED 400.
 // Mutant (a): drop the alpha/nMin checks ⇒ these stop throwing ⇒ red.
 test("u4b_committed_class_alpha_nmin_server_400", () => {
   assert.throws(
@@ -158,9 +156,9 @@ test("u4b_committed_class_alpha_nmin_server_400", () => {
   assert.doesNotThrow(() => runGate(liqPred(5000), LIQ_PARAMS), "alpha=0.01/nMin=100 ⇒ a decision, not a 400");
 });
 
-// 2a-2 (class-lock) -- a BYO `calibration` may NEVER override the committed liq class, even on the empty -2a
-// registry where lookupCommittedCalibration returns undefined. Mutant (c): drop TASK_LIQ_ELIGIBLE from the
-// class-lock disjunction ⇒ the BYO path is taken instead of a 400 ⇒ red.
+// Class-lock: a BYO `calibration` may NEVER override the committed liq class, even on an empty registry where
+// lookupCommittedCalibration returns undefined. Mutant (c): drop TASK_LIQ_ELIGIBLE from the class-lock disjunction ⇒
+// the BYO path is taken instead of a 400 ⇒ red.
 test("u4b_byo_cannot_override_committed_liq_class", () => {
   assert.throws(
     () => runGate(liqPred(5000), { ...LIQ_PARAMS, calibration: { scores: [1, 2, 3], mode: "interval" } }),
@@ -169,8 +167,8 @@ test("u4b_byo_cannot_override_committed_liq_class", () => {
   );
 });
 
-// 2a-2 (C-7) -- yhat must be a NON-NEGATIVE SAFE INTEGER; otherwise a NAMED 400 (never strateOf over a lossy
-// float, never a silent gate). Mutant (i): drop the isSafeInteger/`yhat<0` check ⇒ these stop throwing ⇒ red.
+// yhat must be a NON-NEGATIVE SAFE INTEGER; otherwise a NAMED 400 (never strateOf over a lossy float, never a silent
+// gate). Mutant (i): drop the isSafeInteger/`yhat<0` check ⇒ these stop throwing ⇒ red.
 test("u4b_liq_yhat_negative_or_unsafe_400", () => {
   for (const bad of [-1, -1000000, 1.5, Number.MAX_SAFE_INTEGER + 1, Number.NaN, Number.POSITIVE_INFINITY]) {
     assert.throws(
@@ -184,7 +182,7 @@ test("u4b_liq_yhat_negative_or_unsafe_400", () => {
   assert.doesNotThrow(() => runGate(liqPred(Number.MAX_SAFE_INTEGER), LIQ_PARAMS), "yhat=2^53-1 is accepted");
 });
 
-// 2a-3 -- the served liq text makes NO probability/score claim (honesty rides in the description + content
+// The served liq text makes NO probability/score claim (honesty rides in the description + content
 // text, never in the frozen decision). Mutant (h) variant: add a probability word to the liq text ⇒ red.
 test("u4b_liq_description_makes_no_probability_claim", () => {
   const banned = /probability|probable|likelihood|confidence|p_correct|accuracy/i;
@@ -197,9 +195,9 @@ test("u4b_liq_description_makes_no_probability_claim", () => {
   assert.ok(LIQ_COMMITTED_SENTENCE.includes("close-factor rule"), "carries the conditional-coverage clause (mutant (h))");
 });
 
-// S-8 (ADR-CM B-8, lot CM-3c-4b; inverts u4b_liq_committed_text_is_honest of 2a-3): the honesty text follows the RESOLVED
-// cell, the stratum key the server derives from yhat (the client key stays ignored): the calibrated sentence on s0 only;
-// s1 to s3 (under_calib) and a key that names no stratum read the class text of the served table.
+// The honesty text follows the RESOLVED cell, the stratum key the server derives from yhat (the client key stays
+// ignored): the calibrated sentence on s0 only; s1 to s3 (under_calib) and a key that names no stratum read the class
+// text of the served table.
 // killer: apps/harness/src/tools/gate.ts:746 CONST "r.current && r.cell_key === cellKey" -> "r.current && hasCommittedCalibrationForClass(taskClass)"
 test("liq_honesty_text_follows_the_resolved_cell", async () => {
   assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the registry holds the liq class (s0)");
@@ -212,28 +210,28 @@ test("liq_honesty_text_follows_the_resolved_cell", async () => {
     const run = await GATE_TOOL.run({ prediction: { schema_version: SCHEMA_VERSION, task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: `${UKEMI_LIQ_PREDICTOR_BASE}/s0`, produced_at: "2026-09-04T00:00:00Z" }, params: LIQ_PARAMS });
     assert.ok(run.text.startsWith(`${want}; B_t is caller-carried. verdict `), `served content at yhat ${String(yhat)}`);
   }
-  // The committed text carries its conditions (upper bound, one episode, no other event, H-3 a report, conditional rule).
+  // The committed text carries its conditions (upper bound, one episode, no other event, the exchangeability check a
+  // report, conditional rule).
   for (const s of [LIQ_UPPER_BOUND_SENTENCE, LIQ_H3_SENTENCE, LIQ_CONDITIONAL_SENTENCE]) assert.ok(LIQ_COMMITTED_SENTENCE.includes(s), `committed text carries: "${s}"`);
 });
 
-// 2a-3 (delta D-1, mutant (o) SCOPED) -- the liq CLASS text says "upper bound" and NEVER "interval" (the wire
-// kind stays "interval", but the served text of THIS class must not). Asserted on the named constant, not the
-// whole description (which carries "interval" in the BYO clause). Mutant (o): "upper bound" -> "interval" ⇒ red.
+// The liq CLASS text (mutant (o), scoped) says "upper bound" and NEVER "interval" (the wire kind stays "interval", but
+// the served text of THIS class must not). Asserted on the named constant, not the whole description (which carries
+// "interval" in the BYO clause). Mutant (o): "upper bound" -> "interval" ⇒ red.
 test("u4b_liq_class_text_says_upper_bound_never_interval", () => {
   assert.ok(LIQ_UPPER_BOUND_SENTENCE.includes("upper bound"), "the class text says 'upper bound'");
-  assert.ok(!LIQ_COMMITTED_SENTENCE.includes("interval"), "the class text never says 'interval' (delta D-1, mutant (o))");
-  // checkpoint-2 C-2: the ONLY liq sentence actually served in -2a (empty registry) and the honesty text must not say
-  // 'interval' either -- an injection there survived the full suite before this assertion.
-  assert.ok(!LIQ_EMPTY_REGISTRY_SENTENCE.includes("interval"), "the empty-registry sentence never says 'interval' (C-2)");
-  assert.ok(!honestyText(TASK_LIQ_ELIGIBLE, "x", false).includes("interval"), "the served honesty text never says 'interval' (C-2)");
-  // HARNESS-DESC-1 (checkpoint-1 C-3, D-4 re-scoped, not weakened): this line pinned the upper-bound clause in the SERVED
-  // description while the registry was empty (the CARTO-T1C-2 over-claim). The clause belongs to the COMMITTED state
-  // only: asserted on describeGate(true) here; since U-4b-2b the served text IS that state, asserted exactly by
-  // hdesc_served_gate_description_is_the_committed_clause below.
-  assert.ok(describeGate(true).includes(LIQ_UPPER_BOUND_SENTENCE), "the committed-state (U-4b-2b) description carries the upper-bound class clause");
+  assert.ok(!LIQ_COMMITTED_SENTENCE.includes("interval"), "the class text never says 'interval' (mutant (o))");
+  // The empty-registry liq sentence and the honesty text must not say 'interval' either -- an injection there survived
+  // the full suite before this assertion.
+  assert.ok(!LIQ_EMPTY_REGISTRY_SENTENCE.includes("interval"), "the empty-registry sentence never says 'interval'");
+  assert.ok(!honestyText(TASK_LIQ_ELIGIBLE, "x", false).includes("interval"), "the served honesty text never says 'interval'");
+  // The upper-bound clause belongs to the COMMITTED state only (pinning it in the SERVED description while the registry
+  // was empty was an over-claim): asserted on describeGate(true) here; the served text IS that state, asserted exactly
+  // by hdesc_served_gate_description_is_the_committed_clause below.
+  assert.ok(describeGate(true).includes(LIQ_UPPER_BOUND_SENTENCE), "the committed-state description carries the upper-bound class clause");
 });
 
-// 2a-2 (delta D-4) -- an unknown class (the class-B name, decision 108) ⇒ a HarnessToolError (⇒ 400 via the
+// An unknown class (the class-B name) ⇒ a HarnessToolError (⇒ 400 via the
 // HTTP mirror), NEVER under_calib; the `known:` list carries no class-B name but DOES carry the liq class.
 // Mutant (g): map the unknown branch to under_calib ⇒ the throw stops ⇒ red.
 test("u4b_class_b_is_unknown_task_class_400", async () => {
@@ -249,15 +247,15 @@ test("u4b_class_b_is_unknown_task_class_400", async () => {
     },
     "class B ⇒ HarnessToolError (never under_calib)",
   );
-  assert.ok(!known.includes(CLASS_B), "the class-B name is NOT in the known: list (delta D-2(a) grep=0)");
-  assert.ok(known.includes(TASK_LIQ_ELIGIBLE), "the liq class IS in the known: list (added in -2a)");
+  assert.ok(!known.includes(CLASS_B), "the class-B name is NOT in the known: list (grep=0)");
+  assert.ok(known.includes(TASK_LIQ_ELIGIBLE), "the liq class IS in the known: list");
   // The HTTP mirror surfaces it as a 400, never a 500 nor under_calib.
   const { status, body } = await postGate({ prediction: bPred, params: LIQ_PARAMS });
   assert.equal(status, 400, "class B ⇒ 400 via POST /gate");
   assert.equal(body.error, "tool_error", "a tool-level refusal, not a 500");
 });
 
-// 2a-2 (delta D-2(a)) -- the class-B name appears NOWHERE in apps/harness/src (grep=0). Mutant: reintroduce a
+// The class-B name appears NOWHERE in apps/harness/src (grep=0). Mutant: reintroduce a
 // class-B branch/literal in src ⇒ red.
 test("u4b_no_class_b_symbol_in_harness_src", () => {
   const SRC = fileURLToPath(new URL("../src", import.meta.url));
@@ -273,10 +271,10 @@ test("u4b_no_class_b_symbol_in_harness_src", () => {
   const files = walk(SRC);
   assert.ok(files.length >= 5, "the src scan is non-vacuous (found the harness sources)");
   const hits = files.filter((f) => readFileSync(f, "utf8").includes(CLASS_B));
-  assert.deepEqual(hits, [], `the class-B name must not appear in apps/harness/src (decision 108); hits: ${JSON.stringify(hits)}`);
+  assert.deepEqual(hits, [], `the class-B name must not appear in apps/harness/src; hits: ${JSON.stringify(hits)}`);
 });
 
-// 2a-4 (D-5) -- `attested` is not accepted for the liq class: it is PRESENT in the binding table with [], so
+// `attested` is not accepted for the liq class: it is PRESENT in the binding table with [], so
 // any subject fails closed with the "not consistent" text (NOT the "not accepted for BYO" text). Mutant (j):
 // drop the binding line ⇒ the class becomes absent ⇒ "not accepted for BYO" text ⇒ this reds on the text.
 test("u4b_attested_not_accepted_for_liq_class", () => {
@@ -292,11 +290,10 @@ test("u4b_attested_not_accepted_for_liq_class", () => {
   );
 });
 
-// ---------------------------------------------------------------------------- HARNESS-DESC-1 (CARTO-T1C-2)
-// The SERVED gate description is a PURE function of the liq REGISTRY state (describeGate, gate.ts). EMPTY registry
-// => the empty-registry sentence + the server-imposed params + the conditional rule, NEVER the upper-bound nor the
-// H-3 sentence (checkpoint-1 U-4b-2 C-1/C-7; checkpoint-1 HARNESS-DESC-1 C-1/C-2 + the orchestrator ruling on the
-// conditional rule). Negations are asserted on the liq SLICE (the whole description legitimately carries
+// ---------------------------------------------------------------------------- the served gate description
+// The SERVED gate description is a PURE function of the liq REGISTRY state (describeGate, gate.ts). EMPTY registry =>
+// the empty-registry sentence + the server-imposed params + the conditional rule, NEVER the upper-bound sentence nor
+// LIQ_H3_SENTENCE. Negations are asserted on the liq SLICE (the whole description legitimately carries
 // "coverage"/"interval" in the USDe and BYO clauses), plus exact-sentence absences on the whole served text.
 
 const LIQ_LEAD = `For '${TASK_LIQ_ELIGIBLE}' (Ukemi: a per-account liquidable-amount class, class A only) `;
@@ -310,7 +307,7 @@ const COMMITTED_ONLY_WORDS = ["upper bound", "calibrated", "exchangeability chec
 /** The liq clause of a gate description: from the class lead to the BYO clause (both anchors asserted, in order). */
 function liqSlice(description: string): string {
   const i = description.indexOf(LIQ_LEAD);
-  // Block D (lot D-2): the kata clause follows the liq clause, before the BYO sentence.
+  // The kata clause follows the liq clause, before the BYO sentence.
   const j = description.indexOf("The 32 kata classes");
   assert.ok(i > -1 && j > i, "the liq clause is delimited in the description (non-vacuous slice)");
   return description.slice(i, j);
@@ -343,20 +340,17 @@ async function servedToolsList(): Promise<Obj> {
   return reply.result;
 }
 
-// (i) REAL served path (checkpoint-1 HARNESS-DESC-1 C-2 (i); A-10 liage; re-scoped at the U-4b-2b registry commit from
-// hdesc_served_gate_description_is_the_empty_registry_clause, ADR-U4b-2b D2): the HARNESS_TOOLS descriptor, the REAL
-// tools/list and the served GET /openapi.json carry ONE and the same text, bound to its registry source, and on the
-// COMMITTED registry that text is describeGate(true) BYTE FOR BYTE (the pre-HARNESS-DESC-1 text, sha256 pinned below):
-// its liq clause is EXACTLY the committed clause (UPPER + REQ + H-3 + COND) and the empty-registry sentence rides on NO
-// served string leaf (tool AND schema descriptions, checkpoint-1 C-9). Mutants: describeGate(false) hard-coded at the
-// served call site (R-HD-1, a whole class now killable); the committed branch dropping a sentence; the served descriptor
-// altered in registry.ts; the openapi description altered => red.
-// CM-2b (ADR-CM B-5, B-2, B-7): the served description moves (btc-dir retired, USDe alpha/nMin declared, the USDe band
-// edge stated); the sha256 pin moves 55744504... -> cb4029d2... (recorded in docs/G0-lot-cm-2b.md). The liq clause is unchanged.
-// CM-2a-suite (C-2 of MONARK's diff check of CM-2b): the sentence that no served class takes `attested`; cb4029d2... -> 4279a54d...
-// Block D, lot D-2 (Z-3 line of block D): the kata clause after the liq clause; bfb474f3... -> dd728779... (3 971 bytes).
-// Step 7 of ROADMAP.md: the attest tool is archived, so the non-re-verification sentence names it no more; dd728779... -> 2ae47425...
-// (3 922 bytes).
+// (i) REAL served path: the HARNESS_TOOLS descriptor, the REAL tools/list and the served GET /openapi.json carry ONE
+// and the same text, bound to its registry source, and on the COMMITTED registry that text is describeGate(true) BYTE
+// FOR BYTE (sha256 pinned below): its liq clause is EXACTLY the committed clause (UPPER + REQ + H-3 + COND) and the
+// empty-registry sentence rides on NO served string leaf (tool AND schema descriptions). Mutants: describeGate(false)
+// hard-coded at the served call site (a whole class now killable); the committed branch dropping a sentence; the served
+// descriptor altered in registry.ts; the openapi description altered => red.
+// The sha256 pin moved with the served description: btc-dir retired, USDe alpha/nMin declared, the USDe band edge
+// stated, 55744504... -> cb4029d2... (the liq clause unchanged); the sentence that no served class takes `attested`,
+// cb4029d2... -> 4279a54d...; the kata clause after the liq clause, bfb474f3... -> dd728779... (3 971 bytes). Step 7 of
+// ROADMAP.md: the attest tool is archived, so the non-re-verification sentence names it no more; dd728779... ->
+// 2ae47425... (3 922 bytes).
 // killer: apps/harness/src/tools/gate.ts:249 CONST "refusal. For" -> "refusal; for"
 test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the delivered registry holds the liq class");
@@ -369,7 +363,7 @@ test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   const spec: unknown = await oaRes.json();
   const paths = isObj(spec) && isObj(spec["paths"]) ? spec["paths"] : {};
   const gatePath = isObj(paths["/gate"]) && isObj(paths["/gate"]["post"]) ? paths["/gate"]["post"] : {};
-  // liage (A-10): descriptor === tools/list === openapi === the text of the registry source.
+  // Binding: descriptor === tools/list === openapi === the text of the registry source.
   assert.equal(GATE_TOOL.description, GATE_TOOL_DESCRIPTION, "the gate descriptor carries GATE_TOOL_DESCRIPTION");
   assert.equal(listed, GATE_TOOL.description, "tools/list serves the descriptor's description");
   assert.equal(gatePath["description"], listed, "/openapi.json serves the same gate description as tools/list");
@@ -378,7 +372,7 @@ test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(
     createHash("sha256").update(listed, "utf8").digest("hex"),
     "01e24ebf9fcbfeb56540d74f0f09f4fbe7fbc995ec27023d5526e59dc80d06f2",
-    "the served description is byte for byte the committed text (ADR-CM B-5, B-2, C-2 of CM-2b, B-7 withdrawn by B-13, the kata clause of block D, step 7, the served texts without archived ids; was 3525fa68..., 2ae47425..., dd728779..., bfb474f3..., 4279a54d..., cb4029d2...)",
+    "the served description is byte for byte the committed text (btc-dir retired, USDe alpha/nMin declared, the attested sentence, the rounded-edge clause withdrawn, the kata clause, step 7, the served texts without archived ids; was 3525fa68..., 2ae47425..., dd728779..., bfb474f3..., 4279a54d..., cb4029d2...)",
   );
   const slice = liqSlice(listed);
   assert.equal(slice, EXPECTED_COMMITTED_CLAUSE, "the served liq clause is EXACTLY the committed clause");
@@ -391,11 +385,9 @@ test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.deepEqual(leaves.filter((l) => l.includes(LIQ_EMPTY_REGISTRY_SENTENCE)), [], "no served tools/list or openapi leaf says the registry is empty");
 });
 
-// (ii) the PURE function in BOTH states (checkpoint-1 HARNESS-DESC-1 C-2 (ii)). NOT the CA-11 proof of U-4b-2b: one
-// registry state is observable per process (COMMITTED_CALIBRATIONS is a module constant); the -2b proof on the served
-// path is the item on G0 2b-7 (C-4). describeGate(true) is the pre-HARNESS-DESC-1 served text, byte-identical
-// (measured in the G1 report). Mutants: 'false' hard-coded in describeGate; H-3 or REQ dropped from a branch; the
-// branches inverted => red.
+// (ii) the PURE function in BOTH states. Not a proof on the served path: one registry state is observable per process
+// (COMMITTED_CALIBRATIONS is a module constant). Mutants: 'false' hard-coded in describeGate; H-3 or REQ dropped from a
+// branch; the branches inverted => red.
 test("hdesc_describe_gate_two_states", () => {
   const full = describeGate(true);
   const empty = describeGate(false);
@@ -413,9 +405,9 @@ test("hdesc_describe_gate_two_states", () => {
   assert.equal(full.split(EXPECTED_COMMITTED_CLAUSE).join(EXPECTED_EMPTY_CLAUSE), empty, "the two states differ ONLY by the liq clause");
 });
 
-// (iii) "interval" is absent from the liq clause in BOTH states (checkpoint-2 U-4b-2a C-2 lesson: an "interval" in the
-// description clause survived every semantic test and died only on the h5 byte pin). Mutant: "interval" injected into
-// the empty branch => red.
+// (iii) "interval" is absent from the liq clause in BOTH states (lesson: an "interval" in the description clause
+// survived every semantic test and died only on the h5 byte pin). Mutant: "interval" injected into the empty branch =>
+// red.
 test("hdesc_liq_clause_never_says_interval_in_both_states", () => {
   for (const state of [false, true]) {
     assert.ok(!/interval/i.test(liqSlice(describeGate(state))), `the liq clause never says "interval" (registryHasLiq=${String(state)})`);
@@ -424,9 +416,9 @@ test("hdesc_liq_clause_never_says_interval_in_both_states", () => {
   assert.ok(describeGate(false).includes("interval"), "the BYO clause keeps its wire word (the slice scope is load-bearing)");
 });
 
-// Both description states pass the repo vocabulary (GLOBAL + harness scope of vocab-banned.json): the served state AND
-// the U-4b-2b state, which is no longer served before -2b and would otherwise be policed by nothing (D-4: no check
-// dropped when the committed clause left the served text). Mutant: a banned word in the committed branch => red.
+// Both description states pass the repo vocabulary (GLOBAL + harness scope of vocab-banned.json): describeGate(true)
+// and describeGate(false), so both states are policed (no check dropped when a clause left the served text). Mutant: a
+// banned word in the committed branch => red.
 test("hdesc_both_description_states_pass_vocab", () => {
   const vocab = JSON.parse(readFileSync(fileURLToPath(new URL("../../../vocab-banned.json", import.meta.url)), "utf8")) as {
     banned: { re: string; why: string }[];

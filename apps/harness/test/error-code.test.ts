@@ -1,7 +1,6 @@
 /**
- * Harness - stable error codes (chantier moteur, lot CM-2a, audit P3 points S-6 and S-15).
- * Oracle: docs/adr/ADR-CM-chantier-moteur-audit-P3.md section 5 B-3 (extended to MCP by the amendment "nuit, 2") and B-6;
- * plan docs/G0-lot-cm-2a.md. Every tool refusal carries a stable code from a closed list: in the HTTP error body
+ * Harness - stable error codes.
+ * Every tool refusal carries a stable code from a closed list: in the HTTP error body
  * (`{error, operation, message, code}`) and in the MCP `_meta` (`monarkgate.tech/error_code`), the MCP text staying
  * byte-identical. The HTTP mirror validates its output before serving it. New names of the code are read through a
  * namespace import, so the base loads this file and reddens by assertion. Each test names its killer above it.
@@ -22,7 +21,7 @@ import { createHarnessHandler } from "../src/server.ts";
 import { HARNESS_TOOLS, REGISTERED_TOOL_NAMES } from "../src/tools/registry.ts";
 import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 
-/** The closed list of codes, pinned in order (G0 CM-2a, rules S-6 2 to 4; the last 8 reserved since 1.1.0 block A, Q-3). */
+/** The closed list of codes, pinned in order (the last 8 reserved since 1.1.0). */
 const CODES = [
   "param_invalid", "schema_version_unsupported", "byo_calibration_invalid", "byo_yhat_type", "byo_set_tau_cap",
   "yhat_type_mismatch", "liq_yhat_domain", "attested_inconsistent", "task_class_unknown", "byo_overrides_committed",
@@ -156,10 +155,9 @@ test("every_harness_tool_error_names_a_code", () => {
   }
 });
 
-// Q-F2 (go of the founder, "Version + depot de spec"; lot CM-3c-3c): the refusal of a 1.0.0 prediction names the version
-// the gate speaks and the specification repository, on the thrown error and on the HTTP 400 body. Exact text: MONARK's dated
-// line (10) of the ADR-CM (0fcc18f2), "the gate" and not "the harness" (lot CM-3c-4a). The specification URL stays pinned
-// by the same literal (its former killer, "; specification: ..." -> "", is drawn by hand).
+// The refusal of a 1.0.0 prediction names the version the gate speaks and the specification repository, on the thrown
+// error and on the HTTP 400 body. The exact text says "the gate" and not "the harness". The specification URL stays
+// pinned by the same literal (its former killer, "; specification: ..." -> "", is drawn by hand).
 // killer: apps/harness/src/tools/gate.ts:903 CONST "the gate speaks" -> "the harness speaks"
 test("schema_version_refusal_names_the_spoken_version_and_the_spec_repository", async () => {
   const text = "unsupported prediction.schema_version '1.0.0': the gate speaks '1.1.0'; specification: https://github.com/KraidleAI/monark-kata-spec";
@@ -194,7 +192,7 @@ test("gate_refusals_carry_their_code", () => {
   ];
   for (const [at, fn, code] of cases) assert.equal(codeOf(fn, at).code, code, `${at}: code ${code}`);
 
-  // liq: codes, and the messages byte-identical to the base (B-3 adds a code, never rewrites a message).
+  // liq: codes, and the messages byte-identical to the base (a code is added, a message is never rewritten).
   const liq: [string, () => unknown, string, string][] = [
     ["liq 1.5", () => runGate(pred(LIQ, 1.5), LIQ_PARAMS), "liq_yhat_domain",
       "task_class 'liquidation-eligible-coverage' expects yhat to be a non-negative safe integer (base 8-dec liquidable amount), got 1.5"],
@@ -259,7 +257,7 @@ test("mcp_tool_error_keeps_its_text_and_adds_the_code", async () => {
 test("http_mirror_validates_its_output", async () => {
   const body = { prediction: pred("stable-run-velocity-24h", 0.0001, USDE_STABLE_RUN_PREDICTOR_ID), params: { ...PARAMS, intent: 0 } };
   const retired = await mirror("/gate", { ...body, prediction: pred("btc-dir-15m", "up", "internal:momentum-4c") });
-  assert.equal(retired.status, 400, "btc-dir-15m is retired (CM-2b), the USDe key is the served vehicle");
+  assert.equal(retired.status, 400, "btc-dir-15m is retired, the USDe key is the served vehicle");
   assert.match(retired.text, /"code":"task_class_retired"/, "retired code");
   const tool = HARNESS_TOOLS.find((t) => t.name === "gate");
   assert.ok(tool !== undefined, "the gate tool is registered");
@@ -278,9 +276,9 @@ test("http_mirror_validates_its_output", async () => {
   assert.equal((await mirror("/gate", body)).status, 200, "restored");
 });
 
-// Q-C5 condition 2 (decision of block C), with the cut of C2 (Q-3a-5, lot CM-3c-4a): every 400 body of the mirror validates the
-// root of schemas/tool-error.schema.json (invalid_json and invalid_input carry their message and code), every 500 body its
-// $defs/InternalError, and the 404 and 405 bodies do not validate the root.
+// Every 400 body of the mirror validates the root of schemas/tool-error.schema.json (invalid_json and invalid_input
+// carry their message and code), every 500 body its $defs/InternalError, and the 404 and 405 bodies do not validate the
+// root.
 // killer: apps/harness/src/http.ts:99 CONST "code: \"input_invalid\", " -> ""
 test("http_400_bodies_validate_the_tool_error_root", async () => {
   const schema = JSON.parse(readFileSync(fileURLToPath(new URL("../../../schemas/tool-error.schema.json", import.meta.url)), "utf8")) as Obj;
@@ -319,9 +317,9 @@ test("http_400_bodies_validate_the_tool_error_root", async () => {
   }
 });
 
-// C-11 condition 2 (decision CM-4b; cut Q-3b-5 to C'): the form of features_digest is the input schema's, served: a digest of
-// 63 hex characters is a 400 input_invalid on the HTTP mirror, and an MCP tool error without a code (the SDK refuses it
-// before the tool runs, so no _meta code rides).
+// The form of features_digest is the input schema's, served: a digest of 63 hex characters is a 400 input_invalid on
+// the HTTP mirror, and an MCP tool error without a code (the SDK refuses it before the tool runs, so no _meta code
+// rides).
 // killer: apps/harness/src/http.ts:99 CONST "\"input_invalid\"" -> "\"json_invalid\""
 test("features_digest_of_63_chars_is_input_invalid", async () => {
   const body = { prediction: { ...pred("stable-run-velocity-24h", 0.0001, USDE_STABLE_RUN_PREDICTOR_ID), features_digest: "a".repeat(63) }, params: { ...PARAMS, intent: 0 } };
@@ -335,7 +333,7 @@ test("features_digest_of_63_chars_is_input_invalid", async () => {
   assert.match(JSON.stringify(mcp["content"]), /features_digest/, "naming the field");
 });
 
-/** C-3 condition 2 (block D, lot D-3, docs/G0-bloc-d-3.md Q-D3-1): the listed codes no served request can throw, exact, each
+/** The listed codes no served request can throw, exact, each
  *  with its reason. Every other listed code has its served request below. */
 const NO_SERVED_REQUEST: Readonly<Record<string, string>> = {
   output_invalid: "a 500 of the mirror on an output outside its schema, never the answer to a request (http_mirror_validates_its_output)",
@@ -344,10 +342,10 @@ const NO_SERVED_REQUEST: Readonly<Record<string, string>> = {
   ukemi_predict_input_invalid: "the ukemi-predict tool was never registered, and was archived at step 7 of ROADMAP.md",
 };
 
-// Test T-15 (block D, lot D-3; C-3 condition 2, the dynamic ratchet): each listed code but NO_SERVED_REQUEST is answered by a
-// served request, a 400 with that code over HTTP (in process), and the code in the MCP _meta for a code a tool throws (the SDK
-// answers input_invalid and json_invalid itself, without a code). A code listed without a request reddens. Green at the base
-// of D-3, since D-2 serves the six kata codes (declared; killer fired by hand).
+// Test T-15 (the dynamic ratchet): each listed code but NO_SERVED_REQUEST is answered by a served request, a 400 with
+// that code over HTTP (in process), and the code in the MCP _meta for a code a tool throws (the SDK answers
+// input_invalid and json_invalid itself, without a code). A code listed without a request reddens. Green at the base,
+// since the kata path serves the six kata codes (declared; killer fired by hand).
 // killer: apps/harness/src/kata-path.ts:59 CONST "\"kata_yhat_domain\"" -> "\"param_invalid\""
 test("every_code_but_output_invalid_is_thrown_by_a_served_request", async () => {
   const T = Date.parse("2026-10-04T04:00:00Z");
@@ -394,7 +392,7 @@ test("every_code_but_output_invalid_is_thrown_by_a_served_request", async () => 
   }
 });
 
-// G2 N-1 of D-3: the reasons of NO_SERVED_REQUEST are facts the test checks, so an exemption reddens when its reason falls: a tool
+// The reasons of NO_SERVED_REQUEST are facts the test checks, so an exemption reddens when its reason falls: a tool
 // registered again under one of these names needs a served request for its code in T-15.
 test("no_served_request_reasons_hold", () => {
   for (const name of ["attest", "cascade", "ukemi-predict"]) assert.ok(!REGISTERED_TOOL_NAMES.includes(name), `${name} is not registered`);

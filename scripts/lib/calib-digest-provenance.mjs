@@ -1,6 +1,6 @@
-// scripts/lib/calib-digest-provenance.mjs -- calibDigest as a provenance tool outside the contract (contract 1.1.0, plan r3 section 5.5,
-// ADR-M001 D9-ter; lot CM-3c-2): the statements of packages/contracts/src/calib-digest.ts (ADR-M001 C5), types and comments removed, so
-// the recorded digests stay reproducible once block C retires it from @monark/contracts. Parity: test/calib-digest-provenance.test.ts.
+// scripts/lib/calib-digest-provenance.mjs -- calibDigest as a provenance tool outside the contract (contract 1.1.0):
+// the statements of the former packages/contracts/src/calib-digest.ts, types and comments removed, so the recorded
+// digests stay reproducible since calibDigest left @monark/contracts. Parity: test/calib-digest-provenance.test.ts.
 import { createHash } from "node:crypto";
 
 export function calibDigest(scores) {

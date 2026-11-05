@@ -1,10 +1,8 @@
 /**
- * Harness - BYO ASCII confusable guard (chantier moteur, lot CM-2c, BYO-ASCII-LOOKALIKE-1, ADR-CM section 5 B-10).
- * Oracle: the ADR-CM amendment "nuit, 2" (B-10); MONARK's probe cases E1 to E17
- * (recherches:coordination/pieces/2026-10-03-cm1-dem4/cm1-RAPPORT.md, C-1); plan docs/G0-lot-cm-2c.md. A BYO name
- * whose ASCII confusable reduction equals a committed or reserved name is a 400 `byo_lookalike_confusable`, after the
- * B-1 guard (whose messages and codes stay byte-identical). Realistic honest names keep deciding. Each test names its
- * killer on the line above it.
+ * Harness - BYO ASCII confusable guard. Oracle: MONARK's probe cases E1 to E17. A BYO name whose ASCII confusable
+ * reduction equals a committed or reserved name is a 400 `byo_lookalike_confusable`, after the look-alike guard (whose
+ * messages and codes stay byte-identical). Realistic honest names keep deciding. Each test names its killer on the line
+ * above it.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -52,7 +50,7 @@ test("byo_confusable_class_names_refused", () => {
 // Test C-2 (F2P): look-alike kata class names (E11 to E13) and kata keys (E14, E15) are refused; near names decide.
 // killer: apps/harness/src/tools/gate.ts:813 CONST ".replace(/4/g, \"a\")" -> ".replace(/4/g, \"4\")"
 test("byo_confusable_kata_names_and_keys_refused", () => {
-  // sol_mae_up_4h: the mae-up family; btc-dlr-1h: i folds to l (precision (4) of B-10, ADR-CM amendment 2026-10-04).
+  // sol_mae_up_4h: the mae-up family; btc-dlr-1h: i folds to l (a declared false refusal).
   for (const c of ["btc-dir-lh", "bnb-dir-Ih", "eth_range_4h", "sol-mae-down-l h", "sol_mae_up_4h", "btc-dlr-1h"]) {
     assert.equal(outcome(c, "caller:model"), "byo_lookalike_confusable", `${c}: a reduced kata name is refused`);
   }
@@ -60,13 +58,13 @@ test("byo_confusable_kata_names_and_keys_refused", () => {
     assert.equal(outcome("byo-x", k), "byo_lookalike_confusable", `${k}: a reduced kata key is refused`);
   }
   for (const k of ["kat:x", "katana:x", "caller:kata", "4ta:x"]) assert.equal(outcome("byo-x", k), "decided", `${k}: decides`);
-  // B-14 (block D, lot D-1): so1-dir-1h and doge-dir-1h are wide kata names, reserved by B-1 before any reduction.
+  // so1-dir-1h and doge-dir-1h are wide kata names, reserved by the look-alike guard before any reduction.
   for (const c of ["eth-dir-1d", "btc-dir-2h", "sol-dir-1hr"]) assert.equal(outcome(c, "caller:model"), "decided", `${c}: decides`);
   for (const c of ["so1-dir-1h", "doge-dir-1h"]) assert.equal(outcome(c, "caller:model"), "byo_reserved_kata", `${c}: a wide kata name`);
 });
 
-// Test T-6 (pin, B-14 C-2 condition 2): without a calibration, a wide name keeps its class answer: btc-dir-15m stays
-// retired, an unregistered wide name stays unknown. Green at the base of lot D-1 (declared; killer fired by hand).
+// Test T-6 (pin): without a calibration, a wide name keeps its class answer: btc-dir-15m stays
+// retired, an unregistered wide name stays unknown. Green at the base (declared; killer fired by hand).
 // killer: apps/harness/src/tools/gate.ts:967 CONST "\"task_class_retired\"" -> "\"byo_reserved_kata\""
 test("wide_kata_names_keep_their_class_answer", () => {
   const noCal = (taskClass: string): unknown => {
@@ -83,8 +81,8 @@ test("wide_kata_names_keep_their_class_answer", () => {
 });
 
 // Test C-3 (F2P): a (class, key) pair whose reduction is a committed pair (E16, the USDe key with O for 0) is refused;
-// another population keeps deciding; B-1 names keep their B-1 codes and messages; the HTTP body carries the new code
-// and the exact message.
+// another population keeps deciding; names the look-alike guard refuses keep its codes and messages; the HTTP body
+// carries the new code and the exact message.
 // killer: apps/harness/src/tools/gate.ts:792 CONST ".replace(/0/g, \"o\")" -> ".replace(/0/g, \"0\")"
 test("byo_confusable_committed_pair_refused", async () => {
   const usdeO = USDE_STABLE_RUN_PREDICTOR_ID.replace("0x4c9", "Ox4c9");
@@ -93,11 +91,11 @@ test("byo_confusable_committed_pair_refused", async () => {
   assert.equal(outcome("stable_run_velocity_24h", USDE_STABLE_RUN_PREDICTOR_ID), "byo_lookalike_confusable", "class confusable + committed key: refused");
   assert.equal(outcome("stable-run-velocity-24h", "caller:other-population"), "decided", "another population decides");
   assert.equal(outcome("my-model", USDE_STABLE_RUN_PREDICTOR_ID), "decided", "another class with the committed USDe key decides (pair, not key)");
-  // B-1 first: codes unchanged.
-  assert.equal(outcome("byo-x", "kata:x"), "byo_reserved_kata", "B-1 kata key keeps its code");
-  assert.equal(outcome("BTC-DIR-15M", "caller:model"), "byo_lookalike_committed", "B-1 case variant keeps its code");
-  assert.equal(outcome("eth-dir-1h", "caller:model"), "byo_reserved_kata", "B-1 kata name keeps its code");
-  assert.equal(outcome(" byo-x", "caller:model"), "byo_edge_blank", "B-1 edge blank keeps its code");
+  // The look-alike guard runs first: codes unchanged.
+  assert.equal(outcome("byo-x", "kata:x"), "byo_reserved_kata", "a reserved kata key keeps its code");
+  assert.equal(outcome("BTC-DIR-15M", "caller:model"), "byo_lookalike_committed", "a case variant keeps its code");
+  assert.equal(outcome("eth-dir-1h", "caller:model"), "byo_reserved_kata", "a kata name keeps its code");
+  assert.equal(outcome(" byo-x", "caller:model"), "byo_edge_blank", "an edge blank keeps its code");
 
   const message =
     "task_class 'btc_dir_15m' / predictor_id 'caller:model' reduces to a committed or reserved name once ASCII confusables are " +

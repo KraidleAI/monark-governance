@@ -1,7 +1,6 @@
 /**
- * Import guard of kata rows, wave 1, and the 32 kata class entries (lot CM-4a-ii-a, block B2; docs/G0-lot-cm-4a-ii.md;
- * A-2 section 2.2 and its killers, section 5), on the seeded synthetic registry of block B1, never on wave1.json. Each
- * test names its killer above it.
+ * Import guard of kata rows, wave 1, and the 32 kata class entries, on the seeded synthetic registry, never on
+ * wave1.json. Each test names its killer above it.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -102,7 +101,7 @@ test("guard_direction_qhat_and_misses", () => {
 // killer: apps/harness/src/policy-guard.ts:89 SDL "is(r.status === st && r.status_reason === why" -> ""
 test("guard_status_and_reason_recomputed", () => {
   for (const r of [dirMisses, vetoed, find((x) => x.status === "silence" && x.side === null)]) refuse(regionLike(r), /status/);
-  refuse({ ...dirMisses, miss_bound: "0.5000000", bound_on: "commit" }, /miss_bound and bound_on not both set on a region row/); // declared redundancy: block A refuses first (G2 m-5); the guard clause itself: guard_refuses_arithmetic_off_the_counts
+  refuse({ ...dirMisses, miss_bound: "0.5000000", bound_on: "commit" }, /miss_bound and bound_on not both set on a region row/); // declared redundancy: the contracts refuse first; the guard clause itself: guard_refuses_arithmetic_off_the_counts
   refuse({ ...dirMisses, status_reason: "dependence check rejects" }, /reason/);
   refuse({ ...under, status_reason: "empty bucket" }, /off under_calib/);
   for (const r of ROWS.filter((x) => x.status === "under_calib")) check(r);
@@ -177,7 +176,7 @@ test("guard_modules_are_not_served", () => {
   };
   for (const f of ["server.ts", "http.ts", "openapi.ts", "schema-projection.ts", ...readdirSync(join(src, "tools")).map((t) => `tools/${t}`)]) walk(join(src, f));
   assert.ok(seen.size > 6 && seen.has(join(src, "http.ts")));
-  // Block D (lot D-2): policy-classes.ts is served with the kata path; the import guard stays outside the served graph.
+  // policy-classes.ts is served with the kata path; the import guard stays outside the served graph.
   for (const f of ["policy-guard.ts"]) assert.ok(!seen.has(join(src, f)), f);
 });
 
@@ -210,10 +209,11 @@ test("guard_adr_cause_under_decisions_only", () => {
   for (const c of ["adr:/x.md", "adr:../../etc.md", "adr:..md", "adr:decisions/../x.md", "adr:other/x.md"]) refuse(retired(c, null, null, null), /retire cause/);
 });
 
-// reddened by: the digest clause of guardKataRow removed, so that the server admits a row the publication refuses (SHORT-DIGEST-INVERSION-1, RECHERCHES Q-4)
-// Lot E-2a, CA trio (R4 (iii), conflict 7): kata and venue ca-probe are reserved for the probe key of the deployment check, so
+// reddened by: the digest clause of guardKataRow removed, so that the server admits a row the publication refuses
+// Kata and venue ca-probe are reserved for the probe key of the deployment check, so
 // no table can ever hold a row under it. The reservation is its own predicate, called by the import guard (and by the loader of
-// E-2a, a later lot, served code: so it lives in policy-classes.ts, which the served graph imports, not in policy-guard.ts),
+// the committed tables, policy-committed.ts, served code: so it lives in policy-classes.ts, which the served graph imports,
+// not in policy-guard.ts),
 // never by the request check: kataKeyProblem still admits the probe key, so the probe call is answered.
 // killer: apps/harness/src/policy-classes.ts:53 CONST "[\"ca-probe\"]" -> "[\"ca-probe-x\"]"
 test("the_import_guard_refuses_the_reserved_probe_kata_and_venue", async () => {
@@ -244,9 +244,9 @@ test("the_guard_refuses_a_sign_set_row_under_the_digest_floor", () => {
   assert.throws(() => guardKataTable(tableFrom(cls, low.bytes, low.pins), low.bytes, low.pins, entry(cls)), /has a digest that the publication refuses: scores/);
 });
 
-// reddened by: a rejection named before a constant auxiliary sequence on a wave 1 row (the order of guardKataRow before
-// REASON-ORDER-GUARD-VERIFIER-1), where the generator names the constant sequence first, whatever check 1 says (kata/bench/calibrate.ts
-// l.135-136; RECHERCHES decision f51322c). A band row carries the case through every other clause; the generator reaches it on the down
+// reddened by: a rejection named before a constant auxiliary sequence on a wave 1 row (the earlier order of
+// guardKataRow), where the generator names the constant sequence first, whatever check 1 says (kata/bench/calibrate.ts
+// l.135-136). A band row carries the case through every other clause; the generator reaches it on the down
 // side of a direction cell only (a flat label is a miss, the label sequence counts the up labels), where the digest floor refuses the row
 // killer: apps/harness/src/policy-guard.ts:83 COR "adm.empty ? [" -> "adm.empty && (w2 || !adm.reject) ? ["
 test("guard_names_a_constant_auxiliary_sequence_before_a_rejection", () => {
@@ -263,8 +263,8 @@ const verdict = (r: PolicyRow): [string, string] | string => { try { check(r); r
 /** The whole refusal of a row by the guard, `what` read as plain text between the row's key and the closing period. */
 const whole = (what: string): RegExp => new RegExp(["^Error: MONARK import guard: \\S+ \\S+ ", what.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "\\.$"].join(""));
 
-// reddened by: a band row whose misses exceed k* admitted with the direction reason (the guard before W2-GUARD-MISSES-TAIL-1; G2 of R1, m,
-// recherches 1586565): a band's qhat is its (n - k*)-th score (packages/hikae/src/l1-split.ts l.73-78), so at most k* scores exceed it,
+// reddened by: a band row whose misses exceed k* admitted with the direction reason (the earlier guard):
+// a band's qhat is its (n - k*)-th score (packages/hikae/src/l1-split.ts l.73-78), so at most k* scores exceed it,
 // and the wave 1 generator gives that reason to direction cells only (kata/bench/calibrate.ts l.138)
 // killer: apps/harness/src/policy-guard.ts:76 CONST "dir || m <= ks" -> "dir || !w2 || m <= ks"
 test("guard_refuses_band_misses_above_k_star", () => {

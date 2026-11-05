@@ -1,10 +1,9 @@
 /**
- * Harness - the served kata path (block D, lot D-2; docs/G0-bloc-d.md section 4.2; ADR-CM B-9 precisee and B-15; plan r3
- * section 5.4; LATE-CALL-WINDOW-1, Q-D4; test seam, Q-D5). The 32 kata classes of wave 1 are served from their empty
- * tables: the request contract answers its 8 named 400s over HTTP and MCP, a well-formed call abstains with no region,
- * the class text is the served sentence, the description carries the kata clause, and the lateness bound is the 300 s of
- * B-4. New exports are read through the module namespace, so the base loads this file and reddens by assertion. Each test
- * names its killer above it.
+ * Harness - the served kata path. The 32 kata classes are served from their empty tables: the request contract answers
+ * its 8 named 400s over HTTP and MCP, a well-formed call abstains with no region, the class text is the served
+ * sentence, the description carries the kata clause, and the lateness bound is the 300 s of the produced_at check. New
+ * exports are read through the module namespace, so the base loads this file and reddens by assertion. Each test names
+ * its killer above it.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -77,7 +76,7 @@ function direct(p: Prediction, params: HarnessParams, options: gate.RunGateOptio
   }
 }
 
-// Test T-8 (F2P): the kata request contract is served (B-9 precisee, B-15): its 8 named 400s over HTTP (body with code)
+// Test T-8 (F2P): the kata request contract is served: its 8 named 400s over HTTP (body with code)
 // and MCP (code in _meta), on a direction class and a band class.
 // killer: apps/harness/src/tools/gate.ts:986 CONST "} else if (kataTable !== undefined) {" -> "} else if (false) {"
 test("served_kata_request_contract", async () => {
@@ -111,7 +110,7 @@ test("served_kata_request_contract", async () => {
   ], "the 8 served messages, byte for byte");
 });
 
-// Test T-9 (F2P): a well-formed kata call abstains with no region (spec section 2.2.1), direction and band; a dir lean of
+// Test T-9 (F2P): a well-formed kata call abstains with no region, direction and band; a dir lean of
 // 0 answers non_evaluable; the served sentence is the class text plus the B_t suffix.
 // killer: apps/harness/src/kata-path.ts:111 CONST "policy_table_sha256: f.policy_table_sha256" -> "policy_table_sha256: null"
 test("served_kata_no_row_verdict_and_decision", async () => {
@@ -141,14 +140,14 @@ test("served_kata_no_row_verdict_and_decision", async () => {
   }
 });
 
-// Test T-10 (F2P, LATE-CALL-WINDOW-1): the lateness bound is the 300 s of B-4, served with the injected clock over HTTP and
-// MCP; the future check of B-4 answers first; a direct call without a clock runs the grid only.
+// Test T-10 (F2P): the lateness bound is the 300 s of the produced_at check, served with the injected clock over HTTP
+// and MCP; the produced_at future check answers first; a direct call without a clock runs the grid only.
 // killer: apps/harness/src/tools/gate.ts:989 CONST "kataPath(prediction, params, kataTable, options.nowMs)" -> "kataPath(prediction, params, kataTable)"
 test("served_kata_late_call_window", async () => {
   const at = (now: number): Promise<{ status: number; body: Obj }> => http(pred(), P_DIR, now);
   assert.equal((await at(T + 300_000)).status, 200, "300 s after t: admitted");
   assert.deepEqual([(await at(T + 300_001)).body["code"]], ["produced_at_stale"], "300 s and 1 ms after t: stale");
-  assert.deepEqual([(await at(T - 300_001)).body["code"]], ["produced_at_future"], "the future check of B-4 first");
+  assert.deepEqual([(await at(T - 300_001)).body["code"]], ["produced_at_future"], "the produced_at future check first");
   assert.equal((await mcp(pred(), P_DIR, T + 300_000))["isError"], undefined, "MCP: 300 s admitted");
   assert.equal(((await mcp(pred(), P_DIR, T + 300_001))["_meta"] as Obj | undefined)?.["monarkgate.tech/error_code"], "produced_at_stale", "MCP: stale");
   assert.equal(direct(pred(), P_DIR), "ok", "a direct call without a clock: no lateness check");
@@ -156,7 +155,7 @@ test("served_kata_late_call_window", async () => {
 });
 
 // Test T-11 (pin): the guards before the dispatch keep their codes on a kata class: a calibration on a kata name is
-// reserved (B-1), an `attested` is inconsistent (no kata subject), a 1.0.0 prediction is refused. Green at the base
+// reserved (the look-alike guard), an `attested` is inconsistent (no kata subject), a 1.0.0 prediction is refused. Green at the base
 // (declared; killer fired by hand).
 // killer: apps/harness/src/tools/gate.ts:936 CONST "if (lookAlike !== undefined) {" -> "if (false) {"
 test("served_kata_order_against_byo_attested_version", () => {
@@ -188,10 +187,10 @@ const PINNED_24 =
 /** kataClause: the class entries, the tau cap, the pinned classes and the held classes, each defaulting to its served value. */
 type Render = (entries?: readonly ClassEntry[], tauCap?: number, committed?: readonly string[], held?: readonly string[]) => string;
 
-// Test T-12 (F2P): the kata clause, rendered from the class entries, the B-4 constant and the pins, is MONARK's text byte for byte
-// (Z-3 lines): with no class pinned, the clause of block D; with the pins of the release of the bands (the 8 dir classes held, the 24
-// others pinned), the committed state. The clause at the served pins is placed after the liq clause and before the BYO sentence; no
-// kata class takes the `For '...'` form.
+// Test T-12 (F2P): the kata clause, rendered from the class entries, the PRODUCED_AT_FUTURE_TOLERANCE_MS constant and
+// the pins, is MONARK's text byte for byte: with no class pinned, the empty-table clause; with the pins of the release
+// of the bands (the 8 dir classes held, the 24 others pinned), the committed state. The clause at the served pins is
+// placed after the liq clause and before the BYO sentence; no kata class takes the `For '...'` form.
 // killer: apps/harness/src/tools/gate.ts:237 CONST "PRODUCED_AT_FUTURE_TOLERANCE_MS / 1000" -> "PRODUCED_AT_FUTURE_TOLERANCE_MS / 100"
 test("describe_gate_kata_clause", () => {
   const render = (gate as Obj)["kataClause"];
@@ -212,7 +211,7 @@ test("describe_gate_kata_clause", () => {
 });
 
 // Test T-13 (F2P): honestyText reads the kata tables: each of the 32 classes serves its class text plus the suffix, never
-// the cascade sentence; the table text is the exact prefix of the served sentence (Z-3).
+// the cascade sentence; the table text is the exact prefix of the served sentence.
 // killer: apps/harness/src/tools/gate.ts:739 CONST "tables: readonly ServedTable[] = SERVED_POLICY_TABLES" -> "tables: readonly ServedTable[] = SERVED_MARGINAL_TABLES"
 test("kata_class_text_is_table_text_plus_suffix", () => {
   const names = kataClassEntries(() => "").map((e) => e.task_class);
@@ -228,7 +227,7 @@ test("kata_class_text_is_table_text_plus_suffix", () => {
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
 
-// Test (F2P, Q-D5): the test seam RunGateOptions.policyTables reaches a kata row (a region row on btc-dir-1h commits),
+// Test (F2P): the test seam RunGateOptions.policyTables reaches a kata row (a region row on btc-dir-1h commits),
 // and no served module but tools/gate.ts names it, so the HTTP and MCP entry points never pass it.
 // killer: apps/harness/src/tools/gate.ts:960 CONST "(options.policyTables ?? SERVED_POLICY_TABLES)" -> "(SERVED_POLICY_TABLES)"
 test("entry_points_never_pass_policy_tables", () => {
@@ -270,10 +269,10 @@ function withRow(status: string): ServedTable[] {
   return [{ task_class: "btc-dir-1h", table, policy_table_sha256: policyTableSha256(table) }];
 }
 
-// Test T-16 (block D, lot D-3; C-4 condition 3, the end-to-end form): through the seam, a calib_* row of a dir class (silence,
-// vetoed, retired) abstains with its reason, never defer set_too_large (tau 1, clock open, intent in {up, down}); a region
-// row commits at tau 1 and defers set_too_large at tau 0. The honesty text read on the seam's tables is the row text (G2 N-2
-// of D-2): honestyText reads the tables it is given, the served ones by default.
+// Test T-16 (the end-to-end form): through the seam, a calib_* row of a dir class (silence, vetoed, retired) abstains
+// with its reason, never defer set_too_large (tau 1, clock open, intent in {up, down}); a region row commits at tau 1
+// and defers set_too_large at tau 0. The honesty text read on the seam's tables is the row text: honestyText reads the
+// tables it is given, the served ones by default.
 // killer: packages/hikae/src/l3-gate.ts:93 CONST "REASONS_WITHOUT_REGION.includes(input.verdict.reason)" -> "false"
 test("served_calib_row_abstains_never_defers", () => {
   const decide = (status: string, tau: number): unknown[] => {
@@ -288,10 +287,11 @@ test("served_calib_row_abstains_never_defers", () => {
   assert.equal(text("btc-dir-1h", `${DIR_KEY}/up-b1`, false), `no btc-dir-1h calibration is committed for this cell_key; the gate abstains and serves no region${SUFFIX}`, "served: the class text");
 });
 
-// Test (E-2a; block D, lot D-3, G2 N-6 of D-2): the tripwire of KATA-CLAUSE-COMMITTED-STATE-1 follows the pins. The kata tables
-// that hold rows are exactly the pinned classes, each at its pinned sha256, and no held class holds a row: the served tables pass
-// with the served pins (none, the bands, then the directions), a marginal table with rows passes, and a kata row outside the pins, a
-// pinned class with no row or another sha256, or a held class with a row (even pinned), fails the load. Line 1043 and its imports are pinned.
+// Test: the kata tripwire (kataTablesMatchPins) follows the pins. The kata tables that hold rows are exactly the pinned
+// classes, each at its pinned sha256, and no held class holds a row: the served tables pass with the served pins (none,
+// the bands, then the directions), a marginal table with rows passes, and a kata row outside the pins, a pinned class
+// with no row or another sha256, or a held class with a row (even pinned), fails the load. Line 1043 and its imports
+// are pinned.
 // killer: apps/harness/src/kata-path.ts:125 CONST "held.some((c) => rows(c) > 0)" -> "false"
 test("kata_tables_match_the_pins", () => {
   const trip = (kataPathModule as Obj)["kataTablesMatchPins"];
@@ -319,7 +319,7 @@ test("kata_tables_match_the_pins", () => {
   assert.deepEqual(readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n").slice(1129, 1131), [`import { COMMITTED_FILES, readCommittedTables } from "../policy-committed.ts";`, `import { COMMITTED_TABLES, FLOOR_HELD_CLASSES, ORDER_HELD_CLASSES } from "../policy-committed-pins.ts";`], "lines 1130-1131: each name that line 1043 reads is imported as itself");
 });
 
-// Test (E-2a; the invariant "no kata row is served before the release of the bands"): while no table is pinned
+// Test (the invariant "no kata row is served before the release of the bands"): while no table is pinned
 // (COMMITTED_TABLES empty, until that release), the tripwire refuses every kata table that holds a row, whatever its class or
 // rule and whether or not it is held, so the served kata tables are all empty.
 // killer: apps/harness/src/kata-path.ts:127 CONST "off.length > 0" -> "false"
@@ -340,7 +340,7 @@ test("no_kata_row_is_served_while_no_table_is_pinned", () => {
   assert.throws(() => check([...all.filter((t) => t.task_class !== "btc-dir-1h"), ...withRow("region")], PINS.COMMITTED_TABLES, []), /not the pinned tables: btc-dir-1h$/, "a direction row, not held, no pin");
 });
 
-// Test T-4 (E-2a): committed tables reach the gate through the seam. Two synthetic band tables (btc-range-1h, btc-mae-down-1h),
+// Test T-4: committed tables reach the gate through the seam. Two synthetic band tables (btc-range-1h, btc-mae-down-1h),
 // admitted by the import guard, written canonically and pinned, are read by readCommittedTables; before the tripwire, the kata
 // tables with rows that servedPolicyTables serves are asserted to be exactly these two, byte for byte at their pins. Then a silence
 // cell abstains calib_silence, a region cell commits with its band, each verdict carries its row and file sha256, and the honesty text is the row text.
@@ -373,9 +373,10 @@ test("committed_tables_reach_the_gate_through_the_seam", () => {
   assert.equal(text("btc-mae-down-1h", `${MAE}/b0`, false, tables), `${region.text}${SUFFIX}`, "the row text, from the committed file");
 });
 
-// Test (block D, lot D-3; G2 N-5 of D-2): the kata clause reads every value it states: the class names from the entries (a
-// product, checked), alpha and nMin per family, the tau cap of dir classes (KATA_DIR_TAU_CAP, also read by the policy_tau_cap
-// refusal) and the 300 s of B-4. Rendered on other entries and another cap, it names them; with no class pinned, by default, it is CLAUSE.
+// Test: the kata clause reads every value it states: the class names from the entries (a product, checked), alpha and
+// nMin per family, the tau cap of dir classes (KATA_DIR_TAU_CAP, also read by the policy_tau_cap refusal) and the 300 s
+// of the produced_at check. Rendered on other entries and another cap, it names them; with no class pinned, by default,
+// it is CLAUSE.
 // killer: apps/harness/src/tools/gate.ts:232 CONST "${names.join(\"-\")}" -> "{btc,eth,bnb,sol}-{dir,range,mae-down,mae-up}-{1h,4h}"
 test("kata_clause_reads_its_names_and_tau_cap", () => {
   const render = (gate as Obj)["kataClause"] as Render;
@@ -384,11 +385,11 @@ test("kata_clause_reads_its_names_and_tau_cap", () => {
   assert.ok(clause.startsWith("The 8 kata classes `{btc,eth}-{dir,range,mae-down,mae-up}-{1h}` are served"), clause.slice(0, 100));
   assert.ok(clause.includes(", tau at most 0.5 on dir classes, "), "the cap is read");
   assert.throws(() => render(some.slice(1)), /not the product/, "a set of classes that is not a product is refused");
-  assert.equal(render(undefined, undefined, []), CLAUSE, "with no class pinned, by default, the clause of block D");
+  assert.equal(render(undefined, undefined, []), CLAUSE, "with no class pinned, by default, the empty-table clause");
   assert.equal((classes as Obj)["KATA_DIR_TAU_CAP"], 1, "the cap of dir classes");
 });
 
-// G2 N-2 of D-3: the product check of the kata clause compares sets, not counts: a duplicate class in place of another (32
+// The product check of the kata clause compares sets, not counts: a duplicate class in place of another (32
 // entries, eth-dir-1h twice, no btc-dir-1h) is refused, never rendered as the full product.
 // killer: apps/harness/src/tools/gate.ts:230 CONST "new Set(entries.map((e) => e.task_class)).size !== entries.length || " -> ""
 test("kata_clause_refuses_duplicate_classes", () => {
@@ -398,7 +399,7 @@ test("kata_clause_refuses_duplicate_classes", () => {
   assert.throws(() => render(all.map((e) => (e.task_class === "btc-dir-1h" ? twin : e))), /not the product/);
 });
 
-// Test T-2a (E-2a, in process): the kata clause follows the pins. Given pinned and held classes that partition the 32 kata classes,
+// Test T-2a (in process): the kata clause follows the pins. Given pinned and held classes that partition the 32 kata classes,
 // at least 2 of each, it renders the committed state: it counts both sides, names exactly the held classes, in entry order whatever
 // the order of the held list, and takes no `For '...'` form. Out of that domain it throws, after the product check, one message per
 // case, checked in this order: a name that is no kata class, a class both pinned and held, a class neither, fewer than 2 held classes,
@@ -436,10 +437,10 @@ test("kata_clause_follows_the_committed_pins", () => {
   assert.equal(lines[253], "    `${kataClause()} ` +", "line 254: the served description calls the clause with its defaults, so it follows the served pins");
 });
 
-// Test (block D, lot D-3; G2 N-3 of D-2): the cycle gate.ts <-> kata-path.ts loads cold from either side. Each module is
-// imported first in a fresh child process: kata-path.ts (the risky side: gate.ts then runs first and calls servedPolicyTables
-// while it loads), then server.ts; both load and serve the 35 tables. This file loads gate.ts first, so its own load holds
-// under the killer. Green at the base of D-3 (declared; killer fired by hand).
+// Test: the cycle gate.ts <-> kata-path.ts loads cold from either side. Each module is imported first in a fresh child
+// process: kata-path.ts (the risky side: gate.ts then runs first and calls servedPolicyTables while it loads), then
+// server.ts; both load and serve the 35 tables. This file loads gate.ts first, so its own load holds under the killer.
+// Green at the base (declared; killer fired by hand).
 // killer: apps/harness/src/kata-path.ts:118 CONST "kataClassEntries(texts.classText)" -> "kataClassEntries(TIME_FIELDS.global ? texts.classText : texts.classText)"
 test("kata_path_and_server_load_cold", async () => {
   const url = (f: string): string => JSON.stringify(pathToFileURL(join(SRC, f)).href);

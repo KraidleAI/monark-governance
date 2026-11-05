@@ -1,8 +1,8 @@
 /**
- * The retire list reader on a wave 2 core cell (RETIRE-READER-WAVE2-1; docs/G0-lot-retire-reader-wave2-1.md): the current attempt of
+ * The retire list reader on a wave 2 core cell: the current attempt of
  * an entry is read at the date of its list, 2 only for a list dated on or after the day the cell's child becomes current, and an entry
- * carried unchanged from the previous list keeps attempt 1 (recherches kata/registry/FORMAT-wave2.md, the quarter counts; MONARK's
- * final check of that format, M-2). On the seeded synthetic registry of block B1 and children built here, never on a real registry
+ * carried unchanged from the previous list keeps attempt 1 (recherches kata/registry/FORMAT-wave2.md, the quarter counts).
+ * On the seeded synthetic registry and children built here, never on a real registry
  * or list. Each test names its killer above it.
  */
 import { test } from "node:test";

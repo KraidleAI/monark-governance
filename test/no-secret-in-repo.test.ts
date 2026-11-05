@@ -1,8 +1,8 @@
 /**
- * Root test `no_secret_in_repo` (ADR-M005 D10, PLAN §H4; MAST "secret leak"). The harness is deployed by
+ * Root test `no_secret_in_repo` (against a secret leak). The harness is deployed by
  * the orchestrator with NO secret committed — the systemd units set no inline secret (the sentinel's
  * optional Chainstack endpoint key lives in an out-of-repo EnvironmentFile, /etc/monark/sentinel.env, never
- * committed — ADR-NARABI-OPS-1 C-5), the Caddy block needs no token (HTTP-01), and nothing in the tree
+ * committed), the Caddy block needs no token (HTTP-01), and nothing in the tree
  * carries a credential. This walks the committed tree
  * for HIGH-SIGNAL secret markers only (private-key blocks, cloud/token prefixes), so the fixtures' hex
  * `key` fields and package-lock's sha512 integrity hashes are NOT false positives. Governance-only (not
@@ -10,7 +10,7 @@
  * output/binaries. No `any` (off the ratchet).
  *
  * Mutant: commit a private key / token in any scanned file ⇒ red (proven by the non-vacuity check below
- * and, in the passe report, by planting a key then restoring byte-exact via sha256).
+ * and by planting a key, then restoring the file byte-exact via sha256).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -39,15 +39,15 @@ const SECRET_PATTERNS: ReadonlyArray<{ re: RegExp; name: string }> = [
   { re: /\bgithub_pat_[0-9A-Za-z_]{40,}\b/, name: "GitHub PAT (fine-grained)" },
   { re: /\bxox[baprs]-[0-9A-Za-z-]{10,}\b/, name: "Slack token" },
   { re: /\bAIza[0-9A-Za-z_-]{35}\b/, name: "Google API key" },
-  // ADR-T1aii C-10 / RESSOURCES-HELIUS §3.3: a Helius api key is a UUID (8-4-4-4-12 hex); flag it ONLY in an
+  // A Helius api key is a UUID (8-4-4-4-12 hex); flag it ONLY in an
   // api-key CONTEXT (query param / header), so a base58 mint or a plain hex id is not a false positive.
   { re: /api[-_]?key["' ]*[=:]["' ]*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i, name: "api-key UUID (Helius-shaped)" },
-  // ADR-T1aii-D1-bis C-10 (lot -b1): a Chainstack Solana/EVM endpoint carries its key IN THE PATH as a 32-hex
+  // A Chainstack Solana/EVM endpoint carries its key IN THE PATH as a 32-hex
   // token (core.chainstack.com/<hex32>) or on the legacy p2pify host (nd-*.p2pify.com/<hex>). These shapes ARE
   // the credential, so — unlike the Helius UUID — no extra "api-key" context is required; the host+hex path IS
   // the context. A WebSocket url can carry the same key (wss://…/<hex>). Fail-closed by design (a false
   // positive blocks a commit; a false negative leaks a paid RPC key). No committed file carries these today
-  // (measured 2026-09-20); artefacts holding raw endpoints live OUTSIDE the tree (F:/tmp, CA-11).
+  // (measured 2026-09-20); artefacts holding raw endpoints live OUTSIDE the tree (F:/tmp).
   { re: /(?:core\.)?chainstack\.com\/[0-9a-f]{32}/i, name: "Chainstack RPC url (hex key in path)" },
   { re: /p2pify\.com\/[0-9a-f]+/i, name: "Chainstack p2pify RPC url (hex key in path)" },
   { re: /wss:\/\/[^\s"']*\/[0-9a-f]{16,}/i, name: "WebSocket url with a hex key in the path" },
@@ -58,16 +58,16 @@ const SECRET_PATTERNS: ReadonlyArray<{ re: RegExp; name: string }> = [
   // An *_API_KEY= assignment with an inline value (a .env / shell leak). `process.env.HELIUS_API_KEY` and the
   // prose mentions in docs (no `=` + value) do NOT match; `HELIUS_API_KEY=<secret>` does.
   { re: /\b[A-Z][A-Z0-9_]*_API_KEY\s*=\s*["']?[^\s"'#]{6,}/, name: "*_API_KEY= inline assignment" },
-  // ADR-T1aii-D1-quinquies C-10 (lot -b3b): a Databento API key is `db-` + 29 alphanum (32 chars total). The `db-`
+  // A Databento API key is `db-` + 29 alphanum (32 chars total). The `db-`
   // prefix + a long alphanum run IS the credential (like the Chainstack hex-in-path), so no extra context is
   // required. `{20,}` after `db-` clears the real key (29 chars) but leaves the doc prose "prefix db-" green (no
   // 20-char alphanum run follows). `DATABENTO_API_KEY=<value>` inline is already covered by the *_API_KEY= shape.
   { re: /\bdb-[A-Za-z0-9]{20,}\b/, name: "Databento API key (db- prefix)" },
-  // ADR-T1b-backend D9 / backlog S-10 (T-1b PR-3): the Bell Ed25519 signing key in the two non-PEM forms Node exports. (1) A JWK
+  // The Bell Ed25519 signing key in the two non-PEM forms Node exports. (1) A JWK
   // private member "d" with a base64url value (43 chars for Ed25519): a PUBLIC JWK has no "d" and stays green. (2) A bare base64
   // PKCS#8 DER: its fixed 16-byte Ed25519 prefix always encodes to the same 21 characters (built from the hex here, so this
   // detector never carries the literal). The RFC 8032 KAT builds its key IN MEMORY (`d: b64(<hex>)`, no literal) and stays green
-  // with NO exception in this guard. Declared residual (B-3): a bare 32-byte seed in hex or base64url with no JWK/DER context is
+  // with NO exception in this guard. Declared residual: a bare 32-byte seed in hex or base64url with no JWK/DER context is
   // indistinguishable from a digest and is not matched.
   { re: /"d"\s*:\s*"[A-Za-z0-9_-]{40,}"/, name: "JWK private member d (base64url)" },
   { re: new RegExp(Buffer.from("302e020100300506032b657004220420", "hex").toString("base64").slice(0, 21)), name: "Ed25519 PKCS#8 DER (bare base64)" },
@@ -105,12 +105,12 @@ test("no_secret_in_repo", () => {
   // non-vacuity: the scanner actually FIRES on real credential shapes (else a green would be meaningless).
   assert.ok(SECRET_PATTERNS.some((p) => p.re.test("-----BEGIN OPENSSH PRIVATE KEY-----")), "detects a private key block");
   assert.ok(SECRET_PATTERNS.some((p) => p.re.test("AKIA1234567890ABCDEF")), "detects an AWS key id");
-  // ADR-T1aii C-10: a Helius-shaped UUID in an api-key context reddens (mutant: plant one ⇒ red); a bare
+  // A Helius-shaped UUID in an api-key context reddens (mutant: plant one ⇒ red); a bare
   // base58 mint does NOT (the context is required, so pools.ts stays green).
   assert.ok(SECRET_PATTERNS.some((p) => p.re.test("https://mainnet.helius-rpc.com/?api-key=deadbeef-1234-5678-9abc-def012345678")),
     "detects a Helius-shaped UUID in an api-key context");
   assert.equal(SECRET_PATTERNS.some((p) => p.re.test("XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB")), false, "a base58 mint is NOT a secret");
-  // ADR-T1aii-D1-bis C-10 (lot -b1): the Chainstack/p2pify/wss/Bearer/API_KEY shapes redden (mutant: plant one
+  // The Chainstack/p2pify/wss/Bearer/API_KEY shapes redden (mutant: plant one
   // ⇒ red), while the collector's real forms and doc prose stay green (no false positive).
   const fires = (s: string): boolean => SECRET_PATTERNS.some((p) => p.re.test(s));
   assert.ok(fires("https://solana-mainnet.core.chainstack.com/0123456789abcdef0123456789abcdef"), "detects a Chainstack hex-key url");
@@ -118,7 +118,7 @@ test("no_secret_in_repo", () => {
   assert.ok(fires("wss://solana-mainnet.core.chainstack.com/0123456789abcdef0123456789abcdef"), "detects a wss hex-key url");
   assert.ok(fires("Authorization: Bearer sk_live_0123456789abcdefABCDEF"), "detects a >=16-char Bearer token");
   assert.ok(fires('HELIUS_API_KEY="0123456789abcdef0123456789abcdef1234"'), "detects an *_API_KEY= inline assignment");
-  // ADR-T1aii-D1-quinquies C-10 (lot -b3b): a Databento db- key reddens (mutant: commit one => red); the doc prose
+  // A Databento db- key reddens (mutant: commit one => red); the doc prose
   // mentioning the "db-" prefix, and DATABENTO_API_KEY via process.env, stay green (no false positive).
   assert.ok(fires("const k = \"db-0123456789abcdef01234567\";"), "detects a Databento db- key value");
   assert.equal(fires("the DATABENTO_API_KEY is 32 chars with the prefix db-"), false, "prose 'prefix db-' is not a secret");
@@ -129,7 +129,7 @@ test("no_secret_in_repo", () => {
   assert.equal(fires("const k = process.env.HELIUS_API_KEY ?? \"\";"), false, "process.env.*_API_KEY access is not a secret");
   assert.equal(fires("second provider chainstack.com (archive from block 0)"), false, "a bare host mention is not a secret");
   assert.equal(fires("the POLYGON_API_KEY key (32 chars, never printed)"), false, "a prose key-name mention is not a secret");
-  // T-1b S-10: a private Ed25519 key GENERATED HERE (never committed) reddens as a JWK and as a bare PKCS#8 DER; its public JWK and
+  // A private Ed25519 key GENERATED HERE (never committed) reddens as a JWK and as a bare PKCS#8 DER; its public JWK and
   // the KAT's in-memory construction stay green. Mutant: the JWK entry (or the DER entry) removed => red.
   const k = generateKeyPairSync("ed25519").privateKey;
   assert.ok(fires(JSON.stringify(k.export({ format: "jwk" }))), "detects a private JWK (member d)");

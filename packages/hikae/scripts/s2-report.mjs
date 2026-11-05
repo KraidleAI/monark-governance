@@ -1,5 +1,5 @@
-// Generates docs/S2-RAPPORT-fixtures-synth.md + docs/S2-journal-fixtures-synth.tsv from the instrument
-// (ADR-M002 D10; G2 Lot H corr. 4). Deterministic: same code + same parameters ⇒ same bytes.
+// Generates docs/S2-RAPPORT-fixtures-synth.md + docs/S2-journal-fixtures-synth.tsv from the instrument.
+// Deterministic: same code + same parameters ⇒ same bytes.
 // Usage: node packages/hikae/scripts/s2-report.mjs   (from the workspace root, Node >= 24)
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";

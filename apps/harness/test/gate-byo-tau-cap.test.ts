@@ -1,9 +1,8 @@
 /**
- * Harness - BYO set-mode tau cap (worksite 4 of the RECHERCHES alignment, lot L4-5; ADR-M005 D5 K-4(d)
- * amendment 2026-09-30, class policy v1, D3 and D5). In set mode tau must be at most the number of
- * candidates minus 1: a larger tau would let a COMMIT stand on the whole candidate list. The refusal is a
- * named tool error (400) naming the required value; the cap runs after the B-3 label checks; interval mode
- * is not capped. Categories: B-1 F2P, B-2 and B-3 pins, each with one named killer.
+ * Harness - BYO set-mode tau cap. In set mode tau must be at most the number of candidates minus 1: a larger tau would
+ * let a COMMIT stand on the whole candidate list. The refusal is a named tool error (400) naming the required value;
+ * the cap runs after the label checks; interval mode is not capped. Categories: B-1 F2P, B-2 and B-3 pins, each with
+ * one named killer.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -82,17 +81,17 @@ test("byo_set_tau_cap_names_required_value", () => {
 });
 
 // B-2 (pin, check order). A label containing a pipe with tau 5 (above the cap of 1 for two candidates): the
-// B-3 label refusal comes first, never the tau text.
+// label refusal comes first, never the tau text.
 // killer: apps/harness/src/tools/gate.ts:437 SDL "must not contain" -> ""
 test("byo_set_tau_cap_after_label_validation", () => {
   assert.throws(
     () => runSet([{ label: "A", score: 0.2 }, { label: "B|C", score: 0.5 }], 5),
     (e: unknown) => e instanceof HarnessToolError && e.message.includes("must not contain '|'") && !e.message.includes("requires params.tau"),
-    "the B-3 pipe refusal fires before the tau cap",
+    "the pipe label refusal fires before the tau cap",
   );
 });
 
-// B-3 (pin). Interval mode is not capped (ADR D5): tau 9 with scores 0.1 .. 1.0 gives the region [-1, 1],
+// B-3 (pin). Interval mode is not capped: tau 9 with scores 0.1 .. 1.0 gives the region [-1, 1],
 // width 2 <= tauInterval 2, intent 0 inside, a COMMIT. A tool error here is an assertion failure (assert.fail),
 // so the killer is killed in the closed format (ERR_ASSERTION), not merely red.
 // killer: apps/harness/src/tools/gate.ts:456 SDL "cal.mode !==" -> ""

@@ -1,4 +1,4 @@
-// test/loopback.test.ts -- lot LOOPBACK-PORTS-1 (2026-10-03): the shared helper test/helpers/loopback.ts. Its servers listen on
+// test/loopback.test.ts -- the shared helper test/helpers/loopback.ts. Its servers listen on
 // 127.0.0.1 only and its one fetch goes to such a server: no test reaches the network. A port that a server of the same test holds
 // stands for a port in use; a draw is injected where a test needs a port it knows. The line above each test names the change of the
 // helper that reddens it (the helper is test code: no killer of scripts/red-proof.mjs can target it).
@@ -66,7 +66,7 @@ test("loopback_start_takes_a_fresh_server_per_try", async () => {
 
 // reddened by: the port left open, or a port at or below 10080. A self-connect (localPort === port on 127.0.0.1, TCP simultaneous
 // open) also proves that nothing listens: a listener holds the port's bind bucket, which the kernel skips when it picks a source port.
-// Measured on Linux (HARNESS-LOOPBACK-PORTS-1, G0 and G2): 16 self-connects in 1 002 000 replays of this body, all on even ports of
+// Measured on Linux: 16 self-connects in 1 002 000 replays of this body, all on even ports of
 // the ephemeral range 32768-60999 (connect keeps the parity of the range's low end); 0 in 841 513 connects to an odd port.
 test("loopback_closed_port_refuses_a_connection", async () => {
   const port = await closedPort();
@@ -79,8 +79,8 @@ test("loopback_closed_port_refuses_a_connection", async () => {
   assert.ok(code === "ECONNREFUSED" || code === "self-connect", `nothing listens on a closed port: ${code}`);
 });
 
-// reddened by: a server returned that listens on another port than the drawn one (a `start` that ignores its port, as M17 of the
-// G2), or that server left open. The factory binds port + 1 (LOOPBACK-CLOSEDPORT-RACE-1): no closed port that another process can take.
+// reddened by: a server returned that listens on another port than the drawn one (a `start` that ignores its port), or that
+// server left open. The factory binds port + 1: no closed port that another process can take.
 test("loopback_start_refuses_a_server_off_the_drawn_port", async () => {
   const built: Server[] = [], off = /^the server listens on port (\d+), not on the drawn port (\d+)$/;
   const e: unknown = await startLoopback((port) => { const b = createServer().listen(port + 1, "127.0.0.1"); built.push(b); return b; }).then(() => null, (x: unknown) => x);
@@ -89,7 +89,7 @@ test("loopback_start_refuses_a_server_off_the_drawn_port", async () => {
   assert.deepEqual([Number(m?.[1]) - Number(m?.[2]), open], [1, false], "refused at the try that listens, one above the drawn port, and closed");
 });
 
-// reddened by: a listener of a try left on the server, after it listens (M06 of the G2) or after a refused try (M08), or kept by on()
+// reddened by: a listener of a try left on the server, after it listens or after a refused try, or kept by on()
 test("loopback_listen_leaves_no_listener_behind", async () => {
   const busy = createServer(), server = createServer(), refused = createServer(), taken = await listen(busy);
   const counts = (s: Server): number[] => [s.listenerCount("error"), s.listenerCount("listening")];
@@ -103,9 +103,9 @@ test("loopback_listen_leaves_no_listener_behind", async () => {
 // reddened by: the port of a closed server drawn again (no port retired, or the listening check removed). A port retired at its bind
 // instead reddens loopback_start_takes_a_fresh_server_per_try (its busy port, still open, would never be tried).
 test("loopback_listen_never_draws_the_port_of_a_closed_server_again", async () => {
-  // lot COINBASE-LOOPBACK-FLAKE-1: fetch keeps an idle keep-alive socket of a closed server in its pool, and a new server on the same
+  // Fetch keeps an idle keep-alive socket of a closed server in its pool, and a new server on the same
   // port would get its first request on that dead socket (ECONNRESET; the helper's header). No fetch here: on win32, a forced exit of
-  // the test runner while V8 still tiers up fetch's WebAssembly parser aborts the process (measured, item FORCE-EXIT-WASM-TIERUP-1).
+  // the test runner while V8 still tiers up fetch's WebAssembly parser aborts the process (measured).
   const old = createServer(), port = await listen(old);
   await close(old);
   const fresh = createServer(), s = scripted(port, 1), next = await listen(fresh, s.draw);
@@ -117,7 +117,7 @@ test("loopback_listen_never_draws_the_port_of_a_closed_server_again", async () =
 
 // reddened by: a port retired only at the close event of its server, which an open connection holds back, or no port retired
 test("loopback_listen_never_draws_the_port_of_a_server_that_stopped_listening", async () => {
-  // lot COINBASE-LOOPBACK-FLAKE-1, B-1 of its G2: close() frees the port at once, but the close event waits for the open connections.
+  // close() frees the port at once, but the close event waits for the open connections.
   // A connection still open (a keep-alive socket of fetch's pool, here a plain one) must not let the port be drawn again meanwhile.
   const old = createServer(), port = await listen(old);
   const accepted = new Promise<Socket>((done) => { old.once("connection", done); }), client = connect(port, "127.0.0.1");

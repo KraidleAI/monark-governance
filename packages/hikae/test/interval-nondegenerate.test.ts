@@ -12,18 +12,18 @@ import {
 import type { CalibPair, GateInput } from "../src/index.ts";
 import type { PredictionRegion } from "@monark/contracts";
 
-// ADR-M011 — interval non-degeneracy (NDG-1). A zero-width `interval` region (`lo === hi`, whether
-// q̂=0 or float absorption) is NOT a `covered` verdict: it is a fail-closed abstention, `region_degenerate` since B-16.
+// Interval non-degeneracy. A zero-width `interval` region (`lo === hi`, whether
+// q̂=0 or float absorption) is NOT a `covered` verdict: it is a fail-closed abstention, `region_degenerate`.
 // Anti-circularity: the vectors here are built by hand / by fed scores, and every `under_calib` is
-// proven to come from the region guard (NDG-1), NOT from L1's `n<nMin`/`p>n` path.
+// proven to come from the region guard, NOT from L1's `n<nMin`/`p>n` path.
 
-// Provenance (ADR-M011 §1): the msUSD F2-A episode (fixture sha
+// Provenance: the msUSD F2-A episode (fixture sha
 // d95cc0a34507ff9593ed52d55463c2daeca826a9cd2117e5776c19cabdff5e58, 198 windows, OUT-OF-REPO, REFUSED /
-// negative closure — authority: ADR-M011 §1; see also docs/PLAN-m008-f2b-usde.md §0). This vector REPRODUCES its degenerate STRUCTURE —
+// negative closure). This vector REPRODUCES its degenerate STRUCTURE —
 // n=191 calm windows = 190 zero residuals + 1 positive dust (1 token / ~82M supply, ratio ≈ 1.2e-8). It
 // is NOT the exact 198-window fixture and does not hash to that sha.
 const DUST = 1.2e-8;
-const NMIN = 5; // explicit, <= 191 — isolates NDG-1 from L1's n<nMin path (anti-circularity)
+const NMIN = 5; // explicit, <= 191 — isolates the region guard from L1's n<nMin path (anti-circularity)
 const COMMON = {
   alpha: 0.1, // PINNED — the trap: at α=0.01, p=n=191 ⇒ q̂ = the dust > 0 ⇒ NON-degenerate region
   nMin: NMIN,
@@ -34,7 +34,7 @@ const COMMON = {
   cell: { qhatUnit: "label" as const, scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
 };
 
-// §3.1 — conformer, msUSD-like degenerate calibration (190 residuals=0 + 1 dust) at α=0.10 PINNED.
+// Conformer, msUSD-like degenerate calibration (190 residuals=0 + 1 dust) at α=0.10 PINNED.
 // killer: packages/hikae/src/interval-conformer.ts:88 CONST "underCalib(params, ir.reason)" -> "underCalib(params)"
 test("interval_nondegenerate_conformer_msusd_like_region_degenerate", () => {
   // 190 pairs with residual 0 (yhat===y) + 1 pair with residual DUST. n=191.
@@ -48,11 +48,11 @@ test("interval_nondegenerate_conformer_msusd_like_region_degenerate", () => {
   assert.equal(scores.filter((s) => s > 0).length, 1, "exactly 1 positive residual (dust) — kills a naive all-zeros guard");
 
   // ANTI-CIRCULARITY: L1 produces q̂=0 here (NOT under_calib) ⇒ the under_calib below comes from the
-  // region guard (NDG-1), not from splitQuantile. p=⌈192·0.9⌉=173, sorted[172]=0 (190 zeros fill 0..189).
+  // region guard, not from splitQuantile. p=⌈192·0.9⌉=173, sorted[172]=0 (190 zeros fill 0..189).
   assert.deepEqual(splitQuantile(scores, 0.1, NMIN), { qhat: 0 }, "L1 q̂=0 at α=0.10 (not under_calib)");
 
   const r = conformInterval({ ...COMMON, calib, yhat: 1000 });
-  assert.equal(r.verdict.reason, "region_degenerate", "zero-width region ⇒ region_degenerate (NDG-1, B-16)");
+  assert.equal(r.verdict.reason, "region_degenerate", "zero-width region ⇒ region_degenerate");
   assert.equal(r.verdict.abstain, true);
   assert.equal(r.qhat, null, "q̂ null on abstention (never clamped, never a width-0 covered)");
   assert.equal(r.region, null, "no interval region emitted");
@@ -66,7 +66,7 @@ test("interval_nondegenerate_conformer_msusd_like_region_degenerate", () => {
   assert.notEqual(rNeg.region, null);
 });
 
-// §3.1 (pure) — all-zeros calibration (191 zeros): α-INDEPENDENT degeneracy ⇒ q̂=0 at any α ⇒ under_calib.
+// Pure — all-zeros calibration (191 zeros): α-INDEPENDENT degeneracy ⇒ q̂=0 at any α ⇒ under_calib.
 // killer: packages/hikae/src/interval-conformer.ts:88 CONST "underCalib(params, ir.reason)" -> "underCalib(params)"
 test("interval_nondegenerate_conformer_all_zeros_region_degenerate", () => {
   const calib: CalibPair[] = Array.from({ length: 191 }, () => ({ yhat: 5, y: 5 }));
@@ -79,8 +79,8 @@ test("interval_nondegenerate_conformer_all_zeros_region_degenerate", () => {
   }
 });
 
-// §3.2 — a hand-built zero-width `interval` region (bypassing buildIntervalRegion) carried by a `covered`
-// verdict reaching L3 ⇒ decideInterval NDG-1 guard (D3(b)) abstains region_degenerate (B-16), NEVER commits.
+// A hand-built zero-width `interval` region (bypassing buildIntervalRegion) carried by a `covered`
+// verdict reaching L3 ⇒ the decideInterval zero-width guard abstains region_degenerate, NEVER commits.
 // killer: packages/hikae/src/l3-gate.ts:128 CONST "reason: \"region_degenerate\"" -> "reason: \"under_calib\""
 test("interval_nondegenerate_l3_handbuilt_zero_width_abstains", () => {
   const region: PredictionRegion = { kind: "interval", lo: 100, hi: 100 };
@@ -106,7 +106,7 @@ test("interval_nondegenerate_l3_handbuilt_zero_width_abstains", () => {
     tau: 1,
     tauInterval: 1,
     nCalib: 50,
-    nMin: 50, // nCalib >= nMin AND verdict.reason=covered ⇒ the line-79 guard does NOT fire (isolates D3(b))
+    nMin: 50, // nCalib >= nMin AND verdict.reason=covered ⇒ the line-79 guard does NOT fire (isolates lo === hi)
     clockOpen: true,
     timedOut: false,
     evaluable: true,
@@ -115,21 +115,21 @@ test("interval_nondegenerate_l3_handbuilt_zero_width_abstains", () => {
     requestSha256: "e".repeat(64),
   };
   const d = gate(input);
-  assert.equal(d.action, "abstain", "zero-width interval region ⇒ ABSTAIN (NDG-1 D3(b)), never COMMIT");
+  assert.equal(d.action, "abstain", "zero-width interval region ⇒ ABSTAIN, never COMMIT");
   assert.equal(d.allow, false);
   assert.equal(d.reason, "region_degenerate");
 });
 
-// §3.3 (unit) — the structural NDG-1 guard on the SOLE constructor: equal bounds ⇒ abstain region_degenerate (B-16).
+// Unit — the structural zero-width guard on the SOLE constructor: equal bounds ⇒ abstain region_degenerate.
 // killer: packages/hikae/src/region.ts:75 CONST "reason: \"region_degenerate\"" -> "reason: \"under_calib\""
 test("interval_nondegenerate_buildIntervalRegion_equal_bounds", () => {
   const r = buildIntervalRegion(1e6, 1e6);
-  assert.equal(r.abstain, true, "buildIntervalRegion(1e6,1e6) ⇒ abstain (NDG-1)");
+  assert.equal(r.abstain, true, "buildIntervalRegion(1e6,1e6) ⇒ abstain");
   if (r.abstain) assert.equal(r.reason, "region_degenerate");
 });
 
-// §3.4(a) — non-regression: a `set` singleton q̂=0 (C={ŷ}) is a LEGITIMATE calibrated silence (D5), NOT
-// degenerate — intent ∈ {up} ⇒ COMMIT covered. The NDG-1 guard is interval-scoped and must not touch it.
+// Non-regression: a `set` singleton q̂=0 (C={ŷ}) is a LEGITIMATE calibrated silence, NOT
+// degenerate — intent ∈ {up} ⇒ COMMIT covered. The zero-width guard is interval-scoped and must not touch it.
 test("interval_nondegenerate_set_singleton_qhat0_still_commits", () => {
   const region = buildSetRegion(["up"]);
   const verdict = buildVerdict({
@@ -162,12 +162,12 @@ test("interval_nondegenerate_set_singleton_qhat0_still_commits", () => {
     schemaVersion: "1.0.0",
     requestSha256: "e".repeat(64),
   });
-  assert.equal(d.action, "commit", "set singleton q̂=0, intent ∈ {up} ⇒ COMMIT (D5, not degenerate)");
+  assert.equal(d.action, "commit", "set singleton q̂=0, intent ∈ {up} ⇒ COMMIT (not degenerate)");
   assert.equal(d.reason, "covered");
   assert.equal(d.allow, true);
 });
 
-// §3.4(b) — non-regression: a real `interval` q̂=99 region [901,1099] (lo<hi) ⇒ covered/COMMIT untouched.
+// Non-regression: a real `interval` q̂=99 region [901,1099] (lo<hi) ⇒ covered/COMMIT untouched.
 test("interval_nondegenerate_real_interval_still_commits", () => {
   const hand: CalibPair[] = Array.from({ length: 99 }, (_, i) => ({ yhat: 1000, y: 1000 + (i + 1) }));
   const r = conformInterval({ ...COMMON, alpha: 0.01, nMin: 50, calib: hand, yhat: 1000 });

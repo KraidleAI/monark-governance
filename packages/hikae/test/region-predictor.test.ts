@@ -11,8 +11,8 @@ import {
 } from "../src/index.ts";
 import type { Candle } from "../src/index.ts";
 
-// Test 15 — order invariant (lo>hi ⇒ throw) + NDG-1 (ADR-M011): lo < hi STRICT for a valid region; lo === hi
-// (zero width) is degenerate ⇒ region_degenerate abstention (B-16), never a bounded `covered` region.
+// Test 15 — order invariant (lo>hi ⇒ throw) + zero-width guard: lo < hi STRICT for a valid region; lo === hi
+// (zero width) is degenerate ⇒ region_degenerate abstention, never a bounded `covered` region.
 // killer: packages/hikae/src/region.ts:75 CONST "reason: \"region_degenerate\"" -> "reason: \"under_calib\""
 test("interval_lo_le_hi", () => {
   const r = buildIntervalRegion(-0.03, 0.03);
@@ -23,9 +23,9 @@ test("interval_lo_le_hi", () => {
     assert.equal(r.region.hi, 0.03);
   }
   assert.throws(() => buildIntervalRegion(0.05, 0.01), { message: "buildIntervalRegion: lo (0.05) > hi (0.01) — order invariant (lo <= hi) violated." }, "lo>hi ⇒ throw");
-  // NDG-1 (ADR-M011): equal bounds (zero width) ⇒ abstention region_degenerate (B-16; was `abstain:false` pre-M011).
+  // Equal bounds (zero width) ⇒ abstention region_degenerate.
   const eq = buildIntervalRegion(1, 1);
-  assert.equal(eq.abstain, true, "lo === hi ⇒ zero-width degenerate ⇒ abstain (NDG-1)");
+  assert.equal(eq.abstain, true, "lo === hi ⇒ zero-width degenerate ⇒ abstain");
   if (eq.abstain) assert.equal(eq.reason, "region_degenerate");
 });
 

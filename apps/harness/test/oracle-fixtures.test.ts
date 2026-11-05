@@ -1,7 +1,7 @@
 /**
- * Harness - literature oracle tests on the two committed calibration fixtures (worksite 1 of the
- * conformal alignment). The switch points are computed by hand from the fixture counts and the split rank
- * p = ceil((n+1)(1-alpha)) [TB Alg. 3.6]. Since CM-2b (ADR-CM B-5, B-2) btc-dir-15m is retired and the USDe key's
+ * Harness - literature oracle tests on the two committed calibration fixtures.
+ * The switch points are computed by hand from the fixture counts and the split rank
+ * p = ceil((n+1)(1-alpha)) [TB Alg. 3.6]. btc-dir-15m is retired and the USDe key's
  * alpha is imposed (0.1), so the switch points are observed on the SAME engine primitives the served path composes
  * (splitQuantile, conformalSet, buildIntervalRegion), and the served runGate is asserted to refuse the former probes.
  * Each test has one named killer. Pure: the fixtures are the committed source arrays.
@@ -52,9 +52,9 @@ function btcSet(alpha: number): { qhat: number; labels: string[] } | "under_cali
   return { qhat: split.qhat, labels: conformalSet(indicatorScores("up", BTC_DIR_LABELS), split.qhat) };
 }
 
-// btc-dir fixture (M-2): n = 150 with 6 ones, so qhat = 0 iff ceil(151(1-alpha)) <= 144 iff alpha >= 7/151
+// btc-dir fixture: n = 150 with 6 ones, so qhat = 0 iff ceil(151(1-alpha)) <= 144 iff alpha >= 7/151
 // (0.046357...), and under_calib iff alpha < 1/151 (0.006622...). qhat = 0 gives the singleton {up}, qhat = 1 gives
-// {up, down}. CM-2b: the class is retired, so the served runGate refuses it (400 task_class_retired).
+// {up, down}. The class is retired, so the served runGate refuses it (400 task_class_retired).
 // killer: packages/hikae/src/l1-split.ts:39 CONST "(n + 1)" -> "(n + 2)"
 test("oracle_btc_dir_fixture_commit_switch_at_alpha_7_over_151", () => {
   assert.equal(BTC_DIR_CALIB.length, 150, "n = 150");
@@ -72,10 +72,10 @@ test("oracle_btc_dir_fixture_commit_switch_at_alpha_7_over_151", () => {
   }
 });
 
-// USDe fixture (M-3; SOA 2.2: atom at 0 and ties, only the lower coverage bound holds [LEI]): n = 613,
+// USDe fixture (SOA 2.2: atom at 0 and ties, only the lower coverage bound holds [LEI]): n = 613,
 // 129 zeros, 458 distinct values. qhat = 0 iff ceil(614(1-alpha)) <= 129 iff alpha >= 485/614 (0.78990...),
-// then NDG-1 (zero width) abstains; under_calib by rank iff alpha < 1/614 (0.0016286...). CM-2b: the served key
-// imposes alpha = 0.1 (F-7), so the switches are read on the engine and the served runGate refuses those alphas.
+// then the zero-width guard abstains; under_calib by rank iff alpha < 1/614 (0.0016286...). The served key
+// imposes alpha = 0.1, so the switches are read on the engine and the served runGate refuses those alphas.
 // killer: packages/hikae/src/region.ts:71 ROR "lo === hi" -> "lo > hi"
 test("oracle_usde_fixture_zero_atom_ties", () => {
   const calib = USDE_STABLE_RUN_CALIB;
@@ -94,7 +94,7 @@ test("oracle_usde_fixture_zero_atom_ties", () => {
     if ("reason" in split) return "under_calib";
     return { qhat: split.qhat, abstain: buildIntervalRegion(yhat - split.qhat, yhat + split.qhat).abstain };
   };
-  assert.deepEqual(band(0.79), { qhat: 0, abstain: true }, "alpha = 0.79: rank 129, qhat 0, zero width => NDG-1 abstains");
+  assert.deepEqual(band(0.79), { qhat: 0, abstain: true }, "alpha = 0.79: rank 129, qhat 0, zero width => abstains");
   assert.deepEqual(band(0.789), { qhat: smallestPositive, abstain: false }, "alpha = 0.789: rank 130, qhat = smallest positive score");
   assert.equal(band(0.0016), "under_calib", "alpha = 0.0016: rank 614 > 613");
   assert.deepEqual(band(0.0017), { qhat: largest, abstain: false }, "alpha = 0.0017: rank 613, qhat = largest score");
@@ -115,5 +115,5 @@ test("oracle_usde_fixture_zero_atom_ties", () => {
   assert.ok(!("reason" in split), "alpha 0.1 calibrates");
   assert.equal(served.verdict.qhat, split.qhat, "served at the imposed alpha 0.1: the engine qhat");
   assert.ok(yhat - split.qhat === -0.00008959228083333333, "fl(yhat - qhat)");
-  assert.deepEqual(served.verdict.region, { kind: "interval", lo: -0.00008959228083333335, hi: yhat + split.qhat }, "B-13: lo of the score test, one ulp below fl(yhat - qhat)");
+  assert.deepEqual(served.verdict.region, { kind: "interval", lo: -0.00008959228083333335, hi: yhat + split.qhat }, "lo of the score test, one ulp below fl(yhat - qhat)");
 });

@@ -1,7 +1,6 @@
 /**
- * Marginal rows of 1.1.0 (lot CM-4a-ii-a, block B2; docs/G0-lot-cm-4a-ii.md G-4, G-5; A-2 section 2.3 and its killers,
- * section 5): class entries of the stable-run, liquidation and cascade classes, rows rebuilt from calibration.ts, their
- * table guard and LIQ-BAND-EXACT-GUARD-1. Each test names its killer above it.
+ * Marginal rows of 1.1.0: class entries of the stable-run, liquidation and cascade classes, rows rebuilt from
+ * calibration.ts, their table guard and assertLiqBandExact. Each test names its killer above it.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";

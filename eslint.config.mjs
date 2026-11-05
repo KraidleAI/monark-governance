@@ -1,21 +1,21 @@
-// MONARK — "flat" ESLint configuration, ADR-M003 D9 + addendum D9 ter (2026-09-06).
+// MONARK — "flat" ESLint configuration.
 //
 // STATUS: EXECUTABLE and MEASURED (TS 6.0.3, classic compiler API) — the toolchain blocker
-// (NATIVE TS 7 port without the classic API) is resolved by addendum D9 (2026-09-05, option c:
-// typescript pinned 6.0.3). The SCOPE of the violations is settled by addendum D9 ter:
+// (NATIVE TS 7 port without the classic API) is resolved by pinning the classic compiler (2026-09-05:
+// typescript pinned 6.0.3). The SCOPE of the violations is settled in two parts:
 //
-//   §2  no-floating-promises: handled by the DOCUMENTED option `allowForKnownSafeCalls` targeting
+//   (a) no-floating-promises: handled by the DOCUMENTED option `allowForKnownSafeCalls` targeting
 //       test()/describe()/it() of `node:test` — the promise returned by the runner is handled by
 //       the runner (idiom), it is NOT a code defect. The rule is KEPT as an error everywhere
 //       else (no disabling). Doc: https://typescript-eslint.io/rules/no-floating-promises/
 //       (verified 2026-09-06; plugin @typescript-eslint/eslint-plugin@8.69.0, schema contains
 //       `allowForKnownSafeCalls`; "package" form = { from:"package", name:[...], package:"node:test" }).
 //
-//   §3  test files (**/*.test.ts, test/**): the 6 no-unsafe-*/no-explicit-any rules set to `off`
+//   (b) test files (**/*.test.ts, test/**): the 6 no-unsafe-*/no-explicit-any rules set to `off`
 //       (JSON fixtures handled as `any` in the tests), WITH the measured ratchet `scripts/lint-ratchet.mjs`
 //       that RE-ENABLES them on the tests and bounds the count to the committed ceiling `lint-ratchet.json`.
 //       The list of the 6 rules is the SINGLE SOURCE `lint-ratchet.json` -> no possible divergence
-//       between this config (off) and the ratchet (re-enable/count). Formed pending (D9 ter §3):
+//       between this config (off) and the ratchet (re-enable/count). Still pending:
 //       typing of the test fixtures, target ceiling 0 before a later phase.
 //
 // Installed versions, pinned EXACT (npm registry):
@@ -61,7 +61,7 @@ export default tseslint.config(
       },
     },
     rules: {
-      // D9 ter §2 — node:test: test()/describe()/it() return a promise HANDLED by the runner.
+      // (a) — node:test: test()/describe()/it() return a promise HANDLED by the runner.
       // Rule kept as an error; only these known-safe calls are exempted.
       "@typescript-eslint/no-floating-promises": [
         "error",
@@ -74,8 +74,8 @@ export default tseslint.config(
     },
   },
   {
-    // D9 ter §3 — test files: 6 no-unsafe-*/no-explicit-any rules OFF (fixtures as any).
-    // Tracked by the ratchet scripts/lint-ratchet.mjs (re-enable + ceiling). Globs = those of the ADR.
+    // (b) — test files: 6 no-unsafe-*/no-explicit-any rules OFF (fixtures as any).
+    // Tracked by the ratchet scripts/lint-ratchet.mjs (re-enable + ceiling). Globs = those of part (b) above.
     files: ["**/*.test.ts", "test/**"],
     rules: testDeferredOff,
   },

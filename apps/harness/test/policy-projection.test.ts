@@ -1,6 +1,6 @@
 /**
- * Registry cell -> class-policy-v2 row (lot CM-4a-i, block B1; docs/G0-lot-cm-4a-i.md; A-2 section 2.2 point 1), on the
- * seeded synthetic registry (plan r3 section 5.3 point 8), never on wave1.json. Each test names its killer above it.
+ * Registry cell -> class-policy-v2 row, on the seeded synthetic registry, never on wave1.json. Each test names its
+ * killer above it.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";

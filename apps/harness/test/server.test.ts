@@ -1,5 +1,5 @@
 /**
- * Harness — transport safety (ADR-M005 D7, K-8/K-9). Origin allowlist + localhost bind.
+ * Harness — transport safety. Origin allowlist + localhost bind.
  * No `any` (off the ratchet).
  */
 import { test } from "node:test";
@@ -39,7 +39,7 @@ function wiredPost(port: number, host: string, path: string, body: string, accep
 
 /** The non-allowlisted Origin of the wired (a2) case. */
 const EVIL = "https://evil.example.com";
-/** The errors by which a client loses a response the server did send: a reset of the connection (EXPORT-HARNESS-413-LOAD-1). */
+/** The errors by which a client loses a response the server did send: a reset of the connection. */
 const RESET = new Set(["ECONNRESET", "EPIPE", "ECONNABORTED"]);
 
 function guard(origin: string | null): Response | undefined {
@@ -48,8 +48,8 @@ function guard(origin: string | null): Response | undefined {
   return originGuard(new Request(`http://${HOST}:${String(PORT)}/mcp`, { headers }));
 }
 
-// Test — a present, non-allowlisted (or malformed) Origin is rejected with 403 (K-9/C-1), BOTH as a
-// unit and ON THE WIRED HTTP PATH (C-2). Mutants: `isHarnessOriginAllowed` returns `true` ⇒ red (unit);
+// Test — a present, non-allowlisted (or malformed) Origin is rejected with 403, BOTH as a
+// unit and ON THE WIRED HTTP PATH. Mutants: `isHarnessOriginAllowed` returns `true` ⇒ red (unit);
 // drop the `originGuard(request)` call in `handleNodeRequest` (before dispatch) ⇒ red (wired).
 // killer: apps/harness/src/server.ts:196 CONST "(port, host)" -> "(0, host)"
 test("origin_invalid_returns_403", async () => {
@@ -85,14 +85,14 @@ test("origin_invalid_returns_403", async () => {
     await apexWired.body?.cancel();
     assert.notEqual(apexWired.status, 403, "an apex Origin passes the guard on the wired path");
   } finally {
-    server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
+    server.closeAllConnections(); // server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => {
       server.close(() => { resolve(); });
     });
   }
 });
 
-// Test — an ABSENT Origin is accepted (non-browser MCP clients send none) (K-9/C-1).
+// Test — an ABSENT Origin is accepted (non-browser MCP clients send none).
 // Mutant: reject when the Origin header is absent ⇒ red.
 test("origin_absent_is_accepted", () => {
   assert.equal(guard(null), undefined, "an absent Origin is accepted");
@@ -127,13 +127,13 @@ test("oversized_body_413_and_normal_tools_call_unaffected", async () => {
     // bad-Origin request carrying an OVERSIZED body gets 403 (the guard fired on the header), NOT 413
     // (which would mean the bounded reader ran first, buffering a body from a rejected origin). Killing
     // mutant: move `originGuard` below `readBodyBounded` in `handleNodeRequest` ⇒ this flips 403→413 ⇒ red.
-    // The verdict rests on what the SERVER sent, seen on its own `request` event (EXPORT-HARNESS-413-LOAD-1): the 403, with the
+    // The verdict rests on what the SERVER sent, seen on its own `request` event: the 403, with the
     // body not read in full (`req.complete` false proves only that: the guard answered before the whole body was consumed; a
     // reader that buffers the whole body first reds here). The client must see that 403, or a reset: the server closes a socket that still holds
     // unread body bytes, so the OS answers the rest with RST, and win32 drops a received but unread 403 when the RST lands
     // first (Linux keeps it): the red of the exported CI on win32 under load (65 ms). Any other status or error stays red.
     // A server that drops the socket without finishing a response must red on a named assertion, not hang to the runner timeout
-    // (G2 C-1): `close` gives the fast verdict, and the wait for `sent` is capped once the client has its outcome.
+    // `close` gives the fast verdict, and the wait for `sent` is capped once the client has its outcome.
     const sent = new Promise<{ status: number; complete: boolean } | string>((resolve) => {
       const onRequest = (req: IncomingMessage, res: ServerResponse): void => {
         if (req.headers.origin !== EVIL) return;
@@ -193,12 +193,12 @@ test("oversized_body_413_and_normal_tools_call_unaffected", async () => {
     assert.equal(mcp.status, 200, "the MCP tools/call (SSE) path still returns 200 through the bounded reader");
     assert.ok(mcp.raw.includes("\"qhat\":1"), "the MCP tools/call SSE body carries the computed calibrate result (qhat=1)");
   } finally {
-    server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
+    server.closeAllConnections(); // server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 });
 
-// Test — the server binds 127.0.0.1 ONLY (K-8/C-10). Mutant: HOST = "0.0.0.0" ⇒ red.
+// Test — the server binds 127.0.0.1 ONLY. Mutant: HOST = "0.0.0.0" ⇒ red.
 // killer: apps/harness/src/server.ts:196 CONST "(port, host)" -> "(0, host)"
 test("harness_binds_localhost_only", async () => {
   assert.equal(HOST, "127.0.0.1", "the bind host constant is localhost");
@@ -208,40 +208,39 @@ test("harness_binds_localhost_only", async () => {
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     assert.equal(addr.address, "127.0.0.1", "must bind localhost only, never 0.0.0.0");
   } finally {
-    server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
+    server.closeAllConnections(); // server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => {
       server.close(() => { resolve(); });
     });
   }
 });
 
-// Test — M012-f: the MCP serverInfo.version (and the OpenAPI info.version) advertise the SINGLE-SOURCE
+// Test — the MCP serverInfo.version (and the OpenAPI info.version) advertise the SINGLE-SOURCE
 // HARNESS_VERSION, never a hardcoded "1.0.0". The live `initialize` probe (2026-09-18) returned
 // serverInfo.version "1.0.0", contradicting the public tag v0.4.0 / MCP registry 0.4.0 and the
-// "1.0.0 is a human decision" doctrine (ADR-M010 section 2.3). Mutants:
+// "1.0.0 is a human decision" doctrine. Mutants:
 //   (a) server.ts `version: HARNESS_VERSION` -> `"1.0.0"` ⇒ the wired serverInfo assertion reds;
 //   (b) version.ts HARNESS_VERSION -> "1.0.0" ⇒ the equality passes (both "1.0.0") but the
 //       startsWith("1.") doctrinal guard reds — the guard's non-vacuity proof.
 // killer: apps/harness/src/server.ts:196 CONST "(port, host)" -> "(0, host)"
 test("serverInfo_version_is_single_source_and_never_one", async () => {
   // Doctrinal guard: the advertised version is a 0.MINOR.PATCH release aligned on the git tag, never a
-  // 1.x — "1.0.0 is a human decision, never an agent's; the interface contracts do not thaw"
-  // (ADR-M010 section 2.3 / CONTRIBUTING Releases).
-  assert.ok(!HARNESS_VERSION.startsWith("1."), `HARNESS_VERSION must not be a 1.x — 1.0.0 is a human decision, never an agent's (ADR-M010 section 2.3); got "${HARNESS_VERSION}"`);
-  assert.match(HARNESS_VERSION, /^0\.\d+\.\d+$/, `HARNESS_VERSION must be a 0.MINOR.PATCH release aligned on the git tag (ADR-M010 section 2.4); got "${HARNESS_VERSION}"`);
+  // 1.x — "1.0.0 is a human decision, never an agent's; the interface contracts do not thaw".
+  assert.ok(!HARNESS_VERSION.startsWith("1."), `HARNESS_VERSION must not be a 1.x — 1.0.0 is a human decision, never an agent's; got "${HARNESS_VERSION}"`);
+  assert.match(HARNESS_VERSION, /^0\.\d+\.\d+$/, `HARNESS_VERSION must be a 0.MINOR.PATCH release aligned on the git tag; got "${HARNESS_VERSION}"`);
 
   // The OpenAPI info.version is DERIVED from the SAME single source (no second version literal).
   const info = buildOpenApi()["info"];
   assert.ok(info !== null && typeof info === "object" && !Array.isArray(info), "the OpenAPI document must carry an info object");
   assert.equal(info["version"], HARNESS_VERSION, "the OpenAPI info.version must equal HARNESS_VERSION (single source)");
 
-  // ADR-M010 section 2.4: the advertised version is DELIBERATELY decoupled from package.json, which stays
+  // The advertised version is DELIBERATELY decoupled from package.json, which stays
   // "0.0.0"/private (never npm-published; the version source of truth is the git tag). Read the HARNESS
   // package.json only (this file imports nothing outside the harness workspace).
   const pkg = JSON.parse(readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8")) as { version: string; private: boolean };
-  assert.equal(pkg.version, "0.0.0", "apps/harness/package.json stays 0.0.0 by doctrine (ADR-M010 section 2.4 — version source of truth is the git tag)");
-  assert.equal(pkg.private, true, "apps/harness is private:true (never npm-published — ADR-M010 section 2.4)");
-  assert.notEqual(HARNESS_VERSION, pkg.version, "the advertised HARNESS_VERSION is decoupled from package.json.version (ADR-M010 section 2.4)");
+  assert.equal(pkg.version, "0.0.0", "apps/harness/package.json stays 0.0.0 by doctrine (version source of truth is the git tag)");
+  assert.equal(pkg.private, true, "apps/harness is private:true (never npm-published)");
+  assert.notEqual(HARNESS_VERSION, pkg.version, "the advertised HARNESS_VERSION is decoupled from package.json.version");
 
   // WIRED — reproduce the `initialize` probe that measured the defect (2026-09-18) on the `mcp.` surface:
   // the live serverInfo.version must equal HARNESS_VERSION. Stateless: no prior session is needed.
@@ -262,17 +261,17 @@ test("serverInfo_version_is_single_source_and_never_one", async () => {
     assert.ok(serverInfo, "the initialize result must carry serverInfo");
     assert.equal(serverInfo.version, HARNESS_VERSION, `serverInfo.version must equal HARNESS_VERSION (single source); got "${String(serverInfo.version)}"`);
   } finally {
-    server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
+    server.closeAllConnections(); // server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 });
 
-// Test — C-G2D-1 drain hygiene: after closeAllConnections()+close(), the SERVER handle (TCPServerWrap) clears.
-// This asserts the drain is well-formed socket hygiene — it does NOT prove the CI flake is fixed. MEASURED (see
-// the D4 finding / RENDU): the residual ~4% flake is a libuv Windows assertion (`src\win\async.c:76`, a uv_async_t
+// Test — drain hygiene: after closeAllConnections()+close(), the SERVER handle (TCPServerWrap) clears.
+// This asserts the drain is well-formed socket hygiene — it does NOT prove the CI flake is fixed. MEASURED:
+// the residual ~4% flake is a libuv Windows assertion (`src\win\async.c:76`, a uv_async_t
 // at process.exit() under --test-force-exit — nodejs/node#56645, Windows-only, repro fetch()+process.exit()), NOT
 // a socket leak; the drain reduces socket handles but does NOT close it. The ×100 matrix therefore does NOT reach
-// 0 (~4% residual, matrix-clean-82/) => D4 "0-flake" escalated to config-CI (orchestrator). No deterministic MUTANT
+// 0 (~4% residual, matrix-clean-82/). No deterministic MUTANT
 // reddens here. Test 18 (universe) is already drained; test 22 is spawnSync (no server handle) — untouched.
 // killer: apps/harness/src/server.ts:196 CONST "(port, host)" -> "(0, host)"
 test("harness_server_drain_leaves_no_server_handle", async () => {
@@ -290,7 +289,7 @@ test("harness_server_drain_leaves_no_server_handle", async () => {
   // libuv releases the handle one loop iteration AFTER the close() callback, so poll a bounded number of
   // macrotasks: a DRAINED server clears within a few ticks; a genuine leak never clears (the assertion fails).
   // We assert the SERVER handle (TCPServerWrap) only. The residual libuv async.c:76 flake (nodejs/node#56645) is
-  // NOT a socket handle and is NOT ruled out by this belt nor by the drain — it is escalated as a config-CI item.
+  // NOT a socket handle and is NOT ruled out by this belt nor by the drain.
   let kinds = process.getActiveResourcesInfo();
   for (let i = 0; i < 50 && kinds.includes("TCPServerWrap"); i++) {
     await new Promise<void>((resolve) => { setImmediate(resolve); });
@@ -299,7 +298,7 @@ test("harness_server_drain_leaves_no_server_handle", async () => {
   assert.equal(kinds.includes("TCPServerWrap"), false, `the server handle must clear after closeAllConnections()+close() (a leak never does); saw [${kinds.join(",")}]`);
 });
 
-// TRANSPORT-500-SCHEMA-1 (N-4 of the G2 of C' 3c-4a): every 500 the server can send validates the 500 schema that /openapi.json
+// Every 500 the server can send validates the 500 schema that /openapi.json
 // publishes (the same for the three operations, compiled by Ajv 2020 in strict mode), over the wire: the two 500 of an operation
 // (output outside its schema, the tool threw) and the transport-level 500 of server.ts, thrown around the mirror (POST /calibrate)
 // or before routing (an unparseable Host), whose body is exactly {"error":"internal_error"}. The schema stays closed.
@@ -343,7 +342,7 @@ test("every_500_of_the_server_validates_the_published_500_schema", async () => {
   }
 });
 
-// TRANSPORT-500-SCHEMA-1, fold of its review (R-1): every status the server can answer on a described operation is listed by
+// Every status the server can answer on a described operation is listed by
 // /openapi.json, and nothing else: 200, 400 (not JSON), 403 (an Origin outside monarkgate.tech), 413 (a body one byte over the
 // cap, read in full so no reset races the answer) and 500 (the tool threw). The 404 and 405 of undescribed paths and methods
 // are out of scope. The same list for the three operations.

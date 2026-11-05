@@ -1,11 +1,11 @@
 /**
- * Harness — USDe committed calibration pins (ADR-M008 Amendement 2026-09-17 bis; Lot F2-B).
+ * Harness — USDe committed calibration pins.
  *
  * Proves the FIRST committed MEASURED calibration is reproducible and anti-circular:
  *   - the series fixture is sha-pinned (the exact input the recorder rebuilds AttestedFlow from);
- *   - the committed scores array EQUALS the scores fixture the recorder writes (adapter 1e12, A1);
- *   - calib_digest = calibDigest (ADR-M001 C5, float64_be) — NOT a sha256(JSON.stringify) look-alike
- *     (the [0,1] oracle proves the function; this is the exact defect the lot's A1 gate replaced);
+ *   - the committed scores array EQUALS the scores fixture the recorder writes (adapter 1e12);
+ *   - calib_digest = calibDigest (float64_be) — NOT a sha256(JSON.stringify) look-alike
+ *     (the [0,1] oracle proves the function);
  *   - the pre-registered stats reproduce (n=613, q̂ support 61, q99 support 6, region non-degenerate);
  *   - the committed KEY is the ratified `<formula>@<chain>/<token>` value.
  * No `any`, no unsafe: this file stays off the lint ratchet.
@@ -43,7 +43,7 @@ test("usde_series_fixture_is_sha_pinned (the recorder's exact input)", () => {
   assert.equal(createHash("sha256").update(raw, "utf8").digest("hex"), SERIES_SHA256_PINNED, "series fixture sha256(LF) drift");
 });
 
-test("usde_committed_scores_equal_the_scores_fixture (adapter 1e12, A1)", () => {
+test("usde_committed_scores_equal_the_scores_fixture (adapter 1e12)", () => {
   const fixtureScores = JSON.parse(readFileSync(SCORES, "utf8")) as number[];
   assert.equal(fixtureScores.length, 613, "the scores fixture holds 613 scores");
   assert.equal(USDE_STABLE_RUN_CALIB.length, 613, "the committed array holds 613 scores");
@@ -51,8 +51,8 @@ test("usde_committed_scores_equal_the_scores_fixture (adapter 1e12, A1)", () => 
 });
 
 test("usde_calib_digest_is_calibDigest_C5_not_json_stringify (anti-circularity)", () => {
-  // The [0,1] oracle proves calibDigest is the float64_be C5 function (the 2026-09-17 defect used JSON.stringify).
-  assert.equal(calibDigest([0, 1]), "1e47beee7f4175a863385dc2f9c8278138e35f0caa43a5467a523519f1e91081", "calibDigest is the C5 function");
+  // The [0,1] oracle proves calibDigest is the float64_be function (the 2026-09-17 defect used JSON.stringify).
+  assert.equal(calibDigest([0, 1]), "1e47beee7f4175a863385dc2f9c8278138e35f0caa43a5467a523519f1e91081", "calibDigest is the float64_be function");
   assert.equal(calibDigest(USDE_STABLE_RUN_CALIB), USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "the committed digest is calibDigest(scores)");
   assert.equal(
     USDE_STABLE_RUN_CALIB_DIGEST_PINNED,
@@ -60,7 +60,7 @@ test("usde_calib_digest_is_calibDigest_C5_not_json_stringify (anti-circularity)"
     "the pinned digest is the ratified value",
   );
   // NOT the two rejected values: 2b5834e3… = sha256(JSON.stringify) of the scratchpad recorder (NOD 1
-  // reject); 0cbc7d5a… = calibDigest over the 1e6-pull-scale scores (wrong scale, superseded by A1 1e12).
+  // reject); 0cbc7d5a… = calibDigest over the 1e6-pull-scale scores (wrong scale, superseded by the 1e12 adapter).
   assert.notEqual(USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "2b5834e35d5a6e875b6dcd110baf8996e466fb86f1d23f93ce0976841c49e53e");
   assert.notEqual(USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "0cbc7d5a3e7986df23904e3aa8b0e29546f94b31847a11d26da41f8b15675b4d");
 });
@@ -73,12 +73,12 @@ test("usde_pre_registered_stats_reproduce (n=613, q̂ support 61, q99 support 6,
   const sq = splitQuantile(USDE_STABLE_RUN_CALIB, alpha, 50);
   assert.ok("qhat" in sq, "the committed calibration is not under-calibrated at α=0.10, nMin=50");
   assert.equal(sq.qhat, qHat, "hand q̂ == splitQuantile q̂ (L1)");
-  assert.ok(qHat > 0, "region non-degenerate: q̂ > 0 (NDG-1 would abstain otherwise)");
+  assert.ok(qHat > 0, "region non-degenerate: q̂ > 0 (the zero-width guard would abstain otherwise)");
   assert.equal(support(USDE_STABLE_RUN_CALIB, qHat), 61, "q̂ support == 61 (pre-registered)");
   assert.equal(support(USDE_STABLE_RUN_CALIB, q99), 6, "q99 support == 6 (pre-registered)");
 });
 
-test("usde_committed_key_is_the_ratified_value (ADR-M008 Amendement bis)", () => {
+test("usde_committed_key_is_the_ratified_value", () => {
   assert.equal(
     USDE_STABLE_RUN_PREDICTOR_ID,
     "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3",

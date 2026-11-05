@@ -24,7 +24,7 @@ test("negative zero is normalized (same real → same digest)", () => {
   assert.equal(calibDigest([-0, 1]), calibDigest([0, 1]));
 });
 
-// Cross-language oracles (ADR-M001 C5): a Python/Rust binder MUST reproduce these
+// Cross-language oracles: a Python/Rust binder MUST reproduce these
 // via SHA-256( concat float64_be(s) for s in sorted-ascending(scores) ), hex.
 test("known vector [0.0, 1.0]", () => {
   assert.equal(

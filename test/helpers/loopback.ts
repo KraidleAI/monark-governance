@@ -1,12 +1,12 @@
-// test/helpers/loopback.ts -- lot LOOPBACK-PORTS-1 (2026-10-03): the loopback port of the test servers, shared. Why not port 0: this
+// test/helpers/loopback.ts -- the loopback port of the test servers, shared. Why not port 0: this
 // host hands port 0 out in ONE sequence, shared by every bind and every outbound connect, from 1024 up, through phases below 10081
 // that outlast any retry; the Fetch port check of this runtime refuses 82 ports, the highest 10080 (Node 24.15.0, undici 7.24.4, read
 // in its own source), before any connect. A server bound on one of them is never reached by fetch ("bad port"): the rare reds
-// measured under load (G1 journals of SERIES-BINANCE, SERIES-INTERVALS and PROBE-NARABI-LOAD-1). So a port is drawn at random above
+// measured under load. So a port is drawn at random above
 // 10080, and another one on any listen error (in use, or excluded by the OS), with a named failure after TRIES tries: the draw, the
 // bound and the failure of the three copies this file replaces (test/record-binance-klines.test.ts, record-coinbase-candles,
 // probe-narabi-state). Test: test/loopback.test.ts.
-// Lot COINBASE-LOOPBACK-FLAKE-1 (2026-10-06): a port whose server no longer listens is never drawn again in this process. Fetch
+// A port whose server no longer listens is never drawn again in this process. Fetch
 // keeps an idle keep-alive socket per origin; a closed server leaves that socket in its pool until the client sees the close, and a
 // new server drawn on the same port gets its first request sent on the dead socket: ECONNRESET, a network_error of the recorder (an
 // isolated red of the Coinbase recorder test on the CI runner). Measured on this host: 200 of 200 resets when the port comes back,
@@ -32,8 +32,8 @@ function settled(server: Server): Promise<boolean> {
   });
 }
 
-/** The servers returned by startLoopback, by port: a port whose server no longer listens is never drawn again (lot
- *  COINBASE-LOOPBACK-FLAKE-1). The map holds each returned server for the life of the process: a few per test file. */
+/** The servers returned by startLoopback, by port: a port whose server no longer listens is never drawn again.
+ *  The map holds each returned server for the life of the process: a few per test file. */
 const started = new Map<number, Server>();
 
 /** Starts a server by `start(port)`, which calls listen, on drawn ports until one listens (another port on any listen error); the

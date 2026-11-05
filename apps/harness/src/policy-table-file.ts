@@ -1,5 +1,5 @@
 /**
- * Class table files `class-policy-v2` (spec section 10):
+ * Class table files `class-policy-v2`:
  * one table file per class and its digest, and the byte for byte comparison of a table with its
  * expected class entry and the projection of a pinned registry file.
  */
@@ -33,7 +33,7 @@ export function buildPolicyTable(cls: ClassEntry, rows: readonly PolicyRow[]): P
   return table;
 }
 
-/** policy_table_sha256: the digest of the canonical writing of the table file (spec section 10). */
+/** policy_table_sha256: the digest of the canonical writing of the table file. */
 export const policyTableSha256 = (table: PolicyTable): string => sha256Canonical(table);
 
 /**

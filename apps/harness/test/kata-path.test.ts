@@ -1,8 +1,8 @@
 /**
- * The pure kata path of 1.1.0, not served (lot CM-4b-a; docs/G0-lot-cm-4b.md; spec sections 9 and 11; delegated decision
- * CM-4b C-1 to C-11): request contract, shared key grammar with the import guard, cell lookup and verdict fields, served
+ * The pure kata path of 1.1.0, not served:
+ * request contract, shared key grammar with the import guard, cell lookup and verdict fields, served
  * tables built in process, threshold agreement in the guard, the served graph and the thrower ratchet. Tables come from
- * the seeded synthetic registry of block B1, passed through guardKataTable. Each test names its killer above it.
+ * the seeded synthetic registry, passed through guardKataTable. Each test names its killer above it.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -78,7 +78,7 @@ test("kata_grid_on_string_fields", () => {
   assert.equal(req(D4, pr(D4, 0.5, "2026-10-04T04:00:00Z")), "ok");
   assert.equal(req(D4, pr(D4, 0.5, "2026-10-04T09:30:00+05:30")), "ok", "offset applied: 04:00Z");
   assert.equal(req(D4, pr(D4, 0.5, "2026-10-04T05:00:00Z")), "produced_at_off_grid");
-  // C-1 condition 5: the grid runs before the yhat type, the key and the domain.
+  // The grid runs before the yhat type, the key and the domain.
   assert.equal(req(D4, pr(D4, "up", "2026-10-04T05:00:00Z", { predictor_id: "x" })), "produced_at_off_grid");
   assert.equal(req(DIR, pr(DIR, 0.5, "2026-10-04T04:00:00")), "produced_at_invalid");
 });
@@ -88,7 +88,7 @@ test("kata_stale_bound_is_300_s", () => {
   const t = Date.parse("2026-10-04T04:00:00Z");
   assert.equal(req(DIR, pr(DIR, 0.5), P, t + 300_000), "ok");
   assert.equal(req(DIR, pr(DIR, 0.5), P, t + 300_001), "produced_at_stale");
-  assert.equal(req(DIR, pr(DIR, 0.5), P, t - 3_600_000), "ok", "the future check is runGate's (B-4)");
+  assert.equal(req(DIR, pr(DIR, 0.5), P, t - 3_600_000), "ok", "the future check is runGate's");
   assert.equal(req(DIR, pr(DIR, 0.5)), "ok", "no clock: no lateness check");
   assert.equal(req(DIR, pr(DIR, "up", undefined, { predictor_id: "x" }), P, t + 300_001), "produced_at_stale", "lateness before type and key");
 });
@@ -107,7 +107,7 @@ test("kata_key_grammar", () => {
     `kata:${kata}-@${venue}/BTCUSDT/1h`, `kata:${kata}@${venue}/BTCUSDT/1h `, `kata:${kata}@${venue}/BTCUSDT`,
   ];
   for (const k of bad) assert.equal(key(k), "kata_key_invalid", k);
-  // C-5 condition 2: a prefix ambiguity passes the grammar and answers under_calib (no row for the key).
+  // A prefix ambiguity passes the grammar and answers under_calib (no row for the key).
   const eth = table("eth-dir-1h");
   const ethfi = pidOf(eth).replace("ETHUSDT", "ETHFIUSDT");
   assert.equal(key(ethfi, eth), "ok");
@@ -134,7 +134,7 @@ test("kata_yhat_domain_and_zero_lean", () => {
   for (const y of [5e-324, 1e300]) assert.equal(req(BAND, pr(BAND, y)), "ok", String(y));
   for (const y of [0, -0, -1, Infinity, NaN]) assert.equal(req(BAND, pr(BAND, y)), "kata_yhat_domain", String(y));
   assert.equal(req(DIR, pr(DIR, "0.5")), "yhat_type_mismatch");
-  // C-7: a lean of 0 looks up no row; its key is the predictor_id.
+  // A lean of 0 looks up no row; its key is the predictor_id.
   for (const y of [0, -0]) {
     assert.deepEqual(kataPath(pr(DIR, y), P, DIR), {
       method: "risk-control", alpha: 0.45, n_calib: 0, region: null, qhat: null, qhat_unit: "score", scale: null, abstain: true, reason: "non_evaluable",
@@ -184,13 +184,13 @@ test("kata_tau_cap_on_set_classes", () => {
 test("kata_features_digest_required", () => {
   assert.equal(req(DIR, bare(pr(DIR, 0.5))), "features_digest_required");
   assert.equal(req(BAND, bare(pr(BAND, 0.01))), "features_digest_required");
-  // C-11: presence only on the pure path; the 64-hex form stays with the input schema at the entry points.
+  // Presence only on the pure path; the 64-hex form stays with the input schema at the entry points.
   assert.equal(req(DIR, { ...pr(DIR, 0.5), features_digest: "x" }), "ok");
 });
 
 // killer: apps/harness/src/kata-path.ts:75 ROR "m <= Number(thr.t1)" -> "m < Number(thr.t1)"
 test("kata_bucket_edges_compare_the_double", () => {
-  // C-6: 0.1 and 0.2 are shortest round-trip writings whose doubles lie above their decimals.
+  // 0.1 and 0.2 are shortest round-trip writings whose doubles lie above their decimals.
   const t = table("btc-dir-1h", (cells) => {
     for (const c of cells) if (c.taskClass === "btc-dir-1h" && c.thresholds !== null && String(c.key).includes("/up-")) c.thresholds = { t1: "0.1", t2: "0.2" };
   });
@@ -198,17 +198,17 @@ test("kata_bucket_edges_compare_the_double", () => {
   assert.deepEqual([0.05, 0.1, next(0.1, 1), 0.2, next(0.2, 1), 1].map(keyOf), ["/up-b1", "/up-b1", "/up-b2", "/up-b2", "/up-b3", "/up-b3"]);
   const down = t.rows.find((r) => r.side === "down")?.thresholds ?? assert.fail("no down side");
   assert.deepEqual([Number(down.t1), next(Number(down.t1), 1), Number(down.t2), next(Number(down.t2), 1)].map((m) => keyOf(-m)), ["/down-b1", "/down-b2", "/down-b2", "/down-b3"]);
-  // C-8 condition 1: the thresholds come from the first current row of the side (b1), whatever the other rows say.
+  // The thresholds come from the first current row of the side (b1), whatever the other rows say.
   const odd = { ...t, rows: t.rows.map((r) => (r.bucket === "up-b2" || r.bucket === "up-b3" ? { ...r, thresholds: { t1: "0.9", t2: "0.95" } } : r)) };
   assert.equal(kataVerdictFields(odd, pr(t, 0.15), 1).cell_key.slice(pidOf(t).length), "/up-b2");
-  // A side without thresholds has no row (L-1): the key stops at the side, under_calib.
+  // A side without thresholds has no row: the key stops at the side, under_calib.
   const e4 = table("eth-dir-4h");
   assert.deepEqual(Object.entries(kataVerdictFields(e4, pr(e4, -0.5), 1)).filter(([k]) => ["cell_key", "reason", "policy_row_sha256", "n_calib"].includes(k)), [["n_calib", 0], ["reason", "under_calib"], ["cell_key", `${pidOf(e4)}/down`], ["policy_row_sha256", null]]);
 });
 
 // killer: apps/harness/src/kata-path.ts:81 CONST "current.find((r) => r.cell_key === key)" -> "table.rows.find((r) => r.cell_key === key)"
 test("kata_lookup_reads_current_rows_only", () => {
-  // Spec section 11 point 4: a replaced row (current false) sorts before its replacement (same cell_key, lower calib_attempt);
+  // A replaced row (current false) sorts before its replacement (same cell_key, lower calib_attempt);
   // neither its thresholds nor the row itself are read. Hand-built table, not guarded.
   const b1 = DIR.rows.find((r) => r.bucket === "up-b1") ?? assert.fail("no up-b1 row");
   const old: PolicyRow = { ...b1, current: false, calib_attempt: b1.calib_attempt - 1 || 1, thresholds: { t1: "0.01", t2: "0.02" }, n: b1.n + 1 };
@@ -219,7 +219,7 @@ test("kata_lookup_reads_current_rows_only", () => {
 
 // killer: apps/harness/src/kata-path.ts:78 CONST "sha256Canonical([])" -> "sha256Canonical([0])"
 test("kata_no_row_verdict_fields", () => {
-  // Spec section 11 point 4, recomputed field by field on the served (empty) tables: direction and scale.
+  // The no-row verdict fields, recomputed field by field on the served (empty) tables: direction and scale.
   const served = servedPolicyTables({ classText: (c) => `class text of ${c}`, marginal: () => ({ registry_file: "r", registry_sha256: "ab".repeat(32), generator: "g", text: "t" }) }, new Map());
   for (const [name, y, params, from] of [["btc-dir-1h", 0.3, P, DIR], ["btc-dir-1h", -0.3, P, DIR], ["btc-range-4h", 0.02, PB, BAND]] as const) {
     const t = served.find((s) => s.task_class === name)?.table ?? assert.fail(name);
@@ -255,7 +255,7 @@ test("kata_row_statuses_map_to_regions", () => {
   const reg = rt.rows.find((r) => r.status === "region") ?? assert.fail("no region row");
   const v0 = kataVerdictFields(rt, pr(rt, lean(reg)), 0);
   assert.deepEqual([v0.abstain, v0.reason], [true, "set_too_large"]);
-  // retired (report-and-retire, after deployment): {up, down}, qhat 1, calib_retired; abstain on every calib_* reason (C-4, pure form).
+  // retired (report-and-retire, after deployment): {up, down}, qhat 1, calib_retired; abstain on every calib_* reason (pure form).
   const ret = { ...rt, rows: rt.rows.map((r) => (r === reg ? { ...r, status: "retired" as const, status_reason: "retired: live:1", retire: { cause: "live:1", k_test: 9, n_test: 9, u_test: "1" } } : r)) };
   assert.deepEqual(Object.values(kataVerdictFields(ret, pr(rt, lean(reg)), 1)).slice(3, 9), [{ kind: "set", labels: ["up", "down"], label_schema: "up|down" }, 1, "score", null, true, "calib_retired"]);
   // Band rows: [0, h*] inside the support (bounds included), out_of_support outside, calib_* and under_calib give no region.
@@ -291,15 +291,14 @@ test("kata_served_tables_digests", () => {
     assert.equal(s.table.rows.length > 0, s.task_class === "stable-run-velocity-24h" || s.task_class === "liquidation-eligible-coverage", s.task_class);
   }
   assert.deepEqual(servedPolicyTables(texts, new Map()), served, "deterministic");
-  // Block D (ADR-CM dated line (11), founder's go Q-D1): the pin follows the REAL served tables, published = served. The
-  // 35 [class, policy_table_sha256] pairs of SERVED_POLICY_TABLES, digested; the per-class values are in
-  // docs/G0-bloc-d-2-empreintes.md (Z-3 line of block D).
+  // The pin follows the REAL served tables, published = served: the
+  // 35 [class, policy_table_sha256] pairs of SERVED_POLICY_TABLES, digested.
   const real = (gate as Record<string, unknown>)["SERVED_POLICY_TABLES"] as readonly { task_class: string; policy_table_sha256: string }[] | undefined;
   assert.ok(real !== undefined, "gate.ts serves SERVED_POLICY_TABLES");
   assert.equal(real.length, 35);
   assert.equal(sha(canonicalJson(real.map((s) => [s.task_class, s.policy_table_sha256]))), "ccde2691e2f88ed7cdee2264dffe75b92fe85da360baf2f9cf298a4ab364fe83", "the liq table moves with its row text (was 8da5dd42...)");
   assert.equal(real.find((s) => s.task_class === "btc-dir-1h")?.policy_table_sha256, "c04ae2921430968857350fd2fa663d0931f92c1a9bfeb595a7d341d3a02cc6e1", "btc-dir-1h, empty, its class text");
-  // Spec section 10: the table of one class does not depend on another class.
+  // The table of one class does not depend on another class.
   const moved = servedPolicyTables({ ...texts, classText: (c) => (c === "eth-range-1h" ? "other text" : texts.classText(c)) }, new Map());
   assert.deepEqual(served.filter((s, i) => s.policy_table_sha256 !== moved[i]?.policy_table_sha256).map((s) => s.task_class), ["eth-range-1h"]);
 });
@@ -316,10 +315,10 @@ test("guard_thresholds_agree_per_side", () => {
 });
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
-/** The built-in modules and packages that a served module may import, exact (MONARK's decision of 2026-10-07 on finding m-3 of the review
- *  of this walk): the walk refuses any other specifier but a relative one, so that no loader of Node (node:module, node:worker_threads,
+/** The built-in modules and packages that a served module may import, exact: the walk refuses any other specifier but a relative one,
+ *  so that no loader of Node (node:module, node:worker_threads,
  *  node:vm, node:child_process) is served. Two loaders reach no module through a refused import and forbiddenLoads names them instead
- *  (execve, on the global process; setEngine, carried by the allowed node:crypto): finding m-4 of the delta review. An entry is added by
+ *  (execve, on the global process; setEngine, carried by the allowed node:crypto). An entry is added by
  *  the change that needs it, with its reason. Step 5 of ROADMAP.md (the founder's go of 2026-11-04) adds two: @monark/genkan/frame, the
  *  frames of Genkan's kernel, which the judge tool encodes and reads (pure, Node built-ins only); and node:child_process, for
  *  src/kernel.ts alone, which runs the kernel binary by its path, with no shell, no argument and an empty environment
@@ -329,7 +328,7 @@ const SERVED_IMPORTS = new Set(["node:child_process", "node:crypto", "node:fs", 
 /** The served import graph: the modules reached from the entry points and the tools by a relative specifier, as importSpecifiers lists it,
  *  each text given by read (the file itself, or a copy that a test hands in). The walk stops by assertion on a relative specifier that
  *  names no file (a query suffix such as ?served names none, and Node 24 evaluates that file again as a second module instance), on a
- *  served module in which forbiddenLoads names a load (SERVED-WALK-LOADS-1) and on one that imports a module outside SERVED_IMPORTS. */
+ *  served module in which forbiddenLoads names a load and on one that imports a module outside SERVED_IMPORTS. */
 function servedModules(read = (file: string): string => readFileSync(file, "utf8")): Set<string> {
   const seen = new Set<string>();
   const walk = (file: string): void => {
@@ -345,7 +344,7 @@ function servedModules(read = (file: string): string => readFileSync(file, "utf8
   return seen;
 }
 
-// Block D (lot D-2): tools/gate.ts imports the kata path, so kata-path.ts and policy-classes.ts are served; the import
+// tools/gate.ts imports the kata path, so kata-path.ts and policy-classes.ts are served; the import
 // guard (policy-guard.ts) stays outside the served graph.
 // killer: apps/harness/src/tools/gate.ts:62 CONST "\"../kata-path.ts\";" -> "\"../kata-path.ts?served\";"
 test("kata_path_is_served", () => {
@@ -371,9 +370,9 @@ test("served_child_process_is_kernel_ts_alone", () => {
   assert.ok(text.includes("export const runKernel: KernelRunner = limitedKernel(kernelRunner(KERNEL_BINARY), KERNEL_MAX_CONCURRENT);"), "the served runner is the built kernel under the limit");
 });
 
-// SERVED-WALK-LOADS-1 (MONARK's decision of 2026-10-07; extended for execve and setEngine by finding m-4 of the delta review): the walk
+// The walk
 // refuses a served module in which forbiddenLoads names a load that no specifier shows, so that the walk cannot miss it: a computed
-// import() (K-calc of the review of a1's adoption) or a createRequire reached through getBuiltinModule (K-req); and two loaders that reach
+// import() (K-calc) or a createRequire reached through getBuiltinModule (K-req); and two loaders that reach
 // no module through a refused import, process.execve (X-execve) and node:crypto's setEngine (X-engine). Each is added to a copy of
 // kata-path.ts. The two killers below inject these into the real file: setEngine at the top (the process survives, the walk reads it),
 // execve inside a function body (a top-level call at load would replace the test process, which no assertion could then report).
@@ -397,9 +396,9 @@ test("served_walk_refuses_a_load_that_no_specifier_shows", () => {
   }
 });
 
-// The closed list of the served graph (MONARK's decision of 2026-10-07 on finding m-3 of the review of this walk): a served module imports
+// The closed list of the served graph: a served module imports
 // no built-in module or package outside SERVED_IMPORTS. Each form below names no load that forbiddenLoads reads; added to kata-path.ts, each
-// passed the walk and every test that imports that module (the review): a resolve hook of node:module that sends an import to the guard
+// passed the walk and every test that imports that module: a resolve hook of node:module that sends an import to the guard
 // (K-hooks), a Worker of the guard that inherits no flag (K-worker2), createRequire of the guard in a text that node:vm runs (K-vm2)
 // killer: apps/harness/src/kata-path.ts:15 CONST "from \"./tools/gate.ts\";" -> "from \"./tools/gate.ts\"; import { registerHooks } from \"node:module\"; registerHooks({ resolve: (s, c, next) => next(s === \"./version.ts\" ? \"./policy-guard.ts\" : s, c) }); void import(\"./version.ts\");"
 test("served_walk_refuses_an_import_outside_its_closed_list", () => {
@@ -418,7 +417,7 @@ test("served_walk_refuses_an_import_outside_its_closed_list", () => {
   }
 });
 
-/** C-3 (delegated decision CM-4b): the codes with no served thrower yet, exact; none since block D (lot D-2), whose served
+/** The codes with no served thrower yet, exact: none, since the served
  *  kata path throws the 6 kata codes together. */
 const PENDING: readonly string[] = [];
 /** The codes whose tool step 7 of ROADMAP.md archived (attest, cascade, and the never registered ukemi-predict): they stay in the
@@ -428,7 +427,7 @@ const ARCHIVED_TOOL_CODES: readonly string[] = ["attest_refused", "cascade_input
 // killer: apps/harness/src/tools/gate.ts:967 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("every_listed_code_has_a_served_thrower_or_is_pending", () => {
   // Static: a code has a thrower when its literal is in a served module (default codes of the other tools included);
-  // output_invalid has its 500 path. The G7 of the last lot of block D adds the dynamic form (a served request per code).
+  // output_invalid has its 500 path. The dynamic form (a served request per code) is in error-code.test.ts.
   const text = [...servedModules()].map((f) => codeLines(readFileSync(f, "utf8"))).join("\n");
   const unthrown = TOOL_ERROR_CODES.filter((c) => c !== "output_invalid" && !text.includes(`"${c}"`));
   assert.deepEqual(unthrown, [...PENDING, ...ARCHIVED_TOOL_CODES]);
@@ -437,7 +436,7 @@ test("every_listed_code_has_a_served_thrower_or_is_pending", () => {
 
 // killer: apps/harness/test/helpers/code-lines.ts:5 CONST "!COMMENT_LINE.test(l)" -> "true"
 test("thrower_ratchet_ignores_comment_lines", () => {
-  // G2 m-4: a literal in a comment line is no thrower; a trailing comment on a code line stays (the code before it counts).
+  // A literal in a comment line is no thrower; a trailing comment on a code line stays (the code before it counts).
   const lines = ['throw new E("a");', '// "b"', '  /* "c"', '   * "d"', '   */', '  x("e"); // "f"'];
   assert.equal(codeLines(lines.join("\n")), [lines[0], lines[5]].join("\n"));
 });

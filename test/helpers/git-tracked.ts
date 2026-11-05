@@ -1,4 +1,4 @@
-// test/helpers/git-tracked.ts -- lot CI-WORKFLOWS-SET-1, G2 fold (N-2, N-3): the paths git tracks under one pathspec of a
+// test/helpers/git-tracked.ts -- the paths git tracks under one pathspec of a
 // repository root, read from the index and from the HEAD tree. git runs with none of the caller's GIT_* variables: a hook sets
 // GIT_DIR or GIT_INDEX_FILE, and `git -C` overrides neither (the strip of test/dojo-render.test.ts and test/byte-guard.test.ts).
 // Each list is deduplicated (an unmerged index lists a conflicted path once per stage) and sorted. A git failure throws.

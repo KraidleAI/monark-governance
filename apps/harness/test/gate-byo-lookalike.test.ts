@@ -1,6 +1,5 @@
 /**
- * Harness - BYO look-alike guard (chantier moteur, lot CM-1, BYO-NEAR-NAME-1, audit P3 point S-11).
- * Oracle: docs/adr/ADR-CM-chantier-moteur-audit-P3.md §5 B-1; plan docs/G0-lot-cm-1-byo-near-name.md.
+ * Harness - BYO look-alike guard.
  * A BYO calibration must never run under a name that imitates a committed class or key (ASCII case, leading
  * or trailing blank, checksum-case address), nor under the reserved kata class pattern or the `kata:` key
  * prefix. Each test names its killer on the line above it.
@@ -44,10 +43,10 @@ function decided(p: Prediction, cal: NonNullable<HarnessParams["calibration"]>, 
   }
 }
 
-/** The codes of the B-1 rule. A name B-1 refuses keeps a B-1 code and message: the B-10 guard (CM-2c) runs after it. */
+/** The look-alike guard's codes. A name it refuses keeps its code and message: the confusable guard runs after it. */
 const B1_CODES: readonly unknown[] = ["byo_edge_blank", "byo_lookalike_committed", "byo_reserved_kata"];
 
-/** The exact B-1 message of each code, as the gate writes it for the call's (task_class, predictor_id). */
+/** The look-alike guard's exact message per code, as the gate writes it for the call's (task_class, predictor_id). */
 function b1Message(code: unknown, p: Prediction): string {
   const [c, k] = [p.task_class, p.predictor_id];
   if (code === "byo_edge_blank") return `byo task_class and predictor_id must not start or end with a blank: ${JSON.stringify(c)} / ${JSON.stringify(k)}`;
@@ -59,12 +58,12 @@ function refused(p: Prediction, cal: NonNullable<HarnessParams["calibration"]>, 
   assert.throws(
     () => runGate(p, { ...PARAMS, calibration: cal }),
     (e: unknown) => e instanceof HarnessToolError && B1_CODES.includes(e.code) && e.message === b1Message(e.code, p),
-    `${at}: a look-alike BYO must be a named tool error (400) with a B-1 code and message, not a later guard's`,
+    `${at}: a look-alike BYO must be a named tool error (400) with a look-alike guard code and message, not a later guard's`,
   );
 }
 
-// Test T-1 (F2P): the eight look-alike names of MONARK's probe (status of audit P3, priority 1), plus a case variant
-// of the stable-run class with the committed key, are refused.
+// Test T-1 (F2P): the eight look-alike names of MONARK's probe, plus a case variant of the stable-run class with the
+// committed key, are refused.
 // killer: apps/harness/src/tools/gate.ts:829 CONST "asciiLower(taskClass)" -> "taskClass"
 test("byo_lookalike_probe_names_refused", () => {
   const set: [string, string][] = [

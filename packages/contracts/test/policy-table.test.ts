@@ -1,8 +1,7 @@
 /**
- * Policy table formats `class-policy-v2` (spec section 10; lot CM-3c-1, block A, docs/G0-lot-cm-3c-1.md). The 60 row
- * columns are pinned here from the delegated decision of 2026-10-04 on Q-1 (table "colonne | type | obligatoire |
- * source" of the advisor's opinion), approved by MONARK. Admitted: a marginal row (stable-run shape), a kata direction
- * row, a wave 2 kata band row, a retired row, a kata class and the liquidation class. Each test names its killer above it.
+ * Policy table formats `class-policy-v2`. The 60 row columns are pinned here. Admitted: a marginal row (stable-run
+ * shape), a kata direction row, a wave 2 kata band row, a retired row, a kata class and the liquidation class. Each
+ * test names its killer above it.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";

@@ -124,9 +124,9 @@ test("schema rejects a bad region kind (oneOf) and a set-region missing label_sc
   assert.equal(vcv({ ...validVerdictSet(), region: { kind: "set", labels: ["up"] } }), false);
 });
 
-// ---- AttestedFlow (ADR-M008 D2/D3) — the frozen source of truth, Ajv-executed.
+// ---- AttestedFlow — the frozen source of truth, Ajv-executed.
 
-test("attested-flow rejects a residual OUTSIDE the closed enum (ADR-M008 D3)", () => {
+test("attested-flow rejects a residual OUTSIDE the closed enum", () => {
   const vaf = validator(ID.af);
   assert.equal(vaf({ ...validAttestedFlow(), residual: ["peg_broke"] }), false);
   assert.equal(vaf({ ...validAttestedFlow(), residual: [] }), false); // minItems
@@ -146,19 +146,19 @@ test("attested-flow rejects an unknown window and an unknown top-level key (clos
   assert.equal(validator(ID.af)({ ...af, peg_score: 0.9 }), false); // additionalProperties:false
 });
 
-// ---- AttestedBook (ADR-U1b D2/D2ter/D4) — the frozen source of truth, Ajv-executed.
+// ---- AttestedBook — the frozen source of truth, Ajv-executed.
 
-test("attested-book rejects a residual OUTSIDE the closed enum, an empty residual, and a duplicate (ADR-U1b D2ter)", () => {
+test("attested-book rejects a residual OUTSIDE the closed enum, an empty residual, and a duplicate", () => {
   const vab = validator(ID.ab);
   assert.equal(vab({ ...validAttestedBook(), residual: ["price_as_read"] }), false); // out of the closed enum
-  assert.equal(vab({ ...validAttestedBook(), residual: [] }), false); // minItems:1 — no_third_party_verifier always present (C-10)
+  assert.equal(vab({ ...validAttestedBook(), residual: [] }), false); // minItems:1 — no_third_party_verifier always present
   assert.equal(vab({ ...validAttestedBook(), residual: ["no_third_party_verifier", "no_third_party_verifier"] }), false); // uniqueItems
 });
 
-// V-6 (b), investor decision 2026-09-19: the frozen schema itself must FORCE `residual` to carry
-// `no_third_party_verifier` (ADR-U1b D2ter) via `"contains": {"const": ...}`, so the invariant is enforced,
-// not merely stated in the description. Before V-6 (b) an in-enum, unique, non-empty residual that OMITTED
-// it was ACCEPTED (the gap checkpoint-2 flagged). Mutant (delete the schema `contains` line) reddens (b)
+// The frozen schema itself must FORCE `residual` to carry
+// `no_third_party_verifier` via `"contains": {"const": ...}`, so the invariant is enforced,
+// not merely stated in the description. Without `contains` an in-enum, unique, non-empty residual that OMITTED
+// it was ACCEPTED. Mutant (delete the schema `contains` line) reddens (b)
 // below AND the contracts_frozen guard (schema sha != manifest).
 test("attested_book_residual_always_names_no_third_party_verifier", () => {
   const vab = validator(ID.ab);
@@ -173,7 +173,7 @@ test("attested_book_residual_always_names_no_third_party_verifier", () => {
   assert.equal(vab({ ...base, residual: ["oracle_price_as_read", "rpc_quorum_2_keyless"] }), false, "multi-element residual still refused when no_third_party_verifier is absent");
 });
 
-// value ⇔ reason≠null (ADR-U1b D4, C-1): BOTH uncoupled directions rejected by the frozen schema `oneOf`.
+// value ⇔ reason≠null: BOTH uncoupled directions rejected by the frozen schema `oneOf`.
 test("attested_book_abstain_coupling", () => {
   const vab = validator(ID.ab);
   const base = validAttestedBook();
@@ -199,8 +199,8 @@ test("attested-book rejects a non-decimal base amount, a bad provider method, a 
 });
 
 test("attested_book_description_may_be_empty", () => {
-  // ADR-U1b D2 amend (2026-09-19, pre-freeze): oracle_sources[].description is `^[ -~]*$` — the EMPTY
-  // string is admitted so a CONCORDANT-revert oracle description ("" at the digest, ADR-U1 D1 amendment,
+  // oracle_sources[].description is `^[ -~]*$` — the EMPTY
+  // string is admitted so a CONCORDANT-revert oracle description ("" at the digest,
   // measured on-chain GHO fact) stays schema-valid; non-ASCII is still refused (still ASCII-printable).
   const vab = validator(ID.ab);
   const b = validAttestedBook();
@@ -208,12 +208,12 @@ test("attested_book_description_may_be_empty", () => {
     ...b,
     oracle_sources: [{ asset: "0x" + "1".repeat(40), source: "0x" + "2".repeat(40), description: d }],
   });
-  assert.equal(vab(withDesc("")), true, "empty description accepted (concordant revert, ADR-U1 D1)");
+  assert.equal(vab(withDesc("")), true, "empty description accepted (concordant revert)");
   assert.equal(vab(withDesc("x")), true, "normal description accepted");
   assert.equal(vab(withDesc("\u00e9")), false, "non-ASCII description refused (still ^[ -~]*$)");
 });
 
-// O-2 (ADR-U1b D2bis V-4, lot U-1b-b): SEMANTIC ajv probes on the FROZEN schema — the value constraints the
+// SEMANTIC ajv probes on the FROZEN schema — the value constraints the
 // closed-check cannot express. Each asserts valid===false AND the EXPECTED error path/keyword, so removing that
 // one schema keyword (a mutant) reddens exactly this probe.
 test("attested_book_schema_subject_must_match_pattern (S1)", () => {
@@ -243,8 +243,8 @@ test("attested_book_schema_required_key_missing (S6)", () => {
   assert.ok(vab.errors?.some((e) => e.keyword === "required" && (e.message ?? "").includes("book_digest")), `refusal must name the missing required key: ${JSON.stringify(vab.errors)}`);
 });
 
-// Contract 1.1.0 (lot CM-3c-3a, spec sections 3, 5, 14): the verdict and decision schemas speak 1.1.0 only; their const is the
-// package's single version constant (Q-3a-4); the verdict carries the five cell fields and scores_sha256, the decision request_sha256.
+// Contract 1.1.0: the verdict and decision schemas speak 1.1.0 only; their const is the
+// package's single version constant; the verdict carries the five cell fields and scores_sha256, the decision request_sha256.
 // killer: schemas/gate-decision.schema.json:16 SDL "    \"request_sha256\"," -> ""
 test("verdict_and_decision_schemas_are_1_1_0", () => {
   const vcv = validator(ID.cv);

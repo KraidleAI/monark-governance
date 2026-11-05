@@ -50,7 +50,7 @@ const COMMON = {
   cell: { qhatUnit: "label", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
 } as const;
 
-// Test 34 (ADR-M003 D11) — `interval` conformer: EXACT q̂ and region (deterministic) + MEAN coverage
+// Test 34 — `interval` conformer: EXACT q̂ and region (deterministic) + MEAN coverage
 // over R=100 seeded repetitions (seeds 1..100) >= 1−α−0.005. Named mutant: q̂ shifted by one
 // rank (splitQuantile sorted[p-1]→sorted[p-2]) ⇒ exact q̂ wrong ⇒ this test red.
 test("interval_conformer_coverage", () => {

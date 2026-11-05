@@ -30,7 +30,7 @@ import type { GateDecision, Prediction } from "@monark/contracts";
 import { requestSha256, serializePrediction, SCHEMA_VERSION } from "@monark/contracts";
 
 export const HARNESS_VERSION = "fixtures-synth";
-/** Cell of the demonstration verdicts: 0/1 scores on a set class, no table (contract 1.1.0, spec section 5). */
+/** Cell of the demonstration verdicts: 0/1 scores on a set class, no table (contract 1.1.0). */
 const DEMO_CELL = { qhatUnit: "score", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null } as const;
 const T0 = "2026-09-04T00:00:00Z"; // injected timestamp (never read) — hash stability.
 

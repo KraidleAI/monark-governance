@@ -1,10 +1,9 @@
 /**
- * HIKAE engine - lot CM-3a of the chantier moteur (audit P3 E-8, E-4, E-5, E-12, E-9, E-6; ADR-CM section 3 and rule R-2).
- * Oracle: docs/adr/ADR-CM-chantier-moteur-audit-P3.md; plan docs/G0-lot-cm-3a.md; audit recherches:monark/AUDIT-P3-2026-10-01.md
- * section 2-3. Expected values come from this file (exact integer arithmetic on the test side) or from the audit and the
- * earlier lot pins (USDe k* 48 and 51, U 0.0985253; n 728 at alpha 0.45: k* 305, U 0.4499257), never read back from the
- * code under test. The new functions are read through the module namespace, so the base loads this file and reddens by
- * assertion. splitQuantile and riskControlQuantile stay unchanged (pins folded in). One killer per test.
+ * HIKAE engine - non-finite inputs never commit, the score domain, the exact split rank, the test delta spent per
+ * attempt, k* in one pass and the silent row. Expected values come from this file (exact integer arithmetic on the test
+ * side) or from earlier pins (USDe k* 48 and 51, U 0.0985253; n 728 at alpha 0.45: k* 305, U 0.4499257), never read
+ * back from the code under test. The new functions are read through the module namespace, so the base loads this file
+ * and reddens by assertion. splitQuantile and riskControlQuantile stay unchanged (pins folded in). One killer per test.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -17,7 +16,7 @@ import type { CoverageVerdict } from "@monark/contracts";
 import { USDE } from "./served-scores.ts";
 
 type Fn = (...args: never[]) => unknown;
-/** A function of the module namespace, asserted present (the base has none of the CM-3a names). */
+/** A function of the module namespace, asserted present (the base has none of these names). */
 function fn<T extends Fn>(mod: Record<string, unknown>, name: string): T {
   const f = mod[name];
   assert.equal(typeof f, "function", `exports ${name}`);
@@ -50,7 +49,7 @@ function verdictOf(kind: "set" | "interval"): CoverageVerdict {
   });
 }
 
-// E-8: a NaN or an infinity in any of the six numeric fields of decide() abstains non_evaluable, on the set and on the
+// A NaN or an infinity in any of the six numeric fields of decide() abstains non_evaluable, on the set and on the
 // interval path, with the clock open or closed; the finite inputs still COMMIT (pin). At the base, NaN reached COMMIT.
 // killer: packages/hikae/src/l3-gate.ts:166 CONST "Number.isFinite(v)" -> "!Number.isNaN(v)"
 test("nan_and_infinity_never_commit", () => {
@@ -73,9 +72,9 @@ test("nan_and_infinity_never_commit", () => {
   }
 });
 
-// E-4: scoresInDomain refuses NaN and the infinities ("finite"), and also negative scores ("band", -0 passes); the kata
+// scoresInDomain refuses NaN and the infinities ("finite"), and also negative scores ("band", -0 passes); the kata
 // entry points (splitQuantileExact, riskControlRow) fail closed on them. riskControlQuantile and splitQuantile keep
-// accepting infinities and negative scores (pins: their callers are unchanged, R-2).
+// accepting infinities and negative scores (pins: their callers are unchanged).
 // killer: packages/hikae/src/l1-split.ts:122 ROR "s >= 0" -> "s >= -1"
 test("score_domain_refuses_non_finite_and_negative_band_scores", () => {
   const inDomain = fn<(s: readonly number[], d: "finite" | "band") => boolean>(l1, "scoresInDomain");
@@ -103,9 +102,9 @@ test("score_domain_refuses_non_finite_and_negative_band_scores", () => {
   assert.deepEqual(l1.splitQuantile([-3, -2, -1, ...good.slice(0, 7)], 0.1, 1), { qhat: 0.07 });
 });
 
-// E-5: the split rank is the exact integer ceil((n + 1)(1 - alpha)), alpha a decimal string. At alpha 0.45 the float
-// rank of splitQuantile is one too high on exactly 112 values of n below 5 000 (audit; n 99: 56 instead of 55); the
-// exact entry point serves the exact rank on all of them and on a grid. splitQuantile keeps its float rank (pin, R-2).
+// The split rank is the exact integer ceil((n + 1)(1 - alpha)), alpha a decimal string. At alpha 0.45 the float
+// rank of splitQuantile is one too high on exactly 112 values of n below 5 000 (n 99: 56 instead of 55); the
+// exact entry point serves the exact rank on all of them and on a grid. splitQuantile keeps its float rank (pin).
 // killer: packages/hikae/src/l1-split.ts:132 CONST "a.den - 1n" -> "a.den"
 test("split_quantile_exact_uses_the_integer_rank", () => {
   const rankOf = fn<(n: number, a: string) => number>(l1, "splitRankExact");
@@ -138,7 +137,7 @@ test("split_quantile_exact_uses_the_integer_rank", () => {
   assert.throws(() => rankOf(10, "0.00001"), RangeError);
 });
 
-// E-12 (amendment A-1, G2 of CM-3a): riskControlRow takes the base test_delta, the calib_attempt and spendIndex = h + 1
+// riskControlRow takes the base test_delta, the calib_attempt and spendIndex = h + 1
 // (h the NON-exempt recalibrations, default the attempt, an integer in 1..attempt); the test delta is
 // spendDelta(base, spendIndex), returned with spendIndex and the attempt. Attempt 1 (the default) is riskControlQuantile
 // at the base delta (pin: riskControlQuantile unchanged). USDe: base 0.10 spend 2 is delta 0.05 (k* 48, rank 565, U
@@ -177,8 +176,8 @@ function kStarByCdf(n: number, alphaDec: string, deltaDec: string): number {
   return k;
 }
 
-// E-9: riskControlMaxExceedances (k*) in one linear pass equals the earlier computation (one exact CDF per k) on a grid of
-// n, alpha and test_delta (the audit values at alpha 0.45: k* 305 at n 728, 70 at n 182), and decides
+// riskControlMaxExceedances (k*) in one linear pass equals the earlier computation (one exact CDF per k) on a grid of
+// n, alpha and test_delta (the values at alpha 0.45: k* 305 at n 728, 70 at n 182), and decides
 // n 4 368 at alpha 0.45, test_delta 0.05 (k* 1 911) well under the 8.7 s of the base (bound 4 s, measured near 20 ms).
 // killer: packages/hikae/src/binomial.ts:173 CONST "BigInt(i + 1) * q" -> "BigInt(i + 2) * q"
 test("kstar_in_one_pass_equals_the_exact_cdf_and_is_fast", () => {
@@ -202,11 +201,11 @@ test("kstar_in_one_pass_equals_the_exact_cdf_and_is_fast", () => {
   assert.ok(ms < 4000, `k* at n 4368 took ${ms.toFixed(0)} ms`);
 });
 
-// E-6: a direction cell (indicator scores, silenceAt 1) at n 728, alpha 0.45, test_delta 0.05 (k* 305, rank 423). With
+// A direction cell (indicator scores, silenceAt 1) at n 728, alpha 0.45, test_delta 0.05 (k* 305, rank 423). With
 // 306 errors qhat is 1: the row is silent, kObs is 0 but calibMisses is 306, and no missBound is carried (the base row
 // read misses 0, bound 0.4499257). With 305 errors qhat is 0: calibMisses equals kObs 305 and missBound 0.4499257. Without
 // silenceAt (bands) calibMisses is kObs and the row is never silent; the time order of the scores is irrelevant here.
-// G2 of CM-3a: silenceAt is the top of the score space, so a score above it fails closed (an intermediate silenceAt on a
+// silenceAt is the top of the score space, so a score above it fails closed (an intermediate silenceAt on a
 // band); on non-binary scores in silence, calibMisses counts the scores at silenceAt, kObs stays 0.
 // killer: packages/hikae/src/l1-split.ts:202 CONST "scores.some((s) => s > silenceAt)" -> "false"
 test("silent_row_counts_calib_misses_and_carries_no_bound", () => {

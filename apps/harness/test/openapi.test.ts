@@ -1,5 +1,5 @@
 /**
- * Harness — OpenAPI derivation drift test (test 43, ADR-M005 D7/D8).
+ * Harness — OpenAPI derivation drift test.
  * The OpenAPI 3.1 spec MUST be DERIVED from the frozen `schemas/*.json` (via the projection), NEVER
  * hand-written. This test reads the frozen files INDEPENDENTLY and asserts every operation's
  * frozen-derived `required` set (and full property definitions where the projection is byte-faithful)
@@ -46,7 +46,7 @@ test("openapi_generated_matches_frozen_schemas", () => {
   const spec = buildOpenApi();
   assert.equal(spec["openapi"], OPENAPI_VERSION, "OpenAPI 3.1 (JSON Schema 2020-12 dialect)");
 
-  // Paths are DERIVED from the registry — exactly the three operations, no more, no less (ADR-M007 C1, steps 5 and 7 of ROADMAP.md).
+  // Paths are DERIVED from the registry — exactly the three operations, no more, no less (steps 5 and 7 of ROADMAP.md).
   assert.deepEqual(Object.keys(asObj(spec["paths"], "paths")).sort(), ["/calibrate", "/gate", "/judge"], "paths == the 3 ops");
 
   const frozenPrediction = asObj(loadJson("prediction.schema.json"), "prediction");
@@ -66,24 +66,24 @@ test("openapi_generated_matches_frozen_schemas", () => {
     "gate request prediction property definitions == frozen in full",
   );
 
-  // C2 (ADR-M007 D7): the gate request `params` carries the OPTIONAL BYO `calibration` — present in the
+  // The gate request `params` carries the OPTIONAL BYO `calibration` — present in the
   // properties, but NOT in `required` (so committed-class calls stay valid). A drift reddens here.
   const gateParams = asObj(asObj(gateReq["properties"], "gate.request.properties")["params"], "gate.request.params");
   assert.deepEqual(gateParams["required"], ["remainingBudget", "bFloor", "tau", "tauInterval", "alpha", "nMin", "intent", "tool", "clockOpen"], "params.required stays the 9 committed fields (calibration is OPTIONAL)");
   const gateParamProps = asObj(gateParams["properties"], "gate.request.params.properties");
-  assert.ok("calibration" in gateParamProps, "params carries the optional BYO calibration field (C2)");
+  assert.ok("calibration" in gateParamProps, "params carries the optional BYO calibration field");
   const calib = asObj(gateParamProps["calibration"], "gate.request.params.calibration");
   assert.deepEqual(calib["required"], ["scores", "mode"], "calibration requires scores + mode");
   assert.equal(calib["additionalProperties"], false, "calibration is a closed sub-object");
 
-  // ADR-M017 D4(6): the gate request envelope carries the OPTIONAL frozen `attested` (AttestedPrice) —
+  // The gate request envelope carries the OPTIONAL frozen `attested` (AttestedPrice) —
   // PRESENT in `properties`, ABSENT from `required` (so a {prediction, params} call stays valid). A drift
-  // (attested dropped, or slipped into `required`) reddens here. NOTE (K2-2, checkpoint-2 b1): an UN-STRIPPED
+  // (attested dropped, or slipped into `required`) reddens here. NOTE: an UN-STRIPPED
   // projection is NOT caught here — this test checks `required` / presence / `additionalProperties`, not full
   // property VALUE parity for `attested`; the un-stripped mutant is killed by `gate_attested_is_frozen_attested_price`
   // (schema.test.ts, test (1)), which deep-equals the projection to the stripped frozen file byte-for-byte.
   const gateReqProps = asObj(gateReq["properties"], "gate.request.properties");
-  assert.ok("attested" in gateReqProps, "gate request carries the optional `attested` (ADR-M017 D1)");
+  assert.ok("attested" in gateReqProps, "gate request carries the optional `attested`");
   assert.deepEqual(gateReq["required"], ["prediction", "params"], "gate request required stays {prediction, params} (attested is OPTIONAL)");
   const gateAttested = asObj(gateReqProps["attested"], "gate.request.attested");
   assert.deepEqual(gateAttested["required"], frozenPrice["required"], "gate request attested.required == frozen AttestedPrice");
@@ -96,10 +96,10 @@ test("openapi_generated_matches_frozen_schemas", () => {
   assert.deepEqual(verdict["required"], frozenVerdict["required"], "dereferenced verdict.required == frozen CoverageVerdict");
   assert.equal(verdict["additionalProperties"], false, "inlined verdict stays closed");
 
-  // --- calibrate (ADR-M007 D2/D3): the path is present and NON-frozen (declared in
+  // --- calibrate: the path is present and NON-frozen (declared in
   // schema-projection.ts, never in schemas/). We pin the wire shape here — the request requires
-  // {scores,alpha,nMin} and the response structuredContent requires the 7 D3 fields (reason IN the
-  // schema = M-5) — so a drift in the projected calibrate schema reddens.
+  // {scores,alpha,nMin} and the response structuredContent requires its 7 fields (reason IN the
+  // schema) — so a drift in the projected calibrate schema reddens.
   const calibrateReq = requestSchema(spec, "calibrate");
   assert.deepEqual(calibrateReq["required"], ["scores", "alpha", "nMin"], "calibrate request requires scores, alpha, nMin");
   assert.equal(calibrateReq["additionalProperties"], false, "calibrate request is a closed envelope");
@@ -107,7 +107,7 @@ test("openapi_generated_matches_frozen_schemas", () => {
   assert.deepEqual(
     calibrateOut["required"],
     ["qhat", "n", "alpha", "method", "scores_sha256", "label", "reason"],
-    "calibrate response requires the 7 D3 fields (reason IN the schema, M-5)",
+    "calibrate response requires its 7 fields (reason IN the schema)",
   );
   assert.equal(calibrateOut["additionalProperties"], false, "calibrate response is a closed envelope");
 
@@ -140,10 +140,10 @@ function projectToolError(node: Json, defs: { [k: string]: Json }): Json {
   return Object.fromEntries(Object.entries(node).filter(([k]) => !["$schema", "$id", "description", "title", "$defs"].includes(k)).map(([k, v]) => [k, projectToolError(v, defs)]));
 }
 
-// OPENAPI-ERROR-CODE-1 (ADR-CM amendment 2026-10-04 (1); Q-C5 conditions 3 and 4; lot CM-3c-4a): the 400 and 500 responses of
+// The 400 and 500 responses of
 // every operation are the projections of the root and of $defs/InternalError of schemas/tool-error.schema.json, so their
 // codes are the 32 of the catalogue; no code is a literal of openapi.ts or schema-projection.ts, and no $ref is left. The 500
-// also admits the transport-level body the frozen description names, {"error":"internal_error"} (TRANSPORT-500-SCHEMA-1).
+// also admits the transport-level body the frozen description names, {"error":"internal_error"}.
 // killer: apps/harness/src/openapi.ts:86 CONST "TOOL_ERROR_400_SCHEMA" -> "TOOL_ERROR_500_SCHEMA"
 test("openapi_400_and_500_are_the_tool_error_projections", () => {
   const frozen = asObj(loadJson("tool-error.schema.json"), "tool-error");
@@ -163,7 +163,7 @@ test("openapi_400_and_500_are_the_tool_error_projections", () => {
   assert.ok(!JSON.stringify(spec).includes("$ref") && !JSON.stringify(spec).includes("$defs"), "no reference is left for OpenAPI to resolve");
   for (const f of ["../src/openapi.ts", "../src/schema-projection.ts"]) {
     const src = readFileSync(fileURLToPath(new URL(f, import.meta.url)), "utf8");
-    assert.deepEqual(TOOL_ERROR_CODES.filter((c) => src.includes(`"${c}"`)), [], `${f}: no code literal (C-3)`);
+    assert.deepEqual(TOOL_ERROR_CODES.filter((c) => src.includes(`"${c}"`)), [], `${f}: no code literal`);
   }
 });
 
@@ -176,7 +176,7 @@ function internal500(): { build: (internal: { [k: string]: Json }) => Json; inte
   return { build: build as (internal: { [k: string]: Json }) => Json, internal: asObj(projectToolError(defs["InternalError"] ?? null, defs), "InternalError") };
 }
 
-// TRANSPORT-500-SCHEMA-1, fold of its review (N-1; scope of SCHEMA-PROJECTION-FAIL-CLOSED-1): the two 500 branches exclude each
+// The two 500 branches exclude each
 // other only while InternalError is closed and requires operation; the builder refuses any other InternalError at load.
 // killer: apps/harness/src/schema-projection.ts:192 CONST "internal[\"additionalProperties\"] !== false" -> "false"
 test("internal_500_branches_fail_closed_unless_exclusive", () => {
@@ -190,7 +190,7 @@ test("internal_500_branches_fail_closed_unless_exclusive", () => {
   for (const [at, bad] of cases) assert.throws(() => build(bad), /would overlap/, `${at}: refused at load`);
 });
 
-// TRANSPORT-500-SCHEMA-1, fold of its review (N-2; scope of SCHEMA-PROJECTION-FAIL-CLOSED-1): the transport-level branch takes
+// The transport-level branch takes
 // a closed list of keys from InternalError (type, additionalProperties) plus its own required and error property, so a future
 // key of the frozen definition (minProperties, allOf) stays in the InternalError branch and never in the transport one.
 // killer: apps/harness/src/schema-projection.ts:196 CONST "...picked" -> "...internal"
@@ -204,7 +204,7 @@ test("transport_500_branch_takes_a_closed_list_of_keys", () => {
   assert.deepEqual(branches[1], { type: internal["type"] ?? null, additionalProperties: false, required: ["error"], properties: { error: props["error"] ?? null } }, "the transport branch: closed keys and error alone");
 });
 
-/** SCHEMA-PROJECTION-FAIL-CLOSED-1 (N-2 of the G2 of C' 3c-4a): the inliner of the error bodies, read through the namespace (so a
+/** The inliner of the error bodies, read through the namespace (so a
  *  tree without the export loads this file and reddens by assertion). */
 function spfInline(): (node: Json, defs: { [k: string]: Json }) => Json {
   const inline = (projection as Record<string, unknown>)["inlineDefs"];
@@ -213,7 +213,7 @@ function spfInline(): (node: Json, defs: { [k: string]: Json }) => Json {
 }
 const SPF_DEFS: { [k: string]: Json } = { Operation: { type: "string", minLength: 1 } };
 
-// SCHEMA-PROJECTION-FAIL-CLOSED-1: a $ref with sibling keywords fails closed; at the base the siblings were dropped in silence
+// A $ref with sibling keywords fails closed; at the base the siblings were dropped in silence
 // ({ $ref, maxLength: 64 } projected to Operation alone). A bare $ref still inlines, so the frozen bodies are unchanged.
 // killer: apps/harness/src/schema-projection.ts:173 CONST "siblings.length > 0" -> "false"
 test("spf_ref_with_sibling_keywords_fails_closed", () => {
@@ -224,7 +224,7 @@ test("spf_ref_with_sibling_keywords_fails_closed", () => {
   assert.throws(() => inline({ $ref: "#/$defs/Operation", $defs: {} }, SPF_DEFS), /has sibling keywords \(\$defs\)/, "$defs beside the $ref");
 });
 
-// SCHEMA-PROJECTION-FAIL-CLOSED-1: a definition reached again on its own path fails closed with the path named; at the base the
+// A definition reached again on its own path fails closed with the path named; at the base the
 // inliner recursed until the stack overflowed (RangeError). A definition used twice side by side is not recursive.
 // killer: apps/harness/src/schema-projection.ts:174 CONST "via.includes(name)" -> "false"
 test("spf_recursive_definition_fails_closed", () => {
@@ -236,7 +236,7 @@ test("spf_recursive_definition_fails_closed", () => {
   assert.deepEqual(inline({ oneOf: [{ $ref: "#/$defs/A" }, { $ref: "#/$defs/A" }] }, chain), { oneOf: [{ items: { items: { type: "string", minLength: 1 } } }, { items: { items: { type: "string", minLength: 1 } } }] }, "a chain used twice side by side inlines");
 });
 
-// SCHEMA-PROJECTION-FAIL-CLOSED-1: only a local #/$defs/<name> of a known object definition inlines. At the base a bare name
+// Only a local #/$defs/<name> of a known object definition inlines. At the base a bare name
 // resolved in silence, a non-string $ref was kept, and an unknown one threw an unrelated message ("expected an object").
 // killer: apps/harness/src/schema-projection.ts:170 CONST "!Object.hasOwn(defs, name)" -> "false"
 test("spf_unknown_or_nonlocal_ref_fails_closed", () => {
@@ -255,8 +255,8 @@ function spfFn<F>(name: string): F {
   return f as F;
 }
 
-// SCHEMA-PROJECTION-FAIL-CLOSED-1, fold of its review (N-1): the value of const, enum, default and examples is data, copied
-// verbatim and never read as a schema (at the lot's first gel a $ref in a const was inlined, a $defs in a default dropped); and
+// The value of const, enum, default and examples is data, copied
+// verbatim and never read as a schema (before this check a $ref in a const was inlined, a $defs in a default dropped); and
 // the inliner is position-aware like stripMeta: a property named $ref, $defs or const is a name, its schema is inlined.
 // killer: apps/harness/src/schema-projection.ts:159 CONST "DATA_KEYWORDS.has(k) ? structuredClone(v)" -> "false ? structuredClone(v)"
 test("spf_data_keywords_are_not_schemas", () => {
@@ -270,9 +270,9 @@ test("spf_data_keywords_are_not_schemas", () => {
   assert.deepEqual(strip({ const: { description: "kept", title: "kept", $id: "kept" }, description: "dropped" }), { const: { description: "kept", title: "kept", $id: "kept" } }, "stripMeta keeps data verbatim");
 });
 
-// SCHEMA-PROJECTION-FAIL-CLOSED-1, fold of its review (N-2): a nested $id opens another resource that #/$defs/... would resolve
+// A nested $id opens another resource that #/$defs/... would resolve
 // against, and stripMeta drops it; so the raw frozen file is refused before the strip. A root $id, a property named $id and an
-// $id inside data pass. At the lot's first gel { $id: "other.json", $ref: "#/$defs/Operation" } inlined the root's definition.
+// $id inside data pass. Before this check { $id: "other.json", $ref: "#/$defs/Operation" } inlined the root's definition.
 // killer: apps/harness/src/schema-projection.ts:119 CONST "Object.hasOwn(n, \"$id\")" -> "false"
 test("spf_nested_id_fails_closed", () => {
   const refuse = spfFn<(raw: { [k: string]: Json }, where: string) => { [k: string]: Json }>("refuseNestedId");
@@ -285,8 +285,8 @@ test("spf_nested_id_fails_closed", () => {
   }
 });
 
-// SCHEMA-PROJECTION-FAIL-CLOSED-1, fold of its review (N-2): $dynamicRef, $recursiveRef, $anchor and $dynamicAnchor are not
-// inlined, so they are refused (at the lot's first gel they passed into /openapi.json untouched). A property so named passes.
+// $dynamicRef, $recursiveRef, $anchor and $dynamicAnchor are not
+// inlined, so they are refused (before this check they passed into /openapi.json untouched). A property so named passes.
 // killer: apps/harness/src/schema-projection.ts:157 CONST "dynamic.length > 0" -> "false"
 test("spf_dynamic_keywords_fail_closed", () => {
   const inline = spfInline();
@@ -297,9 +297,9 @@ test("spf_dynamic_keywords_fail_closed", () => {
   assert.deepEqual(inline(named, SPF_DEFS), named, "properties so named are names");
 });
 
-// SCHEMA-PROJECTION-FAIL-CLOSED-1, fold of its review (N-3; closes DEREF-VERDICT-FAIL-CLOSED-1): the MCP outputSchema splices
+// The MCP outputSchema splices
 // CoverageVerdict only in place of a verdict that is exactly { $ref: "coverage-verdict.schema.json" }, and only a CoverageVerdict
-// without $ref, $defs or dynamic keyword. At the lot's first gel each case below was spliced in silence.
+// without $ref, $defs or dynamic keyword. Before this check each case below was spliced in silence.
 // killer: apps/harness/src/schema-projection.ts:139 CONST "!isMap(v) || Object.keys(v).join() !== \"$ref\" || v[\"$ref\"] !== VERDICT_REF" -> "false"
 test("spf_deref_verdict_fails_closed", () => {
   const deref = spfFn<(gd: { [k: string]: Json }, cv: { [k: string]: Json }) => Json>("derefVerdict");
@@ -318,8 +318,8 @@ test("spf_deref_verdict_fails_closed", () => {
   }
 });
 
-// SCHEMA-PROJECTION-FAIL-CLOSED-1, fold of its review (N-4): a JSON key __proto__ stays an own data key through stripMeta (at the
-// lot's first gel it became the prototype, the key was lost), and a $ref is read only as an own key, never inherited.
+// A JSON key __proto__ stays an own data key through stripMeta (before
+// this check it became the prototype, the key was lost), and a $ref is read only as an own key, never inherited.
 // killer: apps/harness/src/schema-projection.ts:154 CONST "Object.hasOwn(node, \"$ref\")" -> "\"$ref\" in node"
 test("spf_proto_key_stays_own_data", () => {
   const inline = spfInline();

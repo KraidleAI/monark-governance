@@ -1,12 +1,11 @@
 /**
- * HIKAE risk-controlling quantile - oracle tests (worksite 2 of the conformal alignment, lot L2-2; tests P-1 to P-6 of the
- * worksite G0 section 7). [ADR] RECHERCHES decisions/0004 v3.1: D2 (the served value is the order statistic at rank n - k*,
- * with ties included; the published bound is U(n, k*, delta), never U(n, k_obs, delta)) and D3 (exact rational rule; the
- * served rank is never below the split rank for delta < 1/4).
+ * HIKAE risk-controlling quantile - oracle tests. The served value is the order statistic at rank n - k*, with ties
+ * included; the published bound is U(n, k*, delta), never U(n, k_obs, delta); the rule is exact and rational, and the
+ * served rank is never below the split rank for delta < 1/4.
  * Expected values never come from binomial.ts or l1-split.ts:
  *   - k* and every binomial tail by a test-side exact sum of terms (term ratio recurrence in big integers);
  *   - the split rank ceil((n + 1)(1 - alpha)) in integer arithmetic;
- *   - the worksite G0 section 2: M-5 (USDe), M-6 (liq s0), M-7 (grid), M-8 (0/1 thresholds), M-16 and M-17 (atoms, U at k*);
+ *   - exact tables: USDe, liq s0, a grid, the 0/1 thresholds, atoms (U at k*);
  *   - [TB] arXiv:2411.11824v5 Thm 4.1: with continuous scores the rank-p order statistic misses more than alpha with
  *     probability P(Bin(n, alpha) <= n - p), checked exactly and by a seeded simulation (local mulberry32).
  * riskControlQuantile is read from the module namespace (l1-split.ts exists at the base): the base run loads every file and
@@ -104,9 +103,9 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-// [M-5] USDe (main calibration.ts l.77-155, n 613): split rank 553 (qhat 1.3119228083333334e-4, 60 scores above); at
+// USDe (main calibration.ts l.77-155, n 613): split rank 553 (qhat 1.3119228083333334e-4, 60 scores above); at
 // (0.10, 0.05) k* 48, rank 565, qhat 1.5501056004166666e-4, U 0.0985253; at (0.10, 0.10) k* 51, rank 562, U 0.0993457.
-// [M-6] liq s0 (n 170 below n0 = 299 and 230 at alpha 0.01): under_calib at both deltas. Arrays checked by digest (C5).
+// Liq s0 (n 170 below n0 = 299 and 230 at alpha 0.01): under_calib at both deltas. Arrays checked by digest.
 // killer: packages/hikae/src/l1-split.ts:74 CONST "n - kStar" -> "n - kStar + 1"
 test("risk_control_rank_usde_and_liq_values", () => {
   assert.equal(calibDigest(USDE), "c9793b281167465af88c9e837aaeaf7fb26c709ff4c5e342c68893e759d9e86c");
@@ -139,9 +138,9 @@ test("risk_control_rank_usde_and_liq_values", () => {
   assert.equal(hikae.riskControlQuantile, l1.riskControlQuantile);
 });
 
-// [M-7] n 1..400, alpha in {0.01, 0.02, 0.05, 0.10, 0.20}, delta in {0.05, 0.10}: 4 000 cells. Each cell: under_calib iff
-// the oracle k* is -1; else rank = n - k* (oracle) and rank >= ceil((n + 1)(1 - alpha)) (consistency check of the D3
-// theorem), on distinct scores 1..n so that qhat = rank and kObs = k*.
+// n 1..400, alpha in {0.01, 0.02, 0.05, 0.10, 0.20}, delta in {0.05, 0.10}: 4 000 cells. Each cell: under_calib iff
+// the oracle k* is -1; else rank = n - k* (oracle) and rank >= ceil((n + 1)(1 - alpha)) (never below the split
+// rank), on distinct scores 1..n so that qhat = rank and kObs = k*.
 // killer: packages/hikae/src/l1-split.ts:74 CONST "n - kStar" -> "n - kStar - 1"
 test("risk_control_rank_never_below_split_rank_grid", () => {
   let cells = 0;
@@ -171,7 +170,7 @@ test("risk_control_rank_never_below_split_rank_grid", () => {
   assert.ok(servedCells > 3000, `served cells ${servedCells}`);
 });
 
-// [LTT] with one setting (|Lambda| = 1) on the 0/1 score at (0.10, 0.05), n 150, 299, 613 (k* 8, 21, 48, [M-8]): with k*
+// [LTT] with one setting (|Lambda| = 1) on the 0/1 score at (0.10, 0.05), n 150, 299, 613 (k* 8, 21, 48): with k*
 // errors the served value is 0 (the singleton, COMMIT reachable), kObs = k*; with k* + 1 errors it is 1 (the whole label
 // space), kObs = 0. The error positions are seeded; the result depends on the count only.
 // killer: packages/hikae/src/l1-split.ts:78 ROR "s > qhat" -> "s >= qhat"
@@ -244,7 +243,7 @@ test("risk_control_rank_fail_closed", () => {
     assert.deepEqual(r, UNDER, cell);
     assert.equal("qhat" in r, false, cell);
   };
-  // Floors n0 by the oracle: the smallest n with (1 - alpha)^n <= delta ([M-1]: 29, 22, 59, 299, 230).
+  // Floors n0 by the oracle: the smallest n with (1 - alpha)^n <= delta (29, 22, 59, 299, 230).
   for (const [alphaDec, deltaDec, n0] of [["0.10", "0.05", 29], ["0.10", "0.10", 22], ["0.05", "0.05", 59], ["0.01", "0.05", 299], ["0.01", "0.10", 230]] as const) {
     const a = dec(alphaDec);
     const d = dec(deltaDec);
@@ -265,7 +264,7 @@ test("risk_control_rank_fail_closed", () => {
   assert.equal(served(rcq(scores(100), "0.10", "0.2499"), "delta 0.2499").kStar, kStarOracle(100, dec("0.10"), dec("0.2499")));
 });
 
-// [AC] 1.3, [M-16], [M-17]: n 100, alpha 0.10, delta 0.05, k* 4, served rank 96. Scores with the served value on an atom
+// [AC] 1.3: n 100, alpha 0.10, delta 0.05, k* 4, served rank 96. Scores with the served value on an atom
 // (four copies at ranks 96 to 99, one value above): kObs 1 < k* 4, and missBound stays U(100, 4, 0.05) = 0.0891963 (the U
 // of kObs would be lower; the atom does not lower the miss rate). The same row without ties gives the same missBound.
 // killer: packages/hikae/src/l1-split.ts:79 CONST "missUpperBound(n, kStar" -> "missUpperBound(n, kObs"

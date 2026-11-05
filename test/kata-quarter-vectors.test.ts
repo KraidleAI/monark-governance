@@ -1,4 +1,4 @@
-// test/kata-quarter-vectors.test.ts -- CM-5, the quarter counts tool (docs/G0-lot-cm5-c2.md, L-T7): the TS guard's vetoFires and uTest
+// test/kata-quarter-vectors.test.ts -- the quarter counts tool: the TS guard's vetoFires and uTest
 // (apps/harness/src/policy-guard.ts) equal the vectors that the tool writes from binom_exact, fixtures/kata-quarter/veto-vectors.json,
 // pinned by the sha256 that its provenance declares. TS only, in test:main; test/kata-quarter.test.ts writes the vectors again and holds
 // them byte for byte under the pinned CPython.

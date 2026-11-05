@@ -14,7 +14,7 @@ export interface VocabHit {
   line: number;
   why: string;
   text: string;
-  /** The matched span (A-9-OUTILLE: the CLI names file:line:word). */
+  /** The matched span (the CLI names file:line:word). */
   word: string;
 }
 

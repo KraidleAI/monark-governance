@@ -1,9 +1,9 @@
 /**
- * Root test `fixtures_root_valid` — ADR-M002 D1 (Lot D item 2) / D11.
+ * Root test `fixtures_root_valid`.
  * The 9 states in `fixtures/` (3 COMMIT / 2 DEFER / 3 ABSTAIN / 1 under_calib) are
- * `GateDecision` values valid against the frozen schemas (ajv) AND against the Phase 0
+ * `GateDecision` values valid against the frozen schemas (ajv) AND against the
  * runtime guards (closed-check + forbidden-keys), and their sha256 == fixtures/manifest.json.
- * Read by Lot D (replay) and by Lot H (conformance oracle). Run by `npm test`
+ * Read by the replay and by the conformance oracle. Run by `npm test`
  * in each worktree.
  */
 import { test } from "node:test";
@@ -50,7 +50,7 @@ test("fixtures_root_valid — ajv + Phase 0 runtime guards, 3/2/3/1 split", () =
     assert.ok(validate(d), `${f}: ${JSON.stringify(validate.errors)}`);
     assert.doesNotThrow(() => serializeGateDecision(d), `${f}: runtime guard`);
     if (d.verdict.scores) assert.equal(d.verdict.scores_sha256, scoresSha256(d.verdict.scores), `${f}: scores_sha256`);
-    // 3/2/3/1: under_calib is counted separately from abstentions (ADR-M002 D11).
+    // 3/2/3/1: under_calib is counted separately from abstentions.
     if (d.reason === "under_calib") counts.under_calib += 1;
     else counts[d.action] += 1;
     assert.equal(d.allow, d.action === "commit", `${f}: allow != (action==commit)`);

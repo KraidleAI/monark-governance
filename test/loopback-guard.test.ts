@@ -1,15 +1,15 @@
-// test/loopback-guard.test.ts -- lot LOOPBACK-PORTS-1 (2026-10-04; Q-1 of its G1, F-5 of its G2): the static guard of the loopback
+// test/loopback-guard.test.ts -- the static guard of the loopback
 // port. No test file binds port 0: a test server listens on a port drawn above 10080 by test/helpers/loopback.ts (why: its header).
-// Strict since lot HARNESS-LOOPBACK-PORTS-1 (LOOPBACK-PORT0-HELPER-ONLY-1): a test file binds only the port that a startLoopback
+// Strict: a test file binds only the port that a startLoopback
 // callback is given, so a port 0 held in a variable or a --port handed to a process is refused too; the harness, exported alone,
-// carries a byte copy of the helper. Forms: those of the census of the G1 (29 sites in 15 files at 8700329f) and their
+// carries a byte copy of the helper. Forms: those of the census (29 sites in 15 files at 8700329f) and their
 // neighbours, each matched over the whole text (a form may span lines). A lexical guard: a port 0 held in a variable passes the port-0
-// forms, the strict form refuses it. Known limits (G2 of HARNESS-LOOPBACK-PORTS-1, m1): a listen reached by a computed name other
+// forms, the strict form refuses it. Known limits: a listen reached by a computed name other
 // than "listen", an alias by destructuring, a port in an environment variable (PORT=0), a datagram socket in a file that does not
 // import dgram, and an expression of the callback's port (port * 0); for a server started through the helper, the postcondition of
-// startLoopback refuses any port but the drawn one. Fail-closed (m2): the forms read comments and strings, and a typed callback
+// startLoopback refuses any port but the drawn one. Fail-closed: the forms read comments and strings, and a typed callback
 // parameter or a listen given options inside a callback reads as a stray. This file holds a sample of each form, so it is the one
-// test file not scanned. Builtins only: it also runs on a tree without the helper (the base of the lot).
+// test file not scanned. Builtins only: it also runs on a tree without the helper.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -22,7 +22,7 @@ const SKIP = new Set(["node_modules", ".git", "docs", "out", "dist", ".next", ".
 /** The helper and its byte copy in the harness, which the export ships without test/: the two files that bind outside a callback. */
 const HELPER = "test/helpers/loopback.ts", COPY = "apps/harness/test/helpers/loopback.ts";
 /** A bind of port 0: listen given a port 0, none, undefined or null, or a callback alone; listen given options with port 0 or with no
- *  port (a spread aside); the harness started at 0; a draw that answers 0 (M16 of the G2); a datagram socket bound at 0. */
+ *  port (a spread aside); the harness started at 0; a draw that answers 0; a datagram socket bound at 0. */
 const PORT_0 = [
   /listen\s*\(\s*(?:0\s*[,)]|\)|undefined\b|null\b|\(\s*\)\s*=>|function\b)/g,
   /listen\s*\(\s*\{(?:[^}]*\bport\s*:\s*0\b|(?![^}]*(?:\bport\b|\.\.\.))[^}]*\})/g,
@@ -49,7 +49,7 @@ const strays = (file: string, text: string): string[] => {
   return [...text.matchAll(bind)].filter((m) => !ok.has(m.index)).map((m) => at(file, text, m.index));
 };
 
-// reddened by: a test file that binds port 0 (at 8700329f: 29 sites in 15 files; M16 and M17 of the G2), or a port but the one a
+// reddened by: a test file that binds port 0 (at 8700329f: 29 sites in 15 files), or a port but the one a
 // startLoopback callback is given (at 5803d966: the six harness sites and test/loopback.test.ts:83), a walk that misses the test
 // files, or a harness copy of the helper that is absent or differs; killer by hand: in apps/harness/test/http.test.ts,
 // "startLoopback((port) => startServer(port))" -> "startServer(0)"

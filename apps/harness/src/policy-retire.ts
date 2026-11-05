@@ -37,7 +37,7 @@ function closed<T>(v: unknown, cols: Columns, at: string): T {
   return o as T;
 }
 
-/** The value of bytes that are its canonical writing (spec section 2: minified, sorted keys, UTF-8, no final newline); refused otherwise. */
+/** The value of bytes that are its canonical writing (minified, sorted keys, UTF-8, no final newline); refused otherwise. */
 function canonical(pin: RetirePin): unknown {
   try {
     const v = JSON.parse(new TextDecoder().decode(pin.bytes)) as CanonicalValue;

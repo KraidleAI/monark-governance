@@ -1,8 +1,8 @@
 /**
- * Harness — HTTP/JSON mirror tests (ADR-M005 D7/D8; extended to 4 tools by ADR-M007 C1, to 5 by step 5 of ROADMAP.md). The JSON
- * mirror MUST expose exactly the five MCP tools, with the SAME frozen schemas and the SAME boundary validation, and must sit behind
+ * Harness — HTTP/JSON mirror tests. The JSON
+ * mirror MUST expose exactly the three MCP tools, with the SAME frozen schemas and the SAME boundary validation, and must sit behind
  * the SAME Host routing + Origin guard. Each test is killed by >= 1 named mutant (proven red, then
- * restored byte-exact via sha256 — see the passe report). No `any`, no unsafe (off the ratchet).
+ * restored byte-exact via sha256). No `any`, no unsafe (off the ratchet).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -18,7 +18,7 @@ import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 const API_HOST = "api.monarkgate.tech";
 
 const GATE_BODY = {
-  // CM-2b (ADR-CM B-5): btc-dir-15m is retired; the committed USDe key (F-7 alpha 0.1, nMin 50) is the served gate body.
+  // btc-dir-15m is retired; the committed USDe key (alpha 0.1, nMin 50) is the served gate body.
   prediction: { schema_version: SCHEMA_VERSION, task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3", produced_at: "2026-09-04T00:00:00Z" },
   params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0, tool: "perps_order_preview", clockOpen: true },
 } as const;
@@ -49,7 +49,7 @@ async function call(host: string, method: string, path: string, body?: unknown):
 // calibrate, or add a 4th route) instead of deriving from HARNESS_TOOLS ⇒ the served set ≠ registry
 // ⇒ red; (b) skip `~standard.validate` in http.ts ⇒ an extra key slips through ⇒ 200 ⇒ red; (c) alter the
 // returned structuredContent ⇒ the parity deep-equal reds; (d) drop/empty the `content` honesty `text`
-// (http.ts:85) ⇒ the content-parity deep-equal reds (K-1: the mirror text must equal the MCP text byte-for-byte).
+// (http.ts:85) ⇒ the content-parity deep-equal reds (the mirror text must equal the MCP text byte-for-byte).
 test("http_mirror_matches_mcp_surface", async () => {
   // (a) the mirror's operation set IS the registry — the set {gate,calibrate,judge}, no drift.
   assert.deepEqual([...MIRROR_OPERATIONS].sort(), ["calibrate", "gate", "judge"], "mirror ops == the MCP set");
@@ -95,7 +95,7 @@ test("http_mirror_matches_mcp_surface", async () => {
   const gateRes = await call(API_HOST, "POST", "/gate", GATE_BODY);
   assert.deepEqual(gateRes.body.structuredContent, (await gateTool.run(GATE_BODY)).structured, "gate mirror == MCP structured output");
   assertClosedGateDecision(gateRes.body.structuredContent);
-  // honesty parity (K-1): the mirror's `content` text is byte-for-byte the tool's MCP honesty envelope.
+  // honesty parity: the mirror's `content` text is byte-for-byte the tool's MCP honesty envelope.
   assert.deepEqual(gateRes.body.content, [{ type: "text", text: (await gateTool.run(GATE_BODY)).text }], "gate mirror content == MCP honesty text");
 
   // calibrate: the mirror returns the SAME structuredContent + honesty content as the MCP tool.
@@ -156,24 +156,24 @@ test("http_mirror_routes_by_host_and_guards_origin", async () => {
     assert.equal(evil.status, 403, "the api. surface 403s a present-and-invalid Origin (guard before dispatch)");
     assert.equal((evil.json as { error?: string } | null)?.error, "invalid_origin");
   } finally {
-    server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
+    server.closeAllConnections(); // server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 });
 
-// Test — B-1 (ADR-M007): a calibrate refusal is a client error (400), NEVER a leaked 500. This is the
+// Test — a calibrate refusal is a client error (400), NEVER a leaked 500. This is the
 // non-vacuity proof that `CalibrateToolError` ∈ `TOOL_ERROR_NAMES` (http.ts): drop it from that set and
 // the α∉(0,1) case below throws past the tool-error branch into the generic handler ⇒ 500 ⇒ this reds.
 // Two error paths, distinct on purpose:
 //   (a) α=1.5 PASSES the input schema (`alpha` is bare {type:number}, no range) and reaches runCalibrate,
-//       which throws CalibrateToolError ⇒ 400 `tool_error` — the load-bearing B-1 discriminator.
+//       which throws CalibrateToolError ⇒ 400 `tool_error` — the load-bearing discriminator.
 //   (b) n>cap is caught EARLIER, at the SDK boundary by `maxItems` ⇒ 400 `invalid_input` (never reaches
-//       the tool). Both are 400, never 500 — that is the invariant the ADR §3 requires.
+//       the tool). Both are 400, never 500 — that is the invariant.
 test("http_calibrate_errors_are_400_never_500", async () => {
-  // (a) α out of (0,1) ⇒ CalibrateToolError surfaced as 400 tool_error (B-1).
+  // (a) α out of (0,1) ⇒ CalibrateToolError surfaced as 400 tool_error.
   const badAlpha = await call(API_HOST, "POST", "/calibrate", { scores: [0.1, 0.2, 0.3, 0.4, 0.5], alpha: 1.5, nMin: 3 });
   assert.equal(badAlpha.status, 400, "α∉(0,1) must be a 400 tool error, never a 500");
-  assert.equal(badAlpha.body.error, "tool_error", "α∉(0,1) surfaces as tool_error (proves CalibrateToolError ∈ TOOL_ERROR_NAMES, B-1)");
+  assert.equal(badAlpha.body.error, "tool_error", "α∉(0,1) surfaces as tool_error (proves CalibrateToolError ∈ TOOL_ERROR_NAMES)");
 
   // (b) n > CALIBRATE_MAX_N ⇒ rejected at the schema boundary (maxItems) as invalid_input, still 400.
   const over = new Array<number>(CALIBRATE_MAX_N + 1).fill(0);
@@ -188,7 +188,7 @@ const GATE_BYO_BODY = {
   params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 2, alpha: 0.1, nMin: 5, intent: 0, tool: "perps_order_preview", clockOpen: true, calibration: { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], mode: "interval" } },
 } as const;
 
-// Test — C2 BYO over the HTTP mirror: a /gate body carrying params.calibration returns 200 + a closed
+// Test — BYO over the HTTP mirror: a /gate body carrying params.calibration returns 200 + a closed
 // GateDecision whose verdict.scores_sha256 == scoresSha256(scores) (the audit tie), and the content text is
 // the BYO exchangeability carrier (not the cascade sentence). BYO refusals are 400 (HarnessToolError ∈
 // TOOL_ERROR_NAMES), never 500. Mutants: skip the yhat type check ⇒ interval on a string yhat 500s; drop
@@ -199,18 +199,18 @@ test("http_gate_byo_calibration", async () => {
   assert.equal(ok.status, 200, "a BYO /gate body is served (200)");
   assertClosedGateDecision(ok.body.structuredContent);
   const sc = ok.body.structuredContent as { verdict: { scores_sha256: string }; action: string };
-  assert.equal(sc.verdict.scores_sha256, scoresSha256(GATE_BYO_BODY.params.calibration.scores), "verdict.scores_sha256 == scoresSha256(caller scores) — the C1↔C2 audit tie");
+  assert.equal(sc.verdict.scores_sha256, scoresSha256(GATE_BYO_BODY.params.calibration.scores), "verdict.scores_sha256 == scoresSha256(caller scores) — the audit tie");
   assert.equal(sc.action, "commit", "width 2 <= tauInterval 2, intent 0 ∈ [−1,1] ⇒ COMMIT");
-  // content parity with the MCP tool (K-1): the BYO honesty carrier, not the cascade sentence.
+  // content parity with the MCP tool: the BYO honesty carrier, not the cascade sentence.
   const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
   assert.ok(gateTool, "the gate tool is registered");
   assert.deepEqual(ok.body.content, [{ type: "text", text: (await gateTool.run(GATE_BYO_BODY)).text }], "BYO mirror content == MCP honesty text");
-  // RES-1 (G2 C2): an ABSOLUTE oracle so the HTTP layer itself kills a B-1 regression (the deepEqual above is
+  // An ABSOLUTE oracle so the HTTP layer itself kills a cascade-sentence regression (the deepEqual above is
   // an identity and would stay green under a mutant that renders the cascade sentence on BOTH sides).
   const byoPart = (ok.body.content as ReadonlyArray<{ text: string }>)[0];
   assert.ok(byoPart, "BYO mirror returns a content text part");
   assert.ok(byoPart.text.includes("exchangeable"), "BYO content carries the exchangeability honesty carrier");
-  assert.ok(!byoPart.text.includes("no cascade calibration is committed"), "BYO content must NOT carry the cascade under_calib sentence (B-1 wiring, independent of run())");
+  assert.ok(!byoPart.text.includes("no cascade calibration is committed"), "BYO content must NOT carry the cascade under_calib sentence (independent of run())");
   // The verdict summary reaches the wire (delivery aid for text-only MCP clients): the decision action and
   // the truncated scores_sha256 are in the content text, so a client that drops structuredContent still sees
   // the decision. Absolute oracle: a mutant that omits the summary or hardcodes a stale digest reds here.
@@ -220,7 +220,7 @@ test("http_gate_byo_calibration", async () => {
   // BYO refusals ⇒ 400 tool_error, never 500.
   const negScores = { ...GATE_BYO_BODY, params: { ...GATE_BYO_BODY.params, calibration: { scores: [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10], mode: "interval" } } };
   const neg = await call(API_HOST, "POST", "/gate", negScores);
-  assert.equal(neg.status, 400, "an all-negative interval BYO ⇒ 400, never 500 (B-6)");
+  assert.equal(neg.status, 400, "an all-negative interval BYO ⇒ 400, never 500");
   assert.equal(neg.body.error, "tool_error", "a BYO refusal surfaces as tool_error (HarnessToolError ∈ TOOL_ERROR_NAMES)");
 
   const override = { ...GATE_BYO_BODY, prediction: { ...GATE_BYO_BODY.prediction, task_class: "btc-dir-15m", yhat: "up" } };

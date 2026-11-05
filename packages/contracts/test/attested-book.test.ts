@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-// AttestedBook (ADR-U1b) honesty + subject oracles — the two NON-ajv gel tests (the ajv-executed ones
+// AttestedBook honesty + subject oracles — the two NON-ajv gel tests (the ajv-executed ones
 // live in schema.test.ts, the enum-drift ones in enums.test.ts, the closed-check in closed-check.test.ts).
 // Zero-dep, typed schema view (no `any`, so lint-ratchet stays put).
 
@@ -17,9 +17,9 @@ function loadSchema(name: string): SchemaNode {
   return JSON.parse(readFileSync(new URL(name, schemasDir), "utf8")) as SchemaNode;
 }
 
-// The description DISCLAIMS verification; it must make NO positive probative claim (ADR-U1b D3, C-8). This
+// The description DISCLAIMS verification; it must make NO positive probative claim. This
 // re-uses the PROBATIVE scrub of apps/harness/test/attest.test.ts:109 (the real \b-bounded regex, NOT the
-// ADR's shorthand `/live|verified|.../i`), applied AFTER masking the two NAMED honest negations of D3.
+// shorthand `/live|verified|.../i`), applied AFTER masking the two NAMED honest negations.
 // Mutant (e): insert a bare `verified` into the description ⇒ it survives the scope-locked mask ⇒ red.
 test("attested_book_description_no_probative_claim", () => {
   const desc = loadSchema("attested-book.schema.json").description ?? "";
@@ -46,9 +46,9 @@ test("attested_book_description_no_probative_claim", () => {
   assert.ok(PROBATIVE.test(scrub("this book is verified now " + desc)), "a bare probative token must not be masked");
 });
 
-// The frozen `subject` pattern is a NAMED APPROXIMATION of subject.rs C1-C10 (ADR-U1b D2bis, non-port
+// The frozen `subject` pattern is a NAMED APPROXIMATION of subject.rs C1-C10 (non-port
 // declared for C3-IPv4 and C6 dot-segments). The emitted subjects are a SUBSET of the strict canonical
-// motif M017 (NOT frozen; the host is committed HERE as the fixed-list oracle — no Shogen verdict fixture
+// motif CANONICAL below (NOT frozen; the host is committed HERE as the fixed-list oracle — no Shogen verdict fixture
 // exists in this repo). This test asserts BOTH faces so it never over-claims "C1-C10 enforced by schema".
 test("subject_pattern_subset_of_canonical", () => {
   const ab = loadSchema("attested-book.schema.json");
@@ -56,7 +56,7 @@ test("subject_pattern_subset_of_canonical", () => {
   assert.ok(pattern.length > 0, "the schema must carry the subject pattern");
   const SCHEMA_SUBJECT = new RegExp(pattern);
 
-  // The STRICT canonical motif (ADR-U1b D2bis / M017 D5): host PINNED, cluster + block strict.
+  // The STRICT canonical motif: host PINNED, cluster + block strict.
   const CANONICAL = /^https:\/\/monarkgate\.tech\/ukemi\/book\/[a-z0-9-]+\/[0-9]+\.json$/;
 
   const canonicalValid = [
@@ -66,7 +66,7 @@ test("subject_pattern_subset_of_canonical", () => {
   ];
   // emitted (canonical) subjects ⊂ schema-accepted AND ⊂ the strict motif.
   for (const s of canonicalValid) {
-    assert.ok(CANONICAL.test(s), `canonical subject must match the strict M017 motif: ${s}`);
+    assert.ok(CANONICAL.test(s), `canonical subject must match the strict canonical motif: ${s}`);
     assert.ok(SCHEMA_SUBJECT.test(s), `canonical subject must be accepted by the frozen schema pattern: ${s}`);
   }
 
@@ -79,7 +79,7 @@ test("subject_pattern_subset_of_canonical", () => {
     ["IPv4 literal host", "https://127.0.0.1/ukemi/book/weth/1.json"],
   ];
   for (const [why, s] of dangerous) {
-    assert.ok(!CANONICAL.test(s), `strict M017 motif must reject ${why}: ${s}`);
+    assert.ok(!CANONICAL.test(s), `strict canonical motif must reject ${why}: ${s}`);
   }
 
   // The frozen schema pattern catches C2/C4/C9 (MAJ host, @, #) on its own...
@@ -88,6 +88,6 @@ test("subject_pattern_subset_of_canonical", () => {
   assert.ok(!SCHEMA_SUBJECT.test("https://monarkgate.tech/ukemi/book/weth/1.json#f"), "schema rejects a fragment # (C9)");
   // ...but DECLARES C6 dot-segments and C3-IPv4 as NON-PORTS: the loose schema ACCEPTS them; only the
   // strict motif / recorder gabarit rejects them. Asserting the acceptance keeps the approximation honest.
-  assert.ok(SCHEMA_SUBJECT.test("https://monarkgate.tech/ukemi/book/../1.json"), "schema ACCEPTS a dot-segment (C6 non-port, D2bis)");
-  assert.ok(SCHEMA_SUBJECT.test("https://127.0.0.1/ukemi/book/weth/1.json"), "schema ACCEPTS an IPv4 host (C3-IPv4 non-port, D2bis)");
+  assert.ok(SCHEMA_SUBJECT.test("https://monarkgate.tech/ukemi/book/../1.json"), "schema ACCEPTS a dot-segment (C6 non-port)");
+  assert.ok(SCHEMA_SUBJECT.test("https://127.0.0.1/ukemi/book/weth/1.json"), "schema ACCEPTS an IPv4 host (C3-IPv4 non-port)");
 });

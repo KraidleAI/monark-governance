@@ -1,5 +1,5 @@
 /**
- * Lot H5 shared driver + independent oracle (ADR-M005 §H5, C-6; reworked at step 7 of ROADMAP.md, when attest and
+ * H5 shared driver + independent oracle (reworked at step 7 of ROADMAP.md, when attest and
  * cascade were archived). NOT a test file (no `*.test.ts` suffix ⇒ never run by the `test/*.test.ts` glob); imported
  * by BOTH the recorder (`scripts/record-h5-e2e-trace.mjs`) and the probe (`test/h5-e2e-probe.test.ts`), so the demo
  * is generated and verified by ONE code path.
@@ -23,15 +23,15 @@ export const HOST_API = "api.monarkgate.tech";
 /** MCP streamable-HTTP requires BOTH media types in Accept (else the SDK answers 406). */
 export const ACCEPT_MCP = "application/json, text/event-stream";
 
-/** Fixed caller-carried instant — the tools read no clock (D4/D7), so the trace is deterministic. */
+/** Fixed caller-carried instant — the tools read no clock, so the trace is deterministic. */
 export const PRODUCED_AT = "2026-09-04T00:00:00Z";
 
-/** Caller-carried gate params (non-frozen, ADR-M005 D5/D6); `intent`/`remainingBudget` set per call. */
+/** Caller-carried gate params (non-frozen); `intent`/`remainingBudget` set per call. */
 export const GATE_PARAMS = { bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, tool: "perps_order_preview", clockOpen: true } as const;
 export const DEMO_REMAINING_BUDGET = 0.1;
 
 /** The committed USDe key of stable-run-velocity-24h (GATE_PARAMS carries its imposed alpha 0.1 and nMin 50): the
- *  committed decision of the trace since btc-dir-15m is retired (ADR-CM B-5, CM-2b). */
+ *  committed decision of the trace since btc-dir-15m is retired. */
 export const USDE_PREDICTION = {
   schema_version: "1.1.0",
   task_class: "stable-run-velocity-24h",
@@ -183,7 +183,7 @@ export async function buildTrace(): Promise<H5Trace> {
     const names = listResult.tools.map((t) => t.name).sort((a, b) => (a < b ? -1 : 1));
     const listSha = createHash("sha256").update(JSON.stringify(listResult), "utf8").digest("hex");
 
-    // 3) gate(USDe committed key) -> the committed decision (measured calibration; btc-dir-15m is retired, CM-2b).
+    // 3) gate(USDe committed key) -> the committed decision (measured calibration; btc-dir-15m is retired).
     const gateUsdeArgs = { prediction: USDE_PREDICTION, params: { ...GATE_PARAMS, remainingBudget: DEMO_REMAINING_BUDGET, intent: 0.0001 } };
     const gateUsde = await mcpToolsCall(port, 3, "gate", gateUsdeArgs);
 
@@ -252,7 +252,7 @@ export async function buildTrace(): Promise<H5Trace> {
       },
     };
   } finally {
-    server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
+    server.closeAllConnections(); // server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 }
