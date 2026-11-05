@@ -1,6 +1,6 @@
 # ROADMAP — le moteur MONARK (HIKAE + Genkan)
 
-Mis à jour le 2026-11-04. Une ligne qui change remplace l'ancienne ; l'historique est dans git, pas ici.
+Mis à jour le 2026-11-05. Une ligne qui change remplace l'ancienne ; l'historique est dans git, pas ici.
 
 ## Où on en est (vérifié sur le code le 2026-11-04)
 
@@ -32,16 +32,16 @@ Mis à jour le 2026-11-04. Une ligne qui change remplace l'ancienne ; l'historiq
   lit sa réponse sans rien supposer (`readVerdict`).
 - **PR** : #355 (l'étape 5), #356 (l'étape 7), #357 (l'étape 6), #359 (le rejeu sans réduire ses fractions), #358 (le
   ménage), #361 (les mutants du juge), #360 (l'étape 8), #362 (le README du harness), #363 (le noyau asynchrone) et #364
-  (les textes servis) fusionnées dans `lot/etude-suite` le 2026-11-04 ; #345 et #323 fermées le même jour, sur décision
-  du fondateur.
+  (les textes servis) fusionnées dans `lot/etude-suite` le 2026-11-04, et #365 (l'interface de la stratégie) le
+  2026-11-05 ; #345 et #323 fermées le 2026-11-04, sur décision du fondateur.
 
 ## Les étapes
 
 | # | Étape | Finie quand |
 |---|---|---|
 | 1 | Le recentrage : archive, cinq documents, CI réduite | faite le 2026-11-04, README de `apps/harness` réécrit à partir du code |
-| 2 | La stratégie du fondateur, écrite dans `STRATEGIE.md` | ses signaux, ses marchés, ses horizons et ses règles de sortie sont écrits ; depuis le 2026-11-04, `STRATEGIE.md` dit ce que le moteur attend d'une stratégie (partie 2, d'après le code) et la stratégie reste à remplir (partie 1) ; le dépôt étant public, le fondateur décidera où la partie 1 vit avant de la remplir |
-| 3 | L'adaptateur stratégie → `Prediction`, puis la calibration de ses classes | `gate` rend COMMIT, DEFER ou ABSTAIN sur un signal réel de la stratégie, avec son test |
+| 2 | La stratégie du fondateur, écrite dans `STRATEGIE.md` | ses signaux, ses marchés, ses horizons et ses règles de sortie sont écrits ; depuis le 2026-11-04, `STRATEGIE.md` dit ce que le moteur attend d'une stratégie (partie 2, d'après le code) ; la stratégie (partie 1) reste à remplir, dans le dépôt privé `KraidleAI/monark-strategie` (décision du fondateur du 2026-11-05) |
+| 3 | L'adaptateur stratégie → `Prediction`, puis la calibration de ses classes, dans le dépôt privé | `gate` rend COMMIT, DEFER ou ABSTAIN sur un signal réel de la stratégie, avec son test |
 | 4 | Le juge de Genkan en Lean, avec ses théorèmes | fait le 2026-11-04 (mode 1, 30 théorèmes rejoués en CI) ; la règle de l'EXIT confirmée par le fondateur le même jour |
 | 5 | Le harness relié au juge | fait le 2026-11-04 : l'outil `judge` lance le binaire du noyau sur un ordre et le contexte tiré de la `GateDecision`, lit son verdict par `readVerdict` ; test d'intégration `apps/harness/test/judge.kernel.test.ts`, dans `test:genkan` et la tâche Lean de la CI |
 | 6 | Le suivi en ligne de HIKAE branché dans `gate` | fait le 2026-11-04 : `gate` lit `params.suivi` (la politique de la cellule, ses évaluations de référence, leurs issues arrivées, l'état de départ du segment), le rejoue par `suiviReplay` (`packages/hikae/src/suivi`, sur `pari`) et prend `B_t = min(remainingBudget, budget rejoué)` ; le suivi ne peut que baisser le budget, donc pousser la décision vers abstain. Tests : `packages/hikae/test/suivi-replay.test.ts`, `apps/harness/test/gate-suivi.test.ts`, et de bout en bout sur MCP et le miroir HTTP `test/gate-suivi-served.test.ts` |
@@ -58,7 +58,7 @@ Mis à jour le 2026-11-04. Une ligne qui change remplace l'ancienne ; l'historiq
 | Dépendances | `minimatch` est forcé à 11.0.4 par `overrides` dans `package.json`. L'alerte Dependabot #13 (GHSA-g3hv-75wg-m249, déni de service) vise toute version avant 11.0.1, et les dernières versions d'eslint (10.14.0), de `@eslint/config-array` (0.23.5) et de `@typescript-eslint/typescript-estree` (8.72.1) demandent encore `^10` (lu le 2026-11-04). Avec la 11, eslint lit les mêmes 173 fichiers et rend les mêmes messages, règles du ratchet comprises. Retirer l'override quand les trois acceptent la 11 |
 | Contrats | les schémas de `schemas/` font foi ; `packages/contracts` en est la liaison TypeScript |
 | Garantie de HIKAE | couverture marginale, en échantillon fini, sous échangeabilité dans la classe ; jamais une probabilité d'avoir raison |
-| Dépôt | `KraidleAI/monark-governance`, public ; branche de travail `lot/etude-suite` ; rien n'est poussé sans accord |
+| Dépôt | `KraidleAI/monark-governance`, public ; branche de travail `lot/etude-suite` ; rien n'est poussé sans accord. La stratégie du fondateur, son adaptateur et l'historique de sa calibration vivent dans le dépôt privé `KraidleAI/monark-strategie` (décision du fondateur du 2026-11-05), jamais ici |
 | CI | quatre tâches : tests, lint, audit des dépendances, noyau Lean (avec l'outil `judge` et l'exécuteur papier du harness sur le noyau construit) ; elles tournent sur une PR, pas sur un push (`on: pull_request`) |
 | Ordres et argent | aucun ordre réel, dépôt, retrait ou transfert sans go du fondateur, ordre par ordre |
 | Le noyau dans le harness | `judge` passe d'abord par le gate : une enveloppe qu'il refuse est une erreur d'outil pour tout ordre sauf une EXIT. Une EXIT est jugée quand même, sous l'action abstain, sans décision du gate (`decision` à `null`, le refus dans `gate_error`) : décision du fondateur du 2026-11-04, un signal que le gate refuse ne bloque pas une sortie. Une enveloppe mal formée (refusée par le schéma d'entrée) reste refusée, EXIT comprise. Le noyau est lancé en asynchrone (`spawn`, décision du fondateur du 2026-11-04, exigée avant tout déploiement derrière `api.` ou `mcp.monarkgate.tech`) : le serveur répond aux autres appels pendant qu'un noyau tourne, avec le même isolement (environnement vide, pas de shell, stdin seul) et les mêmes réponses qu'avant, à une près, plus stricte : un noyau qui sort 0 en laissant son stdout ouvert au-delà du délai a le statut null, là où spawnSync rendait 0 (`test/kernel-runner.test.ts`). Quatre noyaux au plus tournent à la fois (`KERNEL_MAX_CONCURRENT`, mesuré le 2026-11-04 sur un Ryzen 9 3900X, 24 fils, Windows : environ 30 ms par noyau seul comme à quatre, 37 ms à huit, 47 ms à douze ; à mesurer de nouveau sur la machine de déploiement). Un appel au-delà attend son tour, premier arrivé premier servi, sans erreur servie ; le délai de 10 s compte depuis le lancement du noyau, pas depuis l'attente. La file n'a pas de borne propre : une borne qui refuserait un appel changerait ce qui est servi ; pas de borne pour l'instant (décision du fondateur du 2026-11-04), elle se décidera au déploiement, quand on connaîtra la machine et les limites du proxy |
