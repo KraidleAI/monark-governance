@@ -15,6 +15,8 @@
  * NO forbidden-keys change (the closed schema suffices), the 5 existing contracts byte-unchanged.
  * Re-baselined again when `residual` came to carry
  * `contains: {const: "no_third_party_verifier"}` — one schema line, same schema_version, no new data key.
+ * Re-baselined again when the comments of `packages/contracts/src/**` stopped citing erased decisions: comments only,
+ * no code token changed.
  * Run by `npm test` in EACH worktree.
  */
 import { test } from "node:test";

@@ -1,11 +1,11 @@
 /**
- * Canonical writing of contract 1.1.0 (spec section 2, plan r3 P-2; lot CM-3c-1, block A): the one writing behind every
+ * Canonical writing of contract 1.1.0: the one writing behind every
  * digest of the contract. Minified JSON; object keys ASCII only (a non-ASCII key is refused) and sorted (JavaScript's
  * default order, the byte order for ASCII); numbers finite, written as JavaScript writes them (the shortest round-trip
  * decimal: 0 and 1 without a point, 1e-7, 1e+21; -0 is written 0); strings as JSON.stringify writes them. Refused
  * (RangeError), never written as null: a non-finite number, a lone surrogate in a string, a sparse array, an object that
  * is not plain, a cycle, undefined, a function, a symbol, a bigint. Same writing as canonicalRow of packages/hikae on
- * ASCII keys; canonicalRow also takes a non-ASCII key, until block C re-exports it from here.
+ * ASCII keys; canonicalRow also takes a non-ASCII key.
  */
 import { createHash } from "node:crypto";
 
@@ -39,7 +39,7 @@ function write(v: unknown, seen: readonly object[]): string {
   return `{${keys.map((k) => `${str(k)}:${write(o[k], inner)}`).join(",")}}`;
 }
 
-/** The canonical writing of `value` (spec section 2). */
+/** The canonical writing of `value`. */
 export function canonicalJson(value: CanonicalValue): string {
   return write(value, []);
 }

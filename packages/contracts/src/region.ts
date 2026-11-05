@@ -1,7 +1,7 @@
 import type { PredictionRegion } from "./types.ts";
 
 /**
- * Containment predicate, per region variant (ADR-M001 C6).
+ * Containment predicate, per region variant.
  * The set|interval union must NOT leak into the decision layer: a `set` region
  * contains string labels; an `interval` region contains a number in [lo, hi].
  * A null intent is never contained. This is what lets UKEMI (interval) plug in.

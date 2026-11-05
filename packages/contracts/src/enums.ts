@@ -1,10 +1,10 @@
 /**
- * Single runtime source for the closed enums (ADR-M001 D5b/C7). The TS types are
+ * Single runtime source for the closed enums. The TS types are
  * DERIVED from these arrays, and the JSON Schemas are tested against them
- * (enums.test.ts), so the copies cannot drift silently. Closes G2 reserve M3.
+ * (enums.test.ts), so the copies cannot drift silently.
  */
 
-/** Version of Prediction, CoverageVerdict and GateDecision (contract 1.1.0): the single exported constant (Q-3, Q-3a-4). */
+/** Version of Prediction, CoverageVerdict and GateDecision (contract 1.1.0): the single exported constant. */
 export const SCHEMA_VERSION = "1.1.0";
 
 export const COVERAGE_REASONS = [
@@ -29,7 +29,7 @@ export const COVERAGE_REASONS = [
 ] as const;
 export type CoverageReason = (typeof COVERAGE_REASONS)[number];
 
-/** Reasons a verdict may carry with `region: null` (spec section 6, column "Region" none or any); closed-check and L3 step 4. */
+/** Reasons a verdict may carry with `region: null`; closed-check and L3 step 4. */
 export const REASONS_WITHOUT_REGION: readonly CoverageReason[] = ["upstream_timeout", "attestation_absent", "attestation_refused",
   "binding_broken", "non_evaluable", "under_calib", "calib_silence", "calib_vetoed", "calib_retired", "out_of_support", "region_degenerate"];
 
@@ -40,7 +40,7 @@ export const METHODS = ["split", "hac-cp", "risk-control"] as const;
 export type Method = (typeof METHODS)[number];
 
 /**
- * Narabi / AttestedFlow residual assumptions (ADR-M008 D3) — a CLOSED enum, stricter than
+ * Narabi / AttestedFlow residual assumptions — a CLOSED enum, stricter than
  * AttestedPrice's free-string `residual[]`: a residual outside this set is a fail-closed refusal, never
  * silent text. `attestor_silent`/`attestor_terminated` are bound to an OBSERVED 4xx/5xx (hashed in the
  * utterance), never to a missing field. Single runtime source; the JSON Schema enum is asserted identical
@@ -58,11 +58,11 @@ export const ATTESTED_FLOW_RESIDUALS = [
 export type AttestedFlowResidual = (typeof ATTESTED_FLOW_RESIDUALS)[number];
 
 /**
- * AttestedBook residual assumptions (ADR-U1b D2ter) — a CLOSED enum, contract-specific (NOT the Shogen
+ * AttestedBook residual assumptions — a CLOSED enum, contract-specific (NOT the Shogen
  * assumptions registry, borrows no identifier from it). A residual outside this set is a fail-closed
  * refusal, never silent text. `no_third_party_verifier` is ALWAYS emitted (so `minItems:1` is never
- * vacuous, C-10): AttestedBook is a self-declared reading, no verifier runs. Single runtime source; the
- * JSON Schema enum is asserted identical to it (enums.test.ts). Extensible by ADR only (ADR-M008 D3 pattern).
+ * vacuous): AttestedBook is a self-declared reading, no verifier runs. Single runtime source; the
+ * JSON Schema enum is asserted identical to it (enums.test.ts).
  */
 export const ATTESTED_BOOK_RESIDUALS = [
   "no_third_party_verifier",
@@ -75,8 +75,8 @@ export const ATTESTED_BOOK_RESIDUALS = [
 export type AttestedBookResidual = (typeof ATTESTED_BOOK_RESIDUALS)[number];
 
 /**
- * AttestedBook `abstain.reason` (ADR-U1b D4) — a CLOSED enum that INCLUDES `null`. The coupling
- * `value ⇔ reason≠null` (fatal-only, D4 total witness) is enforced STRUCTURALLY by the frozen schema
+ * AttestedBook `abstain.reason` — a CLOSED enum that INCLUDES `null`. The coupling
+ * `value ⇔ reason≠null` (fatal-only, a total witness) is enforced STRUCTURALLY by the frozen schema
  * (a `oneOf` on `abstain`), exercised in schema.test.ts (`attested_book_abstain_coupling`). `null` is
  * kept IN this runtime source (listed first) so the JSON Schema enum is asserted identical to it WITHOUT
  * any transformation (enums.test.ts), mirroring ATTESTED_FLOW_RESIDUALS.

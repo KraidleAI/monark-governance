@@ -1,5 +1,5 @@
 /**
- * Closed-contract enforcement (ADR-M001 D7 / C8) — the PRIMARY guard.
+ * Closed-contract enforcement — the PRIMARY guard.
  *
  * Mirrors Shogen's decoder, which REFUSES an unknown key (`CleInconnue`) rather
  * than ignoring it. Each object shape declares its exact allowed keys; any key
@@ -138,7 +138,7 @@ function fail(field: string, other: string): never {
   throw new Error(`MONARK closed-check: CoverageVerdict.${field} breaks its coupling with ${other} (contract 1.1.0, spec section 5).`);
 }
 
-/** The couplings of spec section 5, checked before a verdict is sent (contract 1.1.0, lot CM-3c-3a). */
+/** The couplings of the verdict, checked before a verdict is sent (contract 1.1.0). */
 function assertVerdictCouplings(v: Record<string, unknown>): void {
   const region = v["region"], qhat = v["qhat"], abstain = v["abstain"], scale = v["scale"], unit = v["qhat_unit"], scores = v["scores"];
   const reason = String(v["reason"]), cellKey = v["cell_key"], tableSha = v["policy_table_sha256"];
