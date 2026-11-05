@@ -1,40 +1,16 @@
 # STRATEGIE.md — la stratégie du fondateur et son interface avec le moteur
 
-Écrit le 2026-11-04. La partie 1 est au fondateur : c'est l'étape 2 de `ROADMAP.md`, finie quand ses signaux, ses
-marchés, ses horizons et ses règles de sortie sont écrits. La partie 2 dit, d'après le code, ce que le moteur attend
+Écrit le 2026-11-04. La partie 1, la stratégie du fondateur, vit dans le dépôt privé `KraidleAI/monark-strategie`
+(décision du fondateur du 2026-11-05), jamais ici : c'est l'étape 2 de `ROADMAP.md`, finie quand ses signaux, ses
+marchés, ses horizons et ses règles de sortie y sont écrits. La partie 2 dit, d'après le code, ce que le moteur attend
 d'une stratégie ; elle suit le code, et le code fait foi.
 
-## 1. La stratégie (à remplir par le fondateur)
+## 1. La stratégie (dans le dépôt privé)
 
-### 1.1 Les signaux
-
-- Ce qui produit un signal (un modèle, une règle) et à quelle cadence : _à remplir_
-- Ce qu'un signal affirme : un nombre (un niveau, un écart, un montant) ou une étiquette parmi plusieurs (par
-  exemple une direction) ; voir 2.1 et 2.2 : _à remplir_
-- Ce que le signal veut faire quand il est couvert (le champ `intent`, voir 2.3) : _à remplir_
-
-### 1.2 Les marchés
-
-- Les places et les actifs, écrits comme le moteur les écrit (voir 2.6) : _à remplir_
-- L'unité de chaque montant : le moteur ne prend que des entiers (voir 2.6) : _à remplir_
-
-### 1.3 Les horizons
-
-- L'horizon de chaque signal, et quand son issue est connue : _à remplir_
-
-### 1.4 Les règles d'entrée et de sortie
-
-- Quand ouvrir, quand sortir, et de combien : _à remplir_
-- Que faire sur un DEFER et sur un ABSTAIN (voir 2.4) : _à remplir_
-
-### 1.5 Les montants
-
-- Le total de chaque actif (sur papier, les tests prennent 1000, une valeur d'essai) : _à remplir_
-
-### 1.6 L'historique
-
-- Les signaux passés de chaque classe, avec leur issue, qui serviront à la calibrer (voir 2.2) : combien, sur quelle
-  période, d'où : _à remplir_
+La partie 1 vit dans le fichier `STRATEGIE.md` du dépôt privé `KraidleAI/monark-strategie`, à remplir par le
+fondateur : les signaux (1.1), les marchés et l'unité des montants (1.2), les horizons (1.3), les règles d'entrée et de
+sortie, DEFER et ABSTAIN compris (1.4), les montants (1.5) et l'historique de chaque classe (1.6). La partie 2 y renvoie
+par ces numéros. Rien de la stratégie n'entre dans ce dépôt public.
 
 ## 2. Ce que le moteur attend (lu dans le code le 2026-11-04, au commit `8b21aff4`)
 
@@ -181,5 +157,5 @@ soumissions (`id`, `at_ms`, `prediction`, `params`, `attested` optionnel, `order
 - Les places, les actifs et l'unité des montants ; les totaux réels.
 - Ce que fait la stratégie sur un DEFER et sur un ABSTAIN.
 - Le premier ordre réel (étape 9), ordre par ordre, la place et la garde des clés.
-- La publication de ce fichier : le dépôt `KraidleAI/monark-governance` est public, et la partie 1 y publierait la
-  stratégie.
+- Ce qui est publié : ce fichier public ne porte que la partie 2 ; la stratégie reste dans le dépôt privé (décision du
+  fondateur du 2026-11-05).
