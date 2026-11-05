@@ -12,7 +12,7 @@ fondateur : les signaux (1.1), les marchés et l'unité des montants (1.2), les 
 sortie, DEFER et ABSTAIN compris (1.4), les montants (1.5) et l'historique de chaque classe (1.6). La partie 2 y renvoie
 par ces numéros. Rien de la stratégie n'entre dans ce dépôt public.
 
-## 2. Ce que le moteur attend (lu dans le code le 2026-11-04, au commit `8b21aff4`)
+## 2. Ce que le moteur attend (lu dans le code le 2026-11-04, au commit `8b21aff4` ; le suivi sur la voie BYO le 2026-11-05)
 
 ### 2.1 Un signal devient une `Prediction`
 
@@ -44,6 +44,9 @@ non-conformité (`scores`) et un `mode` (`apps/harness/src/tools/gate.ts`, `byoV
   ressemblent : les classes `btc-dir-15m`, `cascade-liquidable-24h` et `liquidation-eligible-coverage`, la clé USDe
   committée, les noms kata (`KATA_CLASS_RE`) et le préfixe de clé `kata:`.
 - Une classe BYO n'accepte pas `attested`.
+- Son suivi en ligne (2.5) se lie à sa classe et à la clé de l'appelant : un verdict BYO ne nomme aucune cellule
+  (`cell_key` nul), donc la politique nomme pour `task_class` la classe de la requête et pour `cell_key` son
+  `predictor_id`.
 - MONARK ne voit ni ne vérifie les données ou le modèle de l'appelant, ni que ces nombres sont des scores de non-conformité
   d'un modèle (`CALIBRATE_LABEL`).
 
@@ -97,7 +100,8 @@ fermer son segment sur une alarme.
 L'appelant porte les preuves de la cellule, et le serveur les rejoue à chaque appel sans rien garder
 (`packages/hikae/src/suivi/replay.ts`, `SuiviEvidence`) :
 
-- `policy` : la politique de la cellule ;
+- `policy` : la politique de la cellule ; son `task_class` est la classe de la requête, et son `cell_key` la cellule du
+  verdict, ou sur la voie BYO le `predictor_id` de la requête (2.2) ;
 - `evaluations` : ses évaluations de référence depuis son début (`seq`, `t_step_ms`, `yhat_ref`, `produced_at_ref`,
   `pre_member`) ;
 - `outcomes` : leurs issues arrivées (`seq`, `resolved`, `member`, `miss`) ;
@@ -107,7 +111,8 @@ Bornes : 500 évaluations et 500 issues, 8 paris par mélange, 20 caractères pa
 travail de 3600 bits (`ROADMAP.md`, ligne « Le suivi dans le gate »). Le gate prend pour `B_t` le plus petit de
 `remainingBudget` et du budget rejoué : le suivi ne peut que baisser le budget. Un segment sans licence ou fermé
 (`closed_by` vaut `alarm` ou `w_exhausted`) rend `B_t` à -1, donc un ABSTAIN `budget_exhausted`. Les politiques par
-cellule seront committées avec la calibration des classes de la stratégie (étape 3).
+cellule seront committées avec la calibration des classes de la stratégie (étape 3) ; sur la voie BYO, l'appelant
+porte la sienne.
 
 ### 2.6 Un ordre passe par Genkan (`judge`)
 

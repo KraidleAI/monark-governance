@@ -40,6 +40,11 @@ const outs = (E: readonly (0 | 1)[]): Outcome[] => E.map((miss, seq) => ({ seq, 
 const fill = (n: number, v: 0 | 1): (0 | 1)[] => new Array<0 | 1>(n).fill(v);
 const suivi = (policy: SuiviPolicy, E: readonly (0 | 1)[], open: boolean) => ({ policy, evaluations: evals(E.length), outcomes: outs(E), open });
 const gateWith = (params: Partial<HarnessParams>) => runGate(USDE, { ...BASE, ...params });
+/** A BYO request on the class, under the caller's own key: 100 scores from 0.001 to 0.1, so a region of about yhat +- 0.09. */
+const BYO_KEY = "byo:demo";
+const BYO_SCORES = Array.from({ length: 100 }, (_, i) => (i + 1) / 1000);
+const byoWith = (params: Partial<HarnessParams>) =>
+  runGate({ ...USDE, predictor_id: BYO_KEY }, { ...BASE, calibration: { scores: BYO_SCORES, mode: "interval" }, ...params });
 
 /** The code of the tool error that fn throws, and its message. */
 function refusal(fn: () => unknown): { code: string | undefined; message: string } {
@@ -89,7 +94,7 @@ test("gate_suivi_refusals_are_param_invalid", () => {
   const ok = suivi(PW, [0, 1], true);
   const cases: readonly [string, Partial<HarnessParams>, string][] = [
     ["another class", { suivi: { ...ok, policy: { ...PW, task_class: "liquidation-eligible-coverage" } } }, "task_class"],
-    ["another cell", { suivi: { ...ok, policy: { ...PW, cell_key: "kata:other" } } }, "cell_key"],
+    ["another cell", { suivi: { ...ok, policy: { ...PW, cell_key: "kata:other" } } }, `the policy's cell_key is not the verdict's '${USDE_KEY}'`],
     ["a malformed policy", { suivi: { ...ok, policy: { ...PW, a: "2" } } }, "a outside (0, 1)"],
     ["an evaluation off the grid", { suivi: { ...ok, evaluations: evals(2).map((e, i) => (i === 1 ? { ...e, t_step_ms: e.t_step_ms + 1 } : e)) } }, "grid_ms"],
     ["an outcome of no evaluation", { suivi: { ...ok, outcomes: [...outs([0, 1]), { seq: 9, resolved: true, member: true, miss: 0 }] } }, "no pending evaluation"],
@@ -106,10 +111,27 @@ test("gate_suivi_refusals_are_param_invalid", () => {
     assert.ok(r.message.startsWith("invalid param 'suivi': "), `${what}: ${r.message}`);
     assert.ok(r.message.includes(needle), `${what} names ${needle}: ${r.message}`);
   }
-  // A BYO verdict has no cell key: no tracking can name its cell.
-  const byo = refusal(() => runGate({ ...USDE, predictor_id: "byo:demo" }, { ...BASE, calibration: { scores: [0.1, 0.2, 0.3], mode: "interval" },
-    suivi: { ...ok, policy: { ...PW, cell_key: "byo:demo" } } }));
-  assert.deepEqual([byo.code, byo.message.includes("no cell key")], ["param_invalid", true], byo.message);
+  // On the BYO path the cell is the request's class and key: a policy that names another key, or another class, is refused.
+  const otherKey = refusal(() => byoWith({ suivi: { ...ok, policy: { ...PW, cell_key: "byo:other" } } }));
+  assert.deepEqual([otherKey.code, otherKey.message], ["param_invalid",
+    `invalid param 'suivi': the policy's cell_key is not the request's predictor_id '${BYO_KEY}' (a BYO cell is its class and key)`]);
+  const otherClass = refusal(() => byoWith({ suivi: { ...ok, policy: { ...PW, task_class: "byo-other-1h", cell_key: BYO_KEY } } }));
+  assert.deepEqual([otherClass.code, otherClass.message], ["param_invalid",
+    `invalid param 'suivi': the policy's task_class is not the request's '${USDE.task_class}'`]);
+});
+
+test("gate_suivi_on_byo_binds_to_the_class_and_the_callers_key", () => {
+  // A BYO verdict names no cell: the policy names the request's class and key (decision of the founder, 2026-11-05). The
+  // tracking only lowers the caller's budget, as on a committed cell.
+  const without = byoWith({});
+  assert.deepEqual([without.action, without.reason, without.remaining_budget], ["commit", "covered", 1], "without the evidence");
+  const licensed = byoWith({ suivi: suivi({ ...FIX, cell_key: BYO_KEY }, fill(45, 0), false) });
+  assert.deepEqual([licensed.action, licensed.reason, licensed.remaining_budget], ["commit", "covered", 0.99], "K licenses at the 45th zero");
+  assert.equal(licensed.verdict.cell_key, null, "the BYO verdict still names no cell");
+  const lowered = byoWith({ bFloor: 0.6, suivi: suivi({ ...PW, cell_key: BYO_KEY }, fill(5, 1), true) });
+  assert.deepEqual([lowered.action, lowered.reason, lowered.remaining_budget], ["abstain", "budget_exhausted", 0.5], "five misses leave 0.5");
+  const closed = byoWith({ suivi: suivi({ ...PW, cell_key: BYO_KEY }, fill(6, 1), true) });
+  assert.deepEqual([closed.action, closed.reason, closed.remaining_budget], ["abstain", "budget_exhausted", -1], "six misses close the segment");
 });
 
 test("gate_suivi_work_bound_admits_up_to_its_limit", () => {
