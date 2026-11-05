@@ -1094,8 +1094,10 @@ const policyTexts = (p: Readonly<Record<string, unknown>>): readonly unknown[] =
   p["alpha_arl"], p["eta_m1"], p["sr_reading_threshold"], ...[p["bets_k"], p["bets_w"], p["bets_sr"]].flatMap(betsLists).flat()];
 
 /** The shape the replay needs, checked on the caller's JSON before it runs (the replay checks the rest): the policy names the
- *  request's class and the verdict's cell, and the lists keep to their bounds. The evidence is the caller's; no signature is read. */
-function checkSuivi(s: unknown, prediction: Prediction, verdict: CoverageVerdict): asserts s is SuiviEvidence {
+ *  request's class and the verdict's cell, and the lists keep to their bounds. On the BYO path (`params.calibration`) the verdict
+ *  names no cell (cell_key null, as closed-check.ts couples it to a null table sha): the cell is the request's class and key, so the
+ *  policy names the request's predictor_id (decision of the founder, 2026-11-05). The evidence is the caller's; no signature is read. */
+function checkSuivi(s: unknown, prediction: Prediction, verdict: CoverageVerdict, byo: boolean): asserts s is SuiviEvidence {
   const e: Readonly<Record<string, unknown>> = isRecord(s) ? s : {};
   const policy = isRecord(e.policy) ? e.policy : null;
   if (policy === null) suiviRefusal("expected an object with a policy object");
@@ -1105,7 +1107,12 @@ function checkSuivi(s: unknown, prediction: Prediction, verdict: CoverageVerdict
   if ([policy["bets_k"], policy["bets_w"], policy["bets_sr"]].flatMap(betsLists).some((l) => l.length > SUIVI_MAX_BETS)) suiviRefusal(`expected at most ${String(SUIVI_MAX_BETS)} bets a mixture`);
   if (policyTexts(policy).some((t) => typeof t === "string" && t.length > SUIVI_MAX_TEXT)) suiviRefusal(`expected rational texts of at most ${String(SUIVI_MAX_TEXT)} characters`);
   if (policy["task_class"] !== prediction.task_class) suiviRefusal(`the policy's task_class is not the request's '${prediction.task_class}'`);
-  if (verdict.cell_key === null) suiviRefusal("the verdict has no cell key (a BYO calibration names no served cell)");
+  if (byo) {
+    if (policy["cell_key"] !== prediction.predictor_id) suiviRefusal(`the policy's cell_key is not the request's predictor_id '${prediction.predictor_id}' (a BYO cell is its class and key)`);
+    return;
+  }
+  // Every served path names its cell (servedCell, kata-path.ts); kept so that a verdict with no cell still fails closed.
+  if (verdict.cell_key === null) suiviRefusal("the verdict has no cell key");
   if (policy["cell_key"] !== verdict.cell_key) suiviRefusal(`the policy's cell_key is not the verdict's '${verdict.cell_key}'`);
 }
 
@@ -1114,7 +1121,7 @@ function checkSuivi(s: unknown, prediction: Prediction, verdict: CoverageVerdict
 function suiviBudget(prediction: Prediction, params: HarnessParams, verdict: CoverageVerdict): number {
   const s: unknown = params.suivi;
   if (s === undefined) return params.remainingBudget;
-  checkSuivi(s, prediction, verdict);
+  checkSuivi(s, prediction, verdict, params.calibration !== undefined);
   try {
     const n = s.evaluations.length, bits = suiviDenBits(s.policy);
     if (n * bits > SUIVI_MAX_WORK_BITS) suiviRefusal(`the replay's work, ${String(n)} evaluations by ${String(bits)} bits, passes its bound of ${String(SUIVI_MAX_WORK_BITS)} bits`);

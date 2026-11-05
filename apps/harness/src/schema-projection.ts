@@ -216,7 +216,7 @@ const SUIVI_POLICY_SCHEMA: JsonObject = {
   additionalProperties: false,
   required: ["schema", "task_class", "cell_key", "population", "policy_version", "a", "delta_adm", "delta_exh", "alpha_arl", "m", "eta_m1",
     "sr_reading_threshold", "restart_weights", "bets_k", "bets_w", "bets_sr", "grace_steps", "grid_ms", "l_ms", "thin_window", "thin_min", "keyring"],
-  description: "The cell's closed tracking policy (hikae-suivi-policy-v1); its task_class and cell_key must be the request's class and the verdict's cell.",
+  description: "The cell's closed tracking policy (hikae-suivi-policy-v1); its task_class must be the request's class, and its cell_key the verdict's cell, or on the BYO path (params.calibration, whose verdict names no cell) the request's predictor_id.",
   properties: {
     schema: { type: "string", enum: ["hikae-suivi-policy-v1"] },
     task_class: { type: "string", minLength: 1 },

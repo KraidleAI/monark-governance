@@ -126,7 +126,9 @@ The caller carries the cell's tracking evidence, and the server replays it from 
 `@monark/hikae`, pure; nothing is stored):
 
 - `policy`: the closed `hikae-suivi-policy-v1` settings of the cell (22 keys, checked by `assertSuiviPolicy`). Its `task_class`
-  must be the request's and its `cell_key` the verdict's `cell_key`.
+  must be the request's and its `cell_key` the verdict's `cell_key`. On the BYO path (`params.calibration`) the verdict names
+  no cell (`cell_key` null): the cell is the request's class and key, so the policy's `cell_key` is the request's
+  `predictor_id`. The verdict is unchanged, and the tracking lowers the caller's budget as on a served cell.
 - `evaluations`: the cell's reference evaluations from the start, on the policy's grid (`grid_ms`).
 - `outcomes`: their arrived outcomes, `{ seq, resolved, member, miss }`.
 - `open`: whether the segment was open (licensed) at the start.
