@@ -31,15 +31,16 @@ Mis à jour le 2026-11-04. Une ligne qui change remplace l'ancienne ; l'historiq
   `GateDecision` qu'il calcule lui-même sur le même appel (sous abstain pour une EXIT dont le gate refuse l'enveloppe), et
   lit sa réponse sans rien supposer (`readVerdict`).
 - **PR** : #355 (l'étape 5), #356 (l'étape 7), #357 (l'étape 6), #359 (le rejeu sans réduire ses fractions), #358 (le
-  ménage), #361 (les mutants du juge) et #360 (l'étape 8) fusionnées dans `lot/etude-suite` le 2026-11-04 ; #345 et #323
-  fermées le même jour, sur décision du fondateur.
+  ménage), #361 (les mutants du juge), #360 (l'étape 8), #362 (le README du harness), #363 (le noyau asynchrone) et #364
+  (les textes servis) fusionnées dans `lot/etude-suite` le 2026-11-04 ; #345 et #323 fermées le même jour, sur décision
+  du fondateur.
 
 ## Les étapes
 
 | # | Étape | Finie quand |
 |---|---|---|
 | 1 | Le recentrage : archive, cinq documents, CI réduite | faite le 2026-11-04, README de `apps/harness` réécrit à partir du code |
-| 2 | La stratégie du fondateur, écrite dans `STRATEGIE.md` | ses signaux, ses marchés, ses horizons et ses règles de sortie sont écrits |
+| 2 | La stratégie du fondateur, écrite dans `STRATEGIE.md` | ses signaux, ses marchés, ses horizons et ses règles de sortie sont écrits ; depuis le 2026-11-04, `STRATEGIE.md` dit ce que le moteur attend d'une stratégie (partie 2, d'après le code) et la stratégie reste à remplir (partie 1) ; le dépôt étant public, le fondateur décidera où la partie 1 vit avant de la remplir |
 | 3 | L'adaptateur stratégie → `Prediction`, puis la calibration de ses classes | `gate` rend COMMIT, DEFER ou ABSTAIN sur un signal réel de la stratégie, avec son test |
 | 4 | Le juge de Genkan en Lean, avec ses théorèmes | fait le 2026-11-04 (mode 1, 30 théorèmes rejoués en CI) ; la règle de l'EXIT confirmée par le fondateur le même jour |
 | 5 | Le harness relié au juge | fait le 2026-11-04 : l'outil `judge` lance le binaire du noyau sur un ordre et le contexte tiré de la `GateDecision`, lit son verdict par `readVerdict` ; test d'intégration `apps/harness/test/judge.kernel.test.ts`, dans `test:genkan` et la tâche Lean de la CI |
