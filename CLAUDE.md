@@ -24,6 +24,7 @@ stratégie du fondateur ──signal──▶ HIKAE ──COMMIT / DEFER / ABSTA
 | `apps/harness` | le moteur servi (serveur MCP : `gate`, `calibrate`, `judge`) et l'exécuteur papier (`src/paper.ts`, non servi) |
 | `apps/genkan` | la porte d'ordres : noyau Lean 4, chaîne d'outils épinglée `leanprover/lean4:v4.32.1` |
 | `fixtures/`, `tools/kata-recalc/` | les données et vérificateurs que le moteur lit |
+| dépôt privé `KraidleAI/monark-strategie` (clone `F:\monark-strategie`) | la stratégie du fondateur (partie 1 de `STRATEGIE.md`), son adaptateur vers `Prediction` (étape 3) et l'historique de sa calibration |
 
 Hors périmètre : Bell, Dōjō, Koyomi, Narabi, le site, Shōgen et UKEMI comme produits, PIXEL, la stigmergie, KAIZEN, TYCHO.
 Tout cela est archivé (section 7). On n'y retourne que sur demande du fondateur.
@@ -36,7 +37,8 @@ Tout cela est archivé (section 7). On n'y retourne que sur demande du fondateur
 2. `README.md` : ce qu'est le moteur, comment l'installer et le tester.
 3. `ROADMAP.md` : où on en est, les étapes, le choix en vigueur de chaque sujet.
 4. `ARCHITECTURE.md` : comment HIKAE, le harness et Genkan s'emboîtent (à écrire quand la stratégie est connue).
-5. `STRATEGIE.md` : la stratégie du fondateur et son interface avec le moteur (quand il la partage).
+5. `STRATEGIE.md` : ce que le moteur attend d'une stratégie (partie 2, d'après le code). La stratégie elle-même
+   (partie 1) vit dans le dépôt privé de la section 2, jamais ici.
 
 Les README de paquets décrivent leur code, rien d'autre. Interdits : journaux de décisions, copies « gel », registres,
 items, fichiers FAITS datés, plans de lot, rapports de passe. Une décision du fondateur devient une ligne de `ROADMAP.md`
@@ -70,7 +72,8 @@ dit à partir de maintenant.
 - **Aucune clé ni secret** lu, écrit, affiché ou committé ; aucun agent ne touche une clé.
 - **HIKAE ne rend jamais une probabilité d'avoir raison** : sa garantie est celle que déclare son code (couverture
   marginale, en échantillon fini, sous échangeabilité dans la classe). Le test de vocabulaire (`npm run gate:vocab`) le tient.
-- **Le dépôt GitHub `KraidleAI/monark-governance` est public** : rien n'est poussé sans l'accord du fondateur.
+- **Le dépôt GitHub `KraidleAI/monark-governance` est public** : rien n'est poussé sans l'accord du fondateur, et rien
+  de sa stratégie n'y entre.
 - **Rien sur C:** : caches, TEMP et outils restent sur F: (Lean : `ELAN_HOME=F:/elan`).
 - **On archive, on ne supprime pas** (section 7).
 
