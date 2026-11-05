@@ -10,7 +10,7 @@ import {
 import { assertNoForbiddenKey } from "./forbidden-keys.ts";
 
 /**
- * Canonical serializers (ADR-M001 D7 / C8), one per contract — modelled on Grok's
+ * Canonical serializers, one per contract — modelled on Grok's
  * `serializeVerdict`, extended to the fleet. Each runs the PRIMARY closed-check
  * then the recursive forbidden-key guard, then emits JSON. A contract carrying an
  * unknown or forbidden key at any depth THROWS instead of serializing.

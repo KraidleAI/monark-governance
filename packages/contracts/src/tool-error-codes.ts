@@ -1,8 +1,8 @@
 /**
- * Tool error codes of contract 1.1.0 (spec section 13, plan r3 section 2.4; lot CM-3c-1, block A): a closed list, in
- * order. The first 24 are the harness codes of CM-2 in their order; the last 8 are reserved until their lot
- * (decision of 2026-10-04 on Q-3, approved by MONARK): input_invalid and json_invalid in block C, the 6 kata codes in
- * block D. A code is never renamed, removed or reused for another refusal. The list is served nowhere.
+ * Tool error codes of contract 1.1.0: a closed list, in
+ * order. The first 24 are the harness codes in their order; the last 8 follow them:
+ * input_invalid and json_invalid, then the 6 kata codes.
+ * A code is never renamed, removed or reused for another refusal. The list is served nowhere.
  */
 export const TOOL_ERROR_CODES = [
   "param_invalid", "schema_version_unsupported", "byo_calibration_invalid", "byo_yhat_type", "byo_set_tau_cap",

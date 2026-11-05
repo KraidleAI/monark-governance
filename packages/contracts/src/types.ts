@@ -1,8 +1,8 @@
 /**
  * MONARK — frozen interface contracts (TS binding).
- * Source of truth: ../../schemas/*.json (language-neutral). ADR-M001.
+ * Source of truth: ../../schemas/*.json (language-neutral).
  *
- * Discipline (ADR-M001 D7, fleet invariant): NO truth/confidence field anywhere.
+ * Discipline (fleet invariant): NO truth/confidence field anywhere.
  * Shogen 03 §0 (no verite, no confidence score, no "validated") ∪ Grok hac-cp.ts:77
  * (no p_correct/confidence/hallucination*). Enforced in code: closed-check.ts + forbidden-keys.ts.
  *
@@ -35,9 +35,9 @@ export interface Attestor {
 }
 
 /**
- * A VERIFIED Shogen testimony (emitted only after Ok(Verdict)) — ADR-M001 D3.
- * The price NUMBER is deliberately NOT here (Shogen's "sens emis" hole,
- * ADR-0015 pt 17bis): a HIKAE-side adapter interprets `utterance.bytes` into a
+ * A VERIFIED Shogen testimony (emitted only after Ok(Verdict)).
+ * The price NUMBER is deliberately NOT here (Shogen's "sens emis" hole):
+ * a HIKAE-side adapter interprets `utterance.bytes` into a
  * number, optionally anchoring to `sens_emis_digest`.
  */
 export interface AttestedPrice {
@@ -55,9 +55,9 @@ export interface AttestedPrice {
   /** Attestation-mechanism id (opaque). */
   transport: string;
   utterance: {
-    /** SHA-256 of the exact bytes — ALWAYS carried (ADR-0005 rule 1). */
+    /** SHA-256 of the exact bytes — ALWAYS carried. */
     hash: Hex32;
-    /** Exact bytes, when class policy retains them (ADR-0005 rule 2). */
+    /** Exact bytes, when class policy retains them. */
     bytes?: Hex;
   };
   observed_at: {
@@ -66,21 +66,21 @@ export interface AttestedPrice {
     /** Timestamp in seconds, carried data (the core reads no clock). */
     instant: number;
   };
-  /** Whether the hash was recomputed over carried bytes (Verdict). Mandatory (C2). */
+  /** Whether the hash was recomputed over carried bytes (Verdict). Mandatory. */
   octets_recalcules: boolean;
   /** Revision of the binary that ran the delegated verification (provenance). */
   verifier_revision: string;
   /**
    * Digest of the emitted meaning — the datum that lets HIKAE's byte→price
-   * adapter bind its interpretation to the emitted sense (C3). Declared by the
+   * adapter bind its interpretation to the emitted sense. Declared by the
    * companion's Constat, not cross-checked by the Shogen core.
    */
   sens_emis_digest?: Hex32;
 }
 
 /**
- * A VERIFIED redemption-flow observation — the THIRD typed attestation of the fleet (Narabi,
- * ADR-M008 D2), parallel to AttestedPrice. The RAW counts are carried (as decimal-string uint256, so
+ * A VERIFIED redemption-flow observation — the THIRD typed attestation of the fleet (Narabi),
+ * parallel to AttestedPrice. The RAW counts are carried (as decimal-string uint256, so
  * no JS-number precision is lost) together with the `[from_block, to_block]` range that makes them
  * recalculable against `eth_getLogs`; the VELOCITY is NOT here — a HIKAE adapter derives it (the same
  * emitted-meaning gap as AttestedPrice's price number). No peg_score/p_depeg/confidence/nav, no
@@ -126,8 +126,8 @@ export interface AttestedFlow {
 
 /**
  * A SELF-DECLARED liquidation-book reading at an archive block — the SIXTH frozen contract of the fleet
- * (Ukemi, ADR-U1b), lineage AttestedFlow. UNLIKE AttestedPrice/AttestedFlow it is NOT a verified
- * testimony: no verifier runs (ADR-U1 D10(b), Contexte 7 — a keyless RPC-quorum read has no Shogen
+ * (Ukemi), lineage AttestedFlow. UNLIKE AttestedPrice/AttestedFlow it is NOT a verified
+ * testimony: no verifier runs (a keyless RPC-quorum read has no Shogen
  * Constat, so it can never yield Ok(Verdict)). It carries the DIGESTS of the canonical book (book,
  * holders) with the block/provider/quorum context that make them recalculable against a keyless RPC
  * quorum; the price NUMBERS stay in the book pointed to by `subject` (not frozen), same discipline as
@@ -135,39 +135,39 @@ export interface AttestedFlow {
  */
 export interface AttestedBook {
   schema_version: SemVer;
-  /** Canonical URL of the published book (ADR-U1b D2bis; the strict cluster×B motif is M017's, not frozen). */
+  /** Canonical URL of the published book (the strict cluster×B motif is not frozen). */
   subject: string;
-  /** CAIP-2 chain id (e.g. "eip155:1"); the value is not frozen (D5). */
+  /** CAIP-2 chain id (e.g. "eip155:1"); the value is not frozen. */
   chain: string;
-  /** Protocol id (e.g. "aave-v3-core"); the value is not frozen (D5). */
+  /** Protocol id (e.g. "aave-v3-core"); the value is not frozen. */
   protocol: string;
   /** Cluster id (the collateral family recorded), lowercase. */
   cluster: string;
   /** The archive block the read is anchored at (number + block hash "0x"+64 hex) — the digest's domain. */
   block: { number: number; hash: string };
-  /** SHA-256 of the canonical book when recorded, or of the canonical abstention record when abstained (D3/D4). */
+  /** SHA-256 of the canonical book when recorded, or of the canonical abstention record when abstained. */
   book_digest: Hex32;
-  /** SHA-256 of the sorted holder-address set — re-derivable by a third party (ADR-U1 D6). */
+  /** SHA-256 of the sorted holder-address set — re-derivable by a third party. */
   holders_digest: Hex32;
-  /** Oracle sources read (asset, source address, description); MAY be empty under fatal abstention (D4). */
+  /** Oracle sources read (asset, source address, description); MAY be empty under fatal abstention. */
   oracle_sources: { asset: string; source: string; description: string }[];
   /** Static-eligible aggregate (Perez Eq. 3 via on-chain HF<1): a count + base-currency amounts as decimal-string uint256. */
   eligible: { n_positions: number; debt_base: string; collateral_base: string };
-  /** Providers of the keyless RPC quorum, per method (ADR-U1 D3). >=1, no exact duplicate. */
+  /** Providers of the keyless RPC quorum, per method. >=1, no exact duplicate. */
   providers: { name: string; method: "getLogs" | "eth_call"; ok: boolean }[];
-  /** Quorum-by-method: `achieved` = min concordances over the methods used (ADR-U1 D3, C-4). */
+  /** Quorum-by-method: `achieved` = min concordances over the methods used. */
   quorum: { required: number; achieved: number };
   /**
-   * Fatal-only abstention — the D4 TOTAL witness (never a partial book). The coupling `value ⇔ reason≠null`
+   * Fatal-only abstention — a TOTAL witness (never a partial book). The coupling `value ⇔ reason≠null`
    * is authoritative in the FROZEN schema (a `oneOf` on `abstain`); this type does NOT encode the
    * biconditional (like AttestedPrice's `residual: []` typechecks but the schema rejects it).
    */
   abstain: { value: boolean; reason: AttestedBookAbstainReason };
   /** Standing assumptions, CLOSED enum (>=1), never aggregated. `no_third_party_verifier` always present. NOT scores. */
   residual: AttestedBookResidual[];
-  /** The self-declaring recorder: `kind` const "recorder", `key` a placeholder until K-1, `sig` optional (D8). */
+  /** The self-declaring recorder: `kind` const "recorder", `key` a placeholder, `sig` optional. */
   attestor: { kind: "recorder"; key: Hex; sig?: Hex };
-  /** sha256 of the recorder sources `ukemi/**` (ADR-M001 D3 mirror), format `ukemi-recorder@<64 hex>`. */
+  /** sha256 of the recorder sources `ukemi/**`, format `ukemi-recorder@<64 hex>`. */
   recorder_revision: string;
   observed_at: {
     /** Identity of the transport's clock (never MONARK's). */
@@ -177,7 +177,7 @@ export interface AttestedBook {
   };
 }
 
-/** The upstream predictor HIKAE conformalizes — the 4th contract (ADR-M001 D6). */
+/** The upstream predictor HIKAE conformalizes — the 4th contract. */
 export interface Prediction {
   schema_version: SemVer;
   task_class: string;
@@ -199,7 +199,7 @@ export type {
 } from "./enums.ts";
 
 /**
- * The prediction region — POLYMORPHIC (ADR-M001 D4/#2). `set` = classification
+ * The prediction region — POLYMORPHIC. `set` = classification
  * (btc-dir, pm-yesno); `interval` = regression (cascade-VaR UKEMI). Freezing
  * Grok's set-only form would have locked UKEMI out at Phase 2.
  */
@@ -207,7 +207,7 @@ export type PredictionRegion =
   | { kind: "set"; labels: string[]; label_schema: string }
   | { kind: "interval"; lo: number; hi: number };
 
-/** HIKAE coverage verdict, contract 1.1.0 (spec section 5). NO p_correct. `alpha` = TARGET coverage, not a correctness probability. */
+/** HIKAE coverage verdict, contract 1.1.0. NO p_correct. `alpha` = TARGET coverage, not a correctness probability. */
 export interface CoverageVerdict {
   schema_version: SemVer;
   task_class: string;
@@ -232,18 +232,18 @@ export interface CoverageVerdict {
   produced_at: IsoDateTime;
 }
 
-/** HIKAE L3 decision, consumed by UKEMI + the Hermes middleware (ADR-M001 D5). */
+/** HIKAE L3 decision, consumed by UKEMI + the Hermes middleware. */
 export interface GateDecision {
   schema_version: SemVer;
   action: GateAction;
   allow: boolean;
   tool: string;
-  /** string (classification) | number (regression) | null — mirrors Prediction.yhat (C6). */
+  /** string (classification) | number (regression) | null — mirrors Prediction.yhat. */
   intent: string | number | null;
   verdict: CoverageVerdict;
   /**
-   * B_t — remaining conformal AUTHORIZATION capacity, an attribute of MONARK
-   * (ADR-CERT-MONARK). Depletable, settled by arrived labels. NEVER a return/Sharpe.
+   * B_t — remaining conformal AUTHORIZATION capacity, an attribute of MONARK.
+   * Depletable, settled by arrived labels. NEVER a return/Sharpe.
    */
   remaining_budget: number;
   request_sha256: Hex32;

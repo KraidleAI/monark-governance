@@ -1,5 +1,5 @@
 /**
- * Fleet invariant (ADR-M001 D7 / C8) — DEFENSE IN DEPTH behind the closed schemas.
+ * Fleet invariant — DEFENSE IN DEPTH behind the closed schemas.
  * Union of two primary-source disciplines:
  *   - Shogen 03 §0 (temoignage_canonique.rs L15-19): no truth field, no confidence
  *     score, no "validated".
@@ -21,7 +21,7 @@ export const FORBIDDEN_KEYS: readonly string[] = [
   "trust",
   "score_de_confiance",
   "verdict_de_verite",
-  // Narabi / AttestedFlow surface (ADR-M008 D5): a redemption flow is measured under coverage, never
+  // Narabi / AttestedFlow surface: a redemption flow is measured under coverage, never
   // scored. These keys are never legitimate anywhere in the fleet ⇒ banned globally. (NOTE: `price`/`mid`
   // are NOT here — they are legitimate on the `attest` envelope; they are banned on AttestedFlow by its
   // closed schema alone.)

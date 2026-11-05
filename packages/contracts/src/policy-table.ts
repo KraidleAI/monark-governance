@@ -1,7 +1,7 @@
 /**
- * Policy table files `class-policy-v2` (spec section 10, plan r3 sections 5.1 to 5.2.1; lot CM-3c-1, block A): the
- * qhat units, the table enums, the ClassEntry and PolicyRow types and their closed checks. The row format is fixed
- * here (delegated decision of 2026-10-04 on Q-1, approved by MONARK): 60 keys, all present, null when a column does
+ * Policy table files `class-policy-v2`: the qhat units, the table enums, the ClassEntry and PolicyRow types and their
+ * closed checks.
+ * The row format is fixed here: 60 keys, all present, null when a column does
  * not apply. The check holds the shape: exact keys, JSON types, safe integers, enums, 64-hex digests, the numeric
  * grammars, the closed list of a marginal row and the structural couplings. The import guard holds the rest: the
  * projection, the arithmetic, the grammars of reasons, causes, epoch and calendar ids, verifier names, the length of
@@ -90,10 +90,10 @@ export type ClassEntry = Of<typeof CLASS_SHAPE>;
 export type PolicyRow = Of<typeof ROW_SHAPE>;
 export type PolicyTable = { readonly row_format: "class-policy-v2"; readonly class: ClassEntry; readonly rows: readonly PolicyRow[] };
 
-/** The closed key lists of the table file formats (apart from ALLOWED_KEYS: their schemas enter in block C). */
+/** The closed key lists of the table file formats (kept apart from ALLOWED_KEYS). */
 export const POLICY_ALLOWED_KEYS = { classEntry: Object.keys(CLASS_SHAPE), policyRow: Object.keys(ROW_SHAPE) } as const;
 
-/** The columns a marginal row may set (spec section 10); every other column of a marginal row is null. */
+/** The columns a marginal row may set; every other column of a marginal row is null. */
 const MARGINAL_SET = [
   "row_format", "task_class", "cell_key", "region_rule", "current", "statement", "alpha", "calib_attempt", "n_min", "n",
   "p_served", "qhat", "marginal_alpha", "status", "status_reason", "retire", "scores_sha256", "order", "source", "text",

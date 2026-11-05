@@ -1,11 +1,11 @@
 /**
  * @monark/contracts — the frozen interface contracts of the MONARK fleet.
- * Source of truth: ../../schemas/*.json (language-neutral). ADR-M001.
+ * Source of truth: ../../schemas/*.json (language-neutral).
  *
  * Pipeline:  predictor → Prediction → HIKAE conformalizes → CoverageVerdict → GateDecision
  * Upstream attestations:
  *   Shogen → AttestedPrice and Narabi → AttestedFlow are VERIFIED testimonies (emitted after Ok(Verdict));
- *   Ukemi → AttestedBook is a SELF-DECLARED book reading under a keyless RPC quorum — NO verifier (ADR-U1b).
+ *   Ukemi → AttestedBook is a SELF-DECLARED book reading under a keyless RPC quorum — NO verifier.
  */
 
 export type {
@@ -60,7 +60,7 @@ export {
   serializeGateDecision,
 } from "./serialize.ts";
 
-// Contract 1.1.0, block A (lot CM-3c-1): canonical writing, tool error codes, policy table formats.
+// Contract 1.1.0: canonical writing, tool error codes, policy table formats.
 export type { CanonicalValue } from "./canonical.ts";
 export { canonicalJson, sha256Canonical, scoresSha256, requestSha256 } from "./canonical.ts";
 export { TOOL_ERROR_CODES, type ToolErrorCode } from "./tool-error-codes.ts";
