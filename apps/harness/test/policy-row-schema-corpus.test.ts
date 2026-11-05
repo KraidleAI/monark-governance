@@ -1,6 +1,6 @@
 /**
- * schemas/policy-row.schema.json on the admitted corpus (contract 1.1.0, block C, lot CM-3c-2; decision Q-C4, condition 1): the 32 kata
- * tables projected from the synthetic registry of seed 37 (blocks B1, B2; admitted by guardKataTable) and the 35 tables of
+ * schemas/policy-row.schema.json on the admitted corpus (contract 1.1.0): the 32 kata
+ * tables projected from the synthetic registry of seed 37 (admitted by guardKataTable) and the 35 tables of
  * servedPolicyTables on synthetic texts are valid; four row statuses (retired: packages/contracts) and the four region rules are
  * reached. Pinned gap: a second current row for one cell is valid for the schema, refused by assertPolicyTableFile. No real text.
  */

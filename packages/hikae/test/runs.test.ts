@@ -1,12 +1,12 @@
 /**
- * HIKAE runs diagnostic - oracle tests (worksite 2, lots L2-1r and L2-1r2; ADR draft 0004 v3.1 D6, KraidleAI/recherches decisions/0004).
+ * HIKAE runs diagnostic - oracle tests.
  * Every expected value is computed in this file, never read back from runs.ts:
  *   - enumeration of every 0/1 sequence of length 1 to 16 (runs counted from the bit transitions of an integer);
- *   - [G0] M-20: exact one-sided thresholds at level 0.05 (largest r with P(R <= r | counts) <= 0.05);
+ *   - m20: exact one-sided thresholds at level 0.05 (largest r with P(R <= r | counts) <= 0.05);
  *   - [SE] Swed and Eisenhart 1943, Table I (lower critical values of the runs test at 0.025, as commonly
  *     reproduced; recomputed by the planner with exact rationals before being pinned here);
  *   - the balanced threshold as a counting definition (the achievable count of ones closest to n/2, ties toward
- *     more ones, then the distinct value that yields it), exhaustive on small multisets; the G2 cases of D6.
+ *     more ones, then the distinct value that yields it), exhaustive on small multisets; the cases at n 299.
  * Each test names one killer. Pure: no clock, no file, seeds committed.
  */
 import { test } from "node:test";
@@ -52,10 +52,10 @@ const tailOf = (r: RunsTail): { num: bigint; den: bigint } => {
   return { num: r.tailNum, den: r.tailDen };
 };
 
-/** A sequence passes only with a computed tail above the level; `empty` is never a pass here (ADR D6: the guard of L2-3 accepts an empty miss sequence at k_obs = 0 and fails closed on an empty auxiliary one). */
+/** A sequence passes only with a computed tail above the level; `empty` is never a pass here (the guard that calls it accepts an empty miss sequence at k_obs = 0 and fails closed on an empty auxiliary one). */
 const passes = (r: RunsTail): boolean => r.empty === false && r.reject === false;
 
-// Enumeration oracle (every arrangement of length 1 to 16), plus [G0] M-20 and [SE] thresholds, plus monotonicity.
+// Enumeration oracle (every arrangement of length 1 to 16), plus the m20 and [SE] thresholds, plus monotonicity.
 // killer: packages/hikae/src/runs.ts:72 ROR "r <= runs" -> "r < runs"
 test("runs_lower_tail_exact_against_enumeration", () => {
   for (let len = 1; len <= 16; len++) {
@@ -87,7 +87,7 @@ test("runs_lower_tail_exact_against_enumeration", () => {
       }
     }
   }
-  // [G0] M-20 at level 0.05: n, ones, threshold (rejected at the threshold, kept one run above).
+  // m20 at level 0.05: n, ones, threshold (rejected at the threshold, kept one run above).
   const m20: [number, number, number][] = [[299, 21, 35], [613, 48, 82], [1000, 84, 146], [299, 149, 135], [613, 306, 286]];
   // [SE] Table I at 0.025: ones, zeros, lower critical value.
   const se: [number, number, number][] = [[5, 5, 2], [10, 10, 6], [12, 12, 7], [15, 15, 10], [20, 20, 14], [2, 20, 2], [5, 10, 3], [8, 12, 6]];
@@ -112,7 +112,7 @@ const balanced = (values: readonly number[]): Balanced => {
   return runsModule.balancedExceedance(values);
 };
 
-/** Counting oracle of ADR D6: the achievable counts of ones (> 0), the one closest to n/2 (ties toward more ones), then its value. */
+/** Counting oracle: the achievable counts of ones (> 0), the one closest to n/2 (ties toward more ones), then its value. */
 function balancedOracle(xs: readonly number[]): { threshold: number; ones: number } | undefined {
   const distinct = xs.filter((v, i) => xs.indexOf(v) === i);
   const above = (t: number): number => xs.filter((v) => v > t).length;
@@ -182,7 +182,7 @@ test("runs_empty_and_fail_closed", () => {
   assert.equal(passes(runsLowerTailLeq([0, 1, 0, 1, 0, 1], "0.99")), true);
 });
 
-// Balanced threshold (ADR D6, [AC2] R-1): against the counting oracle, a function of the multiset, empty iff constant.
+// Balanced threshold ([AC2] R-1): against the counting oracle, a function of the multiset, empty iff constant.
 // killer: packages/hikae/src/runs.ts:102 ROR "ones > best.ones" -> "ones < best.ones"
 test("runs_balanced_threshold_multiset", () => {
   // Hand cases: n even; n odd with two counts equally close to n/2 (ties toward more ones); a top half tied (a median indicator is empty there).
@@ -237,7 +237,7 @@ test("runs_balanced_threshold_multiset", () => {
 const countingMedian = (xs: readonly number[]): number | undefined =>
   xs.find((v) => xs.filter((s) => s <= v).length >= Math.ceil(xs.length / 2) && xs.filter((s) => s < v).length < Math.ceil(xs.length / 2));
 
-// The G2 cases of ADR D6 at n 299 as oracle cases, and the two served arrays.
+// The cases at n 299 as oracle cases, and the two served arrays.
 // killer: packages/hikae/src/runs.ts:100 SDL "if (ones === 0) continue;" -> ""
 test("runs_balanced_threshold_g2_cases", () => {
   const n = 299;
@@ -292,7 +292,7 @@ test("runs_refuses_bad_inputs", () => {
   // [SE] n1 = n2 = 10: P(R <= 7) = 4735/92378 = 0.05126 (exact, recomputed): kept at 0.0512, rejected at 0.0513.
   assert.equal(passes(runsLowerTailLeq(bits, "0.0512")), true);
   assert.equal(passes(runsLowerTailLeq(bits, "0.0513")), false);
-  // A tail equal to the level is rejected (ADR D6: a tail at most runs_level fails): ones 1, zeros 3, 2 runs, tail 2/4.
+  // A tail equal to the level is rejected (a tail at most runs_level fails): ones 1, zeros 3, 2 runs, tail 2/4.
   assert.deepEqual(runsLowerTailLeq([1, 0, 0, 0], "0.5"), { empty: false, runs: 2, ones: 1, zeros: 3, tailNum: 2n, tailDen: 4n, reject: true });
   assert.equal(passes(runsLowerTailLeq([1, 0, 0, 0], "0.4999")), true);
   // The package entry re-exports this module (consumers import it from there); the v3 median exceedance is gone from both.

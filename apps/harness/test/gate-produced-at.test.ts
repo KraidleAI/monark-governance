@@ -1,10 +1,8 @@
 /**
- * Harness - `produced_at` of the gate (chantier moteur, lot CM-2a, audit P3 point S-10 and report P5(b)).
- * Oracle: docs/adr/ADR-CM-chantier-moteur-audit-P3.md section 5 B-4 (as specified by the amendment "nuit, 2");
- * plan docs/G0-lot-cm-2a.md. `runGate` refuses a `produced_at` that is not a strict RFC 3339 date-time (code
+ * Harness - `produced_at` of the gate. `runGate` refuses a `produced_at` that is not a strict RFC 3339 date-time (code
  * produced_at_invalid), on a direct call too; the HTTP and MCP entry points also refuse an instant more than 300 s
- * after the server clock (code produced_at_future), the clock being injected from src/ (K-8). A direct call without
- * `nowMs` runs the RFC 3339 check only (declared). Each test names its killer on the line above it.
+ * after the server clock (code produced_at_future), the clock being injected from src/. A direct call without `nowMs`
+ * runs the RFC 3339 check only (declared). Each test names its killer on the line above it.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -21,17 +19,17 @@ function btcDir(producedAt: string): Prediction {
   return { schema_version: SCHEMA_VERSION, task_class: "btc-dir-15m", yhat: "up", predictor_id: "internal:momentum-4c", produced_at: producedAt };
 }
 
-/** The committed USDe key (PARAMS carries its F-7 alpha 0.1 and nMin 50): the served vehicle since btc-dir is retired. */
+/** The committed USDe key (PARAMS carries its CLASS_POLICY alpha 0.1 and nMin 50): the served vehicle since btc-dir is retired. */
 function usde(producedAt: string): Prediction {
   return { schema_version: SCHEMA_VERSION, task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: USDE_STABLE_RUN_PREDICTOR_ID, produced_at: producedAt };
 }
 
-/** btc-dir-15m (a valid produced_at) is retired: 400 task_class_retired (ADR-CM B-5). */
+/** btc-dir-15m (a valid produced_at) is retired: 400 task_class_retired. */
 function assertBtcDirRetired(): void {
   refusedWith(() => runGate(btcDir("2026-09-04T00:00:00Z"), PARAMS), "task_class_retired", "btc-dir-15m");
 }
 
-/** One prediction and params per served path other than btc-dir (retired in CM-2b): BYO interval, USDe, liq. */
+/** One prediction and params per served path other than btc-dir (retired): BYO interval, USDe, liq. */
 const OTHER_PATHS: { label: string; prediction: (producedAt: string) => Prediction; params: HarnessParams }[] = [
   {
     label: "byo interval",
@@ -61,8 +59,8 @@ function refusedWith(fn: () => unknown, code: string, at: string): string {
   assert.fail(`${at}: expected a named refusal (${code}), the gate decided`);
 }
 
-// Test P-1 (F2P): a direct runGate refuses every non RFC 3339 produced_at (P5(b)), and accepts the RFC 3339 edge
-// forms (leap years, leap second, offset 23:59 and -00:00, lower-case t and z, a long fraction).
+// Test P-1 (F2P): a direct runGate refuses every non RFC 3339 produced_at, and accepts the RFC 3339 edge forms (leap
+// years, leap second, offset 23:59 and -00:00, lower-case t and z, a long fraction).
 // killer: apps/harness/src/tools/gate.ts:857 CONST "sec > 60" -> "sec > 61"
 test("run_gate_refuses_a_non_rfc3339_produced_at", () => {
   const refused = [
@@ -90,7 +88,7 @@ test("run_gate_refuses_a_non_rfc3339_produced_at", () => {
       assert.fail(`${s}: an RFC 3339 date-time must decide, got ${String(e)}`);
     }
   }
-  // btc-dir, the former vehicle of this test, is retired (CM-2b); the strict check runs before the dispatch.
+  // btc-dir, the former vehicle of this test, is retired; the strict check runs before the dispatch.
   assertBtcDirRetired();
   refusedWith(() => runGate(btcDir("2026-09-04 00:00:00Z"), PARAMS), "produced_at_invalid", "btc-dir with a bad produced_at");
   // The other served paths run the same check (a BYO, USDe or liq path that skipped it would decide here).
@@ -167,7 +165,7 @@ test("produced_at_in_the_future_is_refused_at_http_and_mcp", async () => {
     }),
   );
   assert.match(await res.text(), /"monarkgate\.tech\/error_code":"produced_at_future"/, "MCP default clock: 2099 refused");
-  // Direct call without nowMs: RFC 3339 only (declared in the G0); with nowMs: refused.
+  // Direct call without nowMs: RFC 3339 only (declared); with nowMs: refused.
   assert.equal(runGate(usde("2099-01-01T00:00:00Z"), PARAMS).verdict.produced_at, "2099-01-01T00:00:00Z", "direct call without nowMs decides");
   refusedWith(() => runGate(usde("2099-01-01T00:00:00Z"), PARAMS, undefined, { nowMs: NOW }), "produced_at_future", "direct call with nowMs");
   assertBtcDirRetired();

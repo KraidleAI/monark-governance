@@ -38,7 +38,7 @@ function input(over: Partial<GateInput>): GateInput {
   };
 }
 
-// Test 35 (ADR-M003 D11) — the three states of the `interval` path on width/intent (D6.1). Named
+// Test 35 — the three states of the `interval` path on width/intent. Named
 // mutant: τ_interval inverted (`width > tauInterval` → `width < tauInterval`) ⇒ COMMIT and DEFER
 // swap ⇒ this test red.
 test("interval_gate_commit_defer_abstain", () => {

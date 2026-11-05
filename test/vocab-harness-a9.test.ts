@@ -1,5 +1,5 @@
 /**
- * A-9-OUTILLE (checkpoint-2 U-5a observation, checkpoint-1 C-1..C-8) -- the STATIC half of the harness
+ * A-9-OUTILLE -- the STATIC half of the harness
  * served-vocabulary gate. `vocab-banned.json` scan.harness carries four rules (naked verified, probability outside
  * a named negation, a numeric percentage, accuracy) whose exemptions are NAMED, CLOSED lookbehinds written in the
  * rule itself (mechanism (i), the scope's existing negation-aware convention; no exemptPhrases on this scope).
@@ -31,13 +31,13 @@ function harnessOf(cfg: VocabConfig): Scope {
   return h;
 }
 
-// The founding injection of checkpoint-2 U-5a (V5): it survived the whole suite AND gate:vocab before this lot.
+// The founding injection (V5): it survived the whole suite AND gate:vocab before the A-9 rules.
 const V5 = "verified 95% probability of liquidation within the interval.";
 
-// The CLOSED list (checkpoint-1 C-4): each A-9 rule, named by the naked probe it must redden, with its exact exempt
-// prefixes in declaration order. Adding a rule or an exemption = an ADR line AND this table (else red here).
+// The CLOSED list: each A-9 rule, named by the naked probe it must redden, with its exact exempt
+// prefixes in declaration order. Adding a rule or an exemption = vocab-banned.json AND this table (else red here).
 const CLOSED: ReadonlyArray<readonly [string, readonly string[]]> = [
-  // IF-1 (ADR-U5a G7 addendum; closed at U-4b-2b): the fourth prefix "committed, previously " is retired (8 -> 7 exemptions);
+  // The fourth prefix "committed, previously " is retired (8 -> 7 exemptions);
   // step 7 of ROADMAP.md: the two `committed Shōgen-` prefixes leave with the attest tool, their carrier (7 -> 5).
   ["the price is verified", ["not re-"]],
   ["a probability of being right", ["never a ", "not a ", "no "]],
@@ -45,8 +45,8 @@ const CLOSED: ReadonlyArray<readonly [string, readonly string[]]> = [
   ["the accuracy is high", ["seed, n, "]],
 ];
 
-// The ALTERNATIVES written inside an A-9 rule (G2 C-G2-1, C-G2-2): each carries its own probe, else dropping it
-// survives every test (CONSIGNE D-1: an alternative without its probe is declarative). The spelled percentage
+// The ALTERNATIVES written inside an A-9 rule: each carries its own probe, else dropping it
+// survives every test (an alternative without its probe is declarative). The spelled percentage
 // `per\s?cent` (announced by the rule's why, "99 percent") and the plural suffix of `probabilit\w*`. Row: [probe,
 // the CLOSED probe of its owning rule, the word the gate names]. Adding an alternative to a rule = a row here.
 const ALTERNATIVES: ReadonlyArray<readonly [string, string, string]> = [
@@ -79,17 +79,17 @@ function walkTs(dir: string): string[] {
   return out;
 }
 
-// (b) of the mission: every named exemption is closed, exact and load-bearing. Per exemption: its lookbehind is in the
+// Every named exemption is closed, exact and load-bearing. Per exemption: its lookbehind is in the
 // rule; its sample sits verbatim in the committed carrier; the sample PASSES; the same span without the prefix
 // REDDENS; no shorter word-suffix of the prefix exempts (no widening); the carrier is clean under the rule and
 // REDDENS once that lookbehind is removed. Per rule: no undeclared lookbehind remains, and each written ALTERNATIVE
-// reddens its own probe under that rule alone (G2 C-G2-1/C-G2-2). Mutants: `not-re-widened` (lookbehind widened to
+// reddens its own probe under that rule alone. Mutants: `not-re-widened` (lookbehind widened to
 // `re-`), `undeclared-lookbehind`, `percent-rule-disabled`, `percent-spelled-dropped`, `probability-suffix-narrowed`
 // => red here.
 test("a9_harness_exemptions_are_named_closed_and_load_bearing", () => {
   const cfg = loadConfig();
   const h = harnessOf(cfg);
-  assert.equal(h.exemptPhrases, undefined, "mechanism (i) only: the harness scope carries no exemptPhrases (checkpoint-1 C-4)");
+  assert.equal(h.exemptPhrases, undefined, "mechanism (i) only: the harness scope carries no exemptPhrases");
   const rules = h.banned.filter((r) => Array.isArray(r.exemptions));
   assert.equal(rules.length, CLOSED.length, "exactly the four A-9 rules carry an exemptions list");
   for (const [probe, afters] of CLOSED) {
@@ -128,15 +128,15 @@ test("a9_harness_exemptions_are_named_closed_and_load_bearing", () => {
     assert.deepEqual(scanText(probe, compilePatterns([rule])).map((x) => x.word), [word], `the gate names the whole alternative '${word}'`);
   }
   const all = [...compilePatterns(cfg.banned), ...compilePatterns(h.banned)];
-  // checkpoint-1 C-1: 'interval' is the wire vocabulary (mode, region.kind, schema descriptions) -- NOT banned here.
-  assert.deepEqual(scanText("`interval` mode => region [yhat - q, yhat + q]; alpha in the open interval (0,1)", all), [], "'interval' stays green on the harness scope (C-1)");
-  // checkpoint-1 C-5: 'confidence' was already banned and is not re-added.
-  assert.equal(h.banned.filter((r) => /confidence/.test(r.re)).length, 1, "'confidence' is banned exactly once (C-5)");
+  // 'interval' is the wire vocabulary (mode, region.kind, schema descriptions) -- NOT banned here.
+  assert.deepEqual(scanText("`interval` mode => region [yhat - q, yhat + q]; alpha in the open interval (0,1)", all), [], "'interval' stays green on the harness scope");
+  // 'confidence' was already banned and is not re-added.
+  assert.equal(h.banned.filter((r) => /confidence/.test(r.re)).length, 1, "'confidence' is banned exactly once");
 });
 
 // The static scope is WIRED to every apps/harness/src file and CLEAN there (the in-process mirror of
 // `npm run gate:vocab` for this scope); removing scan.harness drops the files from the walk; and it is the A-9 rules,
-// not a pre-existing rule, that catch the founding V5 phrase. Mutants: `v5-ukemi-label` (the checkpoint-2 U-5a V5
+// not a pre-existing rule, that catch the founding V5 phrase. Mutants: `v5-ukemi-label` (the V5
 // injection into UKEMI_PREDICT_LABEL), `scope-harness-removed-config`, `scope-harness-removed-code` => red here.
 test("a9_harness_static_scope_wired_and_clean", () => {
   const cfg = loadConfig();
@@ -156,7 +156,7 @@ test("a9_harness_static_scope_wired_and_clean", () => {
   const strippedFiles = new Set(collectTargets(ROOT, stripped, []).map((t) => t.f));
   for (const f of harnessFiles) assert.ok(!strippedFiles.has(f), `removing scan.harness drops ${f} from the walk (load-bearing)`);
   const legacy = [...compilePatterns(cfg.banned), ...compilePatterns(h.banned.filter((r) => !Array.isArray(r.exemptions)))];
-  assert.deepEqual(scanText(V5, legacy), [], "without the A-9 rules the founding V5 phrase survives (what this lot closes)");
+  assert.deepEqual(scanText(V5, legacy), [], "without the A-9 rules the founding V5 phrase survives");
   assert.deepEqual(
     scanText(V5, compilePatterns(h.banned)).map((x) => x.word.toLowerCase()).sort(),
     ["95%", "probability", "verified"],
@@ -165,7 +165,7 @@ test("a9_harness_static_scope_wired_and_clean", () => {
 });
 
 // The CLI itself (the CI command): green on the tree with the scanned-file count; on a forbidden claim it exits 1 and
-// names file:line:word (deliverable 2). Mutant `cli-word-dropped` => red here.
+// names file:line:word. Mutant `cli-word-dropped` => red here.
 test("a9_gate_vocab_cli_names_file_line_word", () => {
   const ok = spawnSync(process.execPath, [GATE_CLI], { cwd: ROOT, encoding: "utf8" });
   assert.equal(ok.status, 0, `gate:vocab is green on the tree:\n${ok.stderr}`);

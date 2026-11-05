@@ -1,5 +1,5 @@
 /**
- * Root/CI probe `probe_harness_records_real_decision` (ADR-M005 §H5 / C-6; reworked at step 7 of ROADMAP.md).
+ * Root/CI probe `probe_harness_records_real_decision` (reworked at step 7 of ROADMAP.md).
  *
  * Exercises the harness END-TO-END against an IN-PROCESS `127.0.0.1` server over the REAL MCP
  * `tools/call` wire (streamable-HTTP) + the HTTP/JSON mirror, and verifies the committed demonstration
@@ -100,7 +100,7 @@ test("probe_harness_records_real_decision", async () => {
   assert.equal(cal["qhat"], 0.36, "the demo q̂ is the 19th of the 20 sorted scores");
   assert.equal(cal["reason"], null, "the demo calibration is sufficient (no under_calib)");
   assert.equal(cal["scores_sha256"], scoresSha256(DEMO_CALIBRATION.scores), "calibrate digests the scores it was given");
-  // (4c) B_t is caller-carried & ECHOED, never depleted (ADR-M005 D6; packages/hikae/src/l3-gate.ts).
+  // (4c) B_t is caller-carried & ECHOED, never depleted (packages/hikae/src/l3-gate.ts).
   assert.equal(gateUncal["remaining_budget"], DEMO_REMAINING_BUDGET, "remaining_budget echoes the caller-carried B_t");
 
   // (5) MIRROR AGREEMENT — the HTTP/JSON surface returned the SAME structuredContent as MCP.
@@ -134,7 +134,7 @@ test("probe_harness_records_real_decision", async () => {
     assertClosedGateDecision(g.structuredContent);
     assert.equal(g.structuredContent["remaining_budget"], perturbedBudget, "remaining_budget echoes the perturbed caller-carried B_t");
   } finally {
-    server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
+    server.closeAllConnections(); // server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 

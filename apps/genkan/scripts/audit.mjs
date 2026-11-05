@@ -362,7 +362,7 @@ function auditFile(rel, src) {
   const lineOf = lineIndex(src);
   const findings = new Map(); // each finding and its line: they are reported by line, then by their text
   const add = (idx, what) => findings.set(`${rel}:${String(lineOf(idx))}: ${what}`, lineOf(idx));
-  const ioRules = rel !== "lakefile.lean"; // GENKAN-MAIN-IO-1, rules 1 to 4
+  const ioRules = rel !== "lakefile.lean"; // the I/O names, rules 1 to 4
   const isMain = rel.toLowerCase() === "main.lean"; // rules 5 and 6, and the four exempt tokens
   let mains = 0;
   for (let t = 0; t < tokens.length; t++) {

@@ -54,7 +54,7 @@ test("an unknown region kind is refused", () => {
   assert.throws(() => assertClosedCoverageVerdict(bad), /unknown region kind 'triangle'/);
 });
 
-test("assertClosedAttestedBook passes a valid book and refuses an unknown envelope key (price/peg_score, ADR-U1b D1)", () => {
+test("assertClosedAttestedBook passes a valid book and refuses an unknown envelope key (price/peg_score)", () => {
   const ok = validAttestedBook();
   assert.doesNotThrow(() => assertClosedAttestedBook(ok));
   // a price or a peg_score smuggled onto the envelope is a CleInconnue-style refusal (closed contract).
@@ -62,7 +62,7 @@ test("assertClosedAttestedBook passes a valid book and refuses an unknown envelo
   assert.throws(() => assertClosedAttestedBook({ ...ok, peg_score: 0.9 }), /unknown key 'peg_score' in AttestedBook/);
 });
 
-test("assertClosedAttestedBook is recursive — unknown key in a nested object / array element is refused (C-8)", () => {
+test("assertClosedAttestedBook is recursive — unknown key in a nested object / array element is refused", () => {
   const ok = validAttestedBook();
   assert.throws(() => assertClosedAttestedBook({ ...ok, block: { ...ok.block, price: 1 } }), /unknown key 'price' in AttestedBook\.block/);
   assert.throws(() => assertClosedAttestedBook({ ...ok, abstain: { ...ok.abstain, mid: "1" } }), /unknown key 'mid' in AttestedBook\.abstain/);
@@ -70,10 +70,10 @@ test("assertClosedAttestedBook is recursive — unknown key in a nested object /
   assert.throws(() => assertClosedAttestedBook(badSource), /unknown key 'mid' in AttestedBook\.oracle_sources\[0\]/);
 });
 
-// O-3 (ADR-U1b D6, lot U-1b-b): extend the recursive `sneak` probe to the sub-objects the base suite did not
+// Extend the recursive `sneak` probe to the sub-objects the base suite did not
 // exercise — eligible, providers[0], quorum, attestor, observed_at (before this, 4/8 were covered). A mutant
 // that cuts the closed-check recursion one level (drops these assertOnlyKeys calls) reddens this test.
-test("assertClosedAttestedBook recursion covers eligible/providers/quorum/attestor/observed_at (O-3)", () => {
+test("assertClosedAttestedBook recursion covers eligible/providers/quorum/attestor/observed_at", () => {
   const ok = validAttestedBook();
   assert.throws(() => assertClosedAttestedBook({ ...ok, eligible: { ...ok.eligible, price: 1 } }), /unknown key 'price' in AttestedBook\.eligible/);
   assert.throws(() => assertClosedAttestedBook({ ...ok, providers: [{ name: "drpc", method: "eth_call", ok: true, mid: "1" }] }), /unknown key 'mid' in AttestedBook\.providers\[0\]/);
@@ -82,7 +82,7 @@ test("assertClosedAttestedBook recursion covers eligible/providers/quorum/attest
   assert.throws(() => assertClosedAttestedBook({ ...ok, observed_at: { ...ok.observed_at, price: 1 } }), /unknown key 'price' in AttestedBook\.observed_at/);
 });
 
-// Contract 1.1.0 (lot CM-3c-3a, spec section 5): the couplings of the verdict, checked by the closed-check before it is sent.
+// Contract 1.1.0: the couplings of the verdict, checked by the closed-check before it is sent.
 const verdictCheck = (v: unknown) => () => assertClosedCoverageVerdict(v);
 const NO_REGION = { region: null, qhat: null, abstain: true, reason: "under_calib" } as const;
 

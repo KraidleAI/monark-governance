@@ -1,7 +1,7 @@
 /**
- * Seeded synthetic kata registry of the shape of wave1.json (lot CM-4a-i; plan r3 section 5.3 point 8, BLQ-DEP-6), no market
+ * Seeded synthetic kata registry of the shape of wave1.json, no market
  * data: 32 classes, 8 katas, statuses region, silence (two reasons), vetoed, under_calib (n below n0, one side without thresholds);
- * one threshold pair per side (b1's, CM-4b C-8). Exact counts: k*, rank = n - k*, U, UTest, qhat, k_obs (A-2 2.2.3), TEST veto (2.2.5).
+ * one threshold pair per side (b1's). Exact counts: k*, rank = n - k*, U, UTest, qhat, k_obs, TEST veto.
  */
 import { createHash } from "node:crypto";
 import { sha256Canonical, type ClassEntry } from "@monark/contracts";
@@ -23,7 +23,7 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-/** A-2 section 2.2 point 5: P(Bin(nTest, alpha) >= kTest) <= 0.05, as P(Bin(nTest, 1 - alpha) <= nTest - kTest) <= 0.05. */
+/** The TEST veto: P(Bin(nTest, alpha) >= kTest) <= 0.05, as P(Bin(nTest, 1 - alpha) <= nTest - kTest) <= 0.05. */
 export function testVetoFires(nTest: number, kTest: number, alpha: string): boolean {
   const a = parseAlpha(alpha);
   return binomCdfLeq(nTest, nTest - kTest, { num: a.den - a.num, den: a.den }, { num: 1n, den: 20n });
@@ -50,7 +50,7 @@ export function syntheticRegistry(seed = 37): { readonly registry: { rows: Recor
       const drawn = PLANS[p++ % PLANS.length];
       const plan = noThresholds ? "empty" : !dir && drawn === "silence-misses" ? "silence-runs" : drawn;
       const key = `kata:${kataId}@binance/${symbol}/${h}/${bucket}`;
-      const n = plan === "empty" ? 0 : plan === "under" ? between(1, n0 - 1) : between(dir ? 400 : n0 + 20, dir ? 800 : 1500); // direction n and misses: every calibrated row clears the digest floor (SHORT-DIGEST-INVERSION-1)
+      const n = plan === "empty" ? 0 : plan === "under" ? between(1, n0 - 1) : between(dir ? 400 : n0 + 20, dir ? 800 : 1500); // direction n and misses: every calibrated row clears the digest floor
       const calibrated = plan !== "empty" && plan !== "under";
       const kStar = calibrated ? riskControlMaxExceedances(n, alpha, DELTA) : null;
       const misses = kStar === null ? null : plan === "silence-misses" || (dir && plan === "silence-runs") ? kStar + between(1, 30) : between(dir ? Math.ceil(kStar / 2) : 0, kStar);
@@ -89,7 +89,7 @@ export function syntheticRegistry(seed = 37): { readonly registry: { rows: Recor
   return { registry, bytes, sha256: createHash("sha256").update(bytes).digest("hex") };
 }
 
-/** A class entry of the shape of spec section 9 for the tests' tables (the 32 kata entries and their test: block B2). */
+/** A class entry for the tests' tables (the 32 kata entries and their test). */
 export function syntheticClassEntry(task_class: string): ClassEntry {
   const dir = task_class.includes("-dir-");
   return { task_class, region_kind: dir ? "set" : "interval", region_rule: dir ? "sign-set" : "scaled-band", qhat_unit: dir ? "score" : "scale", statement: "per-calibration",

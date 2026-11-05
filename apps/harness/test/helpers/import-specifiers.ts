@@ -1,15 +1,15 @@
 /**
  * The module loads that a source text names, read on its syntax tree, never on its text, so that prose, comments and regular expressions do
- * not count (lot 1f of VERIFIERS-LIST-F5A-1; docs/G0-lot-verifiers-list-1f.md sections 10, 11; IMPORT-SPECIFIERS-AST-1,
- * docs/G0-lot-import-specifiers-ast-1.md; MONARK's decisions of 2026-10-07). Shared by the import checks of the verifier list test and of the
- * served-graph walk, and by those of the committed tables when they adopt it.
+ * not count.
+ * Shared by the import checks of the verifier list test and of the served-graph walk, and by those of the committed tables when they
+ * adopt it.
  * - importSpecifiers: the literal specifiers of the one tree that forbiddenLoads walks too, in source order: the module specifier of each
  *   import and export declaration (a side-effect or type import, a multi-line declaration, a re-export, export * from and export * as ns
  *   from), the module reference of import x = require(), and the argument of an import() or a require() call or of an import type when it is a
  *   string literal or a template without substitution; either quote; a comment anywhere is skipped, and a regular expression is one literal,
- *   whatever quote or backtick it holds. Until IMPORT-SPECIFIERS-AST-1 this was ts.preProcessFile(text, true, true), a token scanner: it
- *   missed export * as ns from and any import a regular expression holding a quote or a backtick hid (review of a1's adoption, 2026-10-07,
- *   finding M-1: forms G1 to G8), and it listed x.require("...") and an AMD define([...])'s dependencies, which the tree does not.
+ *   whatever quote or backtick it holds. Before this syntax tree this was ts.preProcessFile(text, true, true), a token scanner: it
+ *   missed export * as ns from and any import a regular expression holding a quote or a backtick hid, and it listed x.require("...") and
+ *   an AMD define([...])'s dependencies, which the tree does not.
  * - forbiddenLoads: the loads that no specifier shows, found by a walk of the syntax tree, one line each: an import() whose argument is not
  *   such a literal; the names require, getBuiltinModule, createRequire, eval and Function (the decided list), constructor (the Function of any
  *   function, through its prototype), execve (process.execve, replaces the process) and setEngine (node:crypto, loads a native engine), dlopen
@@ -21,15 +21,15 @@
  * and node:child_process are not in it), by a load that forbiddenLoads names, or by a name built or chosen at run time (the limit below; a key
  * built at run time on process does not compile without a cast). The served-graph walk (kata-path.test.ts) refuses any non-relative specifier
  * outside SERVED_IMPORTS, its closed list: there these loaders are refused, not merely unchecked. This header once said "closed only by the
- * specifier list", false under the token scanner (the same review: a node:vm import between two backtick regular expressions passed in
+ * specifier list", false under the token scanner (a node:vm import between two backtick regular expressions passed in
  * policy-verifiers.ts). A module that needs one of them needs a rule aimed at it.
- * Limit, item IMPORT-AST-RUNTIME-NAME-1, which the G0 widens to a loader or constructor reached by a name built or chosen at run time: a name
- * built from anything but literals (a variable, a join, a character code), or Function taken by enumerating a prototype's property descriptors,
- * is not read; reading it would mean running the code. Refusing the form was measured on the scanned tree (review of 2026-10-07): a non-constant
- * computed key on process, globalThis, global, Reflect, module, require, this, eval or Function finds no false positive but an alias defeats it
- * (const p = process); any non-literal computed member access finds 52. The item stays open (noted by MONARK for docs/ETAT.md).
- * Limit, item TEST-COUNT-FLOOR-1 (a per-file floor on the tests run): a test file that loads a module calling execve or process.exit(0) at load
- * ends before its tests and can count as one pass; the walk's file loads 14 of the 24 served modules, hence its execve killer in a function.
+ * Limit, a loader or constructor reached by a name built or chosen at run time: a name built from anything but literals (a variable, a join,
+ * a character code), or Function taken by enumerating a prototype's property descriptors, is not read; reading it would mean running the
+ * code. Refusing the form was measured on the scanned tree: a non-constant computed key on process, globalThis, global, Reflect, module,
+ * require, this, eval or Function finds no false positive but an alias defeats it (const p = process); any non-literal computed member access
+ * finds 52.
+ * Limit: a test file that loads a module calling execve or process.exit(0) at load ends before its tests and can count as one pass; the walk's
+ * file loads 14 of the 24 served modules, hence its execve killer in a function.
  */
 import ts from "typescript";
 /** The one parse of a module text that both readers walk: TypeScript, the latest target, parent links set. */

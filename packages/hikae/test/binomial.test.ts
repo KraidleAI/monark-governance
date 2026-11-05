@@ -1,9 +1,9 @@
 /**
- * HIKAE binomial core - oracle tests (worksite 2 of the conformal alignment, lot L2-1; tests B-1 to B-7 of the worksite G0).
+ * HIKAE binomial core - oracle tests.
  * Expected values never come from binomial.ts: closed forms computed here in exact big-integer arithmetic
- * ((1 - a)^n, (1 - a)^n + n a (1 - a)^(n-1), 1 - delta^(1/n)), and the tables of the worksite G0 section 2
- * (M-1 to M-5, M-17 to M-19; exact rational computations by RECHERCHES, confirmed by advisor-conformal).
- * Sources: [ADR] RECHERCHES decisions/0004 v3, D3 and D4; [SOA] synthesis 3(e); Clopper and Pearson 1934 (definition).
+ * ((1 - a)^n, (1 - a)^n + n a (1 - a)^(n-1), 1 - delta^(1/n)), and tables of exact rational
+ * computations made outside this code.
+ * Sources: [SOA] synthesis 3(e); Clopper and Pearson 1934 (definition).
  * Category: new-module (red by import at base). Pure: no clock, no file, no seed.
  */
 import { test } from "node:test";
@@ -43,7 +43,7 @@ function gridUnits(u: string): bigint {
 }
 
 // [closed forms] k = 0: (1 - a)^n; k = 1: (1 - a)^n + n a (1 - a)^(n-1), exact. At delta equal to the tail the
-// comparator is true; just below it is false. [M-5] P(Bin(613, 0.10) <= 60) = 0.46419 (0.4642 in the ADR).
+// comparator is true; just below it is false. P(Bin(613, 0.10) <= 60) = 0.46419.
 // killer: packages/hikae/src/binomial.ts:80 ROR "i <= top" -> "i < top"
 test("binomial_cdf_exact_against_closed_forms", () => {
   for (const n of [1, 10, 170, 613]) {
@@ -70,8 +70,8 @@ test("binomial_cdf_exact_against_closed_forms", () => {
   assert.equal(binomCdfLeq(5, 7, dec("0.1"), { num: 1n, den: 1n }), true, "k > n: the tail is 1, at most 1");
 });
 
-// [M-1] zero-error floors n0 = ceil(ln(delta) / ln(1 - alpha)); n0 meets the rule and n0 - 1 does not (checked here
-// exactly). [M-19] spend floors at test_delta 0.025, 0.0125, 0.00625. Exact boundary: 0.5^3 = 0.125 gives n0 = 3.
+// Zero-error floors n0 = ceil(ln(delta) / ln(1 - alpha)); n0 meets the rule and n0 - 1 does not (checked here
+// exactly). Spend floors at test_delta 0.025, 0.0125, 0.00625. Exact boundary: 0.5^3 = 0.125 gives n0 = 3.
 // killer: packages/hikae/src/binomial.ts:86 ROR "<=" -> "<"
 test("binomial_zero_error_floor_table", () => {
   const table: [string, string, number][] = [
@@ -91,9 +91,9 @@ test("binomial_zero_error_floor_table", () => {
   }
 });
 
-// [M-4, SOA 3(e)] k*: (100, 0.10, 0.10) -> 5 (P 0.05758; k = 6: 0.11716); (200, 0.10, 0.05) -> 12 (0.03205; 13: 0.05656);
-// (500, 0.10, 0.05) -> 38 (0.03934; 39: 0.05502); split thresholds 9, 19, 49 are larger. [M-5] USDe n 613: 48 at
-// delta 0.05, 51 at 0.10. [M-6] liq s0 n 170 at alpha 0.01: none. [M-3] first n with k* >= 1 and k* >= 2 at alpha 0.01.
+// [SOA 3(e)] k*: (100, 0.10, 0.10) -> 5 (P 0.05758; k = 6: 0.11716); (200, 0.10, 0.05) -> 12 (0.03205; 13: 0.05656);
+// (500, 0.10, 0.05) -> 38 (0.03934; 39: 0.05502); split thresholds 9, 19, 49 are larger. USDe n 613: 48 at
+// delta 0.05, 51 at 0.10. Liq s0 n 170 at alpha 0.01: none. First n with k* >= 1 and k* >= 2 at alpha 0.01.
 // killer: packages/hikae/src/binomial.ts:172 CONST "return i - 1" -> "return i"
 test("binomial_kstar_matches_synthesis_table", () => {
   const table: [number, string, string, number, string, string, number][] = [
@@ -123,7 +123,7 @@ test("binomial_kstar_matches_synthesis_table", () => {
   }
 });
 
-// [M-2, M-17, M-5, M-6] U(n, k, delta) at 7 decimals rounded up; at k = 0 against 1 - delta^(1/n) (checked exactly on the
+// U(n, k, delta) at 7 decimals rounded up; at k = 0 against 1 - delta^(1/n) (checked exactly on the
 // grid here: the printed value meets the rule, one grid step below does not); the four-decimal value is at least the
 // seven-decimal one and at most alpha.
 // killer: packages/hikae/src/binomial.ts:137 CONST "fixed(hi" -> "fixed(lo"
@@ -192,7 +192,7 @@ test("binomial_upper_bound_monotone", () => {
   }
 });
 
-// [ADR D4] refused at parse: anything that is not a plain decimal in (0, 1), alpha with more than four decimals,
+// Refused at parse: anything that is not a plain decimal in (0, 1), alpha with more than four decimals,
 // test_delta at or above 0.25; "0.10" equals "0.1"; the public functions refuse the same strings.
 // killer: packages/hikae/src/binomial.ts:56 ROR ">=" -> ">"
 test("binomial_refuses_out_of_range_inputs", () => {
@@ -218,9 +218,9 @@ test("binomial_refuses_out_of_range_inputs", () => {
   assert.throws(() => binomCdfLeq(10, 0, { num: 3n, den: 2n }, dec("0.05")), RangeError, "a above 1");
 });
 
-// [M-18] four-decimal rounding up of exact ratios: 61/614 -> 0.0994, 1/171 -> 0.0059, 49/614 -> 0.0799,
-// 22/300 -> 0.0734, 85/1001 -> 0.0850, 99^170/100^170 -> 0.1812; an exact four-decimal value stays. [ADR D5, M-19]
-// spend 0.05, 0.025, 0.0125, 0.00625 for calib_attempt 1 to 4; attempt 5 refused.
+// Four-decimal rounding up of exact ratios: 61/614 -> 0.0994, 1/171 -> 0.0059, 49/614 -> 0.0799,
+// 22/300 -> 0.0734, 85/1001 -> 0.0850, 99^170/100^170 -> 0.1812; an exact four-decimal value stays.
+// Spend 0.05, 0.025, 0.0125, 0.00625 for calib_attempt 1 to 4; attempt 5 refused.
 // killer: packages/hikae/src/binomial.ts:143 CONST "r.den - 1n" -> "0n"
 test("binomial_ceil4_and_spend", () => {
   const table: [bigint, bigint, string][] = [

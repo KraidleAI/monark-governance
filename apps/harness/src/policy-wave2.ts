@@ -48,7 +48,7 @@ const CELL = ["kata_id", "w", "venue", "symbol", "horizon", "side", "bucket", "t
  * On the per-calibration rows of a table: per cell, attempts 1..k without a gap, attempt 1 on wave 1 and 2 on
  * wave 2; the calib_parent of attempt j >= 2 is the digest of the canonical writing of row j - 1 as
  * written in the table, current false (the policy_row_sha256 digest; declared reading); the same kata cell
- * and factor table as the parent; only the last attempt is current (spec section 10).
+ * and factor table as the parent; only the last attempt is current.
  */
 export function guardCalibChain(rows: readonly PolicyRow[]): void {
   const cells = new Map<string, PolicyRow[]>();

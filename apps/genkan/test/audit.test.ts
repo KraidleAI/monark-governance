@@ -191,7 +191,7 @@ test("audit_refuses_banned_construct", () => {
   // literal `'"'`, a raw string with no escapes, comment openers inside strings, a guillemet name holding a quote, code
   // inside interpolated strings (one with a nested string), and `!sorry`. After a letter `!` is a name character: `a!sorry`
   // is one name, refused as a panic name and never read as `sorry`. Outside Main.lean a name whose first component is IO
-  // and the head println! are refused (GENKAN-MAIN-IO-1), so the rows and probes that write them carry that finding too.
+  // and the head println! are refused, so the rows and probes that write them carry that finding too.
   const judge: [string, string | string[] | null][] = [
     ["/- a header comment", null],
     ["   spanning two lines -/", null],
@@ -408,7 +408,7 @@ test("audit_pins_lakefile", () => {
   assert.equal(own.length, 1, `exactly one lakefile refusal\n${show(r)}`);
   assert.match(own[0]!, /^audit: lakefile\.lean: differs from the pinned sha256 [0-9a-f]{12}$/, "the refusal quotes 12 hex characters");
 
-  // The lakefile of L2a: a library target builds every module of Genkan/ (GENKAN-LAKEFILE-LIB-1). The real one is it, and
+  // The lakefile of L2a: a library target builds every module of Genkan/. The real one is it, and
   // the lakefile of L1, without that target, is refused (its sha256 is the one L1 pinned: it is that file, byte for byte).
   assert.equal(lf, LAKEFILE_L2, "the real lakefile is the one of L2a, its library target included");
   assert.equal(createHash("sha256").update(LAKEFILE_L1, "utf8").digest("hex"), LAKEFILE_L1_SHA256, "LAKEFILE_L1 is the lakefile L1 pinned");
@@ -888,7 +888,7 @@ test("audit_refuses_panics_in_the_kernel", () => {
 // killer: apps/genkan/scripts/audit.mjs:81 CONST "IO EIO BaseIO" -> "EIO BaseIO"
 test("audit_bounds_main_io_to_stdin_and_stdout", () => {
   const env = { ...process.env };
-  // (1) GENKAN-MAIN-IO-1. The kernel's sources may name no effect but stdin and stdout. In every file but lakefile.lean a
+  // (1) The kernel's sources may name no effect but stdin and stdout. In every file but lakefile.lean a
   // name whose first component (read without guillemets, after a leading _root_) is IO, EIO, BaseIO, EST, ST or System is
   // refused, and so is a name any of whose components is timeit, allocprof, unsafeIO, unsafeEIO or unsafeBaseIO, the head
   // println!, and a leading dot (a `.` glued to the name after it and not glued after a term: `.getStderr` against the type

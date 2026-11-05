@@ -1,5 +1,5 @@
 /**
- * schemas/policy-row.schema.json (contract 1.1.0, block C, lot CM-3c-2; delegated decision Q-C4) against the closed check of block A
+ * schemas/policy-row.schema.json (contract 1.1.0) against the closed check
  * (src/policy-table.ts): a document the check admits is valid for the schema; probes on each of the 16 + 60 keys (and one level down)
  * get the same verdict from both, outside a CLOSED list of gaps named by the check's refusal. A new gap, or a schema refusal of an
  * admitted value, reddens. Synthetic values only.
@@ -81,7 +81,7 @@ function disagreements(base: Obj, schema: Validate, check: (v: unknown) => void,
 }
 
 /** The CLOSED list of gaps (valid for the schema, refused by the check) by refusal: the shortest round-trip writing (-0 and
- *  0.10000000000000001 below), the couplings of decision Q-1 condition 1, strata_cuts order and scale_table.sha256. */
+ *  0.10000000000000001 below), the row couplings, strata_cuts order and scale_table.sha256. */
 const GAPS = Object.entries({
   "is not a shortest round-trip decimal": "class.alpha class.test_delta row.test_delta row.thresholds.t1 row.thresholds.t2",
   "is not strictly increasing": "class.strata_cuts",

@@ -174,7 +174,7 @@ export const LIQ_CONDITIONAL_SENTENCE =
   "account at the first crossing, which the gate does not check";
 
 /** The FULL committed sentence for the SERVED (non-empty-registry) liq class (rendered by honestyText).
- *  Carries the upper bound + the H-3 clause + the conditional clause; never "interval",
+ *  Carries the upper bound + the one-episode clause + the conditional clause; never "interval",
  *  never a probability (u4b_liq_description_makes_no_probability_claim, u4b_liq_class_text_says_upper_bound_never_interval). */
 export const LIQ_COMMITTED_SENTENCE = `${LIQ_UPPER_BOUND_SENTENCE}; ${LIQ_H3_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}`;
 
@@ -202,7 +202,7 @@ export const GATE_NON_REVERIFICATION_SENTENCE =
  * liq class: `registryHasLiq` is hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), the SAME registry-level key
  * honestyText uses. EMPTY registry: the empty-registry sentence, the server-imposed params (their 400
  * fires BEFORE the lookup, so it holds on an empty registry) and the conditional rule
- * (a rule statement, not a coverage claim); NEVER the upper-bound sentence nor the H-3
+ * (a rule statement, not a coverage claim); NEVER the upper-bound sentence nor the one-episode
  * sentence, since nothing is calibrated in the served registry. NON-EMPTY
  * registry: the committed clause. Every other clause is
  * the same in both states.
@@ -306,7 +306,7 @@ export interface HarnessParams {
  * carries the code in its error body, MCP in `_meta[ERROR_CODE_META_KEY]`. The four class defaults (attest, calibrate, cascade,
  * ukemi-predict; only calibrate is served since step 7) follow the gate codes; `task_class_retired` is thrown for `btc-dir-15m`.
  * A code is never renamed nor reused for another refusal.
- * Since contract 1.1.0 (spec section 13) the list is TOOL_ERROR_CODES of @monark/contracts,
+ * Since contract 1.1.0 the list is TOOL_ERROR_CODES of @monark/contracts,
  * re-exported here: the 24 codes above in their order, then 8 codes added by 1.1.0: input_invalid and json_invalid,
  * served by the 400 bodies of http.ts, and 6 thrown by the served kata path
  * (kata_key_invalid, kata_yhat_domain, features_digest_required, policy_tau_cap, produced_at_off_grid, produced_at_stale).
@@ -984,7 +984,7 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
     verdict = liqEligibleVerdict(prediction, params);
     nCalib = verdict.n_calib; // 170 for the committed stratum s0; 0 for s1 to s3 (under_calib)
   } else if (kataTable !== undefined) {
-    // The kata request contract (grid and lateness first, spec section 9), then the cell lookup; the verdict is assembled
+    // The kata request contract (grid and lateness first), then the cell lookup; the verdict is assembled
     // here from the row's fields, and its n_calib is the row's n (0 with no row: under_calib).
     verdict = kataVerdict(kataPath(prediction, params, kataTable, options.nowMs), prediction, SCHEMA_VERSION);
     nCalib = verdict.n_calib;
@@ -1063,8 +1063,8 @@ function envelopeSha256(prediction: Prediction, params: HarnessParams, attested:
   }
 }
 
-/** Q-3b2-2 (lot CM-3c-4b): qhat and alpha of a committed key, read on the current row of its cell in the served table
- *  (the admitted row, built at load with the exact rank of its alpha, B-12); no current row ⇒ under_calib. */
+/** qhat and alpha of a committed key, read on the current row of its cell in the served table
+ *  (the admitted row, built at load with the exact rank of its alpha); no current row ⇒ under_calib. */
 function admittedSplit(cell: VerdictCell): { readonly qhat: number; readonly alpha: number } | { readonly reason: "under_calib" } {
   const row = SERVED_MARGINAL_TABLES.flatMap((t) => t.table.rows).find((r) => r.current && r.cell_key === cell.cellKey);
   return row === undefined || row.qhat === null ? { reason: "under_calib" } : { qhat: row.qhat, alpha: Number(row.alpha) };

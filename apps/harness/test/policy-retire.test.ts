@@ -1,8 +1,7 @@
 /**
- * The retire path of a served kata row, lot R-a of ENGINE-ROW-RETIRE-PATH-1 (docs/G0-lot-retire-path-ra.md; draft G0 sections
- * 4.1, 4.2 and 5, R-T1 to R-T6; ADR 0006 addendum 9, T-E7): the closed reader of a kata-retire-v1 list, the five-column overlay
+ * The retire path of a served kata row: the closed reader of a kata-retire-v1 list, the five-column overlay
  * of the projection under a pinned list, the served reading of a retired row, the cumulative list, the chain of dated lists read
- * by the guard and LIVE_N_MAX. On the seeded synthetic registry of block B1, never on wave1.json. Each test names its killer above it.
+ * by the guard and LIVE_N_MAX. On the seeded synthetic registry, never on wave1.json. Each test names its killer above it.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -89,17 +88,17 @@ test("retired_row_matches_projection_under_pinned_list", () => {
   const e = entryOf(DIR);
   const t = tableWith(DIR, retireOverlay(DIR, e));
   admit(() => guard(t, listOf([e])));
-  assert.throws(() => guard(t), /column bound_on differs from the projection/); // no list: the projection is the B1 row
+  assert.throws(() => guard(t), /column bound_on differs from the projection/); // no list: the projected row
   assert.throws(() => guard(t, listOf([entryOf(DIR, ADR)])), /column status_reason differs from the projection/); // another list
   assert.throws(() => guard(t, listOf([entryOf(BAND)])), /column bound_on differs from the projection/); // a list of another cell
   assert.throws(() => guard(tableWith(DIR, DIR), listOf([e])), /column bound_on differs from the projection/); // the listed row left in region
   admit(() => guard(tableWith(BAND, BAND), listOf([e]))); // the table of another class is unchanged by the list
-  // The guard reads the list through the reader (M-1 of the verification): a pin that is not the digest of the bytes (a fixed
+  // The guard reads the list through the reader: a pin that is not the digest of the bytes (a fixed
   // digest, or the bytes of another list under this list's pin) is refused, and so is live:1 on a list dated before E_1.
   const p = listOf([e]);
   for (const off of [{ ...p, sha256: "00".repeat(32) }, { ...p, bytes: listOf([entryOf(DIR, ADR)]).bytes }]) assert.throws(() => guard(t, off), /the bytes do not have the pinned sha256/);
   assert.throws(() => guard(t, listOf([e], "retire-2026-12-31.json")), /ends after the list's date/);
-  // G-2 holds the counts of the overlaid row (draft 4.2): live:1, n_test 100, k_test 0 and its exact u_test, a veto that does not fire.
+  // The guard holds the counts of the overlaid row: live:1, n_test 100, k_test 0 and its exact u_test, a veto that does not fire.
   const quiet: RetireEntry = { ...e, k_test: 0, u_test: missUpperBound(100, 0, KATA_BASE_DELTA) };
   assert.throws(() => guard(tableWith(DIR, retireOverlay(DIR, quiet)), listOf([quiet])), /binomial rule does not fire/);
 });
@@ -123,7 +122,7 @@ test("retired_row_keeps_calibration_qhat_audit_only", () => {
     const t = tableWith(r, retireOverlay(r, entryOf(r)));
     admit(() => guard(t, listOf([entryOf(r)])));
     const row = t.rows.find((x) => x.cell_key === r.cell_key) ?? assert.fail("no row");
-    assert.equal(row.qhat, r.qhat); // the column keeps the calibration value, an audit record only (Q-E6): 0 on this dir row, served 1
+    assert.equal(row.qhat, r.qhat); // the column keeps the calibration value, an audit record only: 0 on this dir row, served 1
     const dir = r.side !== null;
     const yhat = dir ? Number(r.thresholds?.t1) / 2 : ((r.calib_support?.min ?? NaN) + (r.calib_support?.max ?? NaN)) / 2;
     const p: Prediction = { schema_version: "1.0.0", task_class: r.task_class, yhat, predictor_id: r.cell_key.slice(0, r.cell_key.lastIndexOf("/")), produced_at: "2027-01-05T04:00:00Z", features_digest: "ab".repeat(32) };
@@ -148,7 +147,7 @@ test("retired_row_stays_current_and_is_never_revived", () => {
 
 // killer: apps/harness/src/policy-guard.ts:118 CONST "readRetireList(pin, registryBytes, prev)" -> "readRetireList(pin, registryBytes)"
 test("retire_lists_chain_through_the_guard", () => {
-  // M-2 of the verification (draft 4.1, R-T5 in the guard): GuardPins.retireLists, oldest to newest, each read against its
+  // GuardPins.retireLists, oldest to newest, each read against its
   // predecessor; the newest overlays the projection. A later list that drops an earlier retire is refused, whatever the row's
   // status in the table (retired, or back in region): a retire never leaves the chain.
   const [d, b] = [entryOf(DIR), entryOf(BAND, ADR)];
@@ -185,13 +184,13 @@ test("retire_live_n_test_bounded", () => {
   }
   admit(() => guardKataRow(retireOverlay(DIR, entryOf(DIR, ADR)), entry(DIR.task_class), PINS)); // adr: causes unchanged
   assert.throws(() => guardKataRow(retireOverlay(DIR, { ...entryOf(DIR, ADR), k_test: 100, n_test: 100, u_test: "1" }), entry(DIR.task_class), PINS), /retire counts off its cause/);
-  const silence = find((x) => x.status === "silence"); // m-1 of the verification: G-2 retires a region row only
+  const silence = find((x) => x.status === "silence"); // the guard retires a region row only
   assert.throws(() => guardKataRow(retireOverlay(silence, entryOf(silence)), entry(silence.task_class), PINS), /retires a row that serves no region/);
 });
 
 // killer: apps/harness/src/policy-wave2.ts:16 CONST "\"1h\": 2208" -> "\"1h\": 2209"
 test("live_n_max_is_longest_quarter", () => {
-  // Addendum 9 point 1: Q_k = [S_k, E_k), S_k = 2026-10-01T00:00Z plus 3(k - 1) calendar months; point 5: 92 days at most.
+  // Q_k = [S_k, E_k), S_k = 2026-10-01T00:00Z plus 3(k - 1) calendar months; a quarter lasts 92 days at most.
   const days = Array.from({ length: 8 }, (_, i) => (Date.UTC(2026, 12 + 3 * i, 1) - Date.UTC(2026, 9 + 3 * i, 1)) / 86_400_000);
   assert.deepEqual(days, [92, 90, 91, 92, 92, 91, 91, 92]);
   const max = Math.max(...days);
@@ -200,7 +199,7 @@ test("live_n_max_is_longest_quarter", () => {
 
 // killer: apps/harness/src/policy-retire.ts:80 ROR "1) <= day" -> "1) < day"
 test("retire_live_entry_waits_for_its_quarter_end", () => {
-  // Addendum 9 point 6, checked in the list (MONARK's review, section 4 point 5): E_k at or before 00:00Z of the list's date.
+  // Checked in the list: E_k at or before 00:00Z of the list's date.
   for (const [cause, end] of [["live:1", "2027-01-01"], ["live:2", "2027-04-01"], ["live:5", "2028-01-01"]] as const) {
     admit(() => read([{ ...entryOf(DIR), cause }], `retire-${end}.json`));
     const eve = new Date(Date.parse(`${end}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);

@@ -1,5 +1,5 @@
 /**
- * Harness — registry safety (K-8) and vocab honesty (ADR-M005 D9/D11).
+ * Harness — registry safety and vocab honesty.
  * No `any` (off the ratchet). The static scan targets DOUBLE/SINGLE-quoted module specifiers, so the
  * prose in the tool sources (which names these modules in backticks) is not a false positive.
  */
@@ -34,7 +34,7 @@ function collectTs(dir: string): string[] {
   return out;
 }
 
-/** Forbidden side-effect surfaces in a tool implementation (K-8). */
+/** Forbidden side-effect surfaces in a tool implementation. */
 const FORBIDDEN: { re: RegExp; why: string }[] = [
   { re: /["']node:fs["']/, why: "node fs import" },
   { re: /["']node:net["']/, why: "node net import" },
@@ -44,19 +44,19 @@ const FORBIDDEN: { re: RegExp; why: string }[] = [
   { re: /\bDate\.now\b|new Date\(\s*\)|\bperformance\.now\b/, why: "clock read (a call or a reference, CM-2a C-7)" },
 ];
 
-// Test — the registry is (a) within the closed allowlist and (b) EXACTLY the set {gate,calibrate,judge} (ADR-M007 at C1,
-// step 5 of ROADMAP.md for judge, its step 7 for the removal of cascade and attest), and no tool implementation has a side effect.
+// Test — the registry is (a) within the closed allowlist and (b) EXACTLY the set {gate,calibrate,judge} (step 5 of
+// ROADMAP.md for judge, its step 7 for the removal of cascade and attest), and no tool implementation has a side effect.
 // Mutants: a tool outside the allowlist, a stray/premature registration, or a `node:fs` import in a tools file ⇒ red.
 test("mcp_tools_have_no_side_effects", () => {
-  // (1) closed allowlist (K-8): registered ⊆ {gate, calibrate, judge}, and all three are present.
+  // (1) closed allowlist: registered ⊆ {gate, calibrate, judge}, and all three are present.
   assert.ok(REGISTERED_TOOL_NAMES.length >= 1, "at least one tool registered");
   for (const name of REGISTERED_TOOL_NAMES) {
     assert.ok((ALLOWED_TOOL_NAMES as readonly string[]).includes(name), `tool '${name}' outside the closed allowlist`);
   }
   assert.ok(REGISTERED_TOOL_NAMES.includes("gate"), "the `gate` tool stays registered");
-  assert.ok(REGISTERED_TOOL_NAMES.includes("calibrate"), "the `calibrate` tool is registered in C1");
+  assert.ok(REGISTERED_TOOL_NAMES.includes("calibrate"), "the `calibrate` tool is registered");
   assert.ok(REGISTERED_TOOL_NAMES.includes("judge"), "the `judge` tool is registered (step 5 of ROADMAP.md)");
-  // (1b) EXACT registry: exactly `gate` + `calibrate` + `judge` (H1 `gate`, C1 `calibrate`, step 5 `judge`; step 7 removed
+  // (1b) EXACT registry: exactly `gate` + `calibrate` + `judge` (step 5 added `judge`; step 7 removed
   // `cascade` and `attest`). A premature or stray registration reddens here, where the subset allowlist above would tolerate it.
   assert.deepEqual([...REGISTERED_TOOL_NAMES].sort(), ["calibrate", "gate", "judge"], "the registry is exactly calibrate + gate + judge");
   assert.deepEqual([...ALLOWED_TOOL_NAMES].sort(), ["calibrate", "gate", "judge"], "the allowlist names no removed tool");
@@ -72,7 +72,7 @@ test("mcp_tools_have_no_side_effects", () => {
   }
 });
 
-// ---------------------------------------------------------------------------- served surface (A-9-OUTILLE)
+// ---------------------------------------------------------------------------- served surface
 // The REAL served surface, obtained IN-PROCESS through the stateless MCP handler (createHarnessHandler, server.ts):
 // a JSON-RPC POST answered by the SDK exactly as on the mcp. host -- no socket, no listener, no network. tools/list
 // and tools/call below are the bytes a client receives (A-9: the phrase ACTUALLY served, never an intermediate).
@@ -127,10 +127,10 @@ function servedToolHits(tools: Obj[], patterns: CompiledRule[]): { tool: string;
 
 // Test — tool descriptions carry no banned vocabulary (GLOBAL + scan.harness). Mutant: put
 // `confidence` in a description ⇒ red (the in-process scan and the grep-forbidden CLI both catch it).
-// EXTENDED (A-9-OUTILLE, checkpoint-1 C-3): the scan also runs on the REAL served tools/list -- EVERY string leaf
+// EXTENDED: the scan also runs on the REAL served tools/list -- EVERY string leaf
 // (each tool description AND every inputSchema/outputSchema description), obtained through createHarnessHandler --
-// and the checkpoint-2 U-5a V5 surclaim slipped into EACH served tool description is caught ON THAT served list,
-// every hit naming its tool (mission 3a). Mutant `schema-description-probability` (a naked "probability" in a
+// and the V5 surclaim slipped into EACH served tool description is caught ON THAT served list,
+// every hit naming its tool. Mutant `schema-description-probability` (a naked "probability" in a
 // PARAMS_SCHEMA description, i.e. an inputSchema leaf) => red here.
 test("harness_tool_descriptions_pass_vocab", async () => {
   const config = JSON.parse(readFileSync(VOCAB_PATH, "utf8")) as VocabConfig;
@@ -141,13 +141,13 @@ test("harness_tool_descriptions_pass_vocab", async () => {
     const hits = scanText(tool.description, patterns);
     assert.equal(hits.length, 0, `tool '${tool.name}' description has banned vocab: ${JSON.stringify(hits)}`);
   }
-  // A-9-OUTILLE: the served-vocabulary rules are live on this scope, else the served scan below is vacuous for them.
+  // The served-vocabulary rules are live on this scope, else the served scan below is vacuous for them.
   for (const probe of ["the price is verified", "a probability of being right", "95% of the time", "the accuracy is high"]) {
     assert.ok(scanText(probe, compilePatterns(config.scan.harness.banned)).length >= 1, `scan.harness must redden '${probe}'`);
   }
 
-  // (served) the REAL tools/list: exactly the registry; each served description === its registry constant (liage,
-  // A-10); both schemas served; EVERY string leaf vocab-clean.
+  // (served) the REAL tools/list: exactly the registry; each served description === its registry constant;
+  // both schemas served; EVERY string leaf vocab-clean.
   const served = await servedToolsList();
   assert.deepEqual(served.map((t) => t["name"]), [...REGISTERED_TOOL_NAMES], "tools/list serves exactly the registry, in order");
   for (const t of served) {
@@ -159,7 +159,7 @@ test("harness_tool_descriptions_pass_vocab", async () => {
   assert.ok(schemaDescriptions.length >= 20, `the schema descriptions are scanned leaves (non-vacuous), saw ${String(schemaDescriptions.length)}`);
   assert.deepEqual(servedToolHits(served, patterns), [], "the served tools/list is vocab-clean (every string leaf)");
 
-  // (injection, mission 3a) V5 appended to EACH served tool description is caught on the SERVED tools/list, every hit
+  // (injection) V5 appended to EACH served tool description is caught on the SERVED tools/list, every hit
   // naming THAT tool; the descriptor is restored byte-exact after each round (same-file tests share the module).
   const V5 = "verified 95% probability of liquidation within the interval.";
   for (const tool of HARNESS_TOOLS) {
@@ -179,15 +179,15 @@ test("harness_tool_descriptions_pass_vocab", async () => {
   assert.deepEqual(servedToolHits(await servedToolsList(), patterns), [], "after restoration the served tools/list is clean again");
 });
 
-// Test (A-9-OUTILLE, checkpoint-1 C-1/C-3) -- the four honesty carriers AS SERVED: one real tools/call per served
+// Test -- the four honesty carriers AS SERVED: one real tools/call per served
 // branch (createHarnessHandler), in the DELIVERED state (empty liq registry, under_calib, BYO, the committed USDe key).
 // Each served content text IS its carrier (honestyText / calibrateHonestyText / the judge labels, followed by the verdict
 // summary the registry appends for gate/calibrate/judge), and every served
-// honesty text (content + the output `label`) is vocab-clean AND never says "interval" (C-1: the wire vocabulary is
+// honesty text (content + the output `label`) is vocab-clean AND never says "interval" (the wire vocabulary is
 // kept out of the honesty prose, precedent u4b_liq_class_text_says_upper_bound_never_interval). Mutants:
-// `stable-run-uncalibrated-interval` (C-1) and `demonstrative-label-accuracy` (a served text born OUTSIDE
+// `stable-run-uncalibrated-interval` and `demonstrative-label-accuracy` (a served text born OUTSIDE
 // apps/harness/src, invisible to the static CLI) => red here.
-// CM-2b (ADR-CM B-5): btc-dir-15m is retired, so its carrier is no longer served: the call is a tool error with the
+// btc-dir-15m is retired, so its carrier is no longer served: the call is a tool error with the
 // stable code, and the gate reaches five distinct honesty branches.
 // killer: apps/harness/src/tools/gate.ts:967 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("harness_served_honesty_carriers_pass_vocab", async () => {
@@ -243,13 +243,13 @@ test("harness_served_honesty_carriers_pass_vocab", async () => {
     const first: unknown = (content as unknown[])[0];
     const text = isObj(first) ? first["text"] : undefined;
     assert.ok(typeof text === "string", `${c.label}: the served content is a text`);
-    // liage (A-10): the served text IS its carrier, plus the verdict summary the registry appends (gate/calibrate).
+    // The served text IS its carrier, plus the verdict summary the registry appends (gate/calibrate).
     assert.ok(text === c.carrier || text.startsWith(`${c.carrier} verdict `), `${c.label}: served text === carrier (+ summary)`);
     const sc = r["structuredContent"];
     const label = isObj(sc) ? sc["label"] : undefined;
     for (const honest of typeof label === "string" ? [text, label] : [text]) {
       assert.deepEqual(scanText(honest, patterns), [], `${c.label}: the served honesty text is vocab-clean`);
-      assert.doesNotMatch(honest, /\binterval\b/i, `${c.label}: the served honesty text never says 'interval' (C-1)`);
+      assert.doesNotMatch(honest, /\binterval\b/i, `${c.label}: the served honesty text never says 'interval'`);
     }
   }
 });

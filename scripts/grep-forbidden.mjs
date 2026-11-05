@@ -1,8 +1,8 @@
-// MONARK vocabulary gate (ADR-M001 D8, ADR-M002 D0/D1, ADR-M003 D12) —
+// MONARK vocabulary gate —
 // "discipline enforced in code". Scans package SOURCE (packages/*/src/**/*.ts), the whole atelier
 // package (packages/atelier/**), the whole monark package (packages/monark/**), and the public
 // storefront (apps/site/**, rendered surfaces .ts/.tsx/.mdx) for the guarantee/marketing claims
-// banned by the 09 discipline. NOT the structural FORBIDDEN_KEYS (closed-check.ts + forbidden-keys.ts).
+// banned in vocab-banned.json. NOT the structural FORBIDDEN_KEYS (closed-check.ts + forbidden-keys.ts).
 // Patterns live in ONE place: vocab-banned.json (root). Zero dependencies.
 //
 // GLOBAL patterns (vocab-banned.json "banned") apply to EVERY scanned file. SCOPED patterns
@@ -159,7 +159,7 @@ export function collectTargets(root, config, cliArgs) {
     }
   }
 
-  // The harness apps/harness/src (ADR-M005 D9 / K-3) — GLOBAL + harness-scoped honesty bans.
+  // The harness apps/harness/src — GLOBAL + harness-scoped honesty bans.
   // SOURCE only (not test/): a negative-control test may legitimately name a banned token in a fixture.
   // (A-9-OUTILLE) The served-vocabulary rules apply to every line, comments included: a comment naming a banned
   // word is reworded, never exempted by path. No exemptPhrases on this scope (lookbehind exemptions only).
@@ -174,7 +174,7 @@ export function collectTargets(root, config, cliArgs) {
     }
   }
 
-  // The ClawHub skill artefacts under skills/ (ADR-M006 D2/D5) — GLOBAL + skills-scoped
+  // The ClawHub skill artefacts under skills/ — GLOBAL + skills-scoped
   // honesty/securities bans, with the skill scope's closed exemptPhrases masked before matching (same
   // closed-list mechanism as the site scope). Not under packages/ or apps/, so it is a top-level walk.
   const skills = config.scan.skills;
@@ -188,7 +188,7 @@ export function collectTargets(root, config, cliArgs) {
     }
   }
 
-  // The Narabi Lot F2-B docs (ADR-M008 Amendement bis, C-12): an EXPLICIT file list (not a directory walk),
+  // The Narabi docs: an EXPLICIT file list (not a directory walk),
   // scanned with GLOBAL + the narabi_docs-scoped forbidden surface. Keeps unrelated docs/fixtures untouched.
   const narabiDocs = config.scan.narabi_docs;
   if (narabiDocs) {
@@ -203,15 +203,15 @@ export function collectTargets(root, config, cliArgs) {
     }
   }
 
-  // The off-tool Narabi sentinel (ADR-M012 item (j) / G2-lot-m012b C2) — GLOBAL + the two ADR-M012 D8
+  // The off-tool Narabi sentinel — GLOBAL + the two sentinel-scoped
   // adaptive patterns, over apps/sentinel/{src,test} (directory walk) AND the deploy/ units (an EXPLICIT
   // file list, since .service/.timer/.snippet are not source extensions the walker recognizes).
   const sentinel = config.scan.sentinel;
   if (sentinel) {
     const SENTINEL_EXTRA = compilePatterns(sentinel.banned);
-    // (ADR-U1 D8) the sentinel scope now carries the Ukemi motif bans incl. \bcascade\b; a scope-local closed
+    // The sentinel scope also carries the Ukemi motif bans incl. \bcascade\b; a scope-local closed
     // exemptPhrases masks the ONE legitimate committed span — the harness tool-list naming the transitional
-    // `cascade` tool (removed at U-2, ADR-M020 D4). Same closed-list mechanism as the site/skills scopes.
+    // `cascade` tool (since removed). Same closed-list mechanism as the site/skills scopes.
     const SENTINEL_EXEMPT = sentinel.exemptPhrases ?? [];
     for (const rel of sentinel.dirs ?? []) {
       const d = join(root, rel);
@@ -231,7 +231,7 @@ export function collectTargets(root, config, cliArgs) {
     }
   }
 
-  // The off-tool Bell collector (ADR-B0 D5) — GLOBAL + the bell-scoped D1 interdicts, over apps/bell/src
+  // The off-tool Bell collector — GLOBAL + the bell-scoped interdicts, over apps/bell/src
   // (SOURCE only: the bell tests name banned tokens as negative-control vocab mutants, so test/ is NOT
   // scanned). Non-inert proof: apps/bell/test/bell.test.ts (bell_vocab_scope_reddens).
   const bell = config.scan.bell;

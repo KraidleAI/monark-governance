@@ -1,9 +1,9 @@
 /**
- * Harness — calibrate (BYO split-conformal) tests (ADR-M007 D2/D3/D4/D5/B-3/B-7, §3 criteria).
+ * Harness — calibrate (BYO split-conformal) tests.
  * Each test is killed by >= 1 named mutant. Fully typed: no `any`, no unsafe access — the file stays at
  * the lint ratchet ceiling.
  *
- * ANTI-CIRCULARITY (§3): the split-conformal oracle is HAND-ROLLED — the expected q̂ is written in
+ * ANTI-CIRCULARITY: the split-conformal oracle is HAND-ROLLED — the expected q̂ is written in
  * literally from a by-hand computation, NEVER derived from the production `splitQuantile`/`sort`. So a
  * mutant in `splitQuantile` (or in `runCalibrate`'s wiring of it) reddens against an independent number.
  */
@@ -46,7 +46,7 @@ function asObj(node: Json | undefined, where: string): { [k: string]: Json } {
   return node;
 }
 
-// Test — HAND-ROLLED split-conformal oracle (§3, anti-circularity). n=9, α=0.2, nMin=5:
+// Test — HAND-ROLLED split-conformal oracle (anti-circularity). n=9, α=0.2, nMin=5:
 //   p = ⌈(n+1)(1−α)⌉ = ⌈10 · 0.8⌉ = ⌈8⌉ = 8, and q̂ = the p-th SMALLEST score.
 // The scores are 0.1..0.9 (given SHUFFLED so a "return scores[7] unsorted" mutant would give 0.4, not
 // 0.8); sorted ascending they are 0.1,0.2,…,0.9, so the 8-th smallest is 0.8 — WRITTEN IN BY HAND.
@@ -60,11 +60,11 @@ test("calibrate_hand_rolled_split_conformal_oracle", () => {
   assert.equal(r.method, "split", "the method is split");
   assert.equal(r.n, 9, "n echoes the score count");
   assert.equal(r.alpha, 0.2, "alpha is echoed");
-  assert.equal(typeof r.label, "string", "the K-1 label rides in the output (carrier 3/3)");
+  assert.equal(typeof r.label, "string", "the honesty label rides in the output (carrier 3/3)");
 });
 
 // Test — verdict summary (a delivery aid for text-only MCP clients, NOT a 4th carrier): the calibrate
-// tool's content text LEADS with the K-1 honesty label (carrier 2/3, unchanged) and then carries a FACTUAL
+// tool's content text LEADS with the honesty label (carrier 2/3, unchanged) and then carries a FACTUAL
 // summary DERIVED from the SAME result — q̂ and a truncated scores_sha256 on success (no `reason=`), and
 // `reason=under_calib` + `qhat=null` when the calibration is insufficient (so under_calib is visibly
 // distinct in the prose channel). Mutant that hardcodes the summary or drops `reason` on under_calib reds.
@@ -76,7 +76,7 @@ test("calibrate_content_carries_verdict_summary", async () => {
   const okScores = [0.5, 0.1, 0.9, 0.3, 0.7, 0.2, 0.8, 0.4, 0.6];
   const okResult = runCalibrate({ scores: okScores, alpha: 0.2, nMin: 5 });
   const okText = (await calibrateTool.run({ scores: okScores, alpha: 0.2, nMin: 5 })).text;
-  assert.ok(okText.startsWith(CALIBRATE_LABEL), "calibrate content leads with the K-1 honesty label (carrier 2/3)");
+  assert.ok(okText.startsWith(CALIBRATE_LABEL), "calibrate content leads with the honesty label (carrier 2/3)");
   assert.equal(
     calibrateVerdictSummary(okResult),
     `verdict qhat=0.8 n=9 alpha=0.2 scores_sha256=${okResult.scores_sha256.slice(0, 8)}...${okResult.scores_sha256.slice(-6)}`,
@@ -91,7 +91,7 @@ test("calibrate_content_carries_verdict_summary", async () => {
   assert.ok(underText.includes("reason=under_calib"), "an under-calibrated summary surfaces reason=under_calib (visibly distinct from covered)");
 });
 
-// Test — B-17: `scores_sha256` IS `scoresSha256(scores)` in the order given (imported, never re-implemented), and the
+// Test — `scores_sha256` IS `scoresSha256(scores)` in the order given (imported, never re-implemented), and the
 // result is deterministic; a permutation keeps q̂ (splitQuantile sorts) but CHANGES the digest (contract 1.1.0: the
 // order is part of the identity). Mutant: hash the sorted scores in calibrate.ts ⇒ the permutation assertion reds.
 test("calibrate_scores_sha256_is_ordered_and_deterministic", () => {
@@ -101,10 +101,10 @@ test("calibrate_scores_sha256_is_ordered_and_deterministic", () => {
   const b = runCalibrate({ scores, alpha: 0.2, nMin: 5 });
   const c = runCalibrate({ scores: shuffled, alpha: 0.2, nMin: 5 });
 
-  // B-17 — the digest equals the imported scoresSha256 of the SAME scores, in the SAME order (closes the C2 audit).
-  assert.equal(a.scores_sha256, scoresSha256(scores), "scores_sha256 === scoresSha256(scores) (B-17 reuse)");
+  // The digest equals the imported scoresSha256 of the SAME scores, in the SAME order.
+  assert.equal(a.scores_sha256, scoresSha256(scores), "scores_sha256 === scoresSha256(scores) (imported)");
   assert.match(a.scores_sha256, /^[0-9a-f]{64}$/, "scores_sha256 is 64 lowercase hex");
-  assert.notEqual(a.scores_sha256, calibDigest(scores), "scores_sha256 is not the sorted C5 digest of the provenance tool");
+  assert.notEqual(a.scores_sha256, calibDigest(scores), "scores_sha256 is not the sorted calibDigest");
   // Determinism — same input ⇒ same q̂ and digest.
   assert.equal(a.qhat, b.qhat, "same input ⇒ same q̂");
   assert.equal(a.scores_sha256, b.scores_sha256, "same input ⇒ same scores_sha256");
@@ -114,7 +114,7 @@ test("calibrate_scores_sha256_is_ordered_and_deterministic", () => {
   assert.equal(c.scores_sha256, scoresSha256(shuffled), "the permuted digest is over the permuted order");
 });
 
-// Test — QUANTILE-INFINITE fail-closed (§3): p>n ⇒ under_calib, q̂:null, NEVER a clamped score. n=5,
+// Test — QUANTILE-INFINITE fail-closed: p>n ⇒ under_calib, q̂:null, NEVER a clamped score. n=5,
 // α=0.05, nMin=1: p=⌈6·0.95⌉=⌈5.7⌉=6 > 5 ⇒ under_calib. nMin=1 ≤ n, so this isolates the p>n branch
 // (not n<nMin). Also cover n<nMin. Mutant: return the max score instead of null ⇒ the null assertions red.
 test("calibrate_fails_closed_on_insufficient_calibration", () => {
@@ -131,7 +131,7 @@ test("calibrate_fails_closed_on_insufficient_calibration", () => {
   assert.equal(underMin.reason, "under_calib", "n<nMin ⇒ reason under_calib");
 });
 
-// Test — MUTANT OF CAP (§3): n > CALIBRATE_MAX_N ⇒ CalibrateToolError (the belt-and-suspenders backstop
+// Test — MUTANT OF CAP: n > CALIBRATE_MAX_N ⇒ CalibrateToolError (the belt-and-suspenders backstop
 // behind the schema maxItems, exercised on a DIRECT in-process call). The HTTP boundary path (n>cap ⇒
 // 400, α∉(0,1) ⇒ 400 tool_error) is in http.test.ts. Mutants: remove the `n > CALIBRATE_MAX_N` guard ⇒
 // (a) stops throwing; a `>=`-for-`>` slip ⇒ n==cap starts throwing (killed by the boundary case below).
@@ -144,8 +144,8 @@ test("calibrate_rejects_over_the_score_cap", () => {
   assert.doesNotThrow(() => runCalibrate(atCap), "n == cap is accepted (upper bound, not exclusive)");
 });
 
-// Test — FAIL-CLOSED on bad params (D4): α∉(0,1), a non-finite score, and a bad nMin are each a tool
-// error, never a silent output. The non-finite score MUST fail BEFORE calibDigest (D4), so the message
+// Test — FAIL-CLOSED on bad params: α∉(0,1), a non-finite score, and a bad nMin are each a tool
+// error, never a silent output. The non-finite score MUST fail BEFORE calibDigest, so the message
 // is the tool's, not calibDigest's bare Error. Mutant: validate α with `>=0 && <=1` (accepting 0/1) ⇒
 // the α=1 / α=0 cases red; move the finiteness check AFTER calibDigest ⇒ the message assertion reds.
 test("calibrate_fails_closed_on_bad_params", () => {
@@ -154,10 +154,10 @@ test("calibrate_fails_closed_on_bad_params", () => {
   assert.throws(() => runCalibrate({ ...base, alpha: 1 }), CalibrateToolError, "α=1 is out of the open interval");
   assert.throws(() => runCalibrate({ ...base, alpha: 1.5 }), CalibrateToolError, "α>1 is refused");
   assert.throws(() => runCalibrate({ ...base, alpha: Number.NaN }), CalibrateToolError, "α NaN is refused");
-  // nMin (belt-and-suspenders beyond D4's literal list, gate.ts:90 motif): non-integer / < 1 ⇒ tool error.
+  // nMin (belt-and-suspenders, gate.ts:90 motif): non-integer / < 1 ⇒ tool error.
   assert.throws(() => runCalibrate({ ...base, alpha: 0.1, nMin: 0 }), CalibrateToolError, "nMin < 1 is refused");
   assert.throws(() => runCalibrate({ ...base, alpha: 0.1, nMin: 2.5 }), CalibrateToolError, "non-integer nMin is refused");
-  // a non-finite score ⇒ a CalibrateToolError with the TOOL's message (validated before calibDigest, D4).
+  // a non-finite score ⇒ a CalibrateToolError with the TOOL's message (validated before calibDigest).
   assert.throws(
     () => runCalibrate({ scores: [0.1, Number.POSITIVE_INFINITY, 0.3], alpha: 0.1, nMin: 1 }),
     (e: unknown) => e instanceof CalibrateToolError && /scores\[1\]/.test(e.message),
@@ -165,7 +165,7 @@ test("calibrate_fails_closed_on_bad_params", () => {
   );
 });
 
-// Test — M-5 (ADR-M007 D3): BOTH output shapes validate against the projected output schema. `reason`
+// Test — BOTH output shapes validate against the projected output schema. `reason`
 // is IN the schema and `qhat` is nullable, so the FAIL-CLOSED shape (qhat:null, reason:"under_calib")
 // survives `additionalProperties:false` — the SDK validates structuredContent on the way out, and this
 // is the reviewer's first question. This test ALSO proves `fromJsonSchema` compiled the `const:"split"`
@@ -181,34 +181,34 @@ test("calibrate_both_output_shapes_validate_against_the_projected_schema", async
   const failClosed = runCalibrate({ scores: [0.1, 0.2, 0.3], alpha: 0.1, nMin: 50 });
   assert.equal(failClosed.qhat, null, "the fail-closed shape carries a null q̂ (non-vacuity)");
   const failValidated = await calibrateOutputStandardSchema["~standard"].validate(failClosed);
-  assert.equal(failValidated.issues, undefined, "the fail-closed output (qhat:null, reason:under_calib) validates too (M-5)");
+  assert.equal(failValidated.issues, undefined, "the fail-closed output (qhat:null, reason:under_calib) validates too");
 });
 
-// Test — the projected schemas match ADR-M007 D2/D3 shapes exactly (non-frozen, declared in
-// schema-projection.ts, never in schemas/). Mutant: drop `reason` from required (M-5) or make `qhat`
+// Test — the projected schemas match the declared input and output shapes exactly (non-frozen, declared in
+// schema-projection.ts, never in schemas/). Mutant: drop `reason` from required or make `qhat`
 // non-nullable ⇒ red.
-test("calibrate_schema_shapes_match_the_adr", () => {
-  // INPUT (D2): closed, requires scores/alpha/nMin, scores capped by maxItems.
+test("calibrate_schema_shapes_match_the_declared_shapes", () => {
+  // INPUT: closed, requires scores/alpha/nMin, scores capped by maxItems.
   assert.equal(CALIBRATE_INPUT_SCHEMA["additionalProperties"], false, "input is a closed envelope");
   assert.deepEqual(CALIBRATE_INPUT_SCHEMA["required"], ["scores", "alpha", "nMin"], "input requires scores, alpha, nMin");
   const inProps = asObj(CALIBRATE_INPUT_SCHEMA["properties"], "input.properties");
   assert.equal(asObj(inProps["scores"], "input.scores")["maxItems"], CALIBRATE_MAX_N, "scores is capped by maxItems at the boundary");
 
-  // OUTPUT (D3): closed, requires the 7 fields (reason IN the schema = M-5), qhat nullable.
+  // OUTPUT: closed, requires the 7 fields (reason IN the schema), qhat nullable.
   assert.equal(CALIBRATE_OUTPUT_SCHEMA["additionalProperties"], false, "output is a closed envelope");
   assert.deepEqual(
     CALIBRATE_OUTPUT_SCHEMA["required"],
     ["qhat", "n", "alpha", "method", "scores_sha256", "label", "reason"],
-    "output requires the 7 D3 fields (reason present, M-5)",
+    "output requires the 7 fields (reason present)",
   );
   const outProps = asObj(CALIBRATE_OUTPUT_SCHEMA["properties"], "output.properties");
-  assert.deepEqual(asObj(outProps["qhat"], "output.qhat")["type"], ["number", "null"], "qhat is nullable (M-5)");
+  assert.deepEqual(asObj(outProps["qhat"], "output.qhat")["type"], ["number", "null"], "qhat is nullable");
   assert.deepEqual(asObj(outProps["reason"], "output.reason")["type"], ["string", "null"], "reason is nullable");
   assert.equal(asObj(outProps["method"], "output.method")["const"], "split", "method is the const split");
   assert.equal(asObj(outProps["scores_sha256"], "output.scores_sha256")["pattern"], "^[0-9a-f]{64}$", "scores_sha256 is a 64-hex string");
 });
 
-// Test — HONESTY (B-3 non-vacuity, §3): the harness vocab gate polices the overclaim verbs
+// Test — HONESTY (non-vacuity): the harness vocab gate polices the overclaim verbs
 // NEGATION-AWARE. All THREE honesty carriers (description, MCP content text, and the RUNTIME output
 // label) are green; a naked surclaim in any carrier-shaped text reddens; and the honest negations that
 // already live in the tree stay green (no false red). Mutant: inject "guarantees coverage" into
@@ -218,11 +218,11 @@ test("calibrate_honesty_carriers_pass_the_negation_aware_vocab_gate", () => {
   const cfg = JSON.parse(readFileSync(VOCAB_PATH, "utf8")) as VocabConfig;
   const patterns = [...compilePatterns(cfg.banned), ...compilePatterns(cfg.scan.harness.banned)];
 
-  // Non-vacuity of the config: the harness scope actually bans the three overclaim verbs (B-3).
+  // Non-vacuity of the config: the harness scope actually bans the three overclaim verbs.
   const hasBan = (needle: RegExp): boolean => cfg.scan.harness.banned.some((r) => needle.test(r.re));
-  assert.ok(hasBan(/guarantee/), "harness scope bans a guarantee surclaim (B-3)");
-  assert.ok(hasBan(/probative/), "harness scope bans a probative surclaim (B-3)");
-  assert.ok(hasBan(/predicts/), "harness scope bans a predicts surclaim (B-3)");
+  assert.ok(hasBan(/guarantee/), "harness scope bans a guarantee surclaim");
+  assert.ok(hasBan(/probative/), "harness scope bans a probative surclaim");
+  assert.ok(hasBan(/predicts/), "harness scope bans a predicts surclaim");
 
   // (a) all THREE honesty carriers are green — including the RUNTIME output label (carrier 3/3), which
   // the source file walk never sees.
@@ -230,7 +230,7 @@ test("calibrate_honesty_carriers_pass_the_negation_aware_vocab_gate", () => {
   assert.deepEqual(scanText(CALIBRATE_TOOL_DESCRIPTION, patterns), [], "carrier 1/3 (description) is vocab-clean");
   assert.deepEqual(scanText(calibrateHonestyText(), patterns), [], "carrier 2/3 (MCP content) is vocab-clean");
   assert.deepEqual(scanText(runtime.label, patterns), [], "carrier 3/3 (runtime output label) is vocab-clean");
-  assert.equal(runtime.label, CALIBRATE_LABEL, "the runtime label IS the declared K-1 label");
+  assert.equal(runtime.label, CALIBRATE_LABEL, "the runtime label IS the declared honesty label");
 
   // (b) a naked surclaim in ANY carrier-shaped text reddens (the gate is non-vacuous).
   assert.ok(scanText("this tool guarantees coverage for your model", patterns).length >= 1, "naked 'guarantees' reddens");
@@ -244,12 +244,12 @@ test("calibrate_honesty_carriers_pass_the_negation_aware_vocab_gate", () => {
   assert.deepEqual(scanText("asserted by attest_makes_no_probative_claim", patterns), [], "'no_probative' identifier stays green (attest:30)");
   assert.deepEqual(scanText("declared synthetic, not a measured predictor", patterns), [], "'predictor' stays green (only 'predicts' is banned)");
 
-  // (d) EXTENSION (A-9-OUTILLE, checkpoint-1 C-3): the served-vocabulary rules are live on these carriers. The
+  // (d) EXTENSION: the served-vocabulary rules are live on these carriers. The
   // label's own negation "Never a probability of being right." is what (a) keeps green (named lookbehind); a numeric
   // probability-of-being-right claim in carrier form reddens on BOTH words. Mutant `never-a-lookbehind-dropped`
   // (the lookbehind removed from the rule) => (a) reds on all three carriers.
-  assert.ok(hasBan(/probabilit/), "harness scope bans a probability outside a named negation (A-9-OUTILLE)");
-  assert.ok(hasBan(/verified/), "harness scope bans a naked 'verified' (A-9-OUTILLE)");
+  assert.ok(hasBan(/probabilit/), "harness scope bans a probability outside a named negation");
+  assert.ok(hasBan(/verified/), "harness scope bans a naked 'verified'");
   assert.ok(CALIBRATE_LABEL.includes("Never a probability of being right."), "the carrier holds the exempted negation (non-vacuous)");
   const numeric = scanText("the supplied scores give a 95% probability of being right", patterns).map((h) => h.word.toLowerCase());
   assert.deepEqual(numeric.sort(), ["95%", "probability"], "a numeric probability-of-being-right claim reddens (percent + probability)");
@@ -260,7 +260,7 @@ test("calibrate_tool_name_is_calibrate", () => {
   assert.equal(CALIBRATE_TOOL_NAME, "calibrate", "the tool name is 'calibrate'");
 });
 
-// B-12 (ADR-CM): BYO and calibrate serve the exact split rank of String(alpha): (24; 0.44) -> rank 14 where the float rank
+// BYO and calibrate serve the exact split rank of String(alpha): (24; 0.44) -> rank 14 where the float rank
 // gave 15, the same q-hat in both answers (the audit loop). Second killer fired by hand: calibrate.ts:166, the float rank.
 // killer: apps/harness/src/tools/gate.ts:25 CONST "splitQuantileShortest," -> "splitQuantile as splitQuantileShortest,"
 test("gate_byo_and_calibrate_use_the_exact_rank", () => {

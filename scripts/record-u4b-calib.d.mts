@@ -7,13 +7,13 @@ export interface U4bRegistryEntry {
   n: number; p: number | null; qhat: number | null; scale: string; calib_digest: string;
   under_calib: boolean; scores: number[];
 }
-/** PURE (C-9): class-A score rows → one CommittedCalibration entry per Mondrian stratum. Base-8dec bigint scores
+/** PURE: class-A score rows → one CommittedCalibration entry per Mondrian stratum. Base-8dec bigint scores
  *  are scaled by `scale` (exact division required) and bounded by 2^53 (fail-closed); q̂ = ⌈(n+1)(1−α)⌉-th
- *  smallest; calib_digest = calibDigest (float64_be sorted, C5). under_calib for n < nMin. Class A only
- *  (decision 108). */
+ *  smallest; calib_digest = calibDigest (float64_be sorted). under_calib for n < nMin.
+ *  Class A only. */
 export function buildRegistryEntries(
   rowsA: ReadonlyArray<{ strate: number | string; score: string; [k: string]: unknown }>,
   opts?: { scale?: bigint; predictorBase?: string | undefined },
 ): U4bRegistryEntry[];
-/** --scores path — REQUIRED, no e2 default (C-G2-1). Throws if absent. */
+/** --scores path — REQUIRED, no e2 default. Throws if absent. */
 export function resolveScoresPath(argv: readonly string[]): string;

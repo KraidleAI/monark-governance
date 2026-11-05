@@ -1,9 +1,9 @@
 /**
- * Harness - served replay of lot CM-3a (chantier moteur, audit P3 E-8, E-4, E-5, E-6, E-9, E-12; ADR-CM section 3: CM-3
- * changes no served verdict). A fixed set of runGate calls (USDe committed key and another key, liq strata s0 to s3, BYO
+ * Harness - served replay.
+ * A fixed set of runGate calls (USDe committed key and another key, liq strata s0 to s3, BYO
  * interval and set including negative and infinite scores, cascade; budgets, tau, tauInterval and the clock varied) is
  * projected (action, reason, allow, region or null, qhat, n_calib, alpha; a refusal by its code) and hashed: the
- * projection is version-independent (contract 1.1.0, block C), measured equal at the base 418a421f and at 3c-3b2. The same test proves the E-8 guard sits in the gate that runGate calls: a NaN field never
+ * projection is version-independent (contract 1.1.0), measured equal at the base 418a421f. The same test proves the finite-input guard sits in the gate that runGate calls: a NaN field never
  * COMMITs there (it did at the base). Pure: no clock (produced_at in the past, nowMs pinned), no network, no file.
  */
 import { test } from "node:test";
@@ -67,10 +67,11 @@ test("served_replay_identical_and_nan_never_commits_in_the_served_gate", () => {
   assert.equal(set.length, 111);
   const lines = set.map(replayLine);
   const digest = createHash("sha256").update(lines.join("\n")).digest("hex");
-  assert.equal(digest, "efdde3e6331a784c15a3e64f3528d44e61dc69e7d595ca0d7478f65226eacd56", "projection: only the B-13 edges of 39 calls move in CM-3c-4b (was c9db863c..., base 418a421f)");
+  assert.equal(digest, "efdde3e6331a784c15a3e64f3528d44e61dc69e7d595ca0d7478f65226eacd56", "projection: only the edges of 39 calls moved (was c9db863c..., base 418a421f)");
   // The replay reaches every served outcome kind (commit, defer, abstain, 400), so the digest is not vacuous.
   for (const kind of ['["commit"', '["defer"', '["abstain"', '"error":"']) assert.ok(lines.some((l) => l.includes(kind)), kind);
-  // E-8 in the served gate: the committed USDe decision, re-run with one numeric field set to NaN, never commits.
+  // The finite-input guard in the served gate: the committed USDe decision, re-run with one numeric field set to NaN,
+  // never commits.
   const first = set[0];
   assert.ok(first !== undefined);
   const committed = runGate(first[0], { ...first[1], intent: 1e-4 }, undefined, { nowMs: NOW });
@@ -83,10 +84,10 @@ test("served_replay_identical_and_nan_never_commits_in_the_served_gate", () => {
   }
 });
 
-// G2 B-1 of 3c-3b2: next to the version-independent projection, the full 1.1.0 served bytes of the same 111 calls are
+// Next to the version-independent projection, the full 1.1.0 served bytes of the same 111 calls are
 // pinned (whole GateDecision; a refusal by its code and message), so a served field the projection ignores (method,
-// residual, schema_version, cell fields...) cannot move unseen. Any lot that changes served bytes updates this pin in a
-// declared line (G7). Second mutant fired by hand: gate.ts:619 "residual: []," -> "residual: [\"x\"],".
+// residual, schema_version, cell fields...) cannot move unseen. Any change of the served bytes updates this pin in a
+// declared line. Second mutant fired by hand: gate.ts:619 "residual: []," -> "residual: [\"x\"],".
 // killer: apps/harness/src/tools/gate.ts:655 CONST "method: \"split\"" -> "method: \"hac-cp\""
 test("served_replay_full_bytes_are_pinned_at_1_1_0", () => {
   const lines = replaySet().map(([p, params]) => {
@@ -100,7 +101,7 @@ test("served_replay_full_bytes_are_pinned_at_1_1_0", () => {
   assert.equal(createHash("sha256").update(lines.join("\n")).digest("hex"), "0425480482d3735b9de7f871e08828ff04257063e899b700a0cb341b27b17eca", "served bytes of the replay (1.1.0; the texts without archived ids move one message and the two liq table digests of 36 calls, was 1aab90a8..., cb6a4e4f...)");
 });
 
-// G2 m-6 of 3c-3a (spec r3 section 5, constraints the closed check does not hold): on every served verdict of the replay,
+// Constraints the closed check does not hold: on every served verdict of the replay,
 // (c) n_calib is the length of scores when scores is carried; (d) scores is carried on a caller-supplied calibration only
 // (cell_key null); (e) a caller-supplied calibration (cell_key null) never has qhat_unit "scale", and scale is null.
 // killer: apps/harness/src/tools/gate.ts:657 CONST "schemaVersion: SCHEMA_VERSION, cell," -> "schemaVersion: SCHEMA_VERSION, cell, includeScores: true,"

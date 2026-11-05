@@ -42,7 +42,7 @@ test("no_p_correct_field", () => {
   assert.throws(() => serializeVerdict(deep), /confidence|forbidden|unknown/i);
 });
 
-// Test 13 (contract 1.1.0, lot CM-3c-3a): scores_sha256 = scoresSha256(scores) in the order given (never sorted); the cell is copied as given.
+// Test 13 (contract 1.1.0): scores_sha256 = scoresSha256(scores) in the order given (never sorted); the cell is copied as given.
 // killer: packages/hikae/src/verdict.ts:57 CONST "scoresSha256(params.scores)" -> "scoresSha256([...params.scores].sort((a, b) => a - b))"
 test("verdict_scores_sha256_is_over_the_declared_order", () => {
   const v = baseVerdict();
@@ -64,7 +64,7 @@ test("conform_interval_carries_the_cell_on_the_served_path", () => {
   assert.doesNotThrow(() => serialize(v));
 });
 
-// Contract 1.1.0 (spec section 5): a verdict without region has region and qhat null, abstains, keeps n_calib and the scores digest.
+// Contract 1.1.0: a verdict without region has region and qhat null, abstains, keeps n_calib and the scores digest.
 // killer: packages/hikae/src/verdict.ts:71 CONST "region: null," -> "region: { kind: \"set\", labels: [], label_schema: \"up|down\" },"
 test("no_region_verdict_has_null_region_and_qhat", () => {
   const noRegion = (hikae as Record<string, unknown>)["noRegionVerdict"];

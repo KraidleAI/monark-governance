@@ -1,11 +1,9 @@
 /**
- * Harness - served hardening, lot CM-2b (chantier moteur; audit P3 points S-12, S-1 and E-7).
- * Oracle: docs/adr/ADR-CM-chantier-moteur-audit-P3.md section 5 B-5, B-2 (narrowed by the amendment "nuit, 2") and B-7;
- * plan docs/G0-lot-cm-2b.md. btc-dir-15m is retired (a named 400, the name still reserved against BYO); the committed
- * USDe key imposes its calibration's alpha 0.1 and nMin 50 (F-7 rows, liq unchanged); since lot CM-3c-4b (B-13) the band
- * edges are the ones of the score test and the B-7 clause on the rounded edge is withdrawn from the served text.
- * New names are read through a dynamic import or literals, so the base loads this file and reddens by assertion.
- * Each test names its killer on the line above it.
+ * Harness - served hardening. btc-dir-15m is retired (a named 400, the name still reserved against BYO); the committed
+ * USDe key imposes its calibration's alpha 0.1 and nMin 50 (CLASS_POLICY rows, liq unchanged); the band edges are the
+ * ones of the score test and the clause on the rounded edge is withdrawn from the served text. New names are read
+ * through a dynamic import or literals, so the base loads this file and reddens by assertion. Each test names its
+ * killer on the line above it.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -80,7 +78,7 @@ async function http(body: unknown): Promise<{ status: number; text: string }> {
   return { status: res.status, text: await res.text() };
 }
 
-// Test R-1 (F2P, B-5): btc-dir-15m without BYO is a 400 task_class_retired (direct, HTTP, MCP); its BYO refusals are
+// Test R-1 (F2P): btc-dir-15m without BYO is a 400 task_class_retired (direct, HTTP, MCP); its BYO refusals are
 // unchanged byte for byte; the known: list and the description no longer serve it.
 // killer: apps/harness/src/tools/gate.ts:967 SDL "throw new HarnessToolError(BTC_DIR_RETIRED_MESSAGE, \"task_class_retired\");" -> ""
 test("btc_dir_is_retired_with_a_named_400", async () => {
@@ -111,8 +109,8 @@ test("btc_dir_is_retired_with_a_named_400", async () => {
   assert.ok(GATE_TOOL_DESCRIPTION.includes("The class 'btc-dir-15m' is retired and answers a named refusal."), "it names the retirement");
 });
 
-// Test R-2 (F2P, B-2): the committed USDe key imposes alpha 0.1 and nMin 50 (named 400s, strict equality); its other
-// keys, tau and tauInterval stay the caller's; liq's messages are unchanged; the F-7 rows are data.
+// Test R-2 (F2P): the committed USDe key imposes alpha 0.1 and nMin 50 (named 400s, strict equality); its other keys,
+// tau and tauInterval stay the caller's; liq's messages are unchanged; the CLASS_POLICY rows are data.
 // killer: apps/harness/src/class-policy.ts:27 CONST "alpha: 0.1, nMin: 50" -> "alpha: 0.1, nMin: 51"
 test("usde_committed_key_imposes_alpha_and_nmin", async () => {
   const usde = pred(USDE, 0.0001, USDE_STABLE_RUN_PREDICTOR_ID);
@@ -123,7 +121,7 @@ test("usde_committed_key_imposes_alpha_and_nmin", async () => {
   assert.equal(n.code, "policy_nmin_mismatch");
   assert.equal(n.message, `task_class '${USDE}' with predictor_id '${USDE_STABLE_RUN_PREDICTOR_ID}' requires params.nMin = 50 (server-imposed for the committed key), got 51`);
   assert.equal(refused(() => runGate(usde, { ...PARAMS, alpha: 0.10000000000000002 }), "USDe alpha + 1 ulp").code, "policy_alpha_mismatch", "strict equality");
-  // Order (G0, liq order kept): alpha is checked before nMin, for liq and for USDe.
+  // Order (the liq order kept): alpha is checked before nMin, for liq and for USDe.
   assert.equal(refused(() => runGate(usde, { ...PARAMS, alpha: 0.5, nMin: 51 }), "USDe both wrong").code, "policy_alpha_mismatch", "USDe: alpha first");
   assert.equal(refused(() => runGate(pred(LIQ, 5000, "x"), { ...PARAMS, alpha: 0.1, nMin: 50, intent: 1 }), "liq both wrong").code, "policy_alpha_mismatch", "liq: alpha first");
   const h = await http({ prediction: usde, params: { ...PARAMS, alpha: 0.5 } });
@@ -140,12 +138,12 @@ test("usde_committed_key_imposes_alpha_and_nmin", async () => {
     refused(() => runGate(pred(LIQ, 5000, "x"), { ...PARAMS, alpha: 0.1, nMin: 100, intent: 1 }), "liq alpha").message,
     "task_class 'liquidation-eligible-coverage' requires params.alpha = 0.01 (server-imposed for the committed class), got 0.1",
   );
-  // The F-7 rows (a data module under src/, no clock, no I/O).
+  // The CLASS_POLICY rows (a data module under src/, no clock, no I/O).
   const mod = (await import("../src/class-policy.ts").catch(() => undefined)) as { CLASS_POLICY?: unknown } | undefined;
   assert.deepEqual(mod?.CLASS_POLICY, [
     { taskClass: LIQ, predictorId: null, alpha: 0.01, nMin: 100 },
     { taskClass: USDE, predictorId: USDE_STABLE_RUN_PREDICTOR_ID, alpha: 0.1, nMin: 50 },
-  ], "the F-7 rows");
+  ], "the CLASS_POLICY rows");
 });
 
 /** The next double up (nextUp), by its bit pattern. */
@@ -157,15 +155,15 @@ function up(x: number): number {
   return v.getFloat64(0);
 }
 
-// B-13 (ADR-CM; spec section 8; inverts R-3 of CM-2b): each USDe band edge is the one of the score test, checked against
-// the definition (fl(hi - yhat) <= qhat and the next double up fails; fl(yhat - lo) <= qhat and the next double down
-// fails); some edges are one ulp off fl(yhat -/+ qhat); the BYO edge of (1; 1) is -2^-53, not 0. The B-7 clause is
-// withdrawn from the core sentence, the description and the served content.
+// Each USDe band edge is the one of the score test, checked against the definition (fl(hi - yhat) <= qhat and the next
+// double up fails; fl(yhat - lo) <= qhat and the next double down fails); some edges are one ulp off fl(yhat -/+ qhat);
+// the BYO edge of (1; 1) is -2^-53, not 0. The rounded-edge clause is withdrawn from the core sentence, the description
+// and the served content.
 // killer: packages/hikae/src/region.ts:109 ROR "if (ofKey(m) - c <= q) a = m;" -> "if (ofKey(m) - c < q) a = m;"
 test("interval_edges_follow_the_score_test", async () => {
   const usdeText = (await HARNESS_TOOLS.find((t) => t.name === "gate")?.run({ prediction: pred(USDE, 1e-4, USDE_STABLE_RUN_PREDICTOR_ID), params: PARAMS }))?.text ?? "";
   assert.ok(usdeText.startsWith(`${STABLE_RUN_COMMITTED_SENTENCE}; B_t is caller-carried.`), "the served content leads with the committed sentence");
-  for (const t of [STABLE_RUN_COMMITTED_SENTENCE, GATE_TOOL_DESCRIPTION, usdeText]) assert.ok(!/band edge is yhat|half a unit|not widened/.test(t), "no B-7 clause");
+  for (const t of [STABLE_RUN_COMMITTED_SENTENCE, GATE_TOOL_DESCRIPTION, usdeText]) assert.ok(!/band edge is yhat|half a unit|not widened/.test(t), "no rounded-edge clause");
   let moved = 0;
   for (const yhat of [0, 1e-12, 1e-6, 0.0000416, 0.0001, 0.00123, -0.0003, 0.1, 1, 12345.678, 3e-4, 7.5e-5, -0.0001, 0.0005]) {
     const v = runGate(pred(USDE, yhat, USDE_STABLE_RUN_PREDICTOR_ID), PARAMS).verdict;
@@ -179,21 +177,20 @@ test("interval_edges_follow_the_score_test", async () => {
   assert.deepEqual(byo.verdict.region, { kind: "interval", lo: -(2 ** -53), hi: 2 }, "BYO (1; 1): fl(1 - lo) <= 1 down to -2^-53");
 });
 
-// G2 B-1 of 3c-3b2: next to the version-independent projection of the USDe band, the full 1.1.0 served bytes of the same
-// grid are pinned (whole GateDecision), so a served field the projection ignores cannot move unseen. Any lot that changes
-// served bytes updates this pin in a declared line (G7). Second mutant fired by hand: gate.ts:619 residual ["x"].
+// Next to the version-independent projection of the USDe band, the full 1.1.0 served bytes of the same grid are pinned
+// (whole GateDecision), so a served field the projection ignores cannot move unseen. Any change of the served bytes
+// updates this pin in a declared line. Second mutant fired by hand: gate.ts:619 residual ["x"].
 // killer: apps/harness/src/tools/gate.ts:655 CONST "method: \"split\"" -> "method: \"hac-cp\""
 test("usde_band_full_bytes_are_pinned_at_1_1_0", () => {
   const grid = [0, 1e-12, 1e-6, 0.0000416, 0.0001, 0.00123, -0.0003, 0.1, 1, 12345.678, 3e-4, 7.5e-5];
   const replay = grid.map((yhat) => JSON.stringify(runGate(pred(USDE, yhat, USDE_STABLE_RUN_PREDICTOR_ID), { ...PARAMS, tool: "t" }))).join("\n");
-  assert.equal(createHash("sha256").update(replay).digest("hex"), "c4b6bf1532879e8074d61a18fefa43ecb71508b366853d94000409c92a8b03fc", "served bytes of the USDe band (1.1.0; B-13 edges since CM-3c-4b, was 50ccc9fd...)");
+  assert.equal(createHash("sha256").update(replay).digest("hex"), "c4b6bf1532879e8074d61a18fefa43ecb71508b366853d94000409c92a8b03fc", "served bytes of the USDe band (1.1.0; score-test edges, was 50ccc9fd...)");
 });
 
-// Test R-4 (F2P, B-5; moved from gate.test.ts gate_attested_concordant_files_residual, ADR-M017 D2(iii)/D4(3)): the
-// committed Binance witness is concordant with btc-dir-15m only; since the class is retired, a concordant attested
-// passes the consistency guard (no attested_inconsistent) and meets the retirement (400 task_class_retired), through the
-// registry run(). No served class has a committed subject, so the residual seam is not reached on the served surface
-// (dormant chain, ADR-CM amendment "nuit, 3"). The witness pin stays; the registry still threads env.attested.
+// Test R-4 (F2P): the committed Binance witness is concordant with btc-dir-15m only; since the class is retired, a
+// concordant attested passes the consistency guard (no attested_inconsistent) and meets the retirement (400
+// task_class_retired), through the registry run(). No served class has a committed subject, so the residual seam is not
+// reached on the served surface (a dormant chain). The witness pin stays; the registry still threads env.attested.
 // killer: apps/harness/src/tools/gate.ts:967 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("attested_concordant_meets_the_btc_dir_retirement", () => {
   const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
@@ -218,10 +215,10 @@ test("attested_concordant_meets_the_btc_dir_retirement", () => {
   );
 });
 
-// C-2 of MONARK's diff check of CM-2b (founder's decision, 2026-10-04: tell the truth in the description). The only
-// committed attestation subject belongs to the retired btc-dir-15m, so every served path refuses a caller-carried
-// `attested`; the served description (tools/list and /openapi.json) and the harness README say so. The sentence is a
-// literal here so the base loads this file. The table is read too: a served class gaining a subject reddens this test.
+// The description tells the truth about `attested`. The only committed attestation subject belongs to the retired
+// btc-dir-15m, so every served path refuses a caller-carried `attested`; the served description (tools/list and
+// /openapi.json) and the harness README say so. The sentence is a literal here so the base loads this file. The table
+// is read too: a served class gaining a subject reddens this test.
 // killer: apps/harness/src/attestation-binding.ts:65 CONST "so any `attested` is refused" -> "so any `attested` is accepted"
 test("served_description_says_no_served_class_takes_attested", async () => {
   const SENTENCE = "No served class has a committed attestation subject (the retired 'btc-dir-15m' held the only one), so any `attested` is refused.";

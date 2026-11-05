@@ -32,8 +32,8 @@ Mis à jour le 2026-11-05. Une ligne qui change remplace l'ancienne ; l'historiq
   lit sa réponse sans rien supposer (`readVerdict`).
 - **PR** : #355 (l'étape 5), #356 (l'étape 7), #357 (l'étape 6), #359 (le rejeu sans réduire ses fractions), #358 (le
   ménage), #361 (les mutants du juge), #360 (l'étape 8), #362 (le README du harness), #363 (le noyau asynchrone) et #364
-  (les textes servis) fusionnées dans `lot/etude-suite` le 2026-11-04, et #365 (l'interface de la stratégie) le
-  2026-11-05 ; #345 et #323 fermées le 2026-11-04, sur décision du fondateur.
+  (les textes servis) fusionnées dans `lot/etude-suite` le 2026-11-04, puis #365 (l'interface de la stratégie) et #366
+  (la stratégie dans un dépôt privé) le 2026-11-05 ; #345 et #323 fermées le 2026-11-04, sur décision du fondateur.
 
 ## Les étapes
 

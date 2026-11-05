@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { splitQuantile, indicatorScores, conformalSet } from "../src/index.ts";
 
-// Test 1 (ADR-M002 D11).
+// Test 1.
 test("under_calib_abstains", () => {
   const scores = [0, 0, 1, 0, 0, 1, 0, 0, 0, 1]; // n=10
   const r = splitQuantile(scores, 0.1, 50);
@@ -39,8 +39,8 @@ test("quantile_formula_n_plus_1", () => {
 });
 
 // Test 5 — empty set not allowed. At score 0/1, q̂∈{0,1} ⇒ C never empty
-// (ŷ always has score 0 ≤ q̂). GUARD, vacuous at score 0/1 (labelled, ADR-M002 D11).
-// An empty set (any score family) abstains with intent_not_in_region on the BYO set path (ADR-M005 D5 K-4(d) amendment, D8).
+// (ŷ always has score 0 ≤ q̂). GUARD, vacuous at score 0/1 (labelled).
+// An empty set (any score family) abstains with intent_not_in_region on the BYO set path.
 test("empty_set_not_allow", () => {
   const scores = indicatorScores("up", ["up", "down"]); // up→0, down→1
   // q̂=0 ⇒ {up}; q̂=1 ⇒ {up,down}; never empty.
@@ -52,9 +52,9 @@ test("empty_set_not_allow", () => {
   assert.deepEqual(conformalSet(scores, -1), [], "synthetic bound: below every score ⇒ empty");
 });
 
-// B-12 (ADR-CM; spec section 7; plan r3 section 7, four killers): the served split rank reads String(alpha) as an exact
+// Four killers: the served split rank reads String(alpha) as an exact
 // rational, any number of decimals and an exponent: (50; 0.12345) -> 45, never under_calib; (24; 0.44) -> 14 and
-// (9; 0.70) -> 3 where the float rank gives 15 and 4; (10; 1e-7) -> 11 > n, so under_calib and no throw; the spec
+// (9; 0.70) -> 3 where the float rank gives 15 and 4; (10; 1e-7) -> 11 > n, so under_calib and no throw; the
 // vectors (9; 0.3) -> 7, (19; 0.15) -> 17, USDe (613; 0.1) -> 553 and liq (170; 0.01) -> 170 unchanged.
 // killer: packages/hikae/src/l1-split.ts:233 CONST "return Number(top >= 0n ? (top + den - 1n) / den : -(-top / den));" -> "return Math.ceil((n + 1) * (1 - alpha));"
 test("split_rank_shortest_four_killers", async () => {
@@ -69,7 +69,7 @@ test("split_rank_shortest_four_killers", async () => {
   assert.deepEqual(m.splitQuantileShortest?.(ranked(10), 0.1, 11), { reason: "under_calib" }, "n < nMin");
 });
 
-// G2 N-3 of lot CM-3c-4b: the exact rank reads every decimal of String(alpha), so a reader that truncates to four
+// The exact rank reads every decimal of String(alpha), so a reader that truncates to four
 // decimals is killed: (50; 0.01961) -> ceil(51 * 0.98039) = 50, where 0.0196 gives ceil(51 * 0.9804) = 51 > n, under_calib.
 // killer: packages/hikae/src/l1-split.ts:228 CONST "const frac = m[3] ?? \"\";" -> "const frac = (m[3] ?? \"\").slice(0, 4);"
 test("split_rank_shortest_reads_past_four_decimals", async () => {

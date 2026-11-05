@@ -105,7 +105,7 @@ test("deferral_preserves_miscover", () => {
   assert.equal(piH.miscover, 2, "2 miscovers, invariant under deferral");
 });
 
-// C-4 (L3 form) and spec section 6 step 4 (contract 1.1.0, lot CM-3c-3a, Q-3a-6): a calib_* cell abstains with its reason, never
+// L3 step 4 (contract 1.1.0): a calib_* cell abstains with its reason, never
 // defers; a verdict without region abstains with its no-region reason, or under_calib when its reason needs a region (no exception).
 // killer: packages/hikae/src/l3-gate.ts:94 SDL "if (input.nCalib < input.nMin || region === null || noRegionReason) return { action: \"abstain\", allow: false, reason: noRegionReason ? input.verdict.reason : \"under_calib\" };" -> ""
 test("l3_calib_and_regionless_reasons_abstain_with_the_verdict_reason", () => {

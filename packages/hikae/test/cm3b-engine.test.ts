@@ -1,10 +1,9 @@
 /**
- * HIKAE engine - lot CM-3b of the chantier moteur (audit P3 S-4 / E-1 engine side, E-14 pin, E-2, S-13; ADR-CM section 3).
- * Oracle: docs/G0-lot-cm-3b.md; RECHERCHES decisions/0005-AVIS-advisor-conformal-P2a-band-edge.md (h* the largest double
- * with fl(h* / sigmaHat) <= qhat); RECHERCHES kata/registry/FORMAT.md l.36 and kata/bench/calibrate.ts seqDigest (the
- * ordered digests). Expected values come from this file: the band edge is checked by an exact rounding rule in BigInt
- * rationals (round to nearest, ties to even), the digests by vectors computed with the bench's seqDigest and with
- * sha256sum on the literal text. New names are read through the index namespace, so the base reddens by assertion.
+ * HIKAE engine - the band edge (h* the largest double with fl(h* / sigmaHat) <= qhat), the scaled band, the ordered
+ * calibration digests and canonicalRow. Expected values come from this file: the band edge is checked by an exact
+ * rounding rule in BigInt rationals (round to nearest, ties to even), the digests by vectors computed with the bench's
+ * seqDigest and with sha256sum on the literal text. New names are read through the index namespace, so the base
+ * reddens by assertion.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -67,11 +66,11 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-// S-4 / E-1: h* = bandEdge(qhat, sigmaHat) is the largest double with fl(h* / sigmaHat) <= qhat, on a grid of 40 x 40
+// h* = bandEdge(qhat, sigmaHat) is the largest double with fl(h* / sigmaHat) <= qhat, on a grid of 40 x 40
 // (qhat, sigmaHat) pairs (fixed values and seeded draws over many binades): the exact rule holds at h* and fails at its
 // successor; x <= h* iff fl(x / sigmaHat) <= qhat on the four neighbours of h*; the raw product fl(qhat x sigmaHat) is
-// not h* on a share of the grid (the advisor's point: the product band can exclude its own qhat point).
-// G2 of CM-3b: subnormal and zero qhat with a large sigmaHat (edges far from the product, checked by the same exact rule
+// not h* on a share of the grid (the product band can exclude its own qhat point).
+// Also: subnormal and zero qhat with a large sigmaHat (edges far from the product, checked by the same exact rule
 // and pinned from the reviewer's BigInt oracle), and the named refusal of a negative qhat.
 // killer: packages/hikae/src/scaled-band.ts:35 ROR "ofBits(b) / sigmaHat <= qhat" -> "ofBits(b) / sigmaHat < qhat"
 test("band_edge_is_the_largest_double_under_qhat", () => {
@@ -111,11 +110,11 @@ function exactPrev(x: number): number {
   return v.getFloat64(0);
 }
 
-// S-4 / E-1 and E-14: conformScaledBand = riskControlRow on the band domain, then the closed region [0, h*] of
+// conformScaledBand = riskControlRow on the band domain, then the closed region [0, h*] of
 // buildIntervalRegion. qhat = 0 (all-zero scores) is under_calib: at sigmaHat 2 the band [0, 5e-324] would otherwise be
-// served (fl(5e-324 / 2) = 0), and the additive band at qhat 0 abstains too (NDG-1). Negative scores, a sigmaHat not
-// finite and > 0, and the refusals of riskControlRow fail closed; attempt and spendIndex reach the row (amendment A-1).
-// G2 of CM-3b: a subnormal qhat with sigmaHat 1000 returns without an exception (the ulp walk did not end), and a qhat > 0
+// served (fl(5e-324 / 2) = 0), and the additive band at qhat 0 abstains too (zero width). Negative scores, a sigmaHat
+// not finite and > 0, and the refusals of riskControlRow fail closed; attempt and spendIndex reach the row.
+// Also: a subnormal qhat with sigmaHat 1000 returns without an exception (the ulp walk did not end), and a qhat > 0
 // whose edge is 0 (qhat 5e-324, sigmaHat 0.3: fl(5e-324 / 0.3) = 1.5e-323 > qhat) is under_calib.
 // killer: packages/hikae/src/scaled-band.ts:80 CONST "row.qhat === 0" -> "false"
 test("conform_scaled_band_serves_zero_to_h_star", () => {
@@ -136,7 +135,7 @@ test("conform_scaled_band_serves_zero_to_h_star", () => {
   assert.deepEqual(built.region, { kind: "interval", lo: 0, hi: hStar });
   const again = band(scores, sigma, "0.01", "0.10", 300, { attempt: 2, spendIndex: 2 });
   assert.deepEqual([again.testDelta, again.attempt, again.spendIndex, again.qhat], ["0.05", 2, 2, row.qhat]);
-  // E-14: qhat 0 never serves, in the scaled band and in the additive band.
+  // qhat 0 never serves, in the scaled band and in the additive band.
   const zeros = Array.from({ length: 400 }, () => 0);
   for (const s of [2, 1, 0.5]) assert.deepEqual(band(zeros, s, "0.01", "0.05", 300), UNDER, `zeros, sigmaHat ${s}`);
   assert.equal(edge(0, 2), Number.MIN_VALUE, "the edge itself is a subnormal at sigmaHat 2");
@@ -161,9 +160,9 @@ test("conform_scaled_band_serves_zero_to_h_star", () => {
   assert.deepEqual(band(scores.slice(0, 298), sigma, "0.01", "0.05", 1), UNDER, "n below n0");
   assert.deepEqual(band(scores, sigma, "0.01", "0.05", 300, { attempt: 2, spendIndex: 3 }), UNDER, "spendIndex above attempt");
 });
-const UNDER_ABSTAIN = { abstain: true, reason: "region_degenerate" }; // zero width: region_degenerate since B-16
+const UNDER_ABSTAIN = { abstain: true, reason: "region_degenerate" }; // zero width: region_degenerate
 
-// G2 of #109 (B-1): a caller's options bag never overrides the "band" domain. An options object held in a variable escapes
+// A caller's options bag never overrides the "band" domain. An options object held in a variable escapes
 // the excess-property check, so { domain: "finite" } can reach conformScaledBand at run time; with 399 scores of 2 and one
 // of -5 the finite domain serves qhat 2, the band domain refuses the negative score: under_calib.
 // killer: packages/hikae/src/scaled-band.ts:79 CONST "{ ...options, domain: \"band\" }" -> "{ domain: \"band\", ...options }"
@@ -177,7 +176,7 @@ test("conform_scaled_band_keeps_the_band_domain", () => {
   assert.deepEqual(band(scores, 1, "0.01", "0.05", 300, { domain: "finite" }), UNDER, "same with a literal bag");
 });
 
-// E-2: orderedCalibDigest is the P2 bench's scoresSha256 / auxSha256 (sha256 of the JSON writing in time order). Vectors
+// orderedCalibDigest is the P2 bench's scoresSha256 / auxSha256 (sha256 of the JSON writing in time order). Vectors
 // computed on 2026-10-03 by RECHERCHES kata/bench/calibrate.ts seqDigest (Node 24.21.0), the first and the empty one
 // also by sha256sum on the literal text. Order matters (calibDigest sorts); a non-finite number throws.
 // killer: packages/hikae/src/canonical-row.ts:63 CONST "sha(auxiliary)" -> "sha(scores)"
@@ -200,8 +199,8 @@ function cyclic(): unknown {
   return o;
 }
 
-// S-13: canonicalRow writes an F-7 row as minified JSON, keys sorted by UTF-8 bytes, numbers in the shortest round-trip
-// decimal (-0 as 0, 1e+21), and throws on a non-finite number, undefined or a function at any depth; G2 of CM-3b: also on
+// canonicalRow writes an F-7 row as minified JSON, keys sorted by UTF-8 bytes, numbers in the shortest round-trip
+// decimal (-0 as 0, 1e+21), and throws on a non-finite number, undefined or a function at any depth; also on
 // a sparse array, an object that is not plain, a string or key with a lone surrogate, a cycle. Null-prototype objects pass.
 // killer: packages/hikae/src/canonical-row.ts:26 CONST "!t.isWellFormed()" -> "false"
 test("canonical_row_is_one_writing_for_f7_rows", () => {
@@ -215,7 +214,7 @@ test("canonical_row_is_one_writing_for_f7_rows", () => {
   assert.equal(canon(bare), '{"k":[1,{"j":"\ud83d\ude00"}]}');
   const shared = { x: 1 };
   assert.equal(canon({ a: shared, b: [shared] }), '{"a":{"x":1},"b":[{"x":1}]}', "a shared object is not a cycle");
-  // G2 of #109 (B-2): each refusal is pinned by its own message; a deleted cycle check would end in a stack overflow,
+  // Each refusal is pinned by its own message; a deleted cycle check would end in a stack overflow,
   // also a RangeError, so the class alone does not pin it.
   for (const [name, bad, message] of [["NaN", Number.NaN, /^canonicalRow: non-finite number NaN$/], ["Infinity", Infinity, /^canonicalRow: non-finite number Infinity$/],
     ["nested -Infinity", { a: [1, -Infinity] }, /^canonicalRow: non-finite number -Infinity$/], ["undefined", { a: undefined }, /^canonicalRow: not a row value \(undefined\)$/],

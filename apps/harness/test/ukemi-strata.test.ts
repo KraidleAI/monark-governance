@@ -1,7 +1,7 @@
 /**
- * Harness -- served Mondrian strata + the upper-bound region helper (U-4b-2a; ADR-U4b D1/D3; decisions
- * 108/126; checkpoint-1 C-5 + delta D-1/D-2). Literal-only (survives the public export). Each test is killed
- * by >= 1 named mutant, run by the -2a mutant harness (see the passe report).
+ * Harness -- served Mondrian strata + the upper-bound region helper.
+ * Literal-only (survives the public export). Each test is killed
+ * by >= 1 named mutant.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -24,22 +24,22 @@ test("u4b_served_strata_cuts_and_boundaries", () => {
 });
 
 // helper -- liqUpperBoundRegion is the UPPER BOUND [0, yhat + qhat], never the symmetric [yhat-qhat, yhat+qhat],
-// and qhat=0 abstains under_calib (delta D-2). Mutant (n) symmetric form and mutant (p) dropped qhat=0 guard redden.
+// and qhat=0 abstains under_calib. Mutant (n) symmetric form and mutant (p) dropped qhat=0 guard redden.
 test("u4b_liq_upper_bound_region_helper", () => {
   // qhat > 0, yhat > 0 -> a bounded region [0, yhat + qhat]; the wire kind stays "interval" (frozen contract).
   const r = liqUpperBoundRegion(1000, 200);
   assert.equal(r.abstain, false, "qhat>0 -> a bounded region");
   if (r.abstain) throw new Error("unreachable"); // narrow for the type-checker (no `any`, off the ratchet)
-  assert.equal(r.region.kind, "interval", "the wire kind stays 'interval' (frozen contract, delta D-1)");
+  assert.equal(r.region.kind, "interval", "the wire kind stays 'interval' (frozen contract)");
   assert.equal(r.region.lo, 0, "the lower edge is 0 by construction (upper bound, NOT the symmetric yhat-qhat=800)");
   assert.equal(r.region.hi, 1200, "the upper edge is yhat + qhat = 1200");
-  // qhat = 0 -> abstain under_calib (delta D-2): serving [0, yhat] would fabricate certainty; NDG-1 does not
+  // qhat = 0 -> abstain under_calib: serving [0, yhat] would fabricate certainty; the zero-width guard does not
   // fire here (lo=0 != hi=yhat), so the helper closes the hole explicitly.
   const z = liqUpperBoundRegion(1000, 0);
-  assert.equal(z.abstain, true, "qhat=0 -> abstain (delta D-2, the upper-bound NDG-1 hole)");
+  assert.equal(z.abstain, true, "qhat=0 -> abstain (the upper-bound hole of the zero-width guard)");
   if (!z.abstain) throw new Error("unreachable");
   assert.equal(z.reason, "under_calib", "qhat=0 abstention reason is under_calib");
-  // yhat + qhat = 0 (yhat=0, qhat=0) -> under_calib (subsumed by the qhat=0 guard; NDG-1 lo===hi===0).
+  // yhat + qhat = 0 (yhat=0, qhat=0) -> under_calib (subsumed by the qhat=0 guard; zero width, lo===hi===0).
   assert.equal(liqUpperBoundRegion(0, 0).abstain, true, "yhat=qhat=0 -> abstain under_calib");
   // yhat=0, qhat>0 -> a valid [0, qhat] region (a strate-0 amount of 0 is legitimate).
   const y0 = liqUpperBoundRegion(0, 5);

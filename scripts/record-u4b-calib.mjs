@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// scripts/record-u4b-calib.mjs — U-4b-1a C-9 generator: the NAMED maillon U4b-scores.jsonl → apps/harness/src/
+// scripts/record-u4b-calib.mjs — the frozen generator: the NAMED maillon U4b-scores.jsonl → apps/harness/src/
 // calibration.ts entries (Mondrian class A, one CommittedCalibration per stratum). REPRODUCIBLE: reads the
 // committed class-A score rows, groups by the a-priori strata, scales the base-8dec bigint scores to number[]
 // with an EXPLICIT scale (default 1, declared) and a per-stratum 2^53 fail-closed bound, and computes q̂ +
-// calibDigest (ADR-M001 C5, float64_be sorted) per stratum. Class A ONLY (decision investisseur 108: Class B is
-// a formed item, not served). Here it runs on the e2 DESIGN set — the committed calibration.ts entries are built
-// in -2 from the FRESH episode; this validates the generator + its recompute test offline. NO commit (R-20).
+// calibDigest (float64_be sorted) per stratum. Class A ONLY (Class B is not served). Here it runs on
+// the e2 DESIGN set — the committed calibration.ts entries are built
+// from the FRESH episode; this validates the generator + its recompute test offline. It commits nothing.
 //   node scripts/record-u4b-calib.mjs --scores <U4b-scores.jsonl> [--scale <bigint>]
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -16,14 +16,14 @@ import { splitQuantile } from "@monark/hikae";
 const NMIN = 100, ALPHA = 0.01;
 const CAP = 2n ** 53n; // largest integer exactly representable as float64
 
-// SELF-CHECK: calibDigest is the C5 contract function (float64_be sorted), not a sha256(JSON) look-alike.
+// SELF-CHECK: calibDigest is the committed digest function (float64_be sorted), not a sha256(JSON) look-alike.
 if (calibDigest([0, 1]) !== "1e47beee7f4175a863385dc2f9c8278138e35f0caa43a5467a523519f1e91081") throw new Error("record-u4b-calib: calibDigest self-check FAILED — wrong digest function.");
 
 /** PURE: class-A score rows → one registry entry per Mondrian stratum. Scores are base-8dec bigint strings; each
- *  is scaled by `scale` (exact division required) and bounded by 2^53 (fail-closed, C-9). q̂ comes from the SAME
- *  L1 `splitQuantile` gate.ts serves in -2 (anti-circularity: the hand p-th smallest is cross-checked and throws
+ *  is scaled by `scale` (exact division required) and bounded by 2^53 (fail-closed). q̂ comes from the SAME
+ *  L1 `splitQuantile` gate.ts serves (anti-circularity: the hand p-th smallest is cross-checked and throws
  *  on divergence); under_calib (n < nMin) ⇒ q̂ null, NEVER a clamped max. predictor_id is inherited from the
- *  fixture's cell-A key (episode-agnostic). Class A only (decision 108). */
+ *  fixture's cell-A key (episode-agnostic). Class A only. */
 export function buildRegistryEntries(rowsA, opts = {}) {
   const scale = BigInt(opts.scale ?? 1n); // scale defaults to 1 (DECLARED method choice); never an episode default
   const predictorBase = opts.predictorBase;
@@ -59,8 +59,8 @@ export function buildRegistryEntries(rowsA, opts = {}) {
   return entries;
 }
 
-/** --scores is REQUIRED, NO e2 default (C-G2-1): a bare `node record-u4b-calib.mjs` must NOT silently build a
- *  registry from the e2 DESIGN set (never servable in -2). Exported so the guard is unit-tested. */
+/** --scores is REQUIRED, NO e2 default: a bare `node record-u4b-calib.mjs` must NOT silently build a
+ *  registry from the e2 DESIGN set (never servable). Exported so the guard is unit-tested. */
 export function resolveScoresPath(argv) {
   const i = argv.indexOf("--scores");
   const p = i >= 0 ? argv[i + 1] : undefined;

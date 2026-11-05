@@ -1,5 +1,5 @@
 /**
- * Canonical writing of contract 1.1.0 (spec section 2; lot CM-3c-1, block A, docs/G0-lot-cm-3c-1.md). The vector
+ * Canonical writing of contract 1.1.0. The vector
  * digests are pinned by sha256sum on the literal texts (printf '%s' '<text>' | sha256sum), never by the code under
  * test. Parity with orderedCalibDigest of packages/hikae on finite scores (the P2 bench writing, FORMAT.md "Digests").
  * Each test names its killer above it.

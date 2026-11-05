@@ -1,5 +1,5 @@
 /**
- * The committed kata tables of wave 1 (E-2a loader): the pins module and the closed reader of the table files, judged on
+ * The committed kata tables of wave 1: the pins module and the closed reader of the table files, judged on
  * synthetic files; the folder is absent and the pins are empty, so the served tables do not move. Each test names its killer.
  */
 import { test } from "node:test";

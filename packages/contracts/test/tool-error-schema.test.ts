@@ -1,6 +1,6 @@
 /**
- * schemas/tool-error.schema.json (contract 1.1.0, block C, lot CM-3c-2; decision Q-C5, condition 1): three closed bodies by `error` and
- * $defs/InternalError; the 29 codes of tool_error in the order of TOOL_ERROR_CODES (block A), and the four bodies carry exactly the 32.
+ * schemas/tool-error.schema.json (contract 1.1.0): three closed bodies by `error` and
+ * $defs/InternalError; the 29 codes of tool_error in the order of TOOL_ERROR_CODES, and the four bodies carry exactly the 32.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";

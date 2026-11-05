@@ -1,10 +1,10 @@
 /**
- * Harness - CM-2a follow-up (MONARK's diff check of #105: C-1, C-3, C-6; plan docs/G0-lot-cm-2a-suite.md). The lot changes
- * no behaviour: the only lines red at the base are the stale comments of C-6 (gate.ts, "In U-4b-2a the registry is empty")
- * and of C-4 of MONARK's diff check of CM-2b (calibration.ts, attestation-binding.ts, schema-projection.ts).
- * The code pins of C-1 (14 refusal sites of gate.ts that no test pinned; the default code of UkemiPredictToolError went with
+ * Harness - every refusal site pins its code, and stale comments are gone. No behaviour is at stake: the only
+ * lines red at the base are the stale comments of gate.ts (the liq registry said to be empty) and of calibration.ts,
+ * attestation-binding.ts and schema-projection.ts (made false by the retirement of btc-dir-15m).
+ * The code pins (14 refusal sites of gate.ts that no test pinned; the default code of UkemiPredictToolError went with
  * its tool, archived at step 7 of ROADMAP.md)
- * and the three paths of C-3 (a short fraction of produced_at, offset minutes, a non-tool error on MCP) are folded into
+ * and the three paths (a short fraction of produced_at, offset minutes, a non-tool error on MCP) are folded into
  * that one F2P test: a separate test body would be green at the base and refused by red-proof as self-confirming.
  */
 import { test } from "node:test";
@@ -34,13 +34,13 @@ function refusal(fn: () => unknown): string {
 
 // killer: apps/harness/src/tools/gate.ts:360 CONST "\"param_invalid\");" -> "\"byo_calibration_invalid\");"
 test("every_refusal_site_pins_its_code_and_the_stale_registry_comment_is_gone", async () => {
-  // C-6: the liq honesty comment no longer says the registry is empty (s0 is committed).
+  // The liq honesty comment of gate.ts no longer says the registry is empty (s0 is committed).
   const src = readFileSync(new URL("../src/tools/gate.ts", import.meta.url), "utf8");
-  assert.ok(!src.includes("In U-4b-2a the registry is empty"), "stale comment (C-6)");
-  // C-4 of MONARK's diff check of CM-2b: comments made false by the retirement of btc-dir-15m.
+  assert.ok(!src.includes("In U-4b-2a the registry is empty"), "stale liq registry comment");
+  // Comments made false by the retirement of btc-dir-15m.
   const stale: [string, string][] = [["calibration.ts", "lives in the tool description"], ["attestation-binding.ts", "TOTAL over the FOUR served"], ["schema-projection.ts", "(btc-dir / cascade) remain valid"]];
-  for (const [f, t] of stale) assert.ok(!readFileSync(new URL(`../src/${f}`, import.meta.url), "utf8").includes(t), `stale comment (C-4): ${f}`);
-  // C-1: one call per site (MONARK's lines at f3b330cf -> 2abe801), code and message prefix pinned.
+  for (const [f, t] of stale) assert.ok(!readFileSync(new URL(`../src/${f}`, import.meta.url), "utf8").includes(t), `stale btc-dir comment: ${f}`);
+  // One call per site (the gate.ts lines at f3b330cf -> 2abe801), code and message prefix pinned.
   const sites: [string, () => unknown, string][] = [
     ["303 requireFinite", () => runGate(pr("x", 1), { ...P, tau: Infinity }), "param_invalid :: invalid param 'tau': expected a finite number"],
     ["318 alpha", () => runGate(pr("x", 1), { ...P, alpha: 1.5 }), "param_invalid :: invalid param 'alpha'"],
@@ -58,7 +58,7 @@ test("every_refusal_site_pins_its_code_and_the_stale_registry_comment_is_gone", 
     ["886 cascade yhat", () => runGate(pr("cascade-liquidable-24h", "x"), P), "yhat_type_mismatch :: task_class 'cascade-liquidable-24h' expects a number yhat"],
   ];
   for (const [site, fn, want] of sites) assert.ok(refusal(fn).startsWith(want), `${site}: ${refusal(fn)}`);
-  // C-3 (a, b): a short fraction counts 500 ms; offset minutes count (tolerance 300 s after nowMs).
+  // Paths (a, b): a short fraction counts 500 ms; offset minutes count (tolerance 300 s after nowMs).
   const usde = (at: string): Prediction => ({ ...pr("stable-run-velocity-24h", 1e-4, at), predictor_id: USDE_STABLE_RUN_PREDICTOR_ID });
   const U: HarnessParams = { ...P, intent: 1e-4 };
   const at = (s: string, now: string): string => {
@@ -73,7 +73,7 @@ test("every_refusal_site_pins_its_code_and_the_stale_registry_comment_is_gone", 
   assert.equal(at("2026-10-03T17:34:59+05:30", "2026-10-03T12:00:00Z"), "commit", "+05:30 minutes count");
   assert.equal(at("2026-10-03T06:35:01-05:30", "2026-10-03T12:00:00Z"), "produced_at_future", "-05:30 minutes count");
   assert.equal(at("2026-09-05T05:29:60+05:30", "2026-10-03T12:00:00Z"), "commit", "leap second at 23:59:60Z through +05:30");
-  // C-3 (c): a non-tool error thrown by a tool stays on the SDK path on MCP: isError, its text, no _meta.
+  // Path (c): a non-tool error thrown by a tool stays on the SDK path on MCP: isError, its text, no _meta.
   const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
   assert.ok(gateTool !== undefined);
   const orig = gateTool.run;

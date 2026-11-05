@@ -1,8 +1,7 @@
 /**
- * Wave 2 kata rows (lot CM-4a-ii-b, block B2; docs/G0-lot-cm-4a-ii-b.md): the W2-E tests of the counts entry of tail.ts
- * (zone exception of Q-F3; vectors of the piece tail-ts-entree-comptes), the tails recomputed from counts (addendum 8
- * section 1), the bridge and FWD-2 vetoes, the A-1 spend and calib_parent chain. Wave 2 rows are built on a band region row
- * of the seeded synthetic registry of block B1 (attempt 2, cause outcome, the wave 1 row as parent). Each test names its killer.
+ * Wave 2 kata rows: the tests of the counts entry of tail.ts, the tails recomputed from counts, the bridge and fwd vetoes,
+ * the spend and calib_parent chain. Wave 2 rows are built on a band region row
+ * of the seeded synthetic registry (attempt 2, cause outcome, the wave 1 row as parent). Each test names its killer.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -44,7 +43,7 @@ const strings = (m: number, a: number): [string | null, string | null] => {
   }
 };
 type Counts = { tail_m: number; tail_a: number; misses: number; miss_adj_a: number; bridge: [number, number]; fwd: [number, number] };
-/** A wave 2 row on P1 (n 740 at 1h: r 703, n - r 37; n0 368 and k* 2 at test_delta 0.025), status and reason as given; misses are P1's, at most tail_m (every miss is a tail point, W2-GUARD-MISSES-TAIL-1), unless the case names them. */
+/** A wave 2 row on P1 (n 740 at 1h: r 703, n - r 37; n0 368 and k* 2 at test_delta 0.025), status and reason as given; misses are P1's, at most tail_m (every miss is a tail point), unless the case names them. */
 const w2 = (c: Partial<Counts> = {}, st: [PolicyRow["status"], string] = ["region", ""]): PolicyRow => {
   const k: Counts = { tail_m: 37, tail_a: 1, misses: Math.min(P1.misses ?? 0, c.tail_m ?? 37), miss_adj_a: 0, bridge: [5, 740], fwd: [4, 700], ...c };
   const [tn, td] = strings(k.tail_m, k.tail_a);
@@ -77,7 +76,7 @@ test("w2e_tail_vectors", () => {
 
 // killer: packages/hikae/src/tail.ts:117 SDL "if (n === 0) throw new TailCountsError(\"n-zero\", \"n = 0\");" -> ""
 test("w2e_tail_edges_of_the_counts_entry", () => {
-  code(() => adjacencyUpperTail([], "0.05"), "n-zero"); // G2 of #135, m-1: kata/w2c/test/tail-double.ts returns empty here
+  code(() => adjacencyUpperTail([], "0.05"), "n-zero"); // kata/w2c/test/tail-double.ts returns empty here
   code(() => adjacencyUpperTail([0, 0, 0], "1.5"), "level-not-unit-decimal"); // idem: the level is checked before empty
   assert.deepEqual([tailRank(8760, "0.95"), tailRank(2190, "0.90"), tailRank(8760, "0.90")], [8322, 1971, 7884]);
   code(() => tailRank(0, "0.95"), "n-zero");
@@ -194,7 +193,7 @@ test("w2_module_is_not_served", () => {
   assert.ok(seen.size > 6 && seen.has(join(src, "http.ts")) && !seen.has(join(src, "policy-wave2.ts")));
 });
 
-/** G2 of lot b, B-1: a wave 2 row at attempt `at`, spend and counts recomputed at its test_delta (admitted before the fold). */
+/** A wave 2 row at attempt `at`, spend and counts recomputed at its test_delta (admitted by the earlier guard). */
 const atAttempt = (at: number, d: string): PolicyRow => {
   const ks = riskControlMaxExceedances(P1.n, P1.alpha, d);
   const p = P1.n - ks;
@@ -256,23 +255,23 @@ const verdict = (r: PolicyRow): [string, string] | string => { try { check(r); r
 /** The whole refusal of a row by the guard, `what` read as plain text between the row's key and the closing period. */
 const whole = (what: string): RegExp => new RegExp(["^Error: MONARK import guard: \\S+ \\S+ ", what.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "\\.$"].join(""));
 
-// reddened by: a wave 2 row whose misses exceed tail_m admitted (the guard before W2-GUARD-MISSES-TAIL-1). Every miss is a tail point,
-// since n - k* >= r puts qhat at or above tau (minimum margin 18 at 1h, 36 at 4h; MONARK 52e0091), so an empty tail carries no miss: the
-// row of REASON-ORDER-GUARD-VERIFIER-1, a constant tail with check 1 rejecting (RECHERCHES decision f51322c), is forged, and refused
+// reddened by: a wave 2 row whose misses exceed tail_m admitted (the earlier guard). Every miss is a tail point,
+// since n - k* >= r puts qhat at or above tau (minimum margin 18 at 1h, 36 at 4h; MONARK 52e0091), so an empty tail carries no miss: a
+// row with a constant tail and check 1 rejecting is forged, and refused
 // killer: apps/harness/src/policy-wave2.ts:36 CONST "(r.misses ?? 0) <= r.tail_m" -> "true"
 test("w2_guard_refuses_misses_above_tail_m", () => {
   const c: Partial<Counts> = { tail_m: 0, tail_a: 0, misses: 2, miss_adj_a: 1 }; // the tail empty, check 1 rejecting
   const above = (m: number, t: number): RegExp => whole(`has misses above tail_m (misses ${String(m)}, tail_m ${String(t)}): qhat is at or above the tail threshold (n - k_star >= r), so every miss is a tail point`);
   refuse(w2(c, ["silence", "dependence check rejects"]), above(2, 0));
   refuse(w2(c, ["silence", "tail sequence constant (fails closed)"]), above(2, 0));
-  refuse(w2({ tail_m: 1, tail_a: 0, misses: 2, miss_adj_a: 0 }), above(2, 1)); // a region row (G2 of R1, recherches 1586565)
+  refuse(w2({ tail_m: 1, tail_a: 0, misses: 2, miss_adj_a: 0 }), above(2, 1)); // a region row
   assert.deepEqual(verdict(w2({ tail_m: 2, tail_a: 0, misses: 2, miss_adj_a: 0 })), ["region", ""], "misses = tail_m: admitted");
   assert.deepEqual(verdict(w2({ tail_m: 0, tail_a: 0, misses: 0, miss_adj_a: 0 }, ["silence", "tail sequence constant (fails closed)"])), ["silence", "tail sequence constant (fails closed)"], "the generator's empty tail: no miss");
   refuse({ ...w2(), tail_m: null }, /^Error: MONARK import guard: \S+ \S+ has counts the exact null refuses \(count-not-integer\)\.$/); // a null tail_m stays the exact null's refusal
 });
 
-// reddened by: a wave 2 band row whose misses exceed k* admitted with the direction reason (the guard before W2-GUARD-MISSES-TAIL-1; G2
-// of R1, m, recherches 1586565): a band's misses are at most k*, and the wave 2 generator has no such reason (kata/w2c/calibrate2.ts)
+// reddened by: a wave 2 band row whose misses exceed k* admitted with the direction reason (the earlier guard):
+// a band's misses are at most k*, and the wave 2 generator has no such reason (kata/w2c/calibrate2.ts)
 // killer: apps/harness/src/policy-guard.ts:76 CONST "dir || m <= ks" -> "dir || w2 || m <= ks"
 test("w2_guard_refuses_band_misses_above_k_star", () => {
   const m = KS + 1, why = `misses ${String(m)} above k* ${String(KS)}`;

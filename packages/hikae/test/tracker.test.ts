@@ -12,10 +12,10 @@ import {
 } from "../src/index.ts";
 import type { TrackerParams, TrackerState, Miscover } from "../src/index.ts";
 
-// Every numeric parameter below is TEST-ONLY (ADR-M009 D5 exports no default for c, eps, t0).
-// B = 1/24 is the ADR-M009 physical bound (a score is a fraction of the opening stock per hour).
-// Pinned engine = Node (Buffer float64_be + node:crypto sha256), declared per ADR-M009 D6.
-const B = 1 / 24; // test-only bound (ADR-M009 D4 / M008 D4)
+// Every numeric parameter below is TEST-ONLY (the tracker exports no default for c, eps, t0).
+// B = 1/24 is the physical bound (a score is a fraction of the opening stock per hour).
+// Pinned engine = Node (Buffer float64_be + node:crypto sha256).
+const B = 1 / 24; // test-only bound
 
 /** float64_be hex of one double (Node engine, pinned). */
 function doubleBEHex(x: number): string {
@@ -92,7 +92,7 @@ test("tracker_telescoping_identity", () => {
     qs.push(state.q);
     Es.push(stepped.E);
   }
-  // C-2: the trajectory MUST leave [0,B], else a clamp mutant is not killed here.
+  // The trajectory MUST leave [0,B], else a clamp mutant is not killed here.
   const minQ = Math.min(...qs);
   const maxQ = Math.max(...qs);
   assert.ok(minQ < 0 || maxQ > params.B, `trajectory must leave [0,B] (min=${String(minQ)}, max=${String(maxQ)})`);
@@ -129,7 +129,7 @@ test("tracker_thm1_worst_case", () => {
 // 5 — q_{T+1} pinned byte-exact (float64_be hex), t0 = 7 test-only so M4 (t0 twice) is distinguishable.
 test("tracker_q_pinned", () => {
   // State engine (pinned, Node): q_{t+1} = imocpStep(q_t, alpha, 1{s_t>q_t}, c*(t+1+t0)^(-1/2-eps)),
-  // q_1 = q1, folded in order over 200 seeded scores. t0 = 7 is TEST-ONLY (ADR-M009 C-4).
+  // q_1 = q1, folded in order over 200 seeded scores. t0 = 7 is TEST-ONLY.
   const params: TrackerParams = { alpha: 0.1, c: B, eps: 0.1, t0: 7, B }; // test-only
   const q1 = B / 2; // test-only
   const scores = seededScores(20260917, 200, B);
@@ -171,7 +171,7 @@ test("tracker_fail_closed", () => {
   assert.throws(() => trackerStep(st, B + 1e-9), /\[0,B\]/, "s>B throws (not clipped)");
   assert.throws(() => trackerStep(st, -1e-9), /\[0,B\]/, "s<0");
   assert.throws(() => trackerStep(st, Number.NaN), /non-finite|\[0,B\]/, "s NaN");
-  // eta non-finite: hand-built state t = -1, t0 = 0 => base t+1+t0 = 0 => 0^(-1/2-eps) = Infinity (C-1).
+  // eta non-finite: hand-built state t = -1, t0 = 0 => base t+1+t0 = 0 => 0^(-1/2-eps) = Infinity.
   const badState: TrackerState = { q: q1, t: -1, q1, params: { ...good, t0: 0 } };
   assert.throws(() => trackerStep(badState, 0), /non-finite step/, "eta non-finite (base 0)");
   assert.throws(() => trackerStepSize(-1, { ...good, t0: 0 }), /non-finite step/, "stepSize base 0");

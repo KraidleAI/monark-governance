@@ -1,9 +1,8 @@
 /**
- * Harness - wide reserved kata pattern (block D, lot D-1; ADR-CM section 5 B-14; delegated decision CM-4b C-2; plan
- * docs/G0-bloc-d.md section 4.1). B-1 reserves every name of the wide pattern
- * ^[a-z0-9]{2,10}-(dir|range|mae-down|mae-up)-(15m|1h|4h|24h)$ against BYO (400 `byo_reserved_kata`), and B-10 compares a
- * reduced BYO name to the exact image of that pattern by `confusableReduce` (400 `byo_lookalike_confusable`). Each test
- * names its killer on the line above it.
+ * Harness - wide reserved kata pattern. The look-alike guard reserves every name of the wide pattern
+ * ^[a-z0-9]{2,10}-(dir|range|mae-down|mae-up)-(15m|1h|4h|24h)$ against BYO (400 `byo_reserved_kata`), and the
+ * confusable guard compares a reduced BYO name to the exact image of that pattern by `confusableReduce` (400
+ * `byo_lookalike_confusable`). Each test names its killer on the line above it.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -47,8 +46,8 @@ function rng(seed: number): () => number {
   };
 }
 
-// Test T-1 (F2P): the wide pattern is reserved against BYO (B-1 code), in any ASCII case; a one-letter symbol and names
-// that only contain a kata fragment keep deciding.
+// Test T-1 (F2P): the wide pattern is reserved against BYO (the look-alike guard's code), in any ASCII case; a
+// one-letter symbol and names that only contain a kata fragment keep deciding.
 // killer: apps/harness/src/tools/gate.ts:776 CONST "(15m|1h|4h|24h)" -> "(1h|4h)"
 test("byo_wide_kata_names_reserved", () => {
   for (const c of ["my-range-1h", "ab-dir-4h", "doge-dir-1h", "so1-dir-1h", "btc-range-24h", "eth-mae-up-15m", "rn-dir-1h", "MY-RANGE-1H", "abcdefghij-mae-down-4h"]) {
@@ -59,7 +58,7 @@ test("byo_wide_kata_names_reserved", () => {
   }
 });
 
-// Test T-2 (F2P): the reduced pattern is the exact image of the wide pattern by confusableReduce (C-2 condition 1).
+// Test T-2 (F2P): the reduced pattern is the exact image of the wide pattern by confusableReduce.
 // Safety: every wide name, reduced, matches it. Exactness: every reduced string that matches it has a wide antecedent.
 // killer: apps/harness/src/tools/gate.ts:800 CONST "(?:m|" -> "(?:"
 test("byo_reduced_kata_pattern_is_the_exact_image", () => {
@@ -112,8 +111,8 @@ test("byo_reduced_kata_pattern_is_the_exact_image", () => {
   }
 });
 
-// Test T-3 (F2P): BYO names whose reduction falls in the reduced wide pattern are refused with the B-10 code; the i/l
-// false refusal of precision (4) of B-10 now covers every <symbol>-dlr-<h> (declared, BYO-LOOKALIKE-RESIDUAL-1 (a)).
+// Test T-3 (F2P): BYO names whose reduction falls in the reduced wide pattern are refused with the confusable guard's
+// code; the declared i/l false refusal now covers every <symbol>-dlr-<h>.
 // killer: apps/harness/src/tools/gate.ts:812 CONST "KATA_CLASS_REDUCED_RE.test(cls)" -> "false"
 test("byo_confusable_wide_kata_names_refused", () => {
   for (const c of ["my_range_1h", "ab.dir.4h", "doge_dir_1h", "xyz-mae-up-l5m", "abc-dlr-1h", "usd-dlr-24h"]) {
@@ -133,8 +132,9 @@ test("byo_reserved_kata_body_names_the_wide_pattern", async () => {
   assert.equal(await res.text(), JSON.stringify({ error: "tool_error", operation: "gate", message, code: "byo_reserved_kata" }), "exact body");
 });
 
-// G2 N-2 of D-1: a one-letter symbol is refused by B-10 when it is "m", the reduction of "rn" (m-dir-1h imitates rn-dir-1h, a
-// wide name), while any other one-letter symbol decides. Green at the base of D-3 (declared; killer fired by hand).
+// A one-letter symbol is refused by the confusable guard when it is "m", the reduction of "rn" (m-dir-1h imitates
+// rn-dir-1h, a wide name), while any other one-letter symbol decides. Green at the base (declared; killer fired by
+// hand).
 // killer: apps/harness/src/tools/gate.ts:800 CONST "(?:m|" -> "(?:"
 test("byo_one_letter_m_is_a_lookalike_of_rn", () => {
   for (const c of ["m-dir-1h", "m_dir_1h", "M-DIR-1H", "m-range-4h"]) assert.equal(outcome(c), "byo_lookalike_confusable", `${c}: imitates rn-<family>-<h>`);
