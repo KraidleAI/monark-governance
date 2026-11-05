@@ -82,7 +82,7 @@ distribution-shifted or time-ordered) voids it".
 each call and stores nothing. The verdict carries `scores_sha256`, and the `calibrate` tool returns `qhat`, `n`, `alpha`,
 `scores_sha256` and `reason` on the same scores, so the two tools audit each other. MONARK does not see, store or verify the
 caller's data or model, and does not check that the numbers are nonconformity scores of any model. The classes the server
-holds a calibration for are in [`apps/harness/README.md`](apps/harness/README.md), and the stricter rule
+holds a calibration for are in [`apps/harness/README.md`](apps/harness/README.md), and the risk-controlling rule
 `riskControlQuantile` of its policy tables in [`packages/hikae/README.md`](packages/hikae/README.md); neither is the caller's
 path.
 
@@ -238,9 +238,10 @@ imocpStep(r, α, E, η) = r − η(α − E)        a miss raises r by η(1 − 
 
 *What is served.* The header of `src/l2-monitor.ts` says it in these words: "the split `q̂` (L1) ALONE defines C_t". These
 functions are exported and tested, and nothing served calls them: `apps/harness/src` does not use them, and `suiviReplay` does
-not run M1 (its policy carries `eta_m1`, checked for its form and otherwise unused). The region the gate tests is always the
-split region of L1. So the long-run bounds above are cited here, not claimed for HIKAE. A region served from an online
-threshold, `C_t = { y : s ≤ r_t }`, is a different claim: it is not implemented and has not been measured.
+not run M1 (its policy carries `eta_m1`, checked for its form and otherwise unused). The region the gate tests is always a
+region of L1, from the calibration scores of the call or of a committed class, never from an online threshold. So the long-run
+bounds above are cited here, not claimed for HIKAE. A region served from an online threshold, `C_t = { y : s ≤ r_t }`, is a
+different claim: it is not implemented and has not been measured.
 
 ## Genkan
 
