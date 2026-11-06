@@ -424,7 +424,7 @@ const PENDING: readonly string[] = [];
  *  frozen list, never reused, and no served module throws them (error-code.test.ts holds the same three in NO_SERVED_REQUEST). */
 const ARCHIVED_TOOL_CODES: readonly string[] = ["attest_refused", "cascade_input_invalid", "ukemi_predict_input_invalid"];
 
-// killer: apps/harness/src/tools/gate.ts:967 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:953 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("every_listed_code_has_a_served_thrower_or_is_pending", () => {
   // Static: a code has a thrower when its literal is in a served module (default codes of the other tools included);
   // output_invalid has its 500 path. The dynamic form (a served request per code) is in error-code.test.ts.

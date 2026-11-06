@@ -20,7 +20,8 @@ Nothing in this repository places a real order. Where the project stands: [`ROAD
 ## HIKAE
 
 HIKAE turns a prediction and its calibration scores into a coverage verdict, then into a decision. Its guarantee is the
-one its code declares: marginal coverage 1 − α, in finite sample, under exchangeability within the class.
+one its code declares: marginal coverage 1 − α, in finite sample, under exchangeability within the class; on the online level
+of a class, which the caller opts into, a bound on the misses instead, with no assumption on the scores.
 
 ```text
 calibration scores ──▶ L1: q̂ ──▶ region ──▶ CoverageVerdict ──┐
@@ -31,6 +32,7 @@ calibration scores ──▶ L1: q̂ ──▶ region ──▶ CoverageVerdict 
 | Layer | Module | Role | Declared by its code |
 |---|---|---|---|
 | L1 | `src/l1-split.ts` | split conformal, per class | marginal coverage, in finite sample, under exchangeability within the class; no coverage conditional on the input; `under_calib` when the calibration is too small |
+| Online level | `src/aci.ts` | the level of a class, replayed from the caller's evidence | over the T outcomes that moved the level, \|k/T − α\| stays below a bound, with no assumption on the scores; the coverage of L1 does not carry over to this region |
 | L2 | `src/l2-monitor.ts` | statistics on the labels that have arrived | a monitor: no guarantee claimed |
 | L3 | `src/l3-gate.ts` | a closed policy, from verdict to `GateDecision` | the error rate among `commit` decisions is **not** bounded by α |
 
@@ -75,12 +77,12 @@ moves it. The `+ 1` is the finite-sample correction. Too few scores give no thre
 with probability at least 1 − α, over the draw of the scores and of the point together. This is a property of the region,
 not of the signal: it holds on average over inputs and not for a given input, and it is never a probability that the signal
 is right. Data that are not exchangeable void it; the `calibrate` tool's own label says "non-exchangeable data (e.g.
-distribution-shifted or time-ordered) voids it".
+distribution-shifted or time-ordered) voids it". What holds on the online level is in part 3 of [Adaptation](#adaptation).
 
 **Where the scores come from.** A strategy brings its own: `params.calibration` is
-`{ scores, mode: "interval" | "set", candidates? }`, at most 10000 scores (`CALIBRATE_MAX_N`). The server recomputes `q̂` on
+`{ scores, mode: "interval" | "set", candidates?, aci? }`, at most 10000 scores (`CALIBRATE_MAX_N`). The server recomputes `q̂` on
 each call and stores nothing. The verdict carries `scores_sha256`, and the `calibrate` tool returns `qhat`, `n`, `alpha`,
-`scores_sha256` and `reason` on the same scores, so the two tools audit each other. MONARK does not see, store or verify the
+`scores_sha256` and `reason` on the same scores, so without `aci` the two tools audit each other. MONARK does not see, store or verify the
 caller's data or model, and does not check that the numbers are nonconformity scores of any model. The classes the server
 holds a calibration for are in [`apps/harness/README.md`](apps/harness/README.md), and the risk-controlling rule
 `riskControlQuantile` of its policy tables in [`packages/hikae/README.md`](packages/hikae/README.md); neither is the caller's
@@ -124,12 +126,13 @@ only returns a decision: it calls no tool (`GATED_TOOLS` names them, and nothing
 
 ### Adaptation
 
-When the data move, three mechanisms can react. Two of them act on a served decision.
+When the data move, four mechanisms can react. Three of them act on a served decision.
 
 | Mechanism | What moves | Acts on a served decision |
 |---|---|---|
 | Recalibration by the caller | `q̂`, so the width of the region | yes, when the caller sends fresh scores |
 | Online tracking (`params.suivi`) | the budget `B_t`, downward only | yes, when the caller carries the evidence |
+| The online level of a class (`params.calibration.aci`) | the level `A`, so the rank of `q̂` | yes, when the caller carries the evidence |
 | Online thresholds (`imocpStep`, M1, the tracker) | a statistic `r_t` | no: `apps/harness/src` calls none of them |
 
 #### 1. Recalibration by the caller
@@ -203,10 +206,10 @@ rational text (`SUIVI_MAX_TEXT`), and evaluations × L at most 3600 bits (`SUIVI
 **What is tested.** `packages/hikae/test/suivi-mc.test.ts` runs K and W by Monte Carlo against the first-crossing
 probabilities of an exact dynamic program. The tracking computes a licence and a closure. It is not a coverage statement.
 
-#### 3. Adaptive Conformal Inference and the online thresholds
+#### 3. The online level of a class: Adaptive Conformal Inference
 
-**HIKAE does not run Adaptive Conformal Inference (ACI).** This part says what ACI does, what the code holds next to it, and
-what is served.
+With `params.calibration.aci`, a call serves the level form of Adaptive Conformal Inference (ACI). Without it, the split path
+does not change by a byte. The server replays the caller's evidence on every call (`aciReplay`, `src/aci.ts`) and keeps nothing.
 
 *What ACI does.* Gibbs and Candès move the level. With `err_t = 1` when `Y_t` falls outside the region and 0 otherwise:
 
@@ -220,6 +223,66 @@ long-run miss frequency obeys:
 ```text
 | (1/T) Σ err_t − α | ≤ (max{α₁, 1 − α₁} + γ) / (Tγ)
 ```
+
+*What the code runs.* The level starts at `α` and moves when an outcome arrives; the region is L1's rank over the last `W`
+scores, at the level instead of `α`:
+
+```text
+A₁ = α        A ← A + γ(α − err)        no floor, no ceiling
+p = ⌈(n + 1)(1 − A)⌉                    n the scores of the window, at most W
+```
+
+The level is an exact rational (`aciLevel`: `A = α + γ(Tα − k)`, from the shortest writing of `α` and `γ`) and the rank an exact
+integer, so neither drifts. Each state of the replay serves this:
+
+| State | Region | Decision |
+|---|---|---|
+| the window has no region at `α` yet (`n < nMin`, or `p > n` at `α`) | none | abstain, `under_calib`; the signals of this stretch move nothing, so the first region is exactly L1's |
+| `A` below `1/(n + 1)`, so `p > n` | the whole line, so none on the wire | abstain, `under_calib`; the outcome counts as covered |
+| `A` at 1 or above, so `p < 1` | the empty region, so none on the wire | abstain, `region_degenerate`; the outcome counts as a miss |
+| otherwise | `q̂`, the `p`-th smallest score of the window | L3 reads it as on the split path, interval or set |
+
+The verdict carries `method: "hac-cp"`. Its `n_calib` and `scores_sha256` describe the window, and its `alpha` stays the target.
+The closed decision has no field for the level, so the text of `gate` and of `judge` carries it (`aci level= gamma= window= T=
+misses= no_region= max_delay= bound= region=`).
+
+*The evidence.* `calibration.scores` then holds every score that has arrived, in arrival order, not a window; `aci.gamma` is the
+step, in (0, 1), fixed for the class; `aci.window` is `W`; and `aci.decided_after` says, for each score, how many had arrived
+when its signal was decided. An outcome is judged on the threshold its own signal got, however late it arrives. The signals the
+gate refused need their outcomes too: the way back runs on them. Evidence that holds only the signals taken can reopen only on the
+outcomes of signals taken before the closure and still in flight; once those have arrived, it stays closed.
+
+*The bound, with delays.* Outcomes of open positions arrive late, and the update above assumes they do not. With `T` the
+outcomes that moved the level, `k` their misses and `D` the largest delay among them, counted in arrivals:
+
+```text
+| k/T − α | < max{α + (D + 1)γ(1 − α), 1 − α + (D + 1)γα} / (γT)
+```
+
+This form is derived in the header of `src/aci.ts`, not taken from a paper; at `D = 0` it implies the bound above. It holds for
+any sequence of scores, and above 1 it says nothing: at `α = 0.1` and `γ = 0.05` it is 2.0112 at `T = 9`, 0.0604 at `T = 300`,
+and 0.0697 at `T = 300` with `D = 20`. It counts every replayed signal decided once a region at `α` existed, taken or not, and
+none decided before. It says nothing of one window, nor of the signals taken alone, and the server cannot check that the evidence
+holds every outcome. The coverage of L1 does not apply to this region: as the decision's reason, `covered` says only that the
+intent lies in the region, within the width and the budget; as the verdict's, only that the level gave a region.
+
+*The step.* A miss costs the level `γ(1 − α)` and a cover gives back `γα`, so one miss takes `(1 − α)/α` covers to recover, at any
+`γ`, and the level cannot react before the outcomes arrive. At `α = 0.1`, `γ = 0.05` and `W = 100`, fifteen misses in flight take
+the level to −0.575, and the gate abstains until 117 more outcomes have arrived: while the region is the whole line, every outcome
+counts as covered, whatever its score, so the region can reopen on a shift that has not ended, and what then stands before a commit
+is `tauInterval`, or `tau` in set mode. So the step is chosen with the delay: at `γ/(D + 1)`, `D + 1` misses in flight move the level
+by what one moves it with no delay, and the bound is that of `D + 1` separate levels of step `γ` with no delay, each holding
+`T/(D + 1)` of the outcomes.
+
+*What has a level.* One level per evidence carried. A class of a strategy has its own; another source of signals, an agent for
+one, has its own class and so its own level; an asset has none by itself, and enters through the unit of its score, which the
+caller chooses.
+
+*What stays apart.* `params.suivi` can only lower `B_t`, and the server reads its misses as carried. The caller should judge them
+on a split region over a window long enough not to follow the drift, not on this region: why, and what was measured, is in
+[`apps/harness/README.md`](apps/harness/README.md). `calibrate` does not serve the level, and the step is not aggregated.
+
+#### 4. The online thresholds
 
 *Moving the threshold instead.* The same feedback can act on the threshold directly. Angelopoulos, Barber and Bates study
 `q_{t+1} = q_t + η_t(1{Y_t ∉ C_t(X_t)} − α)`. Eq. 10 of Wang, Zecchin and Simeone (IM-OCP) is its mirror form, with
@@ -236,12 +299,13 @@ imocpStep(r, α, E, η) = r − η(α − E)        a miss raises r by η(1 − 
 | `m1Step`, `m1Bound`, `src/suivi/m1.ts` | constant `η`, `E = 1{s > r}`, `r` stays in `[−ηα, 1 + η(1 − α)]` | `\|k_T/T − α\| ≤ (1 + η)/(ηT)` |
 | `trackerStep`, `src/tracker.ts` | `η` after `t` steps is `c(t + 1 + t₀)^(−1/2−ε)`, no clamp of `q` | `\|(1/T) Σ E_t − α\| ≤ (B + η₁)/(Tη_T)`, Theorem 1 of Angelopoulos, Barber and Bates |
 
-*What is served.* The header of `src/l2-monitor.ts` says it in these words: "the split `q̂` (L1) ALONE defines C_t". These
-functions are exported and tested, and nothing served calls them: `apps/harness/src` does not use them, and `suiviReplay` does
-not run M1 (its policy carries `eta_m1`, checked for its form and otherwise unused). The region the gate tests is always a
-region of L1, from the calibration scores of the call or of a committed class, never from an online threshold. So the long-run
-bounds above are cited here, not claimed for HIKAE. A region served from an online threshold, `C_t = { y : s ≤ r_t }`, is a
-different claim: it is not implemented and has not been measured.
+*What is served.* The header of `src/l2-monitor.ts` says it: "The region comes from the split `q̂` (L1) or, when the caller
+carries its evidence, from the online level of the class (aci.ts), never from `r_t`". These functions are exported and tested, and
+nothing served calls them: `apps/harness/src` does not use them, and `suiviReplay` does not run M1 (its policy carries `eta_m1`,
+checked for its form and otherwise unused). The region the gate tests is always read at L1's rank, at `α` or at the level of part
+3, from the calibration scores of the call or of a committed class, never from an online threshold. So the bounds of this table
+are cited here, not claimed for what is served. A region served from an online threshold, `C_t = { y : s ≤ r_t }`, is a different
+claim: it is not implemented and has not been measured.
 
 ## Genkan
 
@@ -299,7 +363,7 @@ The formats and the full list are in [`apps/genkan/README.md`](apps/genkan/READM
 ## The harness
 
 `apps/harness` is the served engine: a stateless MCP server with a plain-JSON mirror of the same tools. The caller carries
-the budget, the scores and the tracking evidence. `node apps/harness/src/server.ts` listens on 127.0.0.1:3001.
+the budget, the scores, the level's evidence and the tracking evidence. `node apps/harness/src/server.ts` listens on 127.0.0.1:3001.
 
 | Tool | Answer |
 |---|---|
@@ -324,7 +388,7 @@ tracking, `params.suivi`, and calls `gate` or `judge`. The interface is in [`STR
 
 | Path | Role |
 |---|---|
-| `packages/hikae` | the conformal gate: L1, L2, L3 and the online tracking |
+| `packages/hikae` | the conformal gate: L1, L2, L3, the online level and the online tracking |
 | `packages/contracts`, `schemas/` | the contracts `AttestedPrice`, `Prediction`, `CoverageVerdict`, `GateDecision`; the JSON schemas are authoritative, and the package is their TypeScript binding |
 | `apps/harness` | the served engine |
 | `apps/genkan` | the order gate and its Lean 4 kernel |

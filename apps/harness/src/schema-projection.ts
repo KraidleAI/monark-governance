@@ -339,6 +339,17 @@ export const PARAMS_SCHEMA: JsonObject = {
             },
           },
         },
+        aci: {
+          type: "object",
+          additionalProperties: false,
+          required: ["gamma", "window", "decided_after"],
+          description: "OPTIONAL online level of the class: `scores` then holds every arrived score in arrival order, the gate replays them and the region is the quantile of the last `window` scores at the current level. Absent ⇒ the split quantile of all `scores`.",
+          properties: {
+            gamma: { type: "number", exclusiveMinimum: 0, exclusiveMaximum: 1, description: "The step of the level, in (0,1)." },
+            window: { type: "integer", minimum: 1, description: "How many of the last arrived scores the quantile reads." },
+            decided_after: { type: "array", items: { type: "integer", minimum: 0 }, maxItems: CALIBRATE_MAX_N, description: "For each score, how many scores had arrived when its signal was decided: an integer from 0 to its own index; 0 marks a score that only calibrates." },
+          },
+        },
       },
     },
     suivi: SUIVI_SCHEMA,
@@ -367,9 +378,9 @@ export const TOOL_OUTPUT_SCHEMA: JsonObject = derefVerdict(GATE_DECISION_SCHEMA,
 
 /**
  * The most validator errors one refusal names; the others are counted. The validator reports every fault of a body, up to 5 for one
- * list element, and the SDK joins them into the message of its ONE issue, which the mirror serves in `issues` and MCP as its error
+ * empty list element, and the SDK joins them into the message of its ONE issue, which the mirror serves in `issues` and MCP as its error
  * text: a body of 498 KB answered 64 MB on both. At 100, only a long list is cut: a body with every field wrong and one element per
- * list holds 83 errors (judge, measured 2026-11-06).
+ * list holds 86 errors (judge, measured 2026-11-06).
  */
 const MAX_INPUT_ERRORS = 100;
 /** Where ajv's `errorsText` joins two errors, each `data<path> <message>`. The text comes from the schema, never from the caller's

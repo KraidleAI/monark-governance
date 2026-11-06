@@ -61,7 +61,7 @@ function refusedWith(fn: () => unknown, code: string, at: string): string {
 
 // Test P-1 (F2P): a direct runGate refuses every non RFC 3339 produced_at, and accepts the RFC 3339 edge forms (leap
 // years, leap second, offset 23:59 and -00:00, lower-case t and z, a long fraction).
-// killer: apps/harness/src/tools/gate.ts:857 CONST "sec > 60" -> "sec > 61"
+// killer: apps/harness/src/tools/gate.ts:837 CONST "sec > 60" -> "sec > 61"
 test("run_gate_refuses_a_non_rfc3339_produced_at", () => {
   const refused = [
     "yesterday", "", "2026-09-04", "2026-09-04T00:00:00", "2026-09-04T00:00Z", "2026-09-04 00:00:00Z",

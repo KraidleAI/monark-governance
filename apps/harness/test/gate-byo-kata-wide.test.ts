@@ -48,7 +48,7 @@ function rng(seed: number): () => number {
 
 // Test T-1 (F2P): the wide pattern is reserved against BYO (the look-alike guard's code), in any ASCII case; a
 // one-letter symbol and names that only contain a kata fragment keep deciding.
-// killer: apps/harness/src/tools/gate.ts:776 CONST "(15m|1h|4h|24h)" -> "(1h|4h)"
+// killer: apps/harness/src/tools/gate.ts:756 CONST "(15m|1h|4h|24h)" -> "(1h|4h)"
 test("byo_wide_kata_names_reserved", () => {
   for (const c of ["my-range-1h", "ab-dir-4h", "doge-dir-1h", "so1-dir-1h", "btc-range-24h", "eth-mae-up-15m", "rn-dir-1h", "MY-RANGE-1H", "abcdefghij-mae-down-4h"]) {
     assert.equal(outcome(c), "byo_reserved_kata", `${c}: a wide kata name is reserved`);
@@ -60,7 +60,7 @@ test("byo_wide_kata_names_reserved", () => {
 
 // Test T-2 (F2P): the reduced pattern is the exact image of the wide pattern by confusableReduce.
 // Safety: every wide name, reduced, matches it. Exactness: every reduced string that matches it has a wide antecedent.
-// killer: apps/harness/src/tools/gate.ts:800 CONST "(?:m|" -> "(?:"
+// killer: apps/harness/src/tools/gate.ts:780 CONST "(?:m|" -> "(?:"
 test("byo_reduced_kata_pattern_is_the_exact_image", () => {
   const exported: Record<string, unknown> = { ...gate };
   assert.ok(exported["KATA_CLASS_RE"] instanceof RegExp && exported["KATA_CLASS_REDUCED_RE"] instanceof RegExp, "gate.ts exports the wide and the reduced patterns");
@@ -113,7 +113,7 @@ test("byo_reduced_kata_pattern_is_the_exact_image", () => {
 
 // Test T-3 (F2P): BYO names whose reduction falls in the reduced wide pattern are refused with the confusable guard's
 // code; the declared i/l false refusal now covers every <symbol>-dlr-<h>.
-// killer: apps/harness/src/tools/gate.ts:812 CONST "KATA_CLASS_REDUCED_RE.test(cls)" -> "false"
+// killer: apps/harness/src/tools/gate.ts:792 CONST "KATA_CLASS_REDUCED_RE.test(cls)" -> "false"
 test("byo_confusable_wide_kata_names_refused", () => {
   for (const c of ["my_range_1h", "ab.dir.4h", "doge_dir_1h", "xyz-mae-up-l5m", "abc-dlr-1h", "usd-dlr-24h"]) {
     assert.equal(outcome(c), "byo_lookalike_confusable", `${c}: reduces into the reserved wide pattern`);
@@ -122,7 +122,7 @@ test("byo_confusable_wide_kata_names_refused", () => {
 });
 
 // Test T-4 (F2P): the HTTP 400 body of `byo_reserved_kata` names the wide pattern, byte for byte.
-// killer: apps/harness/src/tools/gate.ts:776 CONST "[a-z0-9]{2,10}" -> "(btc|eth|bnb|sol)"
+// killer: apps/harness/src/tools/gate.ts:756 CONST "[a-z0-9]{2,10}" -> "(btc|eth|bnb|sol)"
 test("byo_reserved_kata_body_names_the_wide_pattern", async () => {
   const message =
     "task_class 'my-range-1h' / predictor_id 'caller:model' takes a name reserved for MONARK kata classes (pattern " +
@@ -135,7 +135,7 @@ test("byo_reserved_kata_body_names_the_wide_pattern", async () => {
 // A one-letter symbol is refused by the confusable guard when it is "m", the reduction of "rn" (m-dir-1h imitates
 // rn-dir-1h, a wide name), while any other one-letter symbol decides. Green at the base (declared; killer fired by
 // hand).
-// killer: apps/harness/src/tools/gate.ts:800 CONST "(?:m|" -> "(?:"
+// killer: apps/harness/src/tools/gate.ts:780 CONST "(?:m|" -> "(?:"
 test("byo_one_letter_m_is_a_lookalike_of_rn", () => {
   for (const c of ["m-dir-1h", "m_dir_1h", "M-DIR-1H", "m-range-4h"]) assert.equal(outcome(c), "byo_lookalike_confusable", `${c}: imitates rn-<family>-<h>`);
   for (const c of ["a-dir-1h", "n-dir-1h", "r-range-4h"]) assert.equal(outcome(c), "decided", `${c}: decides`);

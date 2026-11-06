@@ -28,7 +28,7 @@ export function lcm(a: bigint, b: bigint): bigint {
 
 /** Refuses a value that is not a rational with bigint fields and a positive denominator. */
 export function checkQ(x: Q, what: string): void {
-  if (typeof x.n !== "bigint" || typeof x.d !== "bigint" || x.d <= 0n) throw new RangeError(`${what}: not a rational with d > 0`);
+  if (typeof x !== "object" || x === null || typeof x.n !== "bigint" || typeof x.d !== "bigint" || x.d <= 0n) throw new RangeError(`${what}: not a rational with d > 0`);
 }
 
 /** True when 0 < x < 1, bounds excluded (x with a positive denominator). */

@@ -3,6 +3,7 @@
  *
  * Chain: predictor → Prediction → HIKAE conformalizes → CoverageVerdict → GateDecision.
  *   L1 (l1-split)   — per-class split conformal, type-(i) guarantee, 0/1 indicator score.
+ *   aci             — the online level of a class: L1's quantile on a rolling window, at a level moved by the arrived outcomes.
  *   L2 (l2-monitor) — IM-OCP MONITOR (no guarantee claimed).
  *   L3 (l3-gate)    — COMMIT/DEFER/ABSTAIN policy, closed predicate. No trading.
  *   region          — buildIntervalRegion (lo <= hi invariant, bounded-or-abstention), buildSetRegion.
@@ -14,8 +15,12 @@
  */
 
 // L1 — split conformal.
-export { indicatorScore, indicatorScores, splitQuantile, conformalSet, riskControlQuantile, scoresInDomain, splitRankExact, splitQuantileExact, riskControlRow, splitRankShortest, splitQuantileShortest } from "./l1-split.ts";
+export { indicatorScore, indicatorScores, splitQuantile, conformalSet, riskControlQuantile, scoresInDomain, splitRankExact, splitQuantileExact, riskControlRow, splitRankShortest, splitRankRational, shortestRatio, scoreAtRank, splitQuantileShortest } from "./l1-split.ts";
 export type { SplitResult, RiskControlResult, ScoreDomain, RiskControlRow, RiskControlRowOptions } from "./l1-split.ts";
+
+// ACI: the online level of a class, replayed from the caller's outcomes, and its bound.
+export { aciBound, aciBoundText, aciLevel, aciLevelText, aciReplay } from "./aci.ts";
+export type { AciEvidence, AciRegion, AciState } from "./aci.ts";
 
 // Binomial core: exact comparator, k*, n0, the upper bound U, four-decimal rounding, spend.
 export { parseUnitDecimal, parseAlpha, parseTestDelta, binomCdfLeq, riskControlMaxExceedances, zeroErrorFloor, missUpperBound, ceilDecimal4, spendDelta } from "./binomial.ts";

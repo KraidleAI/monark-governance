@@ -43,12 +43,12 @@ const TRACE_PATH = fileURLToPath(new URL("../fixtures/h5-e2e-trace.json", import
 const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url));
 
 /** Pinned sha256 (LF-normalized) of the committed trace — also stated in fixtures/PROVENANCE-h5-e2e-trace.md.
- *  Re-recorded 2026-11-05 when the served `suivi` policy text named the BYO cell (the request's predictor_id): the tools/list
- *  bytes change, every served decision is the same (prior pin 0574a845…, 2026-11-04, when the served texts stopped naming
- *  archived decisions; before it 97fb4e37… and 83d2fa32…, the same day, the latter when the gate's params declared `suivi` and
- *  its bounds; before it 3fc56af5… and ed51ceb1…, the trace of step 7). The earlier re-pins are told in the git history of this
- *  file and of the PROVENANCE file. */
-const TRACE_SHA256_PINNED = "5f039b02ef7ee32bf231a889ea56087be29c92a5ffba6c625d2c72e3b9e4774d";
+ *  Re-recorded 2026-11-06 when the gate's params declared the optional `calibration.aci` (the online level of a class): the
+ *  tools/list bytes change, every served decision is the same (prior pin 5f039b02…, 2026-11-05, when the served `suivi` policy
+ *  text named the BYO cell; before it 0574a845…, 2026-11-04, when the served texts stopped naming archived decisions; before it
+ *  97fb4e37… and 83d2fa32…, the same day, the latter when the gate's params declared `suivi` and its bounds; before it 3fc56af5…
+ *  and ed51ceb1…, the trace of step 7). The earlier re-pins are told in the git history of this file and of the PROVENANCE file. */
+const TRACE_SHA256_PINNED = "ed20289cd6b06c4ae826bea31c5a524ce75c8498c53c03d2c67423ffaf6b1d83";
 
 function stepByLabel(trace: H5Trace, label: string): ToolCallResponse {
   const s = trace.steps.find((x) => "label" in x && x.label === label);

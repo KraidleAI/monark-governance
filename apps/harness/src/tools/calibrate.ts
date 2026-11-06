@@ -57,6 +57,22 @@ export const CALIBRATE_LABEL =
   "time-ordered) voids it. Never a probability of being right.";
 
 /**
+ * The honesty label of the gate's online level (`params.calibration.aci`), carried by the gate description and its MCP `content`. The form
+ * with the delay D is derived in packages/hikae/src/aci.ts; at D = 0 it implies the bound of Gibbs and Candes 2021. No banned vocabulary.
+ */
+export const ACI_LABEL =
+  "online conformal level over caller-supplied nonconformity scores (the update of Gibbs and Candes 2021): the level starts at α and " +
+  "moves by γ(α − err) when an outcome arrives, err = 1 when its score exceeds the threshold its signal got; the region is the quantile " +
+  "of the last W scores at the current level. The gate replays the caller's evidence at each call and keeps nothing. MONARK does not see, " +
+  "store, or verify the caller's data or model, nor that the evidence holds every outcome. Over the T outcomes that moved the level, " +
+  "|misses/T − α| stays below max{α + (D+1)γ(1−α), 1−α + (D+1)γα}/(γT), D the largest delay, with no assumption on the scores; this " +
+  "counts every replayed signal decided once a region at α existed, taken or not, and none decided before (decided_after 0 is always " +
+  "before), counts a step that got the whole line as covered and one that got the empty region as a miss, and says nothing of one window " +
+  "or of the signals taken alone. The 1−α coverage of the split path under exchangeability does not apply to this region: as the " +
+  "decision's reason, `covered` says only that the intent lies in the region, within the width and the budget; as the verdict's, only " +
+  "that the level gave a region. Never a probability of being right.";
+
+/**
  * Tool description (carrier 1/3): the SAME honesty text as the output `label`. The
  * exchangeability hypothesis rides here, on the tool surface, never inside a silent numeric output.
  */

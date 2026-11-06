@@ -223,14 +223,29 @@ export function riskControlRow(scores: readonly number[], alphaDec: string, base
  */
 export function splitRankShortest(n: number, alpha: number): number {
   if (!Number.isSafeInteger(n) || n < 0) throw new RangeError(`n must be a non-negative integer, got ${String(n)}`);
-  const m = /^(-?)(\d+)(?:\.(\d+))?(?:e([+-]\d+))?$/.exec(String(alpha));
-  if (m === null) throw new RangeError(`alpha must be a finite number, got ${String(alpha)}`);
+  const { num, den } = shortestRatio(alpha, "alpha");
+  return splitRankRational(n, num, den);
+}
+
+/** The exact ratio of String(x), the shortest round-trip writing of a finite number; a RangeError names `what` otherwise. */
+export function shortestRatio(x: number, what: string): { readonly num: bigint; readonly den: bigint } {
+  const m = /^(-?)(\d+)(?:\.(\d+))?(?:e([+-]\d+))?$/.exec(String(x));
+  if (m === null) throw new RangeError(`${what} must be a finite number, got ${String(x)}`);
   const frac = m[3] ?? "";
   const shift = Number(m[4] ?? "0") - frac.length;
   const mant = BigInt(`${m[1] ?? ""}${m[2] ?? ""}${frac}`);
-  const [num, den] = shift >= 0 ? [mant * 10n ** BigInt(shift), 1n] : [mant, 10n ** BigInt(-shift)];
+  return shift >= 0 ? { num: mant * 10n ** BigInt(shift), den: 1n } : { num: mant, den: 10n ** BigInt(-shift) };
+}
+
+/** The split rank ceil((n + 1)(1 - num/den)) in integer arithmetic, den > 0; a level outside (0, 1) gives p > n or p < 1. */
+export function splitRankRational(n: number, num: bigint, den: bigint): number {
   const top = BigInt(n + 1) * (den - num);
   return Number(top >= 0n ? (top + den - 1n) / den : -(-top / den));
+}
+
+/** The p-th smallest score, 1-based, sorted three-way; undefined when p is outside 1..n. */
+export function scoreAtRank(scores: readonly number[], p: number): number | undefined {
+  return [...scores].sort(ascending)[p - 1];
 }
 
 /**
@@ -239,6 +254,6 @@ export function splitRankShortest(n: number, alpha: number): number {
  */
 export function splitQuantileShortest(scores: readonly number[], alpha: number, nMin: number): SplitResult {
   if (scores.length < nMin || !Number.isFinite(alpha)) return { reason: "under_calib" };
-  const q = [...scores].sort(ascending)[splitRankShortest(scores.length, alpha) - 1];
+  const q = scoreAtRank(scores, splitRankShortest(scores.length, alpha));
   return q === undefined ? { reason: "under_calib" } : { qhat: q };
 }
