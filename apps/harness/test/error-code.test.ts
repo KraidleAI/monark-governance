@@ -132,7 +132,7 @@ function callArgs(src: string, open: number): string[] {
 }
 
 // Test E-2 (F2P): every `new HarnessToolError(` in apps/harness/src names a code; a literal code is in the list.
-// killer: apps/harness/src/tools/gate.ts:354 CONST "\"param_invalid\");" -> ");"
+// killer: apps/harness/src/tools/gate.ts:357 CONST "\"param_invalid\");" -> ");"
 test("every_harness_tool_error_names_a_code", () => {
   const SRC = fileURLToPath(new URL("../src", import.meta.url));
   const walk = (dir: string): string[] =>
@@ -158,7 +158,7 @@ test("every_harness_tool_error_names_a_code", () => {
 // The refusal of a 1.0.0 prediction names the version the gate speaks and the specification repository, on the thrown
 // error and on the HTTP 400 body. The exact text says "the gate" and not "the harness". The specification URL stays
 // pinned by the same literal (its former killer, "; specification: ..." -> "", is drawn by hand).
-// killer: apps/harness/src/tools/gate.ts:903 CONST "the gate speaks" -> "the harness speaks"
+// killer: apps/harness/src/tools/gate.ts:888 CONST "the gate speaks" -> "the harness speaks"
 test("schema_version_refusal_names_the_spoken_version_and_the_spec_repository", async () => {
   const text = "unsupported prediction.schema_version '1.0.0': the gate speaks '1.1.0'; specification: https://github.com/KraidleAI/monark-kata-spec";
   assert.equal(SCHEMA_VERSION, "1.1.0");
@@ -170,7 +170,7 @@ test("schema_version_refusal_names_the_spoken_version_and_the_spec_repository", 
 });
 
 // Test E-3 (F2P): each refusal path of runGate carries its code; the four liq messages stay byte-identical.
-// killer: apps/harness/src/tools/gate.ts:835 CONST "code: \"byo_reserved_kata\"" -> "code: \"byo_lookalike_committed\""
+// killer: apps/harness/src/tools/gate.ts:815 CONST "code: \"byo_reserved_kata\"" -> "code: \"byo_lookalike_committed\""
 test("gate_refusals_carry_their_code", () => {
   const cases: [string, () => unknown, string][] = [
     ["nMin 0", () => runGate(pred("btc-dir-15m", "up"), { ...PARAMS, nMin: 0 }), "param_invalid"],
@@ -236,7 +236,7 @@ test("http_tool_error_body_carries_the_code", async () => {
 
 // Test E-5 (F2P): an MCP tool error keeps today's text as its first (and only) content, isError, and adds the code
 // in _meta.
-// killer: apps/harness/src/tools/registry.ts:148 SDL ", _meta: { [ERROR_CODE_META_KEY]: code }" -> ""
+// killer: apps/harness/src/tools/registry.ts:150 SDL ", _meta: { [ERROR_CODE_META_KEY]: code }" -> ""
 test("mcp_tool_error_keeps_its_text_and_adds_the_code", async () => {
   const cases: [string, Obj, string, string][] = [
     ["gate", { prediction: pred("nope-class", 1), params: PARAMS }, UNKNOWN_MESSAGE, "task_class_unknown"],

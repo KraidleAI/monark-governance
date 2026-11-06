@@ -2,11 +2,12 @@
  * HIKAE L2 — remaining-risk MONITOR (IM-OCP mechanism).
  *
  * *** MONITOR, NO GUARANTEE CLAIMED (branch b). ***
- * Here, the split `q̂` (L1) ALONE defines C_t. `r_t` (IM-OCP) and `B_t` are
- * monitoring statistics that drive π (L3) and the drift flag; `r_t` has
- * NO set consumer, so Wang's long-run type-(ii) guarantee is
+ * `r_t` (IM-OCP) and `B_t` are monitoring statistics that drive π (L3) and the
+ * drift flag; `r_t` has NO set consumer, so Wang's long-run type-(ii) guarantee is
  * attached to nothing and is NOT claimed. Branch (a) (`C_t = {y : s <= r_t}`,
  * guarantee (ii) carried by C_t) is not claimed; it would need a real S2 measure.
+ * The region comes from the split `q̂` (L1) or, when the caller carries its evidence,
+ * from the online level of the class (aci.ts), never from `r_t`.
  *
  * Source of the mechanism: Wang, Zecchin, Simeone, IEEE SPL 32 (2025) 2888-2892,
  * eq. 10 / Thm 1 (cited, not republished) — transported onto the subsequence of ARRIVED labels

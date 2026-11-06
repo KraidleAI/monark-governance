@@ -11,7 +11,8 @@ is pinned HERE instead.
   the `tools/list` bytes change, every served decision is the same; re-recorded again the same day when the texts the
   harness serves stopped naming archived decisions: again only the `tools/list` bytes change; re-recorded on 2026-11-05 when
   the served `suivi` policy text named the cell of the BYO path (the request's `predictor_id`): again only the `tools/list`
-  bytes change. At step 7, the `attest` and `cascade`
+  bytes change; re-recorded on 2026-11-06 when the gate's params declared the optional `calibration.aci` (the online level of
+  a class): again only the `tools/list` bytes change. At step 7, the `attest` and `cascade`
   tools were archived and the trace came to drive the gate and calibrate. The earlier re-recordings (tool descriptions,
   contract 1.1.0, the retired `btc-dir-15m`, the `judge` tool) are told in the git history of this file.
 
@@ -50,9 +51,10 @@ These statements live in the trace's `honesty` block and are re-asserted by `tes
 
 - The tools read no clock (`produced_at` is caller-carried); the ephemeral port is intentionally NOT recorded.
   Re-running the recorder reproduces the file byte-for-byte (two consecutive runs printed the same digest on
-  2026-11-05).
-- **sha256 (LF)** of `h5-e2e-trace.json`: `5f039b02ef7ee32bf231a889ea56087be29c92a5ffba6c625d2c72e3b9e4774d`
+  2026-11-06).
+- **sha256 (LF)** of `h5-e2e-trace.json`: `173d9deada248a737632bc869f94cd6dd589e184c075852adaed80d24fa1c187`
   (14848 bytes; only `steps[1].result.response_sha256`, the `tools/list` digest, differs from the prior trace). Prior pin
+  `5f039b02…` (14848 bytes, 2026-11-05, before the gate's params declared `calibration.aci`); before it
   `0574a845…` (14848 bytes, 2026-11-04, before the served `suivi` policy text named the BYO cell); before it
   `97fb4e37…` (14848 bytes, the same day, before the kata clause and two wave 2 guard texts were cleaned), `83d2fa32…` (before any served text was cleaned); before it `3fc56af5…` (before the replay's bounds were declared; before it
   `ed51ceb1…`, the trace of step 7, before `suivi`). `.gitattributes`

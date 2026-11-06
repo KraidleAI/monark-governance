@@ -60,7 +60,7 @@ test("committed_scores_sha256_load_guard_against_the_new_pins", () => {
 
 // The liq table source names the fresh scores series by its sha256 only, with the
 // frozen generator; no path, no file name (the series is export-excluded data). No liq table digest is pinned here.
-// killer: apps/harness/src/tools/gate.ts:1038 CONST "registry_file: \"sha256:" -> "registry_file: \"apps/sentinel/test/fixtures/sha256:"
+// killer: apps/harness/src/tools/gate.ts:1024 CONST "registry_file: \"sha256:" -> "registry_file: \"apps/sentinel/test/fixtures/sha256:"
 test("liq_table_source_names_the_series_by_sha256_only", () => {
   const series = "fd6fab7ebf5d2779b904494accab8916fac8293587ed24d21fb052cb024074a4";
   const inp = SERVED_TABLE_TEXTS.marginal(TASK_LIQ_ELIGIBLE);

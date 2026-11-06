@@ -20,7 +20,7 @@ import type { Prediction, AttestedPrice } from "@monark/contracts";
 import { toolInputStandardSchema, toolOutputStandardSchema, TOOL_INPUT_SCHEMA, TOOL_OUTPUT_SCHEMA } from "../schema-projection.ts";
 import type { Json } from "../schema-projection.ts";
 import { calibrateInputStandardSchema, calibrateOutputStandardSchema, CALIBRATE_INPUT_SCHEMA, CALIBRATE_OUTPUT_SCHEMA } from "../schema-projection.ts";
-import { runGate, honestyText, gateVerdictSummary, toolErrorCode, ERROR_CODE_META_KEY, GATE_TOOL_NAME, GATE_TOOL_DESCRIPTION, type HarnessParams, type RunGateOptions } from "./gate.ts";
+import { runGateExplained, honestyText, aciHonestyText, gateVerdictSummary, toolErrorCode, ERROR_CODE_META_KEY, GATE_TOOL_NAME, GATE_TOOL_DESCRIPTION, type HarnessParams, type RunGateOptions } from "./gate.ts";
 import { runCalibrate, calibrateHonestyText, calibrateVerdictSummary, CALIBRATE_TOOL_NAME, CALIBRATE_TOOL_DESCRIPTION, type CalibrateInput } from "./calibrate.ts";
 import { judgeInputStandardSchema, judgeOutputStandardSchema, JUDGE_INPUT_SCHEMA, JUDGE_OUTPUT_SCHEMA } from "../schema-projection.ts";
 import { runJudge, judgeHonestyText, judgeVerdictSummary, JUDGE_TOOL_NAME, JUDGE_TOOL_DESCRIPTION, type JudgeInput, type KernelRunner } from "./judge.ts";
@@ -75,11 +75,13 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
     outputStandardSchema: toolOutputStandardSchema,
     run: (args, ctx) => {
       const env = args as GateEnvelope;
-      const decision = runGate(env.prediction, env.params, env.attested, ctx);
+      const { decision, aci } = runGateExplained(env.prediction, env.params, env.attested, ctx);
       // structuredContent = the closed GateDecision ONLY; honesty prose rides in `content` text.
-      // The honesty text is keyed on the PRESENCE of a BYO calibration, not task_class alone, and on the resolved cell. The
+      // The honesty text is keyed on the PRESENCE of a BYO calibration, not task_class alone, and on the resolved cell; with the online
+      // level of a class, it is the level's text and figures, which the closed decision cannot carry. The
       // verdict summary (a delivery aid for text-only clients, derived from `decision`) follows the prose.
-      const text = `${honestyText(env.prediction.task_class, decision.verdict.cell_key ?? env.prediction.predictor_id, env.params.calibration !== undefined)} ${gateVerdictSummary(decision)}`;
+      const prose = aci === undefined ? honestyText(env.prediction.task_class, decision.verdict.cell_key ?? env.prediction.predictor_id, env.params.calibration !== undefined) : aciHonestyText(aci);
+      const text = `${prose} ${gateVerdictSummary(decision)}`;
       return { text, structured: decision as unknown as Record<string, unknown> };
     },
   },

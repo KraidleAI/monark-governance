@@ -78,7 +78,7 @@ function direct(p: Prediction, params: HarnessParams, options: gate.RunGateOptio
 
 // Test T-8 (F2P): the kata request contract is served: its 8 named 400s over HTTP (body with code)
 // and MCP (code in _meta), on a direction class and a band class.
-// killer: apps/harness/src/tools/gate.ts:986 CONST "} else if (kataTable !== undefined) {" -> "} else if (false) {"
+// killer: apps/harness/src/tools/gate.ts:972 CONST "} else if (kataTable !== undefined) {" -> "} else if (false) {"
 test("served_kata_request_contract", async () => {
   const cases: [string, Prediction, HarnessParams, number][] = [
     ["kata_key_invalid", pred({ predictor_id: "kata:vote4@venue/ETHUSDT/1h" }), P_DIR, T + 1000],
@@ -142,7 +142,7 @@ test("served_kata_no_row_verdict_and_decision", async () => {
 
 // Test T-10 (F2P): the lateness bound is the 300 s of the produced_at check, served with the injected clock over HTTP
 // and MCP; the produced_at future check answers first; a direct call without a clock runs the grid only.
-// killer: apps/harness/src/tools/gate.ts:989 CONST "kataPath(prediction, params, kataTable, options.nowMs)" -> "kataPath(prediction, params, kataTable)"
+// killer: apps/harness/src/tools/gate.ts:975 CONST "kataPath(prediction, params, kataTable, options.nowMs)" -> "kataPath(prediction, params, kataTable)"
 test("served_kata_late_call_window", async () => {
   const at = (now: number): Promise<{ status: number; body: Obj }> => http(pred(), P_DIR, now);
   assert.equal((await at(T + 300_000)).status, 200, "300 s after t: admitted");
@@ -157,7 +157,7 @@ test("served_kata_late_call_window", async () => {
 // Test T-11 (pin): the guards before the dispatch keep their codes on a kata class: a calibration on a kata name is
 // reserved (the look-alike guard), an `attested` is inconsistent (no kata subject), a 1.0.0 prediction is refused. Green at the base
 // (declared; killer fired by hand).
-// killer: apps/harness/src/tools/gate.ts:936 CONST "if (lookAlike !== undefined) {" -> "if (false) {"
+// killer: apps/harness/src/tools/gate.ts:921 CONST "if (lookAlike !== undefined) {" -> "if (false) {"
 test("served_kata_order_against_byo_attested_version", () => {
   const cal = { ...P_DIR, calibration: { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], mode: "interval" as const } };
   assert.equal(direct(pred(), cal), "byo_reserved_kata");
@@ -212,7 +212,7 @@ test("describe_gate_kata_clause", () => {
 
 // Test T-13 (F2P): honestyText reads the kata tables: each of the 32 classes serves its class text plus the suffix, never
 // the cascade sentence; the table text is the exact prefix of the served sentence.
-// killer: apps/harness/src/tools/gate.ts:739 CONST "tables: readonly ServedTable[] = SERVED_POLICY_TABLES" -> "tables: readonly ServedTable[] = SERVED_MARGINAL_TABLES"
+// killer: apps/harness/src/tools/gate.ts:719 CONST "tables: readonly ServedTable[] = SERVED_POLICY_TABLES" -> "tables: readonly ServedTable[] = SERVED_MARGINAL_TABLES"
 test("kata_class_text_is_table_text_plus_suffix", () => {
   const names = kataClassEntries(() => "").map((e) => e.task_class);
   assert.equal(names.length, 32);
@@ -229,7 +229,7 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
 
 // Test (F2P): the test seam RunGateOptions.policyTables reaches a kata row (a region row on btc-dir-1h commits),
 // and no served module but tools/gate.ts names it, so the HTTP and MCP entry points never pass it.
-// killer: apps/harness/src/tools/gate.ts:960 CONST "(options.policyTables ?? SERVED_POLICY_TABLES)" -> "(SERVED_POLICY_TABLES)"
+// killer: apps/harness/src/tools/gate.ts:946 CONST "(options.policyTables ?? SERVED_POLICY_TABLES)" -> "(SERVED_POLICY_TABLES)"
 test("entry_points_never_pass_policy_tables", () => {
   const all = ((gate as Obj)["SERVED_POLICY_TABLES"] as readonly ServedTable[] | undefined) ?? [];
   const base = all.find((t) => t.task_class === "btc-dir-1h");
@@ -290,7 +290,7 @@ test("served_calib_row_abstains_never_defers", () => {
 // Test: the kata tripwire (kataTablesMatchPins) follows the pins. The kata tables that hold rows are exactly the pinned
 // classes, each at its pinned sha256, and no held class holds a row: the served tables pass with the served pins (none,
 // the bands, then the directions), a marginal table with rows passes, and a kata row outside the pins, a pinned class
-// with no row or another sha256, or a held class with a row (even pinned), fails the load. Line 1043 and its imports
+// with no row or another sha256, or a held class with a row (even pinned), fails the load. Line 1029 and its imports
 // are pinned.
 // killer: apps/harness/src/kata-path.ts:125 CONST "held.some((c) => rows(c) > 0)" -> "false"
 test("kata_tables_match_the_pins", () => {
@@ -314,9 +314,9 @@ test("kata_tables_match_the_pins", () => {
   const d = runGate(pred(), P_DIR, undefined, { nowMs: T + 1000, policyTables: check(seam, pin, []) });
   const row = withRow("region")[0]?.table.rows[0] ?? assert.fail("the pinned row");
   assert.deepEqual([d.verdict.policy_table_sha256, d.verdict.policy_row_sha256], [pin["btc-dir-1h"], sha256Canonical(row)], "the verdict carries the pinned table and its row");
-  const HELD_TEXT = "[...FLOOR_HELD_CLASSES, ...ORDER_HELD_CLASSES]", line1043 = readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n")[1042];
-  assert.equal(line1043, `export const SERVED_POLICY_TABLES = kataTablesMatchPins(servedPolicyTables(SERVED_TABLE_TEXTS, readCommittedTables(COMMITTED_FILES, kataClassEntries(kataClassText), { tables: COMMITTED_TABLES, held: ${HELD_TEXT} })), COMMITTED_TABLES, ${HELD_TEXT});`, "line 1043: the served build reads the committed tables against the pins and both held lists, then passes the tripwire");
-  assert.deepEqual(readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n").slice(1136, 1138), [`import { COMMITTED_FILES, readCommittedTables } from "../policy-committed.ts";`, `import { COMMITTED_TABLES, FLOOR_HELD_CLASSES, ORDER_HELD_CLASSES } from "../policy-committed-pins.ts";`], "lines 1137-1138: each name that line 1043 reads is imported as itself");
+  const HELD_TEXT = "[...FLOOR_HELD_CLASSES, ...ORDER_HELD_CLASSES]", line1029 = readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n")[1028];
+  assert.equal(line1029, `export const SERVED_POLICY_TABLES = kataTablesMatchPins(servedPolicyTables(SERVED_TABLE_TEXTS, readCommittedTables(COMMITTED_FILES, kataClassEntries(kataClassText), { tables: COMMITTED_TABLES, held: ${HELD_TEXT} })), COMMITTED_TABLES, ${HELD_TEXT});`, "line 1029: the served build reads the committed tables against the pins and both held lists, then passes the tripwire");
+  assert.deepEqual(readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n").slice(1143, 1145), [`import { COMMITTED_FILES, readCommittedTables } from "../policy-committed.ts";`, `import { COMMITTED_TABLES, FLOOR_HELD_CLASSES, ORDER_HELD_CLASSES } from "../policy-committed-pins.ts";`], "lines 1144-1145: each name that line 1029 reads is imported as itself");
 });
 
 // Test (the invariant "no kata row is served before the release of the bands"): while no table is pinned
@@ -433,7 +433,7 @@ test("kata_clause_follows_the_committed_pins", () => {
   assert.throws(() => render(some.filter((e) => /^btc-(dir|range)-/.test(e.task_class)), undefined, ["btc-range-1h"], ["btc-dir-1h"]), /^Error: kata clause: fewer than 2 held classes: 1; the committed state is written for pinned and held classes that partition the kata classes, at least 2 of each$/, "two conditions, n < 2 and m < 2, on the product 1x2x1: the first in order throws");
   assert.throws(() => render(some.slice(1), undefined, bands, dir), /not the product/, "the product check comes first");
   const lines = readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n"), line222 = lines[221] ?? "";
-  assert.ok(line222.endsWith(", committed: readonly string[] = Object.keys(COMMITTED_TABLES), held: readonly string[] = [...FLOOR_HELD_CLASSES, ...ORDER_HELD_CLASSES]): string {"), "line 222: by default, the served pins and both held lists, as line 1043 reads them");
+  assert.ok(line222.endsWith(", committed: readonly string[] = Object.keys(COMMITTED_TABLES), held: readonly string[] = [...FLOOR_HELD_CLASSES, ...ORDER_HELD_CLASSES]): string {"), "line 222: by default, the served pins and both held lists, as line 1029 reads them");
   assert.equal(lines[253], "    `${kataClause()} ` +", "line 254: the served description calls the clause with its defaults, so it follows the served pins");
 });
 
