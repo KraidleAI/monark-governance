@@ -4,7 +4,7 @@ Mis à jour le 2026-11-06. Une ligne qui change remplace l'ancienne ; l'historiq
 
 ## Où on en est (vérifié sur le code le 2026-11-06)
 
-- **Tests** : `npm run ci` est vert sur une installation fraîche (vocabulaire, typecheck strict, 655 tests sur 655, hors
+- **Tests** : `npm run ci` est vert sur une installation fraîche (vocabulaire, typecheck strict, 658 tests sur 658, hors
   noyau Lean) ; `npm run test:genkan` aussi, noyau compris (40 tests sur 40, dont l'outil `judge` et l'exécuteur papier
   sur le noyau construit).
   `npm run lint` et `npm run lint:ratchet` sont verts ; le plafond de dette de typage des tests est à 45.
@@ -35,7 +35,7 @@ Mis à jour le 2026-11-06. Une ligne qui change remplace l'ancienne ; l'historiq
   ménage), #361 (les mutants du juge), #360 (l'étape 8), #362 (le README du harness), #363 (le noyau asynchrone) et #364
   (les textes servis) fusionnées dans `lot/etude-suite` le 2026-11-04, puis #365 (l'interface de la stratégie), #366
   (la stratégie dans un dépôt privé), #367 (les renvois aux décisions effacées), #368 (les commentaires des contrats) et
-  #369 (le suivi sur la voie BYO), #370 (la voie BYO dans la doc) et #371 (le refus quand le noyau tombe) le 2026-11-05, puis #372 (le README en anglais) le 2026-11-06 ; #345 et #323 fermées
+  #369 (le suivi sur la voie BYO), #370 (la voie BYO dans la doc) et #371 (le refus quand le noyau tombe) le 2026-11-05, puis #372 (le README en anglais) et #373 (le niveau en ligne) le 2026-11-06 ; #345 et #323 fermées
   le 2026-11-04, sur décision du fondateur.
 
 ## Les étapes

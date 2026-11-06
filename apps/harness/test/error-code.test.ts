@@ -292,6 +292,7 @@ test("http_400_bodies_validate_the_tool_error_root", async () => {
   const bad: [string, Promise<{ status: number; json: Obj }>, string][] = [
     ["not JSON", raw("POST", "/gate", "{"), "json_invalid"], ["extra key", raw("POST", "/gate", JSON.stringify({ ...gate, rogue: 1 })), "input_invalid"],
     ["missing params", raw("POST", "/calibrate", JSON.stringify({ scores: [1] })), "input_invalid"],
+    ["more faults than named", raw("POST", "/calibrate", JSON.stringify({ scores: new Array<unknown>(101).fill({}), alpha: 0.1, nMin: 5 })), "input_invalid"],
     ["unknown class", raw("POST", "/gate", JSON.stringify({ ...gate, prediction: pred("nope-class", 1) })), "task_class_unknown"],
     ["calibrate alpha", raw("POST", "/calibrate", JSON.stringify({ scores: [0.1, 0.2, 0.3], alpha: 1.5, nMin: 3 })), "calibrate_input_invalid"],
   ];
@@ -331,6 +332,80 @@ test("features_digest_of_63_chars_is_input_invalid", async () => {
   assert.equal(mcp["isError"], true, "MCP refuses it");
   assert.equal(mcp["_meta"], undefined, "without a code");
   assert.match(JSON.stringify(mcp["content"]), /features_digest/, "naming the field");
+});
+
+// The validator reports every fault of a body, and the refusal grew with them on both surfaces: a body of 498 KB answered
+// 8.8 MB on calibration.scores and 64 MB on suivi.evaluations (measured 2026-11-06). A long false list, in any tool, now
+// answers 100 errors and the count of the others, in the same refusal, the MCP text carrying what the mirror's issue says.
+// killer: apps/harness/src/schema-projection.ts:393 CONST "omitted > 0" -> "false"
+test("long_false_list_refusal_is_bounded_on_both_surfaces", async () => {
+  const MAX_BYTES = 16 * 1024;
+  const n = 165_000; // an element of `{},` or `"",` takes 3 bytes: a body of 495 KB, under the 512 KiB the listener reads
+  const objects = new Array<unknown>(n).fill({}), strings = new Array<unknown>(n).fill("");
+  const prediction = pred("byo-x", 1);
+  const judge = { prediction, params: PARAMS, order: { kind: "OPEN", target: "venue:a", asset: "btc", amount: "100" } };
+  // [where, tool, arguments, faults]: each element's, plus the overlong list's own and the keys left out next to it.
+  const cases: [string, string, Obj, number][] = [
+    ["calibration.scores", "gate", { prediction, params: { ...PARAMS, calibration: { scores: objects, mode: "interval" } } }, n + 1],
+    ["calibrate scores, two keys left out", "calibrate", { scores: objects }, n + 1 + 2],
+    ["suivi.evaluations", "gate", { prediction, params: { ...PARAMS, suivi: { evaluations: objects } } }, 5 * n + 1 + 3],
+    ["limits.venues", "judge", { ...judge, limits: { venues: strings, assets: [] } }, n + 2],
+  ];
+  for (const [where, tool, args, faults] of cases) {
+    const http = await mirror(`/${tool}`, args);
+    const mcp = await mcpToolsCall(tool, args);
+    const bytes = Buffer.byteLength(http.text), mcpBytes = Buffer.byteLength(JSON.stringify(mcp));
+    assert.ok(bytes < MAX_BYTES && mcpBytes < MAX_BYTES, `${where}: the mirror answers ${String(bytes)} bytes, MCP ${String(mcpBytes)}`);
+    const json = JSON.parse(http.text) as Obj;
+    assert.deepEqual(Object.keys(json), ["error", "operation", "message", "code", "issues"], `${where}: the form of the refusal`);
+    assert.deepEqual([http.status, json["error"], json["code"]], [400, "invalid_input", "input_invalid"], where);
+    const issues = json["issues"] as { message: string }[];
+    assert.equal(issues.length, 1, `${where}: one issue, as before`);
+    const message = issues[0]?.message ?? "";
+    assert.ok(message.endsWith(`, and ${String(faults - 100)} more omitted`), `${where}: the count of the others, in: ${message.slice(-80)}`);
+    assert.equal(message.split(", data").length, 100, `${where}: 100 errors named`);
+    assert.deepEqual(mcp, { content: [{ type: "text", text: `Input validation error: Invalid arguments for tool ${tool}: ${message}` }], isError: true }, `${where}: the MCP text is the same refusal`);
+  }
+});
+
+// The cap, at its edge, on the exact bytes of both surfaces: a refusal of up to 100 errors is what it always was, and the 101st
+// is counted, not named.
+// killer: apps/harness/src/schema-projection.ts:385 CONST "MAX_INPUT_ERRORS = 100" -> "MAX_INPUT_ERRORS = 101"
+test("input_refusal_names_at_most_100_errors", async () => {
+  const named = (k: number): string => Array.from({ length: k }, (_, i) => `data/scores/${String(i)} must be number`).join(", ");
+  const cases: [number, string][] = [
+    [1, "data/scores/0 must be number"],
+    [100, named(100)],
+    [101, `${named(100)}, and 1 more omitted`],
+  ];
+  for (const [faults, message] of cases) {
+    const args = { scores: new Array<unknown>(faults).fill({}), alpha: 0.1, nMin: 5 };
+    const http = await mirror("/calibrate", args);
+    assert.equal(http.status, 400, `${String(faults)} faults: 400`);
+    assert.equal(http.text, JSON.stringify({ error: "invalid_input", operation: "calibrate", message: "the body of POST /calibrate does not match its input schema", code: "input_invalid", issues: [{ message }] }), `${String(faults)} faults: the exact body`);
+    assert.deepEqual(await mcpToolsCall("calibrate", args), { content: [{ type: "text", text: `Input validation error: Invalid arguments for tool calibrate: ${message}` }], isError: true }, `${String(faults)} faults: the exact MCP result`);
+  }
+});
+
+/** A value of `schema` with every leaf of the wrong type and one element per list. */
+function everyLeafWrong(schema: Obj): unknown {
+  const properties = schema["properties"] as Record<string, Obj> | undefined;
+  if (properties !== undefined) return Object.fromEntries(Object.entries(properties).map(([k, s]) => [k, everyLeafWrong(s)]));
+  return schema["type"] === "array" ? [everyLeafWrong((schema["items"] ?? {}) as Obj)] : {};
+}
+
+// The cap cuts long lists, never a body of a fixed shape: with every field of an input schema wrong and no long list, each tool
+// still names all its errors. So a caller fixing a malformed envelope sees it whole, in one answer.
+// killer: apps/harness/src/schema-projection.ts:385 CONST "MAX_INPUT_ERRORS = 100" -> "MAX_INPUT_ERRORS = 50"
+test("body_with_no_long_list_is_named_in_full", async () => {
+  let most = 0;
+  for (const tool of HARNESS_TOOLS) {
+    const http = await mirror(`/${tool.name}`, everyLeafWrong(tool.inputSchemaJson as Obj));
+    assert.equal(http.status, 400, `${tool.name}: refused`);
+    assert.doesNotMatch(http.text, /omitted/, `${tool.name}: nothing omitted`);
+    most = Math.max(most, http.text.split(", data").length);
+  }
+  assert.ok(most > 50, `the widest body names ${String(most)} errors: the bodies are wrong field by field, or this proves nothing`);
 });
 
 /** The listed codes no served request can throw, exact, each

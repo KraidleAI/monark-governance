@@ -93,7 +93,7 @@ export async function handleJsonMirror(request: Request, clock: () => number = D
   }
 
   // Validate with the SAME projected standard schema the MCP boundary uses (mirror the boundary): a
-  // present-but-invalid body (extra key vs additionalProperties:false, missing/typed field) -> 400.
+  // present-but-invalid body (extra key vs additionalProperties:false, missing/typed field) -> 400, its issues capped by that schema.
   const validated = await tool.inputStandardSchema["~standard"].validate(body);
   if (validated.issues !== undefined) {
     return json({ error: "invalid_input", operation: name, message: `the body of POST /${name} does not match its input schema`, code: "input_invalid", issues: validated.issues }, 400);
