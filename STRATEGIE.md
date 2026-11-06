@@ -71,7 +71,8 @@ quantile des `window` derniers scores au rang `ceil((n + 1)(1 - A))`.
 - Un niveau sous `1/(n + 1)` donne la ligne entière, sans région finie : la décision s'abstient (`under_calib`). Un
   niveau à 1 ou au-dessus donne la région vide : elle s'abstient aussi (`region_degenerate`). À `alpha = 0.1` et
   `gamma = 0.05`, sur une fenêtre de 100 scores, trois manqués de suite mènent le niveau à -0,035, donc à l'abstention,
-  et neuf issues couvertes rouvrent une région.
+  et neuf issues rouvrent une région : tant que la région est la ligne entière, toute issue compte comme couverte, quel
+  que soit son score.
 - Le verdict porte `method: "hac-cp"` ; son `n_calib` et son `scores_sha256` décrivent la fenêtre ; son `alpha` reste la
   cible. La décision fermée n'a pas de champ pour le niveau : le texte de la réponse le donne (`aci level=…`).
 - Le moteur tient un niveau par preuve portée. Une classe de la stratégie a le sien, une autre source de signaux a sa
@@ -80,20 +81,24 @@ quantile des `window` derniers scores au rang `ceil((n + 1)(1 - A))`.
 - Le pas se choisit avec le retard. Un manqué coûte `gamma (1 - alpha)` au niveau et une issue couverte lui rend
   `gamma alpha` : un manqué demande `(1 - alpha) / alpha` issues couvertes, quel que soit `gamma`, et le niveau ne peut pas
   réagir avant que les issues arrivent. À `alpha = 0.1`, `gamma = 0.05` et `window = 100`, quinze manqués en vol mènent le
-  niveau à -0,575, et le gate s'abstient jusqu'à ce que 117 issues couvertes soient arrivées. À `gamma / (D + 1)`, `D + 1`
-  manqués en vol bougent le niveau de ce qu'un seul le bouge sans retard, et la borne de 2.4 est celle de `D + 1` niveaux
-  séparés de pas `gamma`, sans retard. Le retour passe par les issues des signaux refusés : des preuves qui ne portent que
-  les signaux pris ne rouvrent jamais.
-- Au plafond de 10 000 scores, si `window` est sous 10 000, l'adaptateur repart des `window` derniers scores, chacun avec
-  `decided_after` à 0 : le niveau revient à `alpha`, et la borne de 2.4 repart de zéro ; une issue d'un signal décidé avant
+  niveau à -0,575, et le gate s'abstient jusqu'à ce que 117 issues de plus soient arrivées : la région peut donc se rouvrir
+  sur un décalage qui n'a pas fini, et ce qui reste alors avant un engagement est `tauInterval`, ou `tau` en mode ensemble.
+  À `gamma / (D + 1)`, `D + 1` manqués en vol bougent le niveau de ce qu'un seul le bouge sans retard, et la borne de 2.4 est
+  celle de `D + 1` niveaux séparés de pas `gamma`, sans retard, chacun avec `T / (D + 1)` des issues. Le retour passe par les
+  issues des signaux refusés : des preuves qui ne portent que les signaux pris ne rouvrent que sur les issues de signaux pris
+  avant la fermeture et encore en vol ; une fois celles-ci arrivées, elles restent fermées.
+- À la borne de ses preuves (10 000 scores au plus, et chaque ligne de son journal les porte), l'adaptateur repart des
+  `window` derniers scores, chacun avec `decided_after` à 0 : le niveau revient à `alpha`, et la borne de 2.4 repart de zéro ; une issue d'un signal décidé avant
   la reprise ne fait que calibrer.
 - Le suivi en ligne (2.5) reste à part : il ne peut que baisser `B_t`. Ses manqués sont portés par l'appelant, qui doit les
   juger sur une région split de la classe, sur une fenêtre assez longue pour ne pas suivre la dérive, pas sur celle du
   niveau ; le moteur ne le vérifie pas. Sur une région qui bouge avec ses propres manqués, `k - T alpha = (alpha - A_{T+1}) / gamma`,
   donc l'excès de manqués reste sous `alpha / gamma + (D + 1)(1 - alpha)`, et le taux ne revient à `alpha` que sur un `T` de
-  l'ordre de `1 / gamma`. Que l'alarme sonne, et quand, dépend de `gamma` et du détecteur : mesuré le 2026-11-06 sur un
-  décalage simulé des scores par 100 (100 graines, la politique de `apps/harness/test/gate-aci.test.ts`), la région statique a
-  fermé 100 fois sur 100, celle du niveau 58 fois sur 100 à `gamma` 0,002 et 0 fois sur 100 à `gamma` 0,05.
+  l'ordre de `1 / gamma`. Que l'alarme sonne, et quand, dépend de `gamma`, du retard et du détecteur : mesuré le 2026-11-06 sur
+  un décalage simulé des scores par 100 (100 graines, la politique de `apps/harness/test/gate-aci.test.ts`), sans retard la
+  région statique a fermé 100 fois sur 100, celle du niveau 58 fois sur 100 à `gamma` 0,002 et 0 fois sur 100 à `gamma` 0,05 ;
+  avec chaque issue en retard de 20 arrivées, celle du niveau a fermé 100 fois sur 100 et 78 fois sur 100. Sans décalage, elle a
+  fermé 0 fois sur 30 dans chacun de ces essais.
 
 **La voie committée, celle des classes du moteur.** La calibration d'une classe entre dans ce dépôt, sous la forme d'une
 table de politique `class-policy-v2` par classe, et chaque décision nomme sa table par `policy_table_sha256`. Pour les
@@ -145,8 +150,9 @@ preuve dans `aci.ts`). Cette borne compte tous les signaux rejoués décidés un
 ou non, et aucun décidé avant (`decided_after` à 0 l'est toujours) ; une issue qui a reçu la ligne entière compte comme
 couverte, une qui a reçu la région vide comme manquée. Elle ne dit rien d'une fenêtre, ni des seuls signaux
 pris. Au-dessus de 1, elle ne dit rien : à `alpha = 0.1`, `gamma = 0.05` et sans retard, elle vaut 0,0604 à `T = 300` et
-2,0112 à `T = 9`. Le moteur ne peut pas vérifier que les preuves portent toutes les issues. La raison `covered` dit alors seulement que
-`intent` est dans la région, sous la largeur et le budget ; elle n'énonce aucune couverture.
+2,0112 à `T = 9`. Le moteur ne peut pas vérifier que les preuves portent toutes les issues. Comme raison de la décision, `covered` dit alors
+seulement que `intent` est dans la région, sous la largeur et le budget ; comme raison du verdict, seulement que le niveau a donné
+une région. Aucune des deux n'énonce une couverture.
 
 `gate` ne fait que rendre une décision : il n'appelle jamais `tool`, et il ne place aucun ordre.
 

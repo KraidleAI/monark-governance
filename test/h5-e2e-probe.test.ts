@@ -48,7 +48,7 @@ const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url
  *  text named the BYO cell; before it 0574a845…, 2026-11-04, when the served texts stopped naming archived decisions; before it
  *  97fb4e37… and 83d2fa32…, the same day, the latter when the gate's params declared `suivi` and its bounds; before it 3fc56af5…
  *  and ed51ceb1…, the trace of step 7). The earlier re-pins are told in the git history of this file and of the PROVENANCE file. */
-const TRACE_SHA256_PINNED = "448c9219b3f9b4e762ef5fd2dcd325bdafc51bf1aacc1dba444f05ea0e2ca987";
+const TRACE_SHA256_PINNED = "ed20289cd6b06c4ae826bea31c5a524ce75c8498c53c03d2c67423ffaf6b1d83";
 
 function stepByLabel(trace: H5Trace, label: string): ToolCallResponse {
   const s = trace.steps.find((x) => "label" in x && x.label === label);

@@ -410,6 +410,38 @@ test("aci_the_closed_forms_refuse_what_the_update_cannot_write", () => {
   assert.equal(qString(aciLevel(0, 0, a, g)), "1/10", "and no step");
 });
 
+test("aci_every_refusal_is_a_range_error_whatever_the_value", () => {
+  const a = exact(0.1), g = exact(0.05);
+  // No primitive conversion: the message must not ask for one.
+  for (const hostile of [Object.create(null), JSON.parse('{"toString":1,"valueOf":1}')] as unknown as number[]) {
+    assert.throws(() => aciLevel(hostile, 0, a, g), { name: "RangeError", message: /T object is not/ });
+    assert.throws(() => aciLevel(1, hostile, a, g), { name: "RangeError", message: /k object is not/ });
+    assert.throws(() => aciBound(hostile, 0, a, g), { name: "RangeError", message: /T object is not/ });
+    assert.throws(() => aciBound(1, hostile, a, g), { name: "RangeError", message: /D object is not/ });
+  }
+  // An absent rational: checkQ reads its fields only once it is an object.
+  for (const absent of [null, undefined, 1, "1/2"] as unknown as Q[]) {
+    assert.throws(() => aciLevel(1, 0, absent, g), RangeError);
+    assert.throws(() => aciLevel(1, 0, a, absent), RangeError);
+    assert.throws(() => aciBound(1, 0, absent, g), RangeError);
+    assert.throws(() => aciBound(1, 0, a, absent), RangeError);
+    assert.throws(() => aciLevelText(absent), RangeError);
+    assert.throws(() => aciBoundText(absent), RangeError);
+  }
+  // Before the first step the state has no bound: the text refuses it like anything else.
+  assert.throws(() => aciBoundText(aciReplay([], 0.1, 1, ev(0.05, 5, [])).bound as Q), RangeError);
+});
+
+test("aci_a_min_count_out_of_reach_is_a_warm_up_as_on_the_split_path", () => {
+  const scores = ramp(100), e = ev(0.05, 100, new Array<number>(100).fill(0));
+  // An integer past 2^53 is one all the same: no window reaches it.
+  for (const nMin of [2 ** 53, 1e300]) {
+    const s = aciReplay(scores, 0.1, nMin, e);
+    assert.deepEqual([s.region.kind, s.steps], ["warmup", 0], String(nMin));
+  }
+  for (const nMin of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) assert.throws(() => aciReplay(scores, 0.1, nMin, e), { name: "RangeError", message: /nMin/ }, String(nMin));
+});
+
 test("aci_a_signal_decided_before_a_region_at_alpha_is_replayed_and_not_counted", () => {
   // 140 scores, the last forty far outside. Decided at 0: always before, since nMin is at least 1. At 49: still under nMin. At 50: counted.
   const scores = [...ramp(100), ...new Array<number>(40).fill(1e6)];

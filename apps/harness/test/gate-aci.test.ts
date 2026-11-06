@@ -167,6 +167,45 @@ test("gate_aci_a_value_that_cannot_be_written_is_refused_by_name_on_every_path",
   }
 });
 
+test("gate_aci_a_min_count_out_of_reach_answers_as_the_split_path", () => {
+  for (const nMin of [2 ** 53, 1e300]) {
+    const split = gateOn({ scores: ramp(100), mode: "interval" }, { nMin });
+    const level = gateOn(calibration([]), { nMin });
+    assert.deepEqual([level.action, level.reason], [split.action, split.reason], String(nMin));
+    assert.deepEqual([split.action, split.reason], ["abstain", "under_calib"], String(nMin));
+  }
+});
+
+test("gate_aci_each_refusal_comes_with_the_code_the_readme_gives", async () => {
+  const ok = calibration([1]);
+  const aci = ok.aci;
+  assert.ok(aci !== undefined);
+  const codeOf = async (value: unknown): Promise<string | undefined> => {
+    const res = await handleJsonMirror(new Request("http://api.monarkgate.tech/gate", { method: "POST", body: JSON.stringify({ prediction: PRED, params: { ...BASE, calibration: { ...ok, aci: value } } }) }));
+    assert.equal(res.status, 400);
+    return ((await res.json()) as { code?: string }).code;
+  };
+  // At the input boundary.
+  for (const value of [{ ...aci, gamma: 0 }, { ...aci, gamma: 1 }, { ...aci, window: 0 }, { ...aci, extra: 1 }, { ...aci, decided_after: [-1, ...aci.decided_after.slice(1)] }]) {
+    assert.equal(await codeOf(value), "input_invalid", JSON.stringify(value).slice(0, 60));
+  }
+  // In the code.
+  for (const value of [{ ...aci, decided_after: aci.decided_after.slice(1) }, { ...aci, decided_after: [1, ...aci.decided_after.slice(1)] }, { ...aci, window: 1e300 }]) {
+    assert.equal(await codeOf(value), "byo_calibration_invalid", JSON.stringify(value).slice(0, 60));
+  }
+});
+
+test("gate_aci_the_label_says_what_each_reason_covered_says", () => {
+  // The verdict reads `covered` as soon as the level gives a region, before L3 reads the intent, the width or the budget.
+  const outside = gateOn(calibration([]), { intent: 1e6 });
+  assert.deepEqual([outside.reason, outside.verdict.reason], ["intent_not_in_region", "covered"]);
+  const wide = gateOn(calibration([]), { tauInterval: 1 });
+  assert.deepEqual([wide.reason, wide.verdict.reason], ["interval_too_wide", "covered"]);
+  const poor = gateOn(calibration([]), { remainingBudget: 0, bFloor: 1 });
+  assert.deepEqual([poor.reason, poor.verdict.reason], ["budget_exhausted", "covered"]);
+  assert.ok(ACI_LABEL.includes("as the decision's reason, `covered` says only that the intent lies in the region, within the width and the budget; as the verdict's, only that the level gave a region"));
+});
+
 test("gate_aci_an_unknown_key_only_the_schema_refuses_and_the_digest_binds_it", () => {
   const cal = calibration([1]);
   const direct = gateOn({ ...cal, aci: { ...cal.aci, extra: 1 } as AciEvidence });
@@ -250,7 +289,6 @@ test("gate_aci_text_says_what_the_level_did", async () => {
   assert.ok(GATE_TOOL_DESCRIPTION.includes(ACI_LABEL), "the tool description carries the label");
   assert.ok(ACI_LABEL.includes("Never a probability of being right."));
   assert.ok(ACI_LABEL.includes("and none decided before (decided_after 0 is always before)"), "what the bound leaves out");
-  assert.ok(ACI_LABEL.includes("the reason `covered` says only that the intent lies in the region, within the width and the budget"), "what `covered` says here");
 });
 
 test("gate_aci_the_judge_text_says_what_the_level_did_too", async () => {

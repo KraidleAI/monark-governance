@@ -82,7 +82,7 @@ distribution-shifted or time-ordered) voids it". What holds on the online level 
 **Where the scores come from.** A strategy brings its own: `params.calibration` is
 `{ scores, mode: "interval" | "set", candidates?, aci? }`, at most 10000 scores (`CALIBRATE_MAX_N`). The server recomputes `q̂` on
 each call and stores nothing. The verdict carries `scores_sha256`, and the `calibrate` tool returns `qhat`, `n`, `alpha`,
-`scores_sha256` and `reason` on the same scores, so the two tools audit each other. MONARK does not see, store or verify the
+`scores_sha256` and `reason` on the same scores, so without `aci` the two tools audit each other. MONARK does not see, store or verify the
 caller's data or model, and does not check that the numbers are nonconformity scores of any model. The classes the server
 holds a calibration for are in [`apps/harness/README.md`](apps/harness/README.md), and the risk-controlling rule
 `riskControlQuantile` of its policy tables in [`packages/hikae/README.md`](packages/hikae/README.md); neither is the caller's
@@ -249,7 +249,8 @@ misses= no_region= max_delay= bound= region=`).
 *The evidence.* `calibration.scores` then holds every score that has arrived, in arrival order, not a window; `aci.gamma` is the
 step, in (0, 1), fixed for the class; `aci.window` is `W`; and `aci.decided_after` says, for each score, how many had arrived
 when its signal was decided. An outcome is judged on the threshold its own signal got, however late it arrives. The signals the
-gate refused need their outcomes too: the way back runs on them, and evidence that holds only the signals taken never reopens.
+gate refused need their outcomes too: the way back runs on them. Evidence that holds only the signals taken can reopen only on the
+outcomes of signals taken before the closure and still in flight; once those have arrived, it stays closed.
 
 *The bound, with delays.* Outcomes of open positions arrive late, and the update above assumes they do not. With `T` the
 outcomes that moved the level, `k` their misses and `D` the largest delay among them, counted in arrivals:
@@ -262,14 +263,16 @@ This form is derived in the header of `src/aci.ts`, not taken from a paper; at `
 any sequence of scores, and above 1 it says nothing: at `α = 0.1` and `γ = 0.05` it is 2.0112 at `T = 9`, 0.0604 at `T = 300`,
 and 0.0697 at `T = 300` with `D = 20`. It counts every replayed signal decided once a region at `α` existed, taken or not, and
 none decided before. It says nothing of one window, nor of the signals taken alone, and the server cannot check that the evidence
-holds every outcome. The coverage of L1 does not apply to this region: the reason `covered` says only that the intent lies in
-the region, within the width and the budget.
+holds every outcome. The coverage of L1 does not apply to this region: as the decision's reason, `covered` says only that the
+intent lies in the region, within the width and the budget; as the verdict's, only that the level gave a region.
 
 *The step.* A miss costs the level `γ(1 − α)` and a cover gives back `γα`, so one miss takes `(1 − α)/α` covers to recover, at any
 `γ`, and the level cannot react before the outcomes arrive. At `α = 0.1`, `γ = 0.05` and `W = 100`, fifteen misses in flight take
-the level to −0.575, and the gate abstains until 117 covered outcomes have arrived. So the step is chosen with the delay: at
-`γ/(D + 1)`, `D + 1` misses in flight move the level by what one moves it with no delay, and the bound is that of `D + 1` separate
-levels of step `γ` with no delay.
+the level to −0.575, and the gate abstains until 117 more outcomes have arrived: while the region is the whole line, every outcome
+counts as covered, whatever its score, so the region can reopen on a shift that has not ended, and what then stands before a commit
+is `tauInterval`, or `tau` in set mode. So the step is chosen with the delay: at `γ/(D + 1)`, `D + 1` misses in flight move the level
+by what one moves it with no delay, and the bound is that of `D + 1` separate levels of step `γ` with no delay, each holding
+`T/(D + 1)` of the outcomes.
 
 *What has a level.* One level per evidence carried. A class of a strategy has its own; another source of signals, an agent for
 one, has its own class and so its own level; an asset has none by itself, and enters through the unit of its score, which the

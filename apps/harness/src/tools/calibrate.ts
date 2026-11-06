@@ -68,8 +68,9 @@ export const ACI_LABEL =
   "|misses/T − α| stays below max{α + (D+1)γ(1−α), 1−α + (D+1)γα}/(γT), D the largest delay, with no assumption on the scores; this " +
   "counts every replayed signal decided once a region at α existed, taken or not, and none decided before (decided_after 0 is always " +
   "before), counts a step that got the whole line as covered and one that got the empty region as a miss, and says nothing of one window " +
-  "or of the signals taken alone. The 1−α coverage of the split path under exchangeability does not apply to this region: the reason " +
-  "`covered` says only that the intent lies in the region, within the width and the budget. Never a probability of being right.";
+  "or of the signals taken alone. The 1−α coverage of the split path under exchangeability does not apply to this region: as the " +
+  "decision's reason, `covered` says only that the intent lies in the region, within the width and the budget; as the verdict's, only " +
+  "that the level gave a region. Never a probability of being right.";
 
 /**
  * Tool description (carrier 1/3): the SAME honesty text as the output `label`. The

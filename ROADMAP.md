@@ -4,7 +4,7 @@ Mis à jour le 2026-11-06. Une ligne qui change remplace l'ancienne ; l'historiq
 
 ## Où on en est (vérifié sur le code le 2026-11-06)
 
-- **Tests** : `npm run ci` est vert sur une installation fraîche (vocabulaire, typecheck strict, 650 tests sur 650, hors
+- **Tests** : `npm run ci` est vert sur une installation fraîche (vocabulaire, typecheck strict, 655 tests sur 650, hors
   noyau Lean) ; `npm run test:genkan` aussi, noyau compris (40 tests sur 40, dont l'outil `judge` et l'exécuteur papier
   sur le noyau construit).
   `npm run lint` et `npm run lint:ratchet` sont verts ; le plafond de dette de typage des tests est à 45.

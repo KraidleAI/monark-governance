@@ -75,6 +75,9 @@ function exactRational(x: number, what: string): Q {
   return q(num, den);
 }
 
+/** A value in a refusal: a number as it is written, anything else by its type (an object's own toString could throw inside the message). */
+const shown = (x: unknown): string => (typeof x === "number" ? String(x) : typeof x);
+
 /** A rate of the update: a rational of (0, 1). */
 function checkRate(x: Q, what: string): void {
   checkQ(x, what);
@@ -85,8 +88,8 @@ function checkRate(x: Q, what: string): void {
 export function aciLevel(steps: number, misses: number, alpha: Q, gamma: Q): Q {
   checkRate(alpha, "aciLevel: alpha");
   checkRate(gamma, "aciLevel: gamma");
-  if (!Number.isSafeInteger(steps) || steps < 0) throw new RangeError(`aciLevel: T ${String(steps)} is not a safe integer >= 0`);
-  if (!Number.isSafeInteger(misses) || misses < 0 || misses > steps) throw new RangeError(`aciLevel: k ${String(misses)} is not an integer of [0, T]`);
+  if (!Number.isSafeInteger(steps) || steps < 0) throw new RangeError(`aciLevel: T ${shown(steps)} is not a safe integer >= 0`);
+  if (!Number.isSafeInteger(misses) || misses < 0 || misses > steps) throw new RangeError(`aciLevel: k ${shown(misses)} is not an integer of [0, T]`);
   return q(alpha.n * gamma.d + gamma.n * (BigInt(steps) * alpha.n - BigInt(misses) * alpha.d), alpha.d * gamma.d);
 }
 
@@ -94,8 +97,8 @@ export function aciLevel(steps: number, misses: number, alpha: Q, gamma: Q): Q {
 export function aciBound(steps: number, maxDelay: number, alpha: Q, gamma: Q): Q {
   checkRate(alpha, "aciBound: alpha");
   checkRate(gamma, "aciBound: gamma");
-  if (!Number.isSafeInteger(steps) || steps < 1) throw new RangeError(`aciBound: T ${String(steps)} is not a safe integer >= 1`);
-  if (!Number.isSafeInteger(maxDelay) || maxDelay < 0) throw new RangeError(`aciBound: D ${String(maxDelay)} is not a safe integer >= 0`);
+  if (!Number.isSafeInteger(steps) || steps < 1) throw new RangeError(`aciBound: T ${shown(steps)} is not a safe integer >= 1`);
+  if (!Number.isSafeInteger(maxDelay) || maxDelay < 0) throw new RangeError(`aciBound: D ${shown(maxDelay)} is not a safe integer >= 0`);
   const stepsOfDelay = BigInt(maxDelay + 1) * gamma.n;
   const low = alpha.n * gamma.d + stepsOfDelay * (alpha.d - alpha.n); // over alpha.d gamma.d
   const high = (alpha.d - alpha.n) * gamma.d + stepsOfDelay * alpha.n; // over alpha.d gamma.d
@@ -132,16 +135,13 @@ export function aciBoundText(bound: Q): string {
   return written((bound.n * 10000n + bound.d - 1n) / bound.d, 4);
 }
 
-/** A value in a refusal: a number as it is written, anything else by its type (an object's own toString could throw inside the message). */
-const shown = (x: unknown): string => (typeof x === "number" ? String(x) : typeof x);
-
 /** A list, without narrowing its type to any[]. */
 const isList = (x: unknown): boolean => Array.isArray(x);
 
 function check(scores: readonly number[], alpha: number, nMin: number, e: AciEvidence): void {
   if (!isList(scores) || typeof e !== "object" || e === null || !isList(e.decided_after)) throw new RangeError("aci: the scores and decided_after are lists");
   if (!Number.isFinite(alpha) || alpha <= 0 || alpha >= 1) throw new RangeError(`aci: alpha ${shown(alpha)} is not a finite number of (0, 1)`);
-  if (!Number.isSafeInteger(nMin) || nMin < 1) throw new RangeError(`aci: nMin ${shown(nMin)} is not an integer >= 1`);
+  if (!Number.isInteger(nMin) || nMin < 1) throw new RangeError(`aci: nMin ${shown(nMin)} is not an integer >= 1`);
   if (!Number.isFinite(e.gamma) || e.gamma <= 0 || e.gamma >= 1) throw new RangeError(`aci: gamma ${shown(e.gamma)} is not a finite number of (0, 1)`);
   if (!Number.isSafeInteger(e.window) || e.window < 1) throw new RangeError(`aci: window ${shown(e.window)} is not an integer >= 1`);
   if (e.decided_after.length !== scores.length) throw new RangeError(`aci: ${String(e.decided_after.length)} decision counts for ${String(scores.length)} scores`);

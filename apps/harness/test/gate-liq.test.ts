@@ -350,7 +350,7 @@ async function servedToolsList(): Promise<Obj> {
 // stated, 55744504... -> cb4029d2... (the liq clause unchanged); the sentence that no served class takes `attested`,
 // cb4029d2... -> 4279a54d...; the kata clause after the liq clause, bfb474f3... -> dd728779... (3 971 bytes). Step 7 of
 // ROADMAP.md: the attest tool is archived, so the non-re-verification sentence names it no more; dd728779... ->
-// 2ae47425... (3 922 bytes). The online level of a class (`calibration.aci`): 01e24ebf... -> d8ab920e... (5 437 bytes).
+// 2ae47425... (3 922 bytes). The online level of a class (`calibration.aci`): 01e24ebf... -> 025119bb... (5 505 bytes).
 // killer: apps/harness/src/tools/gate.ts:249 CONST "refusal. For" -> "refusal; for"
 test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the delivered registry holds the liq class");
@@ -371,7 +371,7 @@ test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(listed, describeGate(true), "the served text is the committed-state description (describeGate(false) hard-coded reds here)");
   assert.equal(
     createHash("sha256").update(listed, "utf8").digest("hex"),
-    "d8ab920e7669706c476ee3189b74e72acc0c9b87dcb09e21ca46ebcec8ba3b24",
+    "025119bbeccc3c684062f60f3fd3284559c6b55fc7bbd70c85bb68b068e2712f",
     "the served description is byte for byte the committed text (btc-dir retired, USDe alpha/nMin declared, the attested sentence, the rounded-edge clause withdrawn, the kata clause, step 7, the served texts without archived ids, the online level of a class; was 01e24ebf..., 3525fa68..., 2ae47425..., dd728779..., bfb474f3..., 4279a54d..., cb4029d2...)",
   );
   const slice = liqSlice(listed);
