@@ -400,6 +400,9 @@ test("aci_the_closed_forms_refuse_what_the_update_cannot_write", () => {
   }
   assert.throws(() => aciLevel(1, 0, { n: 1n, d: 0n }, g), RangeError);
   assert.throws(() => aciBound(1, 0, a, { n: 1n, d: -2n }), RangeError);
+  // Numbers pass the compare with 0 and with d; only the check of a rational stops them before the arithmetic, which would throw a TypeError.
+  assert.throws(() => aciLevel(1, 0, { n: 1, d: 10 } as unknown as typeof a, g), RangeError);
+  assert.throws(() => aciBound(1, 0, a, { n: 1, d: 10 } as unknown as typeof a), RangeError);
   for (const [steps, misses] of [[-1, 0], [1.5, 0], [Number.NaN, 0], [1, -1], [1, 0.5], [1, 2], [2 ** 53, 0]] as const) {
     assert.throws(() => aciLevel(steps, misses, a, g), RangeError, `${String(steps)} ${String(misses)}`);
   }
