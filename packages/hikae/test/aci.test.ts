@@ -357,6 +357,99 @@ test("aci_refusals", () => {
   }
 });
 
+test("aci_a_value_that_cannot_be_written_is_refused_like_any_other", () => {
+  // Its own toString: String() would throw first, inside the message of the refusal.
+  const hostile = JSON.parse('{"toString":1,"valueOf":1}') as number;
+  const fine = ev(0.05, 3, [0, 0]);
+  const cases: readonly [AciEvidence, RegExp][] = [
+    [{ ...fine, gamma: hostile }, /gamma object is not/],
+    [{ ...fine, window: hostile }, /window object is not/],
+    [{ ...fine, decided_after: [hostile, 0] }, /decided_after\[0\] = object is not/],
+    [{ ...fine, gamma: Object.create(null) as number }, /gamma object is not/],
+  ];
+  for (const [e, message] of cases) assert.throws(() => aciReplay([1, 2], 0.5, 1, e), { name: "RangeError", message });
+  assert.throws(() => aciReplay([1, 2], hostile, 1, fine), { name: "RangeError", message: /alpha object is not/ });
+  assert.throws(() => aciReplay([1, 2], 0.5, hostile, fine), { name: "RangeError", message: /nMin object is not/ });
+  // A number keeps its own writing.
+  assert.throws(() => aciReplay([1, 2], 0.5, 1, { ...fine, gamma: 2 }), { name: "RangeError", message: /gamma 2 is not/ });
+});
+
+test("aci_evidence_of_another_shape_is_a_range_error", () => {
+  const scores = [1, 2];
+  const cases: readonly unknown[] = [undefined, null, 3, { gamma: 0.1, window: 3 }, { gamma: 0.1, window: 3, decided_after: { length: 2 } }, { gamma: 0.1, window: 3, decided_after: "00" }];
+  for (const e of cases) assert.throws(() => aciReplay(scores, 0.5, 1, e as AciEvidence), RangeError, String(e));
+  assert.throws(() => aciReplay(undefined as unknown as number[], 0.5, 1, ev(0.1, 3, [])), RangeError);
+});
+
+test("aci_the_texts_refuse_what_is_no_rational", () => {
+  // Not one a replay makes: q() keeps d > 0 and reduces. By hand, d = 0 would never leave the first loop.
+  for (const level of [{ n: 1n, d: 0n }, { n: 0n, d: 0n }, { n: -1n, d: 0n }, { n: 1n, d: -2n }]) assert.throws(() => aciLevelText(level), RangeError);
+  for (const bound of [{ n: 1n, d: 0n }, { n: 1n, d: -2n }, { n: -1n, d: -2n }]) assert.throws(() => aciBoundText(bound), RangeError);
+  assert.equal(aciLevelText({ n: 2n, d: 4n }), "0.5", "reduced first: no trailing zero");
+  assert.equal(aciLevelText({ n: 10n, d: 20n }), "0.5");
+  assert.equal(aciBoundText({ n: 2n, d: 4n }), "0.5000");
+});
+
+test("aci_the_closed_forms_refuse_what_the_update_cannot_write", () => {
+  const a = exact(0.1), g = exact(0.05);
+  for (const r of [q(0n), q(1n), q(2n), q(-1n, 2n)]) {
+    assert.throws(() => aciLevel(1, 0, r, g), RangeError);
+    assert.throws(() => aciLevel(1, 0, a, r), RangeError);
+    assert.throws(() => aciBound(1, 0, r, g), RangeError);
+    assert.throws(() => aciBound(1, 0, a, r), RangeError);
+  }
+  assert.throws(() => aciLevel(1, 0, { n: 1n, d: 0n }, g), RangeError);
+  assert.throws(() => aciBound(1, 0, a, { n: 1n, d: -2n }), RangeError);
+  for (const [steps, misses] of [[-1, 0], [1.5, 0], [Number.NaN, 0], [1, -1], [1, 0.5], [1, 2], [2 ** 53, 0]] as const) {
+    assert.throws(() => aciLevel(steps, misses, a, g), RangeError, `${String(steps)} ${String(misses)}`);
+  }
+  assert.equal(qString(aciLevel(3, 3, a, g)), "-7/200", "misses up to steps");
+  assert.equal(qString(aciLevel(0, 0, a, g)), "1/10", "and no step");
+});
+
+test("aci_a_signal_decided_before_a_region_at_alpha_is_replayed_and_not_counted", () => {
+  // 140 scores, the last forty far outside. Decided at 0: always before, since nMin is at least 1. At 49: still under nMin. At 50: counted.
+  const scores = [...ramp(100), ...new Array<number>(40).fill(1e6)];
+  const at = (d: number): AciState => aciReplay(scores, 0.1, 50, ev(0.05, 200, [...new Array<number>(100).fill(0), ...new Array<number>(40).fill(d)]));
+  for (const d of [0, 49]) {
+    const s = at(d);
+    assert.deepEqual([s.steps, s.misses, s.noRegion, s.maxDelay, s.bound], [0, 0, 0, 0, null], `decided after ${String(d)}`);
+    assert.equal(aciLevelText(s.level), "0.1");
+    assert.equal(s.window.length, 140, "they are replayed: they are in the window");
+  }
+  const counted = at(50);
+  assert.deepEqual([counted.steps, counted.misses], [40, 40]);
+  assert.equal(aciLevelText(counted.level), "-1.7");
+  // The warm-up also lasts while alpha (n + 1) < 1, past nMin: at alpha 0.01, 98 scores are not enough.
+  const rare = aciReplay(scores, 0.01, 1, ev(0.05, 200, [...new Array<number>(100).fill(0), ...new Array<number>(40).fill(98)]));
+  assert.equal(rare.steps, 0);
+});
+
+test("aci_misses_in_flight_all_count_and_the_way_back_is_counted_in_signals", () => {
+  // Fifteen signals decided on the same 100 scores all miss: 0.1 - 15 x 0.045 = -0.575, what a delay of 14 costs at gamma 0.05. Each
+  // cover gives back gamma alpha = 0.005, so a miss takes (1 - alpha)/alpha = 9 covers, at any gamma, and the region reopens at 1/101.
+  const flight = (covers: number, gamma = 0.05): AciState => {
+    const decided = [...new Array<number>(100).fill(0), ...new Array<number>(15).fill(100), ...Array.from({ length: covers }, (_, k) => 115 + k)];
+    return aciReplay([...ramp(100), ...new Array<number>(15).fill(1000), ...new Array<number>(covers).fill(1)], 0.1, 50, ev(gamma, 100, decided));
+  };
+  const shut = flight(0);
+  assert.deepEqual([aciLevelText(shut.level), shut.steps, shut.misses, shut.maxDelay, shut.region.kind], ["-0.575", 15, 15, 14, "whole"]);
+  assert.deepEqual([aciLevelText(flight(116).level), flight(116).region.kind], ["0.005", "whole"]);
+  assert.deepEqual([aciLevelText(flight(117).level), flight(117).region.kind], ["0.01", "quantile"]);
+  // A step divided by the delay: the same fifteen misses cost what one costs at the first step, and the level never shuts.
+  const small = flight(0, 0.05 / 15);
+  assert.equal(small.region.kind, "quantile");
+});
+
+test("aci_a_step_divided_by_the_delay_has_the_bound_of_as_many_levels_without_delay", () => {
+  // D + 1 levels of step gamma, each with T / (D + 1) outcomes and no delay, against one level of step gamma / (D + 1) with delay D.
+  const a = exact(0.1);
+  for (const [T, D, gamma, step] of [[300, 4, "1/20", "1/100"], [1200, 11, "1/20", "1/240"], [600, 2, "3/10", "1/10"]] as const) {
+    const parse = (s: string): Q => { const [n = "", d = ""] = s.split("/"); return q(BigInt(n), BigInt(d)); };
+    assert.equal(cmp(aciBound(T, D, a, parse(step)), aciBound(T / (D + 1), 0, a, parse(gamma))), 0, `T ${String(T)} D ${String(D)}`);
+  }
+});
+
 test("aci_the_L1_rank_helpers_keep_their_answers", () => {
   for (const [n, alpha, p] of [[100, 0.1, 91], [9, 0.1, 9], [8, 0.1, 9], [0, 0.5, 1], [10, 1e-7, 11], [99, 0.01, 99]] as const) {
     assert.equal(splitRankShortest(n, alpha), p);

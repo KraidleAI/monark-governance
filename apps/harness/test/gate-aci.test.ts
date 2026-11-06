@@ -12,7 +12,7 @@ import { handleJsonMirror } from "../src/http.ts";
 import { ACI_LABEL, CALIBRATE_LABEL } from "../src/tools/calibrate.ts";
 import { GATE_TOOL_DESCRIPTION, runGate, SCHEMA_VERSION, toolErrorCode } from "../src/tools/gate.ts";
 import type { ByoCalibration, HarnessParams } from "../src/tools/gate.ts";
-import { runJudge, type JudgeOrder, type KernelRunner } from "../src/tools/judge.ts";
+import { JUDGE_LABEL, runJudge, type JudgeInput, type JudgeOrder, type KernelRunner } from "../src/tools/judge.ts";
 import { HARNESS_TOOLS } from "../src/tools/registry.ts";
 import { JUDGE_INPUT_SCHEMA, PARAMS_SCHEMA } from "../src/schema-projection.ts";
 
@@ -149,6 +149,32 @@ test("gate_aci_refusals_are_named", () => {
   assert.ok(refusal(() => gateOn(negative)).message.includes("non-negative"));
 });
 
+test("gate_aci_a_value_that_cannot_be_written_is_refused_by_name_on_every_path", async () => {
+  const ok = calibration([1]);
+  const aci = ok.aci;
+  assert.ok(aci !== undefined);
+  const hostile = JSON.parse('{"toString":1,"valueOf":1}') as number;
+  const cases: readonly AciEvidence[] = [{ ...aci, gamma: hostile }, { ...aci, window: hostile }, { ...aci, decided_after: [hostile, ...aci.decided_after.slice(1)] }];
+  const order: JudgeOrder = { kind: "EXIT", target: "venue:a", asset: "btc", amount: "100" };
+  const limits = { venues: ["venue:a"], assets: [{ asset: "btc", cap: "100" }] };
+  const kernel: KernelRunner = () => Promise.resolve({ status: 0, stdout: new TextEncoder().encode("allow\n") });
+  for (const value of cases) {
+    const cal = { ...ok, aci: value };
+    assert.equal(refusal(() => gateOn(cal)).code, "byo_calibration_invalid");
+    // An EXIT goes on, with the gate's refusal named: it does not throw.
+    const exit = await runJudge({ prediction: PRED, params: { ...BASE, calibration: cal }, order, limits }, { kernel });
+    assert.deepEqual([exit.decision, exit.gate_error?.code, exit.kernel_verdict, exit.reduce_only], [null, "byo_calibration_invalid", "allow", true]);
+  }
+});
+
+test("gate_aci_an_unknown_key_only_the_schema_refuses_and_the_digest_binds_it", () => {
+  const cal = calibration([1]);
+  const direct = gateOn({ ...cal, aci: { ...cal.aci, extra: 1 } as AciEvidence });
+  const plain = gateOn(cal);
+  assert.deepEqual(direct.verdict, plain.verdict, "the replay reads its three fields");
+  assert.notEqual(direct.request_sha256, plain.request_sha256);
+});
+
 test("gate_aci_composes_with_the_callers_budget_and_the_digest_binds_the_evidence", () => {
   const d = gateOn(calibration([]), { remainingBudget: 0.1, bFloor: 0.2 });
   assert.deepEqual([d.action, d.reason, d.verdict.qhat], ["abstain", "budget_exhausted", 91]);
@@ -223,6 +249,29 @@ test("gate_aci_text_says_what_the_level_did", async () => {
   assert.ok(!plain.text.includes("aci level"));
   assert.ok(GATE_TOOL_DESCRIPTION.includes(ACI_LABEL), "the tool description carries the label");
   assert.ok(ACI_LABEL.includes("Never a probability of being right."));
+  assert.ok(ACI_LABEL.includes("and none decided before (decided_after 0 is always before)"), "what the bound leaves out");
+  assert.ok(ACI_LABEL.includes("the reason `covered` says only that the intent lies in the region, within the width and the budget"), "what `covered` says here");
+});
+
+test("gate_aci_the_judge_text_says_what_the_level_did_too", async () => {
+  const tool = HARNESS_TOOLS.find((t) => t.name === "judge");
+  assert.ok(tool !== undefined);
+  const kernel: KernelRunner = () => Promise.resolve({ status: 0, stdout: new TextEncoder().encode("deny not-commit\n") });
+  const envelope = { prediction: PRED, order: { kind: "OPEN", target: "venue:a", asset: "btc", amount: "100" }, limits: { venues: ["venue:a"], assets: [{ asset: "btc", cap: "100" }] } };
+  const run = async (cal: ByoCalibration) => tool.run({ ...envelope, params: { ...BASE, calibration: cal } }, { kernel });
+  const shut = await run(calibration([1e6, 2e6, 3e6]));
+  assert.ok(shut.text.startsWith(`${JUDGE_LABEL} ${ACI_LABEL} `), shut.text);
+  assert.ok(shut.text.includes("aci level=-0.035 gamma=0.05 window=100 T=3 misses=3 no_region=0 max_delay=0 bound=6.0334 region=whole verdict kernel=deny reason=not-commit"), shut.text);
+  // A warm-up and a level shut both read abstain / under_calib: the text tells them apart.
+  const warm = await run(calibration([], 0.05, 49));
+  assert.ok(warm.text.includes("region=warmup"), warm.text);
+  // Without aci, the text of the BYO path, byte for byte.
+  const plain = await run({ scores: ramp(100), mode: "interval" });
+  assert.ok(plain.text.startsWith(`${JUDGE_LABEL} verdict kernel=deny`), plain.text);
+  // The structured answer has not moved: the same closed output as runJudge's.
+  const direct = await runJudge({ ...envelope, params: { ...BASE, calibration: calibration([]) } } as JudgeInput, { kernel });
+  const served = await run(calibration([]));
+  assert.deepEqual(served.structured, direct);
 });
 
 test("gate_aci_schema_is_closed_optional_and_served", async () => {

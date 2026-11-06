@@ -141,28 +141,41 @@ threshold its signal got, delay included. What each state of the replay serves:
 | the level is at 1 or above: the empty region | `hac-cp` | `abstain` / `region_degenerate` |
 | otherwise: `qhat` at the rank of the level | `hac-cp` | L3 reads the region as on the split path (interval or set mode) |
 
+The reason `covered` says only that the intent lies in the region, within the width and the budget; it states no coverage.
+
 `verdict.alpha` stays the target, not the level. `verdict.n_calib` and `verdict.scores_sha256` describe the window the
 verdict read, and `nMin` reads it too; `requestSha256` binds the whole evidence. The closed decision has no field for the level,
-so the `content` text carries it after its honesty label (`ACI_LABEL`):
+so the `content` text of `gate` and of `judge` carries it after its honesty label (`ACI_LABEL`):
 `aci level=<exact decimal> gamma= window= T= misses= no_region= max_delay= bound=<rounded up, or none> region=<warmup|whole|empty|quantile>`.
 
 **What is bounded.** Over the T outcomes that moved the level, |misses/T − `alpha`| stays below
 max{α + (D+1)γ(1−α), 1−α + (D+1)γα}/(γT), D the largest delay, with no assumption on the scores (derived in
-`packages/hikae/src/aci.ts`). It counts every replayed signal, taken or not; a step that got the whole line counts as covered and
-one that got the empty region as a miss. It says nothing of one window or of the signals taken alone. The coverage of the split
-path under exchangeability does not apply to this region.
+`packages/hikae/src/aci.ts`). It counts every replayed signal decided once a region at `alpha` existed, taken or not, and none
+decided before (`decided_after` 0 is always before); a step that got the whole line counts as covered and one that got the empty
+region as a miss. It says nothing of one window or of the signals taken alone. The coverage of the split path under exchangeability
+does not apply to this region.
+
+**The step and the delay.** A miss costs the level γ(1−α) and a cover gives back γα, so one miss takes (1−α)/α covers to recover,
+at any γ, and the level cannot react before the outcomes arrive. At α = 0.1, γ = 0.05 and W = 100, fifteen misses in flight take the
+level to −0.575, and the gate abstains until 117 covered outcomes have arrived. So the step is chosen with the delay: at γ/(D+1),
+D+1 misses in flight move the level by what one moves it with no delay, and the bound is that of D+1 separate levels of step γ with
+no delay. The way back runs on the outcomes of the signals the gate refused: evidence that holds only the signals taken never reopens.
 
 **Refusals**: outside the schema (an unknown key, a `gamma` outside (0, 1), a `window` below 1), at the input boundary;
 in the code, `byo_calibration_invalid` with a message that starts `invalid calibration.aci: ` (a count of `decided_after` other
-than the number of scores, a `decided_after[i]` outside [0, i]). A direct caller of `runGate` meets the schema's rules there too. The
+than the number of scores, a `decided_after[i]` outside [0, i]). A direct caller of `runGate` meets the rules on `gamma`, `window` and
+`decided_after` there too, in the same code; only the schema refuses an unknown key inside `aci`, and `requestSha256` still binds it. The
 other checks of the BYO path come first, with their own codes.
 
 **What it does not do:**
 
 - the server cannot check that the evidence holds every outcome, nor that its order and its counts are the real ones;
-- `suivi`, below, stays apart: its evidence judges its misses on its own reference, and it can only lower `B_t`. A caller who feeds
-  it should judge those misses on the static region of the class, not on this one: judged on a region that moves with its own misses,
-  the miss rate returns to `alpha` by construction, and the alarm would not fire;
+- `suivi`, below, stays apart: it can only lower `B_t`, and the server reads `outcomes[].miss` as carried. A caller who feeds it
+  should judge those misses on a split region of the class, over a window long enough not to follow the drift, not on this one: on a
+  region that moves with its own misses, k − Tα = (α − A_{T+1})/γ, so the excess of misses stays under α/γ + (D+1)(1−α), and the rate
+  is pulled back to `alpha` over a T of the order of 1/γ. Whether the alarm fires, and when, depends on γ and the detector: measured on
+  2026-11-06 on a simulated ×100 shift of the scores (100 seeds, the policy of `test/gate-aci.test.ts`), the static region closed
+  100 of 100, the level's region 58 of 100 at γ = 0.002 and 0 of 100 at γ = 0.05;
 - `calibrate` does not serve the level; the step is fixed, with no aggregation of steps; the level is one per class, and the
   caller chooses what a class is.
 

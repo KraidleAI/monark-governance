@@ -25,15 +25,15 @@
  *   -(D + 1) gamma (1 - alpha) < A_t < 1 + (D + 1) gamma alpha.
  *   Telescoping: A_{T+1} = alpha + gamma (T alpha - k), so k/T - alpha = (alpha - A_{T+1}) / (gamma T), hence
  *   |k/T - alpha| < max{alpha + (D + 1) gamma (1 - alpha), 1 - alpha + (D + 1) gamma alpha} / (gamma T).
- * The bound covers all the replayed signals, taken or not; a step that got the whole line counts as covered and one that got the empty
- * region as a miss (`noRegion` says how many of both); it says nothing of one window, nor of the signals taken alone. MONARK cannot check
- * that the evidence holds every outcome. The split coverage of L1 under exchangeability does not carry over to this region. Never a
+ * The bound covers every replayed signal decided once a region at alpha existed, taken or not, and none decided before (d_i = 0 is always
+ * before); a step that got the whole line counts as covered and one that got the empty region as a miss (`noRegion` says how many of both);
+ * it says nothing of one window, nor of the signals taken alone. MONARK cannot check that the evidence holds every outcome. The split coverage of L1 under exchangeability does not carry over to this region. Never a
  * probability of being right.
  *
  * Pure: no clock, no network, no file, no environment. Every refusal throws a RangeError.
  */
 import { scoreAtRank, shortestRatio, splitRankRational } from "./l1-split.ts";
-import { q, type Q } from "./pari/rational.ts";
+import { checkQ, inOpenUnit, q, type Q } from "./pari/rational.ts";
 
 /** What the caller carries beside its scores: the step, the window, and for each arrived score how many had arrived at its decision. */
 export interface AciEvidence {
@@ -75,13 +75,25 @@ function exactRational(x: number, what: string): Q {
   return q(num, den);
 }
 
+/** A rate of the update: a rational of (0, 1). */
+function checkRate(x: Q, what: string): void {
+  checkQ(x, what);
+  if (!inOpenUnit(x)) throw new RangeError(`${what}: not in (0, 1)`);
+}
+
 /** A_{T+1} = alpha + gamma (T alpha - k), the closed form of the update. */
 export function aciLevel(steps: number, misses: number, alpha: Q, gamma: Q): Q {
+  checkRate(alpha, "aciLevel: alpha");
+  checkRate(gamma, "aciLevel: gamma");
+  if (!Number.isSafeInteger(steps) || steps < 0) throw new RangeError(`aciLevel: T ${String(steps)} is not a safe integer >= 0`);
+  if (!Number.isSafeInteger(misses) || misses < 0 || misses > steps) throw new RangeError(`aciLevel: k ${String(misses)} is not an integer of [0, T]`);
   return q(alpha.n * gamma.d + gamma.n * (BigInt(steps) * alpha.n - BigInt(misses) * alpha.d), alpha.d * gamma.d);
 }
 
 /** max{alpha + (D + 1) gamma (1 - alpha), 1 - alpha + (D + 1) gamma alpha} / (gamma T), the bound on |k/T - alpha| derived above. */
 export function aciBound(steps: number, maxDelay: number, alpha: Q, gamma: Q): Q {
+  checkRate(alpha, "aciBound: alpha");
+  checkRate(gamma, "aciBound: gamma");
   if (!Number.isSafeInteger(steps) || steps < 1) throw new RangeError(`aciBound: T ${String(steps)} is not a safe integer >= 1`);
   if (!Number.isSafeInteger(maxDelay) || maxDelay < 0) throw new RangeError(`aciBound: D ${String(maxDelay)} is not a safe integer >= 0`);
   const stepsOfDelay = BigInt(maxDelay + 1) * gamma.n;
@@ -99,34 +111,44 @@ function written(scaled: bigint, places: number): string {
 
 /** A level as its exact decimal: the denominator of a level divides a power of ten. The fewest places, so no trailing zero. A RangeError otherwise. */
 export function aciLevelText(level: Q): string {
-  let rest = level.d;
+  checkQ(level, "aciLevelText");
+  const { n, d } = q(level.n, level.d);
+  let rest = d;
   while (rest % 2n === 0n) rest /= 2n;
   while (rest % 5n === 0n) rest /= 5n;
   if (rest !== 1n) throw new RangeError("aciLevelText: no finite decimal");
   let places = 0, scale = 1n;
-  while (scale % level.d !== 0n) {
+  while (scale % d !== 0n) {
     places++;
     scale *= 10n;
   }
-  return written((level.n * scale) / level.d, places);
+  return written((n * scale) / d, places);
 }
 
 /** A bound rounded up at four decimals: it may pass 1, where it says nothing. */
 export function aciBoundText(bound: Q): string {
+  checkQ(bound, "aciBoundText");
   if (bound.n < 0n) throw new RangeError("aciBoundText: a negative bound");
   return written((bound.n * 10000n + bound.d - 1n) / bound.d, 4);
 }
 
+/** A value in a refusal: a number as it is written, anything else by its type (an object's own toString could throw inside the message). */
+const shown = (x: unknown): string => (typeof x === "number" ? String(x) : typeof x);
+
+/** A list, without narrowing its type to any[]. */
+const isList = (x: unknown): boolean => Array.isArray(x);
+
 function check(scores: readonly number[], alpha: number, nMin: number, e: AciEvidence): void {
-  if (!Number.isFinite(alpha) || alpha <= 0 || alpha >= 1) throw new RangeError(`aci: alpha ${String(alpha)} is not a finite number of (0, 1)`);
-  if (!Number.isSafeInteger(nMin) || nMin < 1) throw new RangeError(`aci: nMin ${String(nMin)} is not an integer >= 1`);
-  if (!Number.isFinite(e.gamma) || e.gamma <= 0 || e.gamma >= 1) throw new RangeError(`aci: gamma ${String(e.gamma)} is not a finite number of (0, 1)`);
-  if (!Number.isSafeInteger(e.window) || e.window < 1) throw new RangeError(`aci: window ${String(e.window)} is not an integer >= 1`);
+  if (!isList(scores) || typeof e !== "object" || e === null || !isList(e.decided_after)) throw new RangeError("aci: the scores and decided_after are lists");
+  if (!Number.isFinite(alpha) || alpha <= 0 || alpha >= 1) throw new RangeError(`aci: alpha ${shown(alpha)} is not a finite number of (0, 1)`);
+  if (!Number.isSafeInteger(nMin) || nMin < 1) throw new RangeError(`aci: nMin ${shown(nMin)} is not an integer >= 1`);
+  if (!Number.isFinite(e.gamma) || e.gamma <= 0 || e.gamma >= 1) throw new RangeError(`aci: gamma ${shown(e.gamma)} is not a finite number of (0, 1)`);
+  if (!Number.isSafeInteger(e.window) || e.window < 1) throw new RangeError(`aci: window ${shown(e.window)} is not an integer >= 1`);
   if (e.decided_after.length !== scores.length) throw new RangeError(`aci: ${String(e.decided_after.length)} decision counts for ${String(scores.length)} scores`);
   for (let i = 0; i < scores.length; i++) {
     const s = scores[i], d = e.decided_after[i];
     if (s === undefined || !Number.isFinite(s)) throw new RangeError(`aci: score ${String(i)} is not finite`);
-    if (d === undefined || !Number.isSafeInteger(d) || d < 0 || d > i) throw new RangeError(`aci: decided_after[${String(i)}] = ${String(d)} is not an integer of [0, ${String(i)}]`);
+    if (d === undefined || !Number.isSafeInteger(d) || d < 0 || d > i) throw new RangeError(`aci: decided_after[${String(i)}] = ${shown(d)} is not an integer of [0, ${String(i)}]`);
   }
 }
 

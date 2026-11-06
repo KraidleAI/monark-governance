@@ -27,7 +27,7 @@ value and the budget that `suiviReplay` returns.
 | Layer | Module | Declared by its code |
 |---|---|---|
 | L1 | `src/l1-split.ts` | marginal coverage, in finite sample, under exchangeability within the class; no coverage conditional on the input; fail-closed `under_calib` when the calibration is too small |
-| Online level | `src/aci.ts` | over the T outcomes that moved the level, \|k/T − α\| stays below a bound, with no assumption on the scores; it counts every replayed signal, taken or not, and says nothing of one window or of the signals taken alone; the coverage of L1 does not carry over to this region |
+| Online level | `src/aci.ts` | over the T outcomes that moved the level, \|k/T − α\| stays below a bound, with no assumption on the scores; it counts every replayed signal decided once a region at α existed, taken or not, and says nothing of one window or of the signals taken alone; the coverage of L1 does not carry over to this region |
 | L2 | `src/l2-monitor.ts` | a monitor: no guarantee claimed; `B_t` is a statistic that L3 reads |
 | L3 | `src/l3-gate.ts` | the decision follows a closed policy; the error rate among `commit` decisions is **not** bounded by α |
 
@@ -77,13 +77,15 @@ scores. The proof is in the module's header; the form with D is derived there, a
 and Candès. Above 1 it says nothing. `aciLevelText` writes a level as its exact decimal, and `aciBoundText` rounds a bound
 up at four decimals.
 
-**What it does not say.** The bound counts every replayed signal, taken or not; a step that got the whole line counts as
-covered and one that got the empty region as a miss (`noRegion` counts both). It says nothing of one window, nor of the
-signals taken alone. Nothing here can check that the evidence holds every outcome. The coverage of L1 under exchangeability
+**What it does not say.** The bound counts every replayed signal decided once a region at α existed, taken or not, and none
+decided before (`decided_after[i]` = 0 is always before); a step that got the whole line counts as covered and one that got
+the empty region as a miss (`noRegion` counts both). It says nothing of one window, nor of the signals taken alone. Nothing here can check that the evidence holds every outcome. The coverage of L1 under exchangeability
 does not carry over to this region.
 
-The replay refuses, with a `RangeError`: an α or a γ outside (0, 1), an `nMin` or a `window` below 1, a count of
-`decided_after` other than the number of scores, a `decided_after[i]` outside [0, i], a score that is not finite.
+The replay refuses, with a `RangeError`: evidence of another shape, an α or a γ outside (0, 1), an `nMin` or a `window`
+below 1, a count of `decided_after` other than the number of scores, a `decided_after[i]` outside [0, i], a score that is not
+finite. The closed forms and the two texts refuse, the same way, what is no rational, a rate outside (0, 1), and counts that
+cannot be T and k.
 One arrival costs a binary search and a move in the window, and each decision one rank in big integers.
 
 ## Regions and verdicts
@@ -234,8 +236,9 @@ The module headers name the literature their code follows; this README does not 
 
 `npm run ci` at the root runs the vocabulary gate, the strict typecheck and `packages/hikae/test/*.test.ts` with the
 other tests. The oracle tests (`oracle-*`, `binomial`, `risk-control-quantile`, `runs`, `cm3a-engine`, `cm3b-engine`,
-`pari`, `suivi-*`, `aci`) compute their expected values in the test file (closed forms in big integers, enumerations,
-textbook formulas), never from the code under test.
+`pari`, `suivi-*`) compute their expected values in the test file (closed forms in big integers, enumerations, textbook
+formulas), never from the code under test. `aci` writes the definition again in the test file, taking the L1 rank from
+`src/l1-split.ts`, whose answers its own test pins by hand.
 
 - L1 and the exact arithmetic: `l1`, `oracle-l1-split`, `binomial`, `risk-control-quantile`, `cm3a-engine`.
 - The online level: `aci` (values by hand, the definition written again the long way in exact rationals, the bound on

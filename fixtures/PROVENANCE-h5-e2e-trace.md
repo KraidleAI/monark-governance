@@ -52,8 +52,9 @@ These statements live in the trace's `honesty` block and are re-asserted by `tes
 - The tools read no clock (`produced_at` is caller-carried); the ephemeral port is intentionally NOT recorded.
   Re-running the recorder reproduces the file byte-for-byte (two consecutive runs printed the same digest on
   2026-11-06).
-- **sha256 (LF)** of `h5-e2e-trace.json`: `173d9deada248a737632bc869f94cd6dd589e184c075852adaed80d24fa1c187`
+- **sha256 (LF)** of `h5-e2e-trace.json`: `448c9219b3f9b4e762ef5fd2dcd325bdafc51bf1aacc1dba444f05ea0e2ca987`
   (14848 bytes; only `steps[1].result.response_sha256`, the `tools/list` digest, differs from the prior trace). Prior pin
+  `173d9dea…` (14848 bytes, the same day, before the label of the online level said what its bound counts); before it
   `5f039b02…` (14848 bytes, 2026-11-05, before the gate's params declared `calibration.aci`); before it
   `0574a845…` (14848 bytes, 2026-11-04, before the served `suivi` policy text named the BYO cell); before it
   `97fb4e37…` (14848 bytes, the same day, before the kata clause and two wave 2 guard texts were cleaned), `83d2fa32…` (before any served text was cleaned); before it `3fc56af5…` (before the replay's bounds were declared; before it

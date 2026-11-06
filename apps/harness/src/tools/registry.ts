@@ -23,7 +23,7 @@ import { calibrateInputStandardSchema, calibrateOutputStandardSchema, CALIBRATE_
 import { runGateExplained, honestyText, aciHonestyText, gateVerdictSummary, toolErrorCode, ERROR_CODE_META_KEY, GATE_TOOL_NAME, GATE_TOOL_DESCRIPTION, type HarnessParams, type RunGateOptions } from "./gate.ts";
 import { runCalibrate, calibrateHonestyText, calibrateVerdictSummary, CALIBRATE_TOOL_NAME, CALIBRATE_TOOL_DESCRIPTION, type CalibrateInput } from "./calibrate.ts";
 import { judgeInputStandardSchema, judgeOutputStandardSchema, JUDGE_INPUT_SCHEMA, JUDGE_OUTPUT_SCHEMA } from "../schema-projection.ts";
-import { runJudge, judgeHonestyText, judgeVerdictSummary, JUDGE_TOOL_NAME, JUDGE_TOOL_DESCRIPTION, type JudgeInput, type KernelRunner } from "./judge.ts";
+import { runJudgeExplained, judgeHonestyText, judgeVerdictSummary, JUDGE_TOOL_NAME, JUDGE_TOOL_DESCRIPTION, type JudgeInput, type KernelRunner } from "./judge.ts";
 
 /** Closed universe of the tool surface (EXPANDED to 4, by step 5 of ROADMAP.md to 5, then REDUCED by
  *  its step 7 to 3: `cascade` and `attest` were removed). */
@@ -110,10 +110,11 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
     inputStandardSchema: judgeInputStandardSchema,
     outputStandardSchema: judgeOutputStandardSchema,
     run: async (args, ctx) => {
-      const output = await runJudge(args as JudgeInput, ctx);
+      const { output, aci } = await runJudgeExplained(args as JudgeInput, ctx);
       // structuredContent = {decision, gate_error, kernel_verdict, kernel_reason, reduce_only, kernel_request_sha256}; the honesty prose and
-      // the verdict summary (derived from the output) ride in `content` text.
-      return { text: `${judgeHonestyText(output)} ${judgeVerdictSummary(output)}`, structured: output as unknown as Record<string, unknown> };
+      // the verdict summary (derived from the output) ride in `content` text, with between them, on the online level of a class, its text and figures.
+      const level = aci === undefined ? "" : `${aciHonestyText(aci)} `;
+      return { text: `${judgeHonestyText(output)} ${level}${judgeVerdictSummary(output)}`, structured: output as unknown as Record<string, unknown> };
     },
   },
 ];
