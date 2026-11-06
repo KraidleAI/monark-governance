@@ -19,7 +19,7 @@ stratégie du fondateur ──signal──▶ HIKAE ──COMMIT / DEFER / ABSTA
 
 | Où | Quoi |
 |---|---|
-| `packages/hikae` | la porte conforme : L1 split conforme par classe, L2 moniteur et budget `B_t`, L3 politique → `GateDecision` |
+| `packages/hikae` | la porte conforme : L1 split conforme par classe, le niveau en ligne d'une classe, L2 moniteur et budget `B_t`, L3 politique → `GateDecision` |
 | `packages/contracts`, `schemas/` | les contrats : `AttestedPrice`, `Prediction`, `CoverageVerdict`, `GateDecision` (les schémas JSON font foi) |
 | `apps/harness` | le moteur servi (serveur MCP : `gate`, `calibrate`, `judge`) et l'exécuteur papier (`src/paper.ts`, non servi) |
 | `apps/genkan` | la porte d'ordres : noyau Lean 4, chaîne d'outils épinglée `leanprover/lean4:v4.32.1` |
@@ -71,7 +71,9 @@ dit à partir de maintenant.
 - **Aucun ordre réel**, dépôt, retrait ou transfert sans un go explicite du fondateur, ordre par ordre.
 - **Aucune clé ni secret** lu, écrit, affiché ou committé ; aucun agent ne touche une clé.
 - **HIKAE ne rend jamais une probabilité d'avoir raison** : sa garantie est celle que déclare son code (couverture
-  marginale, en échantillon fini, sous échangeabilité dans la classe). Le test de vocabulaire (`npm run gate:vocab`) le tient.
+  marginale, en échantillon fini, sous échangeabilité dans la classe ; sur le niveau en ligne d'une classe
+  (`calibration.aci`), pas cette couverture mais une borne sur les manqués des issues rejouées, sans hypothèse sur les
+  scores). Le test de vocabulaire (`npm run gate:vocab`) le tient.
 - **Le dépôt GitHub `KraidleAI/monark-governance` est public** : rien n'est poussé sans l'accord du fondateur, et rien
   de sa stratégie n'y entre.
 - **Rien sur C:** : caches, TEMP et outils restent sur F: (Lean : `ELAN_HOME=F:/elan`).
