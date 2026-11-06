@@ -56,7 +56,7 @@ test("empty_set_not_allow", () => {
 // rational, any number of decimals and an exponent: (50; 0.12345) -> 45, never under_calib; (24; 0.44) -> 14 and
 // (9; 0.70) -> 3 where the float rank gives 15 and 4; (10; 1e-7) -> 11 > n, so under_calib and no throw; the
 // vectors (9; 0.3) -> 7, (19; 0.15) -> 17, USDe (613; 0.1) -> 553 and liq (170; 0.01) -> 170 unchanged.
-// killer: packages/hikae/src/l1-split.ts:233 CONST "return Number(top >= 0n ? (top + den - 1n) / den : -(-top / den));" -> "return Math.ceil((n + 1) * (1 - alpha));"
+// killer: packages/hikae/src/l1-split.ts:243 CONST "return Number(top >= 0n ? (top + den - 1n) / den : -(-top / den));" -> "return Math.ceil((n + 1) * (1 - alpha));"
 test("split_rank_shortest_four_killers", async () => {
   const m = (await import("../src/index.ts")) as unknown as Record<string, (...a: unknown[]) => unknown>;
   const rank = (n: number, a: number): unknown => m.splitRankShortest?.(n, a);
@@ -71,7 +71,7 @@ test("split_rank_shortest_four_killers", async () => {
 
 // The exact rank reads every decimal of String(alpha), so a reader that truncates to four
 // decimals is killed: (50; 0.01961) -> ceil(51 * 0.98039) = 50, where 0.0196 gives ceil(51 * 0.9804) = 51 > n, under_calib.
-// killer: packages/hikae/src/l1-split.ts:228 CONST "const frac = m[3] ?? \"\";" -> "const frac = (m[3] ?? \"\").slice(0, 4);"
+// killer: packages/hikae/src/l1-split.ts:234 CONST "const frac = m[3] ?? \"\";" -> "const frac = (m[3] ?? \"\").slice(0, 4);"
 test("split_rank_shortest_reads_past_four_decimals", async () => {
   const m = (await import("../src/index.ts")) as unknown as Record<string, (...a: unknown[]) => unknown>;
   assert.equal(m.splitRankShortest?.(50, 0.01961), 50, "(50; 0.01961) -> 50");
