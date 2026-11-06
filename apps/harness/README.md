@@ -14,7 +14,8 @@ points inject the current instant). It places no order and never calls the tool 
 and what comes next is in the root `ROADMAP.md`; this file describes the code.
 
 HIKAE never returns a probability of being right. Its guarantee is the one the code declares: marginal coverage, in a finite
-sample, under exchangeability within the class. `npm run gate:vocab` scans `src/` for words that would claim more.
+sample, under exchangeability within the class; on the online level of a class (`params.calibration.aci`, below), a bound on
+the misses over the replayed outcomes instead. `npm run gate:vocab` scans `src/` for words that would claim more.
 
 ## Run and test
 
@@ -59,7 +60,7 @@ opens the BYO path whatever the class:
 | `stable-run-velocity-24h` | `splitQuantile`, then the interval of the score test | one **measured** population, keyed on `(task_class, predictor_id)` | the committed key: `alpha = 0.1` and `nMin = 50` are imposed (else `policy_alpha_mismatch` or `policy_nmin_mismatch`) and the decision is real; any other key: `abstain` / `under_calib` with the caller's `alpha` and `nMin` |
 | `liquidation-eligible-coverage` | `splitQuantile` over the committed stratum, then the upper bound `[0, yhat + q̂]` (wire kind `interval`) | **measured**, per stratum of `yhat`; the server derives the stratum, and the client `predictor_id` is ignored | `yhat` must be a non-negative safe integer (`liq_yhat_domain`); `alpha = 0.01` and `nMin = 100` are imposed; the committed stratum gives an upper bound; every other stratum, `abstain` / `under_calib` |
 | the 32 kata classes `{btc,eth,bnb,sol}-{dir,range,mae-down,mae-up}-{1h,4h}` | policy table of the class (`src/kata-path.ts`) | no row served (`COMMITTED_TABLES` is empty in `src/policy-committed-pins.ts`) | after the request checks below: `abstain` / `under_calib`, or `non_evaluable` for a lean of exactly 0 on a `dir` class |
-| any other class **with** `params.calibration` | BYO: `splitQuantile` over the caller's scores | the caller's | a real decision on the caller's model |
+| any other class **with** `params.calibration` | BYO: `splitQuantile` over the caller's scores, or their online level with `calibration.aci` | the caller's | a real decision on the caller's model |
 | any other class without it | none | none | tool error `task_class_unknown` |
 
 A wrong-typed `yhat` is a tool error (`yhat_type_mismatch`); a right-typed but non-finite or non-directional one is a
@@ -72,7 +73,7 @@ domain (a lean in [-1, 1] on `dir`, a finite scale above 0 otherwise: `kata_yhat
 (0.45 on `dir`, 0.01 on the others) and `nMin` equal to its `n_min`, `zeroErrorFloor(alpha, 0.05)` (`src/policy-classes.ts`); `tau <= 1` on `dir` (`policy_tau_cap`). The gate does
 not recompute `yhat` and does not check the bars behind `features_digest`.
 
-**BYO** (`params.calibration`): `{ scores: number[], mode: "interval" | "set", candidates?: { label, score }[] }`.
+**BYO** (`params.calibration`): `{ scores: number[], mode: "interval" | "set", candidates?: { label, score }[], aci?: { gamma, window, decided_after } }`.
 
 - `interval` mode needs every score `>= 0` and a numeric `yhat`; the region is `[yhat - q̂, yhat + q̂]`.
 - `set` mode needs a non-empty `candidates` list whose labels are unique printable ASCII without `|` (the `label_schema`
@@ -85,8 +86,8 @@ not recompute `yhat` and does not check the bars behind `features_digest`.
   `^[a-z0-9]{2,10}-(dir|range|mae-down|mae-up)-(15m|1h|4h|24h)$` or a key starting `kata:`, `byo_reserved_kata`; and one that
   reduces to a committed or kata name once ASCII confusables are folded, `byo_lookalike_confusable`. Look-alikes outside those
   folds (non-ASCII homoglyphs, for one) pass.
-- The verdict's `scores_sha256`, `alpha` and `qhat` equal those of `calibrate` on the same scores: the two tools audit each
-  other.
+- Without `aci`, the verdict's `scores_sha256`, `alpha` and `qhat` equal those of `calibrate` on the same scores: the two tools
+  audit each other.
 
 **Output** is the frozen `GateDecision` (`schemas/gate-decision.schema.json`, the tool's output schema), asserted closed and
 free of forbidden keys before it leaves. The prose that states what the calibration is and is not rides in the result's
@@ -116,9 +117,76 @@ date-time at most 300 s after the server clock (`produced_at_invalid`, `produced
 verdict.
 
 The server fixes the rest of `GateInput`: `schemaVersion` (`1.1.0`), `timedOut` (`false`: a pure server invents no upstream
-timeout), `evaluable` (derived from `yhat`), `nCalib` (the committed key's or stratum's size, the caller's `scores.length` for
-BYO, 0 otherwise) and `requestSha256` (the canonical sha256 of the envelope as received; one not writable canonically is
+timeout), `evaluable` (derived from `yhat`), `nCalib` (the committed key's or stratum's size, for BYO the scores its verdict
+read, 0 otherwise) and `requestSha256` (the canonical sha256 of the envelope as received; one not writable canonically is
 `param_invalid`).
+
+## The online level of a class (`params.calibration.aci`)
+
+An opt-in on the BYO path: a call without `aci` stays on the split path, byte for byte. The caller carries the class's
+evidence and the server replays it on every call (`aciReplay` of `@monark/hikae`, pure; nothing is stored).
+
+- `calibration.scores` then holds **every arrived score, in arrival order**, not a window (at most `CALIBRATE_MAX_N`);
+- `aci.gamma`: the step of the level, in (0, 1), fixed for the class;
+- `aci.window`: W, how many of the last scores the region reads;
+- `aci.decided_after`: for each score, how many scores had arrived when its signal was decided, an integer of [0, i].
+
+The level starts at `alpha` and moves when an outcome arrives; the outcome counts as a miss when its score exceeds the
+threshold its signal got, delay included. What each state of the replay serves:
+
+| The replay | `verdict.method` | Decision |
+|---|---|---|
+| the window has no region at `alpha` yet | `hac-cp` | `abstain` / `under_calib`; the signals of this stretch move nothing, so the first region is the split one, exactly |
+| the level is below 1/(n+1): the whole line, no finite region | `hac-cp` | `abstain` / `under_calib` |
+| the level is at 1 or above: the empty region | `hac-cp` | `abstain` / `region_degenerate` |
+| otherwise: `qhat` at the rank of the level | `hac-cp` | L3 reads the region as on the split path (interval or set mode) |
+
+As the decision's reason, `covered` says only that the intent lies in the region, within the width and the budget; as the verdict's,
+only that the level gave a region. Neither states a coverage.
+
+`verdict.alpha` stays the target, not the level. `verdict.n_calib` and `verdict.scores_sha256` describe the window the
+verdict read, and `nMin` reads it too; `requestSha256` binds the whole evidence. The closed decision has no field for the level,
+so the `content` text of `gate` and of `judge` carries it after its honesty label (`ACI_LABEL`):
+`aci level=<exact decimal> gamma= window= T= misses= no_region= max_delay= bound=<rounded up, or none> region=<warmup|whole|empty|quantile>`.
+
+**What is bounded.** Over the T outcomes that moved the level, |misses/T − `alpha`| stays below
+max{α + (D+1)γ(1−α), 1−α + (D+1)γα}/(γT), D the largest delay, with no assumption on the scores (derived in
+`packages/hikae/src/aci.ts`). It counts every replayed signal decided once a region at `alpha` existed, taken or not, and none
+decided before (`decided_after` 0 is always before); a step that got the whole line counts as covered and one that got the empty
+region as a miss. It says nothing of one window or of the signals taken alone. The coverage of the split path under exchangeability
+does not apply to this region.
+
+**The step and the delay.** A miss costs the level γ(1−α) and a cover gives back γα, so one miss takes (1−α)/α covers to recover,
+at any γ, and the level cannot react before the outcomes arrive. At α = 0.1, γ = 0.05 and W = 100, fifteen misses in flight take the
+level to −0.575, and the gate abstains until 117 more outcomes have arrived: while the region is the whole line, every outcome counts
+as covered, whatever its score, so the region can reopen on a shift that has not ended, and what then stands before a commit is
+`tauInterval`, or `tau` in set mode. So the step is chosen with the delay: at γ/(D+1), D+1 misses in flight move the level by what one
+moves it with no delay, and the bound is that of D+1 separate levels of step γ with no delay, each holding T/(D+1) of the outcomes. The
+way back runs on the outcomes of the signals the gate refused: evidence that holds only the signals taken can reopen only on the
+outcomes of signals taken before the closure and still in flight; once those have arrived, it stays closed.
+
+**Refusals**: outside the schema (an unknown key, a `gamma` outside (0, 1), a `window` below 1, a `decided_after[i]` below 0), at the
+input boundary; in the code, `byo_calibration_invalid` with a message that starts `invalid calibration.aci: ` (a count of
+`decided_after` other than the number of scores, a `decided_after[i]` above i, a `window` past the safe integers). A direct caller of `runGate` meets the rules on `gamma`, `window` and
+`decided_after` there too, in the same code; only the schema refuses an unknown key inside `aci`, and `requestSha256` still binds it. The
+other checks of the BYO path come first, with their own codes.
+
+**What it does not do:**
+
+- the server cannot check that the evidence holds every outcome, nor that its order and its counts are the real ones;
+- `suivi`, below, stays apart: it can only lower `B_t`, and the server reads `outcomes[].miss` as carried. A caller who feeds it
+  should judge those misses on a split region of the class, over a window long enough not to follow the drift, not on this one: on a
+  region that moves with its own misses, k − Tα = (α − A_{T+1})/γ, so the excess of misses stays under α/γ + (D+1)(1−α), and the rate
+  is pulled back to `alpha` over a T of the order of 1/γ. Whether the alarm fires, and when, depends on γ, the delay and the detector:
+  measured on 2026-11-06 on a simulated ×100 shift of the scores (100 seeds, the policy of `test/gate-aci.test.ts`), with no delay the
+  static region closed 100 of 100 and the level's region 58 of 100 at γ = 0.002 and 0 of 100 at γ = 0.05; with each outcome 20 arrivals
+  late, the level's region closed 100 of 100 and 78 of 100. With no shift, it closed 0 of 30 in each of those runs;
+- `calibrate` does not serve the level; the step is fixed, with no aggregation of steps; the level is one per class, and the
+  caller chooses what a class is.
+
+**The replay's cost**, measured on 2026-11-06 on the development machine at 10 000 scores, 7 runs each, the slowest run: 8.4 ms at
+W = 10 000, 16.4 ms with long decimal scores at W = 5000, 10.9 ms with descending scores at W = 5000, 16.9 ms with γ = 1e-300 and
+scores in pseudo-random order at W = 100. `CALIBRATE_MAX_N` is its only bound.
 
 ## Online tracking (`params.suivi`)
 

@@ -28,10 +28,10 @@ import {
   scoreTestBand,
   buildVerdict,
   underCalibVerdict, noRegionVerdict, suiviDenBits, suiviReplay,
-  conformInterval,
+  conformInterval, aciBoundText, aciLevelText, aciReplay,
   gate,
 } from "@monark/hikae";
-import type { GateInput, SuiviEvidence, VerdictCell } from "@monark/hikae";
+import type { AciEvidence, AciState, GateInput, SuiviEvidence, VerdictCell } from "@monark/hikae";
 import { assertClosedGateDecision, assertNoForbiddenKey, requestSha256, sha256Canonical, SCHEMA_VERSION, TOOL_ERROR_CODES } from "@monark/contracts";
 import type { GateDecision, Prediction, CoverageVerdict, AttestedPrice, ClassEntry } from "@monark/contracts";
 import {
@@ -49,7 +49,7 @@ import { strateOf, liqUpperBoundRegion } from "../ukemi-strata.ts";
 // The BYO path REUSES the calibrate constants — the score cap (single source) and
 // the honesty label (one constant, no paraphrase, no banned overclaim verb). Errors on the
 // gate BYO path are `HarnessToolError` (already ∈ http.ts TOOL_ERROR_NAMES ⇒ 400), NOT CalibrateToolError.
-import { CALIBRATE_MAX_N, CALIBRATE_LABEL } from "./calibrate.ts";
+import { ACI_LABEL, CALIBRATE_MAX_N, CALIBRATE_LABEL } from "./calibrate.ts";
 // The class policy rows (alpha, nMin imposed for a committed calibration). Pure sibling at src/.
 import { LIQ_POLICY, USDE_POLICY, type ClassPolicyRow } from "../class-policy.ts";
 // The committed subject<->class binding table + the pure consistency predicate. A pure
@@ -255,6 +255,7 @@ export function describeGate(registryHasLiq: boolean): string {
     "When the caller instead supplies a `calibration` (its own nonconformity scores plus a `mode`: `interval` " +
     "⇒ region [yhat - q̂, yhat + q̂], or `set` ⇒ a conformal set over caller `candidates`), the gate " +
     `conformalizes against THOSE caller-supplied scores (BYO): ${CALIBRATE_LABEL} ` +
+    `With \`calibration.aci\` (a step, a window and, for each score, how many had arrived when its signal was decided) the verdict's method is \`hac-cp\` and the region comes from an ${ACI_LABEL} ` +
     "A caller-carried `attested` price must declare a subject consistent with the committed task class " +
     "(exact committed-URL membership; BYO classes do not accept `attested`); " +
     GATE_NON_REVERIFICATION_SENTENCE +
@@ -283,6 +284,8 @@ export interface ByoCalibration {
   readonly scores: readonly number[];
   readonly mode: "interval" | "set";
   readonly candidates?: readonly ByoCandidate[];
+  /** OPTIONAL: the online level of the class. `scores` then holds every arrived score in arrival order, and the verdict reads the last `window` of them. */
+  readonly aci?: AciEvidence;
 }
 
 /** Non-frozen gate parameters, caller-carried (with the optional BYO `calibration`). */
@@ -472,7 +475,7 @@ function assertByoSetTauCap(params: HarnessParams, cal: ByoCalibration): void {
  * `conformInterval`; the L3 gate decides DEFER/ABSTAIN on the width). Every error is `HarnessToolError`
  * (⇒ 400), never a 500.
  */
-function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalibration): CoverageVerdict {
+function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalibration): { readonly verdict: CoverageVerdict; readonly aci: AciState | undefined } {
   validateCalibration(cal);
   const taskClass = prediction.task_class;
   const yhat = prediction.yhat;
@@ -489,19 +492,18 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
   // A BYO verdict has no class entry; qhat_unit is fixed by the mode, scale and the three table fields are null.
   const cell: VerdictCell = { qhatUnit: cal.mode === "interval" ? "label" : "score", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null };
 
-  const split = splitQuantileShortest(cal.scores, params.alpha, params.nMin); // exact rank of String(alpha)
+  // With the online level of the class, the replay gives the region and the verdict describes the window it read; without it, the split path.
+  const aci = cal.aci === undefined ? undefined : replayAci(cal.aci, cal.scores, params);
+  const done = (verdict: CoverageVerdict) => ({ verdict, aci });
+  const method = aci === undefined ? "split" : "hac-cp";
+  const scores = aci === undefined ? cal.scores : aci.window;
+  const noRegion = { taskClass, method, alpha: params.alpha, scores, residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION, cell } as const;
+  if (aci?.region.kind === "empty") return done(noRegionVerdict("region_degenerate", noRegion)); // the level at 1 or above: nothing is covered
+  const split = aci === undefined ? splitQuantileShortest(cal.scores, params.alpha, params.nMin) // exact rank of String(alpha)
+    : aci.region.kind === "quantile" ? { qhat: aci.region.qhat } : { reason: "under_calib" as const }; // the warm-up, or the whole line: no finite region
   if ("reason" in split) {
     // Fail-closed under-calibration (n < nMin or p > n): EMPTY set region, qhat null, never clamped.
-    return underCalibVerdict({
-      taskClass,
-      method: "split",
-      alpha: params.alpha,
-      scores: cal.scores,
-      residual: [],
-      producedAt: prediction.produced_at,
-      schemaVersion: SCHEMA_VERSION,
-      cell,
-    });
+    return done(underCalibVerdict(noRegion));
   }
   const qhat = split.qhat;
 
@@ -511,32 +513,16 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
     if (ir.abstain) {
       // Fail-closed (mirror interval-conformer.ts:88): under_calib on a non-finite bound (yhat non-finite),
       // region_degenerate on a zero-width region lo===hi (q̂=0 or float absorption).
-      return noRegionVerdict(ir.reason, {
-        taskClass,
-        method: "split",
-        alpha: params.alpha,
-        scores: cal.scores,
-        residual: [],
-        producedAt: prediction.produced_at,
-        schemaVersion: SCHEMA_VERSION,
-        cell,
-      });
+      return done(noRegionVerdict(ir.reason, noRegion));
     }
     // residual is NOT an honesty carrier: frozen semantics inherited from the verdict contract.
-    return buildVerdict({
-      taskClass,
-      method: "split",
-      alpha: params.alpha,
-      scores: cal.scores,
+    return done(buildVerdict({
+      ...noRegion,
       region: ir.region,
       qhat,
       abstain: false,
       reason: "covered",
-      residual: [],
-      producedAt: prediction.produced_at,
-      schemaVersion: SCHEMA_VERSION,
-      cell,
-    });
+    }));
   }
 
   // set mode: conformal set over the caller's candidate scores, label_schema derived from the candidates.
@@ -550,19 +536,13 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
   // intent_not_in_region (qhat stays the number, unlike under_calib); never covered. abstain = 1{|C| > tau or |C| = 0}.
   const empty = labels.length === 0;
   const abstain = empty || labels.length > params.tau;
-  return buildVerdict({
-    taskClass,
-    method: "split",
-    alpha: params.alpha,
-    scores: cal.scores,
+  return done(buildVerdict({
+    ...noRegion,
     region: buildSetRegion(labels, derivedSchema),
     qhat,
     abstain,
     reason: empty ? "intent_not_in_region" : abstain ? "set_too_large" : "covered",
-    residual: [],
-    producedAt: prediction.produced_at,
-    schemaVersion: SCHEMA_VERSION, cell,
-  });
+  }));
 }
 
 /** cascade verdict: `conformInterval` with NO committed calibration ⇒ empty region ⇒ under_calib. */
@@ -897,6 +877,11 @@ function assertProducedAt(producedAt: string, nowMs: number | undefined): void {
  * `params.tool`.
  */
 export function runGate(prediction: Prediction, params: HarnessParams, attested?: AttestedPrice, options: RunGateOptions = {}): GateDecision {
+  return runGateExplained(prediction, params, attested, options).decision;
+}
+
+/** `runGate` with what the closed decision cannot carry: the state of the online level, when the caller carries its evidence. */
+export function runGateExplained(prediction: Prediction, params: HarnessParams, attested?: AttestedPrice, options: RunGateOptions = {}): { readonly decision: GateDecision; readonly aci: AciState | undefined } {
   validateHarnessParams(params);
   if (prediction.schema_version !== SCHEMA_VERSION) {
     throw new HarnessToolError(
@@ -956,12 +941,13 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
 
   let verdict: CoverageVerdict;
   let nCalib: number;
+  let aci: AciState | undefined;
   // A kata class is a class of the served class registry whose cell rule is kata-bucket.
   const kataTable = (options.policyTables ?? SERVED_POLICY_TABLES).find((t) => t.task_class === taskClass && t.table.class.cell_key_rule === "kata-bucket")?.table;
 
   if (calibration !== undefined) {
-    verdict = byoVerdict(prediction, params, calibration);
-    nCalib = calibration.scores.length;
+    ({ verdict, aci } = byoVerdict(prediction, params, calibration));
+    nCalib = verdict.n_calib; // the scores the verdict read: all of them, or the window of the online level
   } else if (taskClass === TASK_BTC_DIR) {
     // Retired, never served; the BYO guards above keep the name reserved.
     throw new HarnessToolError(BTC_DIR_RETIRED_MESSAGE, "task_class_retired");
@@ -1028,7 +1014,7 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
   // Honesty gates: the wire is the frozen, closed contract — nothing else.
   assertClosedGateDecision(decision);
   assertNoForbiddenKey(decision);
-  return decision;
+  return { decision, aci };
 }
 
 /** The texts and sources of the three served tables: the served sentences, byte for byte. */
@@ -1132,7 +1118,28 @@ function suiviBudget(prediction: Prediction, params: HarnessParams, verdict: Cov
   }
 }
 
-// The committed kata tables and their pins, read at line 1043; the pins also by the defaults of kataClause (line 222). Imports
+/** The caller's evidence of the online level, replayed; each refusal is a 400 `byo_calibration_invalid`, the replay's RangeError included. */
+function replayAci(evidence: unknown, scores: readonly number[], params: HarnessParams): AciState {
+  const refuse = (rule: string): never => {
+    throw new HarnessToolError(`invalid calibration.aci: ${rule}`, "byo_calibration_invalid");
+  };
+  if (!isRecord(evidence)) return refuse("expected an object");
+  if (!Array.isArray(evidence["decided_after"])) return refuse("expected a list decided_after");
+  try {
+    return aciReplay(scores, params.alpha, params.nMin, evidence as unknown as AciEvidence);
+  } catch (err) {
+    if (err instanceof RangeError) return refuse(err.message);
+    throw err;
+  }
+}
+
+/** The honesty text of the online level, then what the level did: figures the closed decision cannot carry (a delivery aid, derived from the replay). */
+export function aciHonestyText(s: AciState): string {
+  const bound = s.bound === null ? "none" : aciBoundText(s.bound);
+  return `${ACI_LABEL} B_t is caller-carried. aci level=${aciLevelText(s.level)} gamma=${String(s.gamma)} window=${String(s.windowSize)} T=${String(s.steps)} misses=${String(s.misses)} no_region=${String(s.noRegion)} max_delay=${String(s.maxDelay)} bound=${bound} region=${s.region.kind}`;
+}
+
+// The committed kata tables and their pins, read at line 1029; the pins also by the defaults of kataClause (line 222). Imports
 // only below this point: ESM evaluates them before this file's body whatever their place, and neither module imports this file or kata-path.ts (no new cycle).
 import { COMMITTED_FILES, readCommittedTables } from "../policy-committed.ts";
 import { COMMITTED_TABLES, FLOOR_HELD_CLASSES, ORDER_HELD_CLASSES } from "../policy-committed-pins.ts";

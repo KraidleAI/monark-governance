@@ -17,7 +17,8 @@
 import { createHash } from "node:crypto";
 import type { AttestedPrice, GateDecision, Prediction } from "@monark/contracts";
 import { encodeContext, encodeJudgeRequest, encodeOrder, readVerdict, type OrderFields, type OrderKind } from "@monark/genkan/frame";
-import { HarnessToolError, runGate, toolErrorCode, type HarnessErrorCode, type HarnessParams } from "./gate.ts";
+import type { AciState } from "@monark/hikae";
+import { HarnessToolError, runGateExplained, toolErrorCode, type HarnessErrorCode, type HarnessParams } from "./gate.ts";
 
 export const JUDGE_TOOL_NAME = "judge";
 
@@ -128,14 +129,14 @@ export function judgeRequest(action: GateDecision["action"], order: JudgeOrder, 
   return framed("request", () => encodeJudgeRequest(ctx, ord));
 }
 
-/** The gate's decision on the envelope; for an EXIT only, its refusal instead of a throw. */
-function gateOrRefusal(input: JudgeInput, nowMs: number | undefined): { readonly decision: GateDecision; readonly gate_error: null } | { readonly decision: null; readonly gate_error: JudgeGateError } {
+/** The gate's decision on the envelope, with the state of the online level when it carries one; for an EXIT only, its refusal instead of a throw. */
+function gateOrRefusal(input: JudgeInput, nowMs: number | undefined): { readonly decision: GateDecision; readonly gate_error: null; readonly aci: AciState | undefined } | { readonly decision: null; readonly gate_error: JudgeGateError; readonly aci: undefined } {
   try {
-    return { decision: runGate(input.prediction, input.params, input.attested, nowMs === undefined ? {} : { nowMs }), gate_error: null };
+    return { ...runGateExplained(input.prediction, input.params, input.attested, nowMs === undefined ? {} : { nowMs }), gate_error: null };
   } catch (error) {
     const code = toolErrorCode(error);
     if (input.order.kind !== "EXIT" || code === undefined || !(error instanceof Error)) throw error;
-    return { decision: null, gate_error: { code, message: error.message } };
+    return { decision: null, gate_error: { code, message: error.message }, aci: undefined };
   }
 }
 
@@ -143,12 +144,17 @@ function gateOrRefusal(input: JudgeInput, nowMs: number | undefined): { readonly
  *  Rejects with the gate's tool errors for any order but an EXIT, and `param_invalid` for a field outside the frames, before any
  *  kernel runs. */
 export async function runJudge(input: JudgeInput, options: JudgeRunOptions = {}): Promise<JudgeOutput> {
+  return (await runJudgeExplained(input, options)).output;
+}
+
+/** runJudge, with the state of the online level beside its closed output, for the text. */
+export async function runJudgeExplained(input: JudgeInput, options: JudgeRunOptions = {}): Promise<{ readonly output: JudgeOutput; readonly aci: AciState | undefined }> {
   const gate = gateOrRefusal(input, options.nowMs);
   const request = judgeRequest(gate.decision === null ? "abstain" : gate.decision.action, input.order, input.limits);
   const answer = options.kernel === undefined ? null : await options.kernel(request);
   const verdict = answer === null ? undefined : readVerdict(answer.status, answer.stdout);
   const allow = verdict?.allow === true;
-  return {
+  const output: JudgeOutput = {
     decision: gate.decision,
     gate_error: gate.gate_error,
     kernel_verdict: allow ? "allow" : "deny",
@@ -156,6 +162,7 @@ export async function runJudge(input: JudgeInput, options: JudgeRunOptions = {})
     reduce_only: allow && input.order.kind === "EXIT",
     kernel_request_sha256: createHash("sha256").update(request).digest("hex"),
   };
+  return { output, aci: gate.aci };
 }
 
 /** The honesty text of an answer that carries the kernel's verdict on the order (an allow, or a deny with one of the kernel's

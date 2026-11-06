@@ -12,7 +12,7 @@ fondateur : les signaux (1.1), les marchés et l'unité des montants (1.2), les 
 sortie, DEFER et ABSTAIN compris (1.4), les montants (1.5) et l'historique de chaque classe (1.6). La partie 2 y renvoie
 par ces numéros. Rien de la stratégie n'entre dans ce dépôt public.
 
-## 2. Ce que le moteur attend (lu dans le code le 2026-11-04, au commit `8b21aff4` ; le suivi sur la voie BYO le 2026-11-05)
+## 2. Ce que le moteur attend (lu dans le code le 2026-11-04, au commit `8b21aff4` ; le suivi sur la voie BYO le 2026-11-05 ; le niveau en ligne le 2026-11-06)
 
 ### 2.1 Un signal devient une `Prediction`
 
@@ -40,8 +40,9 @@ des classes de la stratégie et l'historique de 1.6 vivent dans le dépôt priv�
 - En mode `interval`, `yhat` est un nombre, les scores sont positifs ou nuls, et la région est `[yhat - q̂, yhat + q̂]`.
 - En mode `set`, `yhat` est une étiquette, et la région est un ensemble conforme parmi les `candidates` de
   l'appelant ; `params.tau` doit alors être au plus le nombre de candidats moins un (`byo_set_tau_cap`).
-- `q̂` est le quantile conforme (split) des scores au niveau `alpha` ; au plus 10 000 scores (`CALIBRATE_MAX_N`) ; avec
-  moins de `nMin` scores, ou trop peu pour le niveau `alpha`, la décision s'abstient (`under_calib`).
+- `q̂` est le quantile conforme (split) des scores au niveau `alpha`, ou, si l'appelant le porte, au niveau en ligne de la
+  classe (ci-dessous) ; au plus 10 000 scores (`CALIBRATE_MAX_N`) ; avec moins de `nMin` scores, ou trop peu pour le niveau
+  `alpha`, la décision s'abstient (`under_calib`).
 - La classe et la clé ne doivent prendre aucun nom réservé, ni s'en approcher par la casse ou des caractères qui se
   ressemblent : les classes `btc-dir-15m`, `cascade-liquidable-24h` et `liquidation-eligible-coverage`, la clé USDe
   committée, les noms kata (`KATA_CLASS_RE`) et le préfixe de clé `kata:`.
@@ -51,6 +52,53 @@ des classes de la stratégie et l'historique de 1.6 vivent dans le dépôt priv�
   `predictor_id`.
 - MONARK ne voit ni ne vérifie les données ou le modèle de l'appelant, ni que ces nombres sont des scores de non-conformité
   d'un modèle (`CALIBRATE_LABEL`).
+
+**Le niveau en ligne de la classe, optionnel (`calibration.aci`).** L'appelant porte les preuves du niveau, et le serveur
+les rejoue à chaque appel sans rien garder (`packages/hikae/src/aci.ts`, `aciReplay`). `scores` porte alors tous les scores
+arrivés, dans leur ordre d'arrivée, et `aci` :
+
+- `gamma` : le pas du niveau, dans ]0, 1[, fixé pour la classe ;
+- `window` : combien de derniers scores la région lit ;
+- `decided_after` : pour chaque score, combien de scores étaient arrivés quand son signal a été décidé, un entier de 0 au
+  nombre de scores arrivés avant lui.
+
+Le niveau part de `alpha` et bouge quand une issue arrive : `A` devient `A + gamma (alpha - err)`, sans plancher ni
+plafond. `err` vaut 1 quand le score de l'issue dépasse le seuil que son signal a reçu, retard compris. La région est le
+quantile des `window` derniers scores au rang `ceil((n + 1)(1 - A))`.
+
+- Tant que la fenêtre n'a pas de région au niveau `alpha`, un signal ne bouge rien et son score ne fait que calibrer : la
+  première région est exactement celle du split.
+- Un niveau sous `1/(n + 1)` donne la ligne entière, sans région finie : la décision s'abstient (`under_calib`). Un
+  niveau à 1 ou au-dessus donne la région vide : elle s'abstient aussi (`region_degenerate`). À `alpha = 0.1` et
+  `gamma = 0.05`, sur une fenêtre de 100 scores, trois manqués de suite mènent le niveau à -0,035, donc à l'abstention,
+  et neuf issues rouvrent une région : tant que la région est la ligne entière, toute issue compte comme couverte, quel
+  que soit son score.
+- Le verdict porte `method: "hac-cp"` ; son `n_calib` et son `scores_sha256` décrivent la fenêtre ; son `alpha` reste la
+  cible. La décision fermée n'a pas de champ pour le niveau : le texte de la réponse le donne (`aci level=…`).
+- Le moteur tient un niveau par preuve portée. Une classe de la stratégie a le sien, une autre source de signaux a sa
+  propre classe et donc le sien, et un actif n'en a pas par lui-même : il entre par l'unité de son score, que l'adaptateur
+  choisit. `gamma` et `window` se déclarent avec la classe, dans le dépôt privé.
+- Le pas se choisit avec le retard. Un manqué coûte `gamma (1 - alpha)` au niveau et une issue couverte lui rend
+  `gamma alpha` : un manqué demande `(1 - alpha) / alpha` issues couvertes, quel que soit `gamma`, et le niveau ne peut pas
+  réagir avant que les issues arrivent. À `alpha = 0.1`, `gamma = 0.05` et `window = 100`, quinze manqués en vol mènent le
+  niveau à -0,575, et le gate s'abstient jusqu'à ce que 117 issues de plus soient arrivées : la région peut donc se rouvrir
+  sur un décalage qui n'a pas fini, et ce qui reste alors avant un engagement est `tauInterval`, ou `tau` en mode ensemble.
+  À `gamma / (D + 1)`, `D + 1` manqués en vol bougent le niveau de ce qu'un seul le bouge sans retard, et la borne de 2.4 est
+  celle de `D + 1` niveaux séparés de pas `gamma`, sans retard, chacun avec `T / (D + 1)` des issues. Le retour passe par les
+  issues des signaux refusés : des preuves qui ne portent que les signaux pris ne rouvrent que sur les issues de signaux pris
+  avant la fermeture et encore en vol ; une fois celles-ci arrivées, elles restent fermées.
+- À la borne de ses preuves (10 000 scores au plus, et chaque ligne de son journal les porte), l'adaptateur repart des
+  `window` derniers scores, chacun avec `decided_after` à 0 : le niveau revient à `alpha`, et la borne de 2.4 repart de zéro ; une issue d'un signal décidé avant
+  la reprise ne fait que calibrer.
+- Le suivi en ligne (2.5) reste à part : il ne peut que baisser `B_t`. Ses manqués sont portés par l'appelant, qui doit les
+  juger sur une région split de la classe, sur une fenêtre assez longue pour ne pas suivre la dérive, pas sur celle du
+  niveau ; le moteur ne le vérifie pas. Sur une région qui bouge avec ses propres manqués, `k - T alpha = (alpha - A_{T+1}) / gamma`,
+  donc l'excès de manqués reste sous `alpha / gamma + (D + 1)(1 - alpha)`, et le taux ne revient à `alpha` que sur un `T` de
+  l'ordre de `1 / gamma`. Que l'alarme sonne, et quand, dépend de `gamma`, du retard et du détecteur : mesuré le 2026-11-06 sur
+  un décalage simulé des scores par 100 (100 graines, la politique de `apps/harness/test/gate-aci.test.ts`), sans retard la
+  région statique a fermé 100 fois sur 100, celle du niveau 58 fois sur 100 à `gamma` 0,002 et 0 fois sur 100 à `gamma` 0,05 ;
+  avec chaque issue en retard de 20 arrivées, celle du niveau a fermé 100 fois sur 100 et 78 fois sur 100. Sans décalage, elle a
+  fermé 0 fois sur 30 dans chacun de ces essais.
 
 **La voie committée, celle des classes du moteur.** La calibration d'une classe entre dans ce dépôt, sous la forme d'une
 table de politique `class-policy-v2` par classe, et chaque décision nomme sa table par `policy_table_sha256`. Pour les
@@ -73,7 +121,7 @@ n'entre pas dans ce dépôt public.
 | `intent` | ce que la stratégie veut faire : une étiquette de l'ensemble, ou un nombre de l'intervalle |
 | `tool` | le nom de l'outil visé : recopié dans la décision, jamais appelé |
 | `clockOpen` | la fenêtre de décision est-elle encore ouverte |
-| `calibration` | optionnel : la voie BYO (2.2) |
+| `calibration` | optionnel : la voie BYO, et le niveau en ligne de la classe (2.2) |
 | `suivi` | optionnel : le suivi en ligne (2.5) |
 
 ### 2.4 Ce que rend `gate`, et ce que la stratégie en fait
@@ -94,6 +142,17 @@ dans la classe. Elle ne vaut que pour des signaux échangeables avec ceux de la 
 ordonnées dans le temps la font tomber (`CALIBRATE_LABEL`). Ce n'est jamais une probabilité d'avoir raison. Des
 signaux de marché sont ordonnés dans le temps : le suivi en ligne (2.5) suit les issues arrivées de la cellule et peut
 fermer son segment sur une alarme.
+
+Avec le niveau en ligne (`calibration.aci`, 2.2), cette couverture ne s'applique plus. Le code déclare autre chose, sans
+aucune hypothèse sur les scores : sur les `T` issues qui ont bougé le niveau, avec `k` manqués et `D` le plus grand retard,
+`|k/T - alpha|` reste sous `max{alpha + (D+1) gamma (1-alpha), 1 - alpha + (D+1) gamma alpha} / (gamma T)` (`aciBound`,
+preuve dans `aci.ts`). Cette borne compte tous les signaux rejoués décidés une fois qu'une région à `alpha` existait, pris
+ou non, et aucun décidé avant (`decided_after` à 0 l'est toujours) ; une issue qui a reçu la ligne entière compte comme
+couverte, une qui a reçu la région vide comme manquée. Elle ne dit rien d'une fenêtre, ni des seuls signaux
+pris. Au-dessus de 1, elle ne dit rien : à `alpha = 0.1`, `gamma = 0.05` et sans retard, elle vaut 0,0604 à `T = 300` et
+2,0112 à `T = 9`. Le moteur ne peut pas vérifier que les preuves portent toutes les issues. Comme raison de la décision, `covered` dit alors
+seulement que `intent` est dans la région, sous la largeur et le budget ; comme raison du verdict, seulement que le niveau a donné
+une région. Aucune des deux n'énonce une couverture.
 
 `gate` ne fait que rendre une décision : il n'appelle jamais `tool`, et il ne place aucun ordre.
 

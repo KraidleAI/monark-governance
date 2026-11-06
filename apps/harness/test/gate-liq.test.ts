@@ -198,7 +198,7 @@ test("u4b_liq_description_makes_no_probability_claim", () => {
 // The honesty text follows the RESOLVED cell, the stratum key the server derives from yhat (the client key stays
 // ignored): the calibrated sentence on s0 only; s1 to s3 (under_calib) and a key that names no stratum read the class
 // text of the served table.
-// killer: apps/harness/src/tools/gate.ts:746 CONST "r.current && r.cell_key === cellKey" -> "r.current && hasCommittedCalibrationForClass(taskClass)"
+// killer: apps/harness/src/tools/gate.ts:726 CONST "r.current && r.cell_key === cellKey" -> "r.current && hasCommittedCalibrationForClass(taskClass)"
 test("liq_honesty_text_follows_the_resolved_cell", async () => {
   assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the registry holds the liq class (s0)");
   const keys = ["ukemi:client-supplied-key/whatever", ...[0, 1, 2, 3].map((k) => `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(k)}`)];
@@ -350,7 +350,7 @@ async function servedToolsList(): Promise<Obj> {
 // stated, 55744504... -> cb4029d2... (the liq clause unchanged); the sentence that no served class takes `attested`,
 // cb4029d2... -> 4279a54d...; the kata clause after the liq clause, bfb474f3... -> dd728779... (3 971 bytes). Step 7 of
 // ROADMAP.md: the attest tool is archived, so the non-re-verification sentence names it no more; dd728779... ->
-// 2ae47425... (3 922 bytes).
+// 2ae47425... (3 922 bytes). The online level of a class (`calibration.aci`): 01e24ebf... -> 025119bb... (5 505 bytes).
 // killer: apps/harness/src/tools/gate.ts:249 CONST "refusal. For" -> "refusal; for"
 test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the delivered registry holds the liq class");
@@ -371,8 +371,8 @@ test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(listed, describeGate(true), "the served text is the committed-state description (describeGate(false) hard-coded reds here)");
   assert.equal(
     createHash("sha256").update(listed, "utf8").digest("hex"),
-    "01e24ebf9fcbfeb56540d74f0f09f4fbe7fbc995ec27023d5526e59dc80d06f2",
-    "the served description is byte for byte the committed text (btc-dir retired, USDe alpha/nMin declared, the attested sentence, the rounded-edge clause withdrawn, the kata clause, step 7, the served texts without archived ids; was 3525fa68..., 2ae47425..., dd728779..., bfb474f3..., 4279a54d..., cb4029d2...)",
+    "025119bbeccc3c684062f60f3fd3284559c6b55fc7bbd70c85bb68b068e2712f",
+    "the served description is byte for byte the committed text (btc-dir retired, USDe alpha/nMin declared, the attested sentence, the rounded-edge clause withdrawn, the kata clause, step 7, the served texts without archived ids, the online level of a class; was 01e24ebf..., 3525fa68..., 2ae47425..., dd728779..., bfb474f3..., 4279a54d..., cb4029d2...)",
   );
   const slice = liqSlice(listed);
   assert.equal(slice, EXPECTED_COMMITTED_CLAUSE, "the served liq clause is EXACTLY the committed clause");
