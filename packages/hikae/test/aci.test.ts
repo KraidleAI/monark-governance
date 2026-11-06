@@ -428,6 +428,13 @@ test("aci_every_refusal_is_a_range_error_whatever_the_value", () => {
     assert.throws(() => aciLevelText(absent), RangeError);
     assert.throws(() => aciBoundText(absent), RangeError);
   }
+  // One field in numbers and the other in bigints: each field is read apart, or the arithmetic throws a TypeError further on.
+  for (const half of [{ n: 1, d: 2n }, { n: 1n, d: 2 }] as unknown as Q[]) {
+    assert.throws(() => aciLevel(1, 0, half, g), RangeError);
+    assert.throws(() => aciBound(1, 0, half, g), RangeError);
+    assert.throws(() => aciLevelText(half), RangeError);
+    assert.throws(() => aciBoundText(half), RangeError);
+  }
   // Before the first step the state has no bound: the text refuses it like anything else.
   assert.throws(() => aciBoundText(aciReplay([], 0.1, 1, ev(0.05, 5, [])).bound as Q), RangeError);
 });
