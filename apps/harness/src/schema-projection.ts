@@ -365,8 +365,40 @@ export const TOOL_INPUT_SCHEMA: JsonObject = {
 /** Projected tool OUTPUT schema = frozen GateDecision with the CoverageVerdict `$ref` dereferenced. */
 export const TOOL_OUTPUT_SCHEMA: JsonObject = derefVerdict(GATE_DECISION_SCHEMA, COVERAGE_VERDICT_SCHEMA);
 
+/**
+ * The most validator errors one refusal names; the others are counted. The validator reports every fault of a body, up to 5 for one
+ * list element, and the SDK joins them into the message of its ONE issue, which the mirror serves in `issues` and MCP as its error
+ * text: a body of 498 KB answered 64 MB on both. At 100, only a long list is cut: a body with every field wrong and one element per
+ * list holds 83 errors (judge, measured 2026-11-06).
+ */
+const MAX_INPUT_ERRORS = 100;
+/** Where ajv's `errorsText` joins two errors, each `data<path> <message>`. The text comes from the schema, never from the caller's
+ *  data: an input schema has no open map, so no caller's key reaches a path, and none holds this sequence. */
+const INPUT_ERROR_BOUNDARY = /, (?=data[/ ])/;
+
+function capInputErrors(message: string): string {
+  const errors = message.split(INPUT_ERROR_BOUNDARY);
+  const omitted = errors.length - MAX_INPUT_ERRORS;
+  return omitted > 0 ? `${errors.slice(0, MAX_INPUT_ERRORS).join(", ")}, and ${String(omitted)} more omitted` : message;
+}
+
+/** The SDK Standard Schema of a tool INPUT, the one object both surfaces validate with: what it accepts and the JSON Schema it
+ *  publishes are `fromJsonSchema`'s, and its refusal names at most MAX_INPUT_ERRORS errors. */
+function cappedInputSchema(schema: JsonObject): StandardSchemaWithJSON {
+  const standard = fromJsonSchema(schema as unknown as JsonSchemaType)["~standard"];
+  return {
+    "~standard": {
+      ...standard,
+      validate: async (value) => {
+        const result = await standard.validate(value);
+        return result.issues === undefined ? result : { issues: result.issues.map((issue) => ({ ...issue, message: capInputErrors(issue.message) })) };
+      },
+    },
+  };
+}
+
 /** SDK Standard Schemas built from the projected JSON (the actual `registerTool` arguments). */
-export const toolInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(TOOL_INPUT_SCHEMA as unknown as JsonSchemaType);
+export const toolInputStandardSchema: StandardSchemaWithJSON = cappedInputSchema(TOOL_INPUT_SCHEMA);
 export const toolOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(TOOL_OUTPUT_SCHEMA as unknown as JsonSchemaType);
 
 // ---------------------------------------------------------------------------- calibrate
@@ -416,7 +448,7 @@ export const CALIBRATE_OUTPUT_SCHEMA: JsonObject = {
 };
 
 /** SDK Standard Schemas for the calibrate tool (`registerTool` arguments). */
-export const calibrateInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(CALIBRATE_INPUT_SCHEMA as unknown as JsonSchemaType);
+export const calibrateInputStandardSchema: StandardSchemaWithJSON = cappedInputSchema(CALIBRATE_INPUT_SCHEMA);
 export const calibrateOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(CALIBRATE_OUTPUT_SCHEMA as unknown as JsonSchemaType);
 
 // ---------------------------------------------------------------------------- judge (step 5 of ROADMAP.md)
@@ -520,5 +552,5 @@ export const JUDGE_OUTPUT_SCHEMA: JsonObject = {
 };
 
 /** SDK Standard Schemas for the judge tool (the `registerTool` arguments). */
-export const judgeInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(JUDGE_INPUT_SCHEMA as unknown as JsonSchemaType);
+export const judgeInputStandardSchema: StandardSchemaWithJSON = cappedInputSchema(JUDGE_INPUT_SCHEMA);
 export const judgeOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(JUDGE_OUTPUT_SCHEMA as unknown as JsonSchemaType);

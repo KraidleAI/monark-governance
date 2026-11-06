@@ -303,6 +303,9 @@ a host starting `api.` goes to the JSON mirror, any other (`mcp.`, or a direct `
 - **Origin guard**, on both surfaces and before the body is read: a present Origin that is not `monarkgate.tech` or one of its
   sub-domains, or that does not parse, is a `403`; an absent Origin is accepted (non-browser clients send none).
 - **Body cap**: a body over 512 KiB (`MAX_REQUEST_BODY_BYTES`) is a `413`, read as a stream and never buffered past the cap.
+- **Refusal cap**, on both surfaces: a body that fails the input schema is refused with at most 100 validator errors
+  (`MAX_INPUT_ERRORS`, `src/schema-projection.ts`), followed by how many more were omitted. The mirror carries that text as the
+  one entry of `issues`, MCP as its error text.
 - **Mirror** (`src/http.ts`), derived from the same `HARNESS_TOOLS` registry as the MCP tools, so the two cannot drift:
   - `POST /gate`, `POST /calibrate`, `POST /judge`: a JSON body in, `{ structuredContent, content }` out, the same fields as the
     MCP result. A body that is not JSON is a `400` `json_invalid`; one that fails the input schema, a `400` `input_invalid`; a
